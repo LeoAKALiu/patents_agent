@@ -11,15 +11,15 @@ import {
   readinessStatusLabel,
   sourceTypeLabel,
   splitLines,
-  workspaceTabs,
 } from "./domain";
+import { expertToolGroups, mainSections } from "./guidedFlow";
 
-describe("workspaceTabs", () => {
-  it("keeps the planned workbench pages in order", () => {
-    expect(workspaceTabs.map((tab) => tab.label)).toEqual([
+describe("guided navigation", () => {
+  it("uses three primary sections and preserves expert tools", () => {
+    expect(mainSections.map((section) => section.label)).toEqual(["专利生成", "项目", "专家工具"]);
+    expect(expertToolGroups.flatMap((group) => group.tools.map((tool) => tool.label))).toEqual([
       "语料库建设",
-      "知识库",
-      "创建专利项目",
+      "知识库检索",
       "护城河地图",
       "前置材料",
       "多 Agent 会审",
@@ -28,7 +28,7 @@ describe("workspaceTabs", () => {
       "权利要求防线",
       "初稿完善",
       "审查修改",
-      "导出",
+      "导出文件",
     ]);
   });
 });
