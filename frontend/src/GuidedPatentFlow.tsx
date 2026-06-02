@@ -92,8 +92,10 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       {state.currentStepId === "invention" && (
         <InventionPointConfirmation
           disclosure={latestDisclosure}
+          materials={props.materials}
           patentPoints={props.patentPoints}
           busy={props.busy}
+          onUploadMaterial={props.onUploadMaterial}
           onStartDisclosure={props.onStartDisclosure}
           onSelectPatentPoint={props.onSelectPatentPoint}
         />
@@ -251,14 +253,18 @@ function MaterialSummary({ materials }: { materials: ProjectMaterial[] }) {
 
 function InventionPointConfirmation({
   disclosure,
+  materials,
   patentPoints,
   busy,
+  onUploadMaterial,
   onStartDisclosure,
   onSelectPatentPoint,
 }: {
   disclosure: DisclosureRun | null;
+  materials: ProjectMaterial[];
   patentPoints: PatentPointCandidate[];
   busy: string;
+  onUploadMaterial: GuidedPatentFlowProps["onUploadMaterial"];
   onStartDisclosure: () => void;
   onSelectPatentPoint: (point: PatentPointCandidate) => void;
 }) {
@@ -275,6 +281,19 @@ function InventionPointConfirmation({
         </div>
         <ShieldCheck size={24} />
       </div>
+      <form className="guided-upload" onSubmit={onUploadMaterial}>
+        <input
+          id="project-material-file-invention"
+          name="project-material-file"
+          type="file"
+          accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
+        />
+        <button className="primary" disabled={busy === "material-upload"} type="submit">
+          <Upload size={17} />
+          <span>上传补充材料</span>
+        </button>
+      </form>
+      <MaterialSummary materials={materials} />
       {needsGeneration && (
         <button className="primary" disabled={busy === "disclosure"} onClick={onStartDisclosure} type="button">
           {busy === "disclosure" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
@@ -363,6 +382,9 @@ function QualityPanel({
         </div>
         <Gauge size={24} />
       </div>
+      {(filingReport || worksheet || completionRun) && (
+        <p className="workflow-hint">已获得部分检查结果。可以继续补强，也可以重新运行质量检查。</p>
+      )}
       <button className="primary" disabled={busy === "guided-quality"} onClick={onRunQualityChecks} type="button">
         {busy === "guided-quality" ? <Loader2 className="spin" size={17} /> : <Gauge size={17} />}
         <span>运行质量检查</span>

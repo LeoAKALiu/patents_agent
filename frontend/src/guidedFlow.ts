@@ -248,3 +248,13 @@ export function qualitySummaryFromRuns(input: {
     officialExportAllowed: explicitOfficialAllowed ?? true,
   };
 }
+
+export function guidedBusyLabel(value: string): string {
+  if (value === "guided-quality") return "正在运行质量检查";
+  if (value === "disclosure") return "正在提炼发明点";
+  if (value === "generate") return "正在生成专利初稿";
+  if (value === "guided-create") return "正在创建专利项目";
+  if (value === "material-upload") return "正在上传材料";
+  if (value.startsWith("completion-")) return "正在处理补强建议";
+  return value ? "正在处理" : "";
+}

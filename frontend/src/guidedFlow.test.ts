@@ -14,6 +14,7 @@ import {
   defaultMainSectionId,
   deriveGuidedFlowState,
   expertToolGroups,
+  guidedBusyLabel,
   guidedStepLabels,
   mainSections,
   patentGoalModes,
@@ -163,6 +164,15 @@ describe("patent goal modes", () => {
       "快速初稿",
       "专利护城河",
     ]);
+  });
+});
+
+describe("guidedBusyLabel", () => {
+  it("translates internal busy keys into user-facing progress", () => {
+    expect(guidedBusyLabel("guided-quality")).toBe("正在运行质量检查");
+    expect(guidedBusyLabel("disclosure")).toBe("正在提炼发明点");
+    expect(guidedBusyLabel("generate")).toBe("正在生成专利初稿");
+    expect(guidedBusyLabel("")).toBe("");
   });
 });
 

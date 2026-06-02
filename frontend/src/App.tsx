@@ -95,6 +95,7 @@ import {
   defaultExpertToolId,
   defaultMainSectionId,
   expertToolGroups,
+  guidedBusyLabel,
   mainSections,
   type ExpertToolId,
   type MainSectionId,
@@ -532,7 +533,22 @@ function App() {
   }
 
   async function handleRunGuidedQualityChecks() {
-    await handleRunFilingReadiness();
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("guided-quality", async () => {
+      await reviewProject(projectId);
+      const report = await createFilingReadinessReport(projectId);
+      const worksheet = await createClaimDefenseWorksheet(projectId);
+      const completion = await createDraftCompletionRun(projectId);
+      const nextProjects = await listProjects();
+      if (selectedProjectIdRef.current !== projectId) return;
+      setProjects(nextProjects);
+      setSelectedProjectId(projectId);
+      setFilingReports((current) => [report, ...current.filter((item) => item.id !== report.id)]);
+      setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== worksheet.id)]);
+      setCompletionRuns((current) => [completion, ...current.filter((item) => item.id !== completion.id)]);
+      setMessage(`质量检查完成：整体评分 ${completion.scorecard.overall}/100`);
+    });
   }
 
   async function handleCreateWorksheet() {
@@ -805,7 +821,7 @@ function App() {
         {(busy || message || error) && (
           <div className={error ? "notice error" : "notice"}>
             {busy && <Loader2 className="spin" size={16} />}
-            <span>{error || message || "处理中"}</span>
+            <span>{error || message || guidedBusyLabel(busy) || "处理中"}</span>
           </div>
         )}
 
