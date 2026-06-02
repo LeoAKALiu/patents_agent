@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">PatentAgent logo</title>
+  <desc id="desc">A liquid glass shield containing a patent document and claim graph.</desc>
   <defs>
     <linearGradient id="shield" x1="18" y1="8" x2="112" y2="120" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#F8FFFF"/>
@@ -13,9 +15,13 @@
       <stop offset="0" stop-color="#FFE8A0"/>
       <stop offset="1" stop-color="#D9A441"/>
     </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0A2D30" flood-opacity="0.22"/>
+    </filter>
   </defs>
-  <rect x="8" y="8" width="112" height="112" rx="30" fill="url(#shield)"/>
+  <rect x="8" y="8" width="112" height="112" rx="30" fill="url(#shield)" filter="url(#softShadow)"/>
   <rect x="10" y="9" width="108" height="54" rx="28" fill="#FFFFFF" opacity="0.32"/>
+  <path d="M64 22c17 0 31 7 43 15v30c0 25-15 41-43 51-28-10-43-26-43-51V37c12-8 26-15 43-15Z" fill="#103D40" opacity="0.18"/>
   <path d="M42 31h32l18 18v48H42V31Z" fill="url(#paper)" stroke="#FFFFFF" stroke-opacity="0.74" stroke-width="2"/>
   <path d="M74 31v20h20" fill="url(#gold)"/>
   <path d="M51 61h30M51 72h27M51 83h20" stroke="#165B5D" stroke-width="5" stroke-linecap="round"/>

@@ -762,10 +762,10 @@ function App() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">PA</span>
+          <img className="brand-logo" src="/logo.svg" alt="" aria-hidden="true" />
           <div>
-            <h1>专利写作 Agent</h1>
-            <p>中国发明专利 / AI软件方法</p>
+            <h1>PatentAgent</h1>
+            <p>专利护城河工程系统</p>
           </div>
         </div>
         <nav className="tab-list" aria-label="主导航">

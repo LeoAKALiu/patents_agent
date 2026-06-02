@@ -1,75 +1,130 @@
-# 专利写作 Agent
+<p align="center">
+  <img src="frontend/public/logo.svg" alt="PatentAgent logo" width="112" />
+</p>
 
-本项目是一个本地 Web 工作台，用于辅助撰写中国发明专利初稿。第一版聚焦 AI/软件方法类方案，支持导入授权专利语料、检索相似片段、生成完整申请文本、审查漏洞与提升点，并导出 DOCX/Markdown/Mermaid/绘图提示词。
+<h1 align="center">PatentAgent</h1>
 
-生成内容是专利撰写辅助材料，不替代专利代理师或律师审查。默认使用 DeepSeek 云端模型，生成时会把用户 draft 和检索片段发送给配置的模型服务。
+<p align="center">
+  面向中国发明专利的授权导向专利工程系统。
+</p>
 
-## 功能
+<p align="center">
+  <strong>从一句技术想法出发，完成发明点确认、专利初稿生成、质量检查和导出。</strong>
+</p>
 
-## 默认专利生成流程
+---
 
-v0.5 默认入口是 `专利生成`。用户或助手只需要输入一段想法，系统按五步向导执行：
+## 项目定位
 
-1. 想法与材料：创建项目并上传可选材料。
-2. 发明点：提炼候选发明点、证据状态和护城河方向，并暂停给用户确认。
-3. 生成初稿：生成摘要、权利要求书、说明书和附图说明。
-4. 质量检查：自动运行提交成熟度、权利要求防线、初稿完善和审查意见。
-5. 导出：在风险确认后导出正式提交稿、内部策略稿和侧车报告。
+PatentAgent 不是“专利文本生成器”，而是一个面向专利护城河建设的工作流系统。它把技术交底、发明点提炼、现有技术差异、权利要求防线、说明书支撑、初稿完善、提交成熟度检查和导出组织成一个可执行流程。
 
-高级用户仍可从 `专家工具` 进入语料库建设、知识库检索、护城河地图、前置材料、多 Agent 会审、提交成熟度、权利要求防线和初稿完善等旧工作台。
+当前版本重点服务两类用户：
 
-- “语料库建设”工作区支持创建批量导入任务、上传官方导出的 ZIP/CSV/XLSX/PDF/XML/TXT/DOCX、查看失败清单、质量报告和语料版本统计。
-- 导入 PDF/DOCX/TXT/Markdown 专利文件；扫描版 PDF 需要先 OCR。
+- 专利负责人：把产品或研究中的技术想法快速转成可审阅的专利申请材料。
+- 学生和实习生：在清晰流程中并行探索候选发明点、补充证据、完善交底和初稿。
+
+系统允许用户登记 `可行未验证` 或 `需实验` 的技术方案，用于专利布局和分案策略；但会保留证据状态，不把未验证方案写成已验证工程事实。
+
+> PatentAgent 生成内容是专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。
+
+## 当前版本
+
+当前发布版本：`v0.6.0`
+
+本版重点：
+
+- 默认入口改为五步专利生成向导。
+- 左侧导航收敛为 `专利生成 / 项目 / 专家工具`。
+- 新增授权导向目标模式：`授权稳健`、`保护范围优先`、`快速初稿`、`专利护城河`。
+- 新增提交成熟度、权利要求防线、初稿完善的串行质量检查入口。
+- 正式稿和内部策略稿分离导出，采用“警告但允许导出”。
+- UI 更新为 Apple-inspired Liquid Glass 风格，并加入新 logo。
+
+## 默认工作流
+
+普通用户只需要从 `专利生成` 入口开始：
+
+1. **想法与材料**  
+   输入一段技术想法，创建项目，可上传补充材料。
+
+2. **发明点**  
+   系统生成候选发明点、证据状态和护城河方向，并暂停等待用户确认主线。
+
+3. **生成初稿**  
+   生成摘要、权利要求书、说明书和附图说明。
+
+4. **质量检查**  
+   自动运行审查意见、提交成熟度、权利要求防线和初稿完善。
+
+5. **导出**  
+   导出正式提交稿、内部策略稿和侧车报告。
+
+高级用户可以进入 `专家工具` 使用旧工作台，包括语料库建设、知识库检索、护城河地图、前置材料、多 Agent 会审、分步撰写、提交成熟度、权利要求防线、初稿完善、审查修改和导出。
+
+## 核心能力
+
+### 1. 交底书与现有技术差异
+
+- 从项目 draft 和补充材料生成技术交底书。
+- 提炼 5-10 个候选发明点。
+- 记录公开现有技术命中、差异点和待核验事项。
+- 支持导出交底书 DOCX/Markdown。
+
+### 2. 专利护城河地图
+
+- 维护候选专利点和分案方向。
+- 标记证据状态：`已验证`、`可行未验证`、`需实验`、`模型生成`。
+- 记录可行依据、支撑缺口、实验需求和 Claim Chart。
+- 防止未验证方案被误写成已验证事实。
+
+### 3. 权利要求防线
+
+- 将权利要求技术特征拆成 feature records。
+- 标记已知基础、区别特征、核心组合、从属兜底和支撑需求。
+- 输出防线建议和说明书支撑缺口。
+
+### 4. 初稿完善循环
+
+- 生成 `DRAFT_COMPLETION_REPORT.md`。
+- 输出授权稳定性、保护范围、支撑强度、现有技术差异清晰度、提交成熟度和正式稿清洁度评分。
+- 建立权利要求-说明书-附图-实施例-公式-数据结构-伪代码支撑矩阵。
+- 生成局部修订建议，默认作为内部建议，不自动覆盖正式稿。
+
+### 5. 提交成熟度检查
+
+- 检查 Markdown、Mermaid、prompt、生成日志和内部会审痕迹。
+- 检查不利陈述、未核验定量效果、客体风险弱表述。
+- 正式稿只保留摘要、权利要求书、说明书和附图说明。
+- 红色风险会提示，但不硬性阻止导出。
+
+### 6. 官方导出优先的语料库
+
+- 支持导入 CNIPA 或其他系统的官方导出物。
+- 支持 ZIP、CSV/XLSX、PDF、XML、TXT、DOCX。
 - 按摘要、权利要求书、说明书、技术领域、背景技术、发明内容、附图说明、具体实施方式切分语料。
-- 解析申请号、公开号/授权公告号、申请日、申请人、发明人、IPC/CPC、法律状态、来源系统和全文哈希；抽取权利要求编号、引用关系和方法/系统/装置/介质类别。
-- AI/软件语料默认筛选 `G06F`、`G06N`、`G06V`、`G06Q`、`H04L` 及人工智能、神经网络、模型训练、缺陷检测等关键词，并排除实用新型和外观设计。
-- 维护 SQLite 元数据和本地检索索引；安装 `.[chroma]` 时启用 Chroma 持久化向量库。
-- 创建专利项目并基于 draft 生成题名、摘要、权利要求书、说明书、附图说明、Mermaid 流程图和绘图提示词。
-- 可在生成前启动本机多 Agent 会审，默认调用 Codex、Gemini、Claude 围绕保护范围、权利要求布局、实施例支撑和风险控制生成策略 brief。
-- 输出清楚性、支持性、单一性、保护范围、实施例缺口、术语一致性等审查意见。
-- 导出 DOCX、Markdown、Mermaid `.mmd` 和绘图提示词。
+- 维护 SQLite 元数据和本地检索索引；安装 `.[chroma]` 后可启用 Chroma。
 
-## 专利护城河工作流
+## 技术架构
 
-系统支持把“已经可行但尚未完成验证”的技术方案先加入专利护城河地图，用于规划保护范围、现有技术差异和后续实验。此类方案会保留证据状态和支撑缺口，系统不会把未验证方案伪装成已经验证的工程实现。
+```text
+PatentAgent
+├── backend/              FastAPI 后端、生成逻辑、规则引擎和存储
+├── frontend/             React + Vite 前端工作台
+├── tests/                后端单元与接口测试
+├── docs/superpowers/     设计规格和开发计划
+├── data/                 本地运行数据，默认不入库
+└── ARIS.md               外部研究与产品灵感材料
+```
 
-推荐流程：
+主要技术栈：
 
-1. 创建专利项目，录入 draft、技术背景和已有材料。
-2. 添加护城河专利点，包括已实现方案、可行但未验证方案、待实验方案和模型生成候选。
-3. 为每个专利点标记 `已验证`、`可行未验证` 或 `需实验`，同步填写可行依据、支撑缺口和实验需求。
-4. 运行前置材料交底和现有技术差异分析，形成候选专利点、公开现有技术和 Claim Chart。
-5. 运行撰写生成；未验证方案只能进入可选实施例、变体、从属限定或待验证方案，不应作为已完成实施例的确定事实。
-6. 导出 DOCX/Markdown，交给专利代理师或律师做专业审查后再提交。
+- Backend：FastAPI、Pydantic、SQLite、本地确定性 embedding、OpenAI-compatible LLM API。
+- Frontend：React 19、TypeScript、Vite、Vitest、lucide-react。
+- Export：DOCX、Markdown、Mermaid、Prompt 和侧车报告。
 
-## v0.3 提交成熟度与权利要求防线
+## 本地启动
 
-v0.3 增加两个正式提交前的检查入口：
-
-1. `提交成熟度`：生成 `FILING_READINESS_REPORT.md`，检查 Markdown/Mermaid/prompt/日志残留、内部会审痕迹、不利陈述、未核验定量效果和客体风险弱表述。系统采用“警告但允许导出”，不会阻止导出正式提交稿。
-2. `权利要求防线`：生成可持久化、多版本的 Claim Defense Worksheet，列出技术特征、已知基础、区别特征、核心组合、从属兜底和说明书支撑缺口。
-
-导出文件分为：
-
-- 正式提交稿：只包含摘要、权利要求书、说明书、附图说明。
-- 内部策略稿：可保留会审、现有技术、Claim Chart、护城河评分和生成日志。
-- `FILING_READINESS_REPORT.md`：记录命中规则、风险级别和修改建议。
-
-## v0.4 初稿完善循环
-
-v0.4 增加 `初稿完善` 工作台，用于把专利初稿拆成可审计、可补强、可复查的工作对象。它会生成：
-
-1. `DRAFT_COMPLETION_REPORT.md`：内部侧车完善报告。
-2. 多维评分：授权稳定性、保护范围、支撑强度、现有技术差异清晰度、提交成熟度和正式稿清洁度。
-3. 权利要求-支撑矩阵：把权利要求特征映射到说明书、附图、实施例、公式、数据结构、伪代码和证据状态。
-4. 补强任务队列：把缺口转化为可执行任务，例如补充 `BillTraceRecord`、伪 IFC 片段或 GUID 依赖图算法。
-5. 局部修订建议：默认只作为建议，不自动覆盖正式稿。
-
-本功能延续“警告但允许导出”的原则。红色风险不会禁用正式稿导出；风险、未验证方案和修订建议保存在内部报告中。可行但未验证方案可以进入护城河，但必须保留 `可行未验证` 或 `需实验` 状态，不能在正式稿中写成已验证工程效果。
-
-## 启动
-
-后端：
+### 1. 后端
 
 ```bash
 python3 -m venv .venv
@@ -79,28 +134,61 @@ cp .env.example .env
 uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-前端：
+### 2. 前端
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
-打开 `http://127.0.0.1:5173`。
+访问：
+
+```text
+http://127.0.0.1:5174/
+```
 
 ## 配置
 
-- `DEEPSEEK_API_KEY`：DeepSeek API 密钥。缺失时应用可启动，但生成、交底书和审查接口会返回 503。
-- `DEEPSEEK_BASE_URL`：DeepSeek OpenAI-compatible API 地址，默认 `https://api.deepseek.com`。
-- `LLM_MODEL`：默认 `deepseek-v4-pro`，可按需改为其他 DeepSeek Chat API 模型。
-- `EMBEDDING_MODEL`：预留给后续云端向量化；当前默认使用本地确定性嵌入，安装 `.[chroma]` 后写入 Chroma。
+`.env` 中常用配置：
 
-## 多 Agent 会审
+```env
+DEEPSEEK_API_KEY=your_api_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-chat
+EMBEDDING_MODEL=local-hash-128
+```
 
-后端提供 `GET /api/agents/doctor` 检查本机 CLI 状态。`codex` 为必需 provider；`gemini` 和 `claude` 缺失时会降级运行。
+说明：
 
-启动会审：
+- 缺少 `DEEPSEEK_API_KEY` 时，应用仍可启动，但生成、交底书和审查类接口会返回 503。
+- 前端不应保存或暴露模型 API key。
+- 云端部署时，应由后端读取模型密钥，并按用户身份隔离项目数据。
+
+## 常用 API
+
+健康检查：
+
+```bash
+curl http://127.0.0.1:8000/api/health
+```
+
+创建语料导入任务：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/corpus/jobs \
+  -H 'Content-Type: application/json' \
+  -d '{"source_type":"cnipa_export","source_name":"CNIPA","query":"G06V 神经网络 图像缺陷","domain":"ai_software","version_name":"ai-software-v1"}'
+```
+
+上传导入文件：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/corpus/jobs/<job_id>/files \
+  -F 'file=@/path/to/cnipa-export.zip'
+```
+
+启动多 Agent 会审：
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/projects/<project_id>/deliberations \
@@ -108,43 +196,58 @@ curl -X POST http://127.0.0.1:8000/api/projects/<project_id>/deliberations \
   -d '{"trace": false, "round_depth": "converged_two_round"}'
 ```
 
-默认只保存结构化摘要和事件日志到 `data/deliberation-runs/`；传入 `"trace": true` 时会额外保存完整 prompt、stdout 和 stderr，便于调试但会落盘敏感 draft。
-
-## 中国发明专利语料库
-
-第一版采用“官方导出优先”，不绕过登录、验证码或批量限制做自动网页爬取。建议先在 CNIPA 专利检索及分析系统、地方专利检索系统或公共数据服务平台完成检索和下载，再把导出的 ZIP、元数据表和全文文件交给本系统处理。
-
-批量导入 API：
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/corpus/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{"source_type":"cnipa_export","source_name":"CNIPA","query":"G06V 神经网络 图像缺陷","domain":"ai_software","version_name":"ai-software-v1"}'
-
-curl -X POST http://127.0.0.1:8000/api/corpus/jobs/<job_id>/files \
-  -F 'file=@/path/to/cnipa-export.zip'
-
-curl -X POST http://127.0.0.1:8000/api/corpus/jobs/<job_id>/run
-```
-
-CLI：
-
-```bash
-python -m backend.app.corpus import --input /path/to/export.zip --version ai-software-v1 --source cnipa-export
-python -m backend.app.corpus stats --version ai-software-v1
-```
-
-统计与查看：
-
-- `GET /api/corpus/versions`：语料版本和质量报告。
-- `GET /api/corpus/stats?version=ai-software-v1`：专利数、chunk 数、章节覆盖率、IPC/年份/来源分布。
-- `GET /api/corpus/documents/<document_id>`：规范化后的专利全文、章节、权利要求元数据。
-
 ## 验证
+
+后端：
 
 ```bash
 python3 -m pytest -q
+```
+
+前端：
+
+```bash
 cd frontend
 npm test -- --run
 npm run build
 ```
+
+当前 release 前验证结果：
+
+- `python3 -m pytest -q`：`79 passed, 1 skipped`
+- `npm test -- --run`：`18 passed`
+- `npm run build`：通过
+- Chrome headless smoke：默认新建入口、三项导航、项目创建、发明点步骤、材料上传入口、专家工具入口均通过
+
+## 云端部署方向
+
+后续云端版本建议按以下边界推进：
+
+- 用户登录和项目数据隔离。
+- 后端统一管理模型 API key。
+- 上传文件大小、格式和敏感信息扫描。
+- 生成任务队列和可恢复状态。
+- 多学生并行使用，但默认不开放协作编辑。
+- 导出文件和内部报告按用户/项目授权访问。
+
+## Logo
+
+Logo 位于：
+
+```text
+frontend/public/logo.svg
+frontend/public/favicon.svg
+```
+
+设计含义：
+
+- 玻璃护盾：专利护城河和授权稳定性。
+- 专利文档：正式申请文件。
+- 节点回链：权利要求、说明书、证据和现有技术之间的可追溯关系。
+- 青绿色与暖金色：工程理性和授权价值。
+
+## 许可证与责任
+
+当前仓库尚未声明开源许可证。正式公开前请根据商业计划选择合适许可证。
+
+PatentAgent 仅提供专利撰写、检索、质检和导出辅助，不构成法律意见。正式提交前应由专利代理师或律师审查。

@@ -1,7 +1,7 @@
 [project]
 name = "patents-agent"
-version = "0.1.0"
-description = "Local RAG workbench for drafting Chinese invention patents."
+version = "0.6.0"
+description = "Guided patent engineering system for Chinese invention patent drafting."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",
