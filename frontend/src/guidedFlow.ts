@@ -99,6 +99,9 @@ export type QualitySummary = {
   officialExportAllowed: boolean;
 };
 
+export const defaultMainSectionId: MainSectionId = "generate";
+export const defaultExpertToolId: ExpertToolId = "build";
+
 export const mainSections: Array<NavEntry<MainSectionId>> = [
   { id: "generate", label: "专利生成", description: "从一句想法到可导出文件", icon: Wand2 },
   { id: "projects", label: "项目", description: "查看历史项目和运行记录", icon: FolderKanban },

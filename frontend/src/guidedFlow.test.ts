@@ -10,6 +10,8 @@ import type {
   ProjectRecord,
 } from "./api";
 import {
+  defaultExpertToolId,
+  defaultMainSectionId,
   deriveGuidedFlowState,
   expertToolGroups,
   guidedStepLabels,
@@ -142,6 +144,13 @@ describe("guided flow navigation", () => {
   it("uses three main sections and keeps expert tools grouped", () => {
     expect(mainSections.map((item) => item.label)).toEqual(["专利生成", "项目", "专家工具"]);
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
+  });
+});
+
+describe("guided flow defaults", () => {
+  it("opens on patent generation and keeps expert tools on knowledge import", () => {
+    expect(defaultMainSectionId).toBe("generate");
+    expect(defaultExpertToolId).toBe("build");
   });
 });
 

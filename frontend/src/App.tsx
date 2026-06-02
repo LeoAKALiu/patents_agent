@@ -79,7 +79,6 @@ import {
   uploadProjectMaterial,
 } from "./api";
 import {
-  WorkspaceTabId,
   canExportPackage,
   completionCategoryLabel,
   completionTargetLabel,
@@ -90,8 +89,16 @@ import {
   readinessStatusLabel,
   severityLabel,
   sourceTypeLabel,
-  workspaceTabs,
 } from "./domain";
+import {
+  defaultExpertToolId,
+  defaultMainSectionId,
+  deriveGuidedFlowState,
+  expertToolGroups,
+  mainSections,
+  type ExpertToolId,
+  type MainSectionId,
+} from "./guidedFlow";
 import "./styles.css";
 
 const sectionOptions: Array<{ value: SectionType | ""; label: string }> = [
@@ -112,7 +119,8 @@ type CorpusJobForm = {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<WorkspaceTabId>("build");
+  const [activeSection, setActiveSection] = useState<MainSectionId>(defaultMainSectionId);
+  const [activeExpertTool, setActiveExpertTool] = useState<ExpertToolId>(defaultExpertToolId);
   const [health, setHealth] = useState<Health | null>(null);
   const [agentDoctor, setAgentDoctor] = useState<AgentDoctorReport | null>(null);
   const [documents, setDocuments] = useState<PatentDocument[]>([]);
@@ -157,6 +165,19 @@ function App() {
   const latestFilingReport = filingReports[0] ?? null;
   const latestWorksheet = worksheets[0] ?? null;
   const latestCompletionRun = completionRuns[0] ?? null;
+  const guidedFlowState = deriveGuidedFlowState({
+    project: selectedProject,
+    materials: projectMaterials,
+    disclosures: disclosureRuns,
+    patentPoints: visiblePatentPoints,
+    filingReports,
+    worksheets,
+    completionRuns,
+  });
+  const activeMainSection = mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
+  const activeExpertToolEntry = expertToolGroups
+    .flatMap((group) => group.tools)
+    .find((tool) => tool.id === activeExpertTool);
   selectedProjectIdRef.current = selectedProject?.id ?? "";
 
   useEffect(() => {
@@ -418,7 +439,8 @@ function App() {
       setProjects(nextProjects);
       setSelectedProjectId(project.id);
       setMessage(`已创建项目：${project.name}`);
-      setActiveTab("materials");
+      setActiveExpertTool("materials");
+      setActiveSection("expert");
     });
   }
 
@@ -569,6 +591,119 @@ function App() {
     });
   }
 
+  function renderExpertTool() {
+    switch (activeExpertTool) {
+      case "build":
+        return (
+          <CorpusBuildView
+            form={corpusJobForm}
+            job={corpusJob}
+            versions={corpusVersions}
+            stats={corpusStats}
+            busy={busy}
+            onFormChange={(patch) => setCorpusJobForm((current) => ({ ...current, ...patch }))}
+            onCreateJob={handleCreateCorpusJob}
+            onUploadFile={handleUploadCorpusJobFile}
+            onRunJob={handleRunCorpusJob}
+          />
+        );
+      case "corpus":
+        return (
+          <CorpusView
+            documents={documents}
+            searchText={searchText}
+            searchSection={searchSection}
+            searchResults={searchResults}
+            busy={busy}
+            onImport={handleImport}
+            onSearch={handleSearch}
+            onSearchText={setSearchText}
+            onSearchSection={setSearchSection}
+          />
+        );
+      case "moat":
+        return (
+          <MoatView
+            project={selectedProject}
+            points={visiblePatentPoints}
+            busy={busy}
+            onCreate={handleCreatePatentPoint}
+            onSelect={handleSelectPatentPoint}
+            onDelete={handleDeletePatentPoint}
+          />
+        );
+      case "materials":
+        return (
+          <DisclosureView
+            project={selectedProject}
+            materials={projectMaterials}
+            runs={disclosureRuns}
+            busy={busy}
+            onUpload={handleUploadMaterial}
+            onStart={handleStartDisclosure}
+            onRefresh={() => selectedProject && loadDisclosures(selectedProject.id)}
+          />
+        );
+      case "deliberate":
+        return (
+          <DeliberationView
+            project={selectedProject}
+            doctor={agentDoctor}
+            runs={deliberationRuns}
+            disclosure={currentDisclosure}
+            busy={busy}
+            onStart={handleStartDeliberation}
+            onRefresh={() => selectedProject && loadDeliberations(selectedProject.id)}
+          />
+        );
+      case "write":
+        return (
+          <WriteView
+            project={selectedProject}
+            deliberation={currentDeliberation}
+            disclosure={currentDisclosure}
+            busy={busy}
+            onGenerate={handleGenerate}
+          />
+        );
+      case "readiness":
+        return (
+          <FilingReadinessView
+            project={selectedProject}
+            report={latestFilingReport}
+            reports={filingReports}
+            busy={busy}
+            onRun={handleRunFilingReadiness}
+          />
+        );
+      case "claimDefense":
+        return (
+          <ClaimDefenseView
+            project={selectedProject}
+            worksheet={latestWorksheet}
+            worksheets={worksheets}
+            busy={busy}
+            onGenerate={handleCreateWorksheet}
+          />
+        );
+      case "completion":
+        return (
+          <DraftCompletionView
+            project={selectedProject}
+            run={latestCompletionRun}
+            runs={completionRuns}
+            busy={busy}
+            onRun={handleRunDraftCompletion}
+            onPatch={handleCompletionPatch}
+          />
+        );
+      case "review":
+        return <ReviewView project={selectedProject} busy={busy} onReview={handleReview} />;
+      case "export":
+        return <ExportView project={selectedProject} packageValue={currentPackage} />;
+    }
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -579,19 +714,19 @@ function App() {
             <p>中国发明专利 / AI软件方法</p>
           </div>
         </div>
-        <nav className="tab-list" aria-label="工作台">
-          {workspaceTabs.map((tab) => {
-            const Icon = tab.icon;
+        <nav className="tab-list" aria-label="主导航">
+          {mainSections.map((section) => {
+            const Icon = section.icon;
             return (
               <button
-                className={activeTab === tab.id ? "tab active" : "tab"}
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                className={activeSection === section.id ? "tab active" : "tab"}
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
                 type="button"
-                title={tab.label}
+                title={section.description}
               >
                 <Icon size={18} />
-                <span>{tab.label}</span>
+                <span>{section.label}</span>
               </button>
             );
           })}
@@ -616,8 +751,13 @@ function App() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">RAG Patent Workbench</p>
-            <h2>{workspaceTabs.find((tab) => tab.id === activeTab)?.label}</h2>
+            <p className="eyebrow">Guided Patent Workbench</p>
+            <h2>{activeSection === "expert" ? activeExpertToolEntry?.label ?? "专家工具" : activeMainSection.label}</h2>
+            <p className="topbar-subtitle">
+              {activeSection === "expert"
+                ? activeExpertToolEntry?.description ?? "进入旧工作台和高级检查"
+                : activeMainSection.description}
+            </p>
           </div>
           <ProjectSelect
             projects={projects}
@@ -633,115 +773,37 @@ function App() {
           </div>
         )}
 
-        {activeTab === "build" && (
-          <CorpusBuildView
-            form={corpusJobForm}
-            job={corpusJob}
-            versions={corpusVersions}
-            stats={corpusStats}
-            busy={busy}
-            onFormChange={(patch) => setCorpusJobForm((current) => ({ ...current, ...patch }))}
-            onCreateJob={handleCreateCorpusJob}
-            onUploadFile={handleUploadCorpusJobFile}
-            onRunJob={handleRunCorpusJob}
-          />
-        )}
-        {activeTab === "corpus" && (
-          <CorpusView
-            documents={documents}
-            searchText={searchText}
-            searchSection={searchSection}
-            searchResults={searchResults}
-            busy={busy}
-            onImport={handleImport}
-            onSearch={handleSearch}
-            onSearchText={setSearchText}
-            onSearchSection={setSearchSection}
-          />
-        )}
-        {activeTab === "create" && (
-          <CreateProjectView
+        {activeSection === "generate" && (
+          <GenerateEntryView
+            project={selectedProject}
+            flowStepLabel={guidedFlowState.steps.find((step) => step.status === "current")?.label ?? "想法与材料"}
+            processedMaterialCount={guidedFlowState.processedMaterialCount}
             projectName={projectName}
             draftText={draftText}
             busy={busy}
             onProjectName={setProjectName}
             onDraftText={setDraftText}
             onSubmit={handleCreateProject}
+            onOpenProjects={() => setActiveSection("projects")}
+            onOpenMaterials={() => {
+              setActiveExpertTool("materials");
+              setActiveSection("expert");
+            }}
           />
         )}
-        {activeTab === "moat" && (
-          <MoatView
-            project={selectedProject}
-            points={visiblePatentPoints}
-            busy={busy}
-            onCreate={handleCreatePatentPoint}
-            onSelect={handleSelectPatentPoint}
-            onDelete={handleDeletePatentPoint}
+        {activeSection === "projects" && (
+          <ProjectsOverview
+            projects={projects}
+            selectedProjectId={selectedProject?.id ?? ""}
+            onSelect={setSelectedProjectId}
           />
         )}
-        {activeTab === "deliberate" && (
-          <DeliberationView
-            project={selectedProject}
-            doctor={agentDoctor}
-            runs={deliberationRuns}
-            disclosure={currentDisclosure}
-            busy={busy}
-            onStart={handleStartDeliberation}
-            onRefresh={() => selectedProject && loadDeliberations(selectedProject.id)}
-          />
+        {activeSection === "expert" && (
+          <div className="stack">
+            <ExpertToolChooser activeToolId={activeExpertTool} onSelect={setActiveExpertTool} />
+            {renderExpertTool()}
+          </div>
         )}
-        {activeTab === "materials" && (
-          <DisclosureView
-            project={selectedProject}
-            materials={projectMaterials}
-            runs={disclosureRuns}
-            busy={busy}
-            onUpload={handleUploadMaterial}
-            onStart={handleStartDisclosure}
-            onRefresh={() => selectedProject && loadDisclosures(selectedProject.id)}
-          />
-        )}
-        {activeTab === "write" && (
-          <WriteView
-            project={selectedProject}
-            deliberation={currentDeliberation}
-            disclosure={currentDisclosure}
-            busy={busy}
-            onGenerate={handleGenerate}
-          />
-        )}
-        {activeTab === "readiness" && (
-          <FilingReadinessView
-            project={selectedProject}
-            report={latestFilingReport}
-            reports={filingReports}
-            busy={busy}
-            onRun={handleRunFilingReadiness}
-          />
-        )}
-        {activeTab === "claimDefense" && (
-          <ClaimDefenseView
-            project={selectedProject}
-            worksheet={latestWorksheet}
-            worksheets={worksheets}
-            busy={busy}
-            onGenerate={handleCreateWorksheet}
-          />
-        )}
-        {activeTab === "completion" && (
-          <DraftCompletionView
-            project={selectedProject}
-            run={latestCompletionRun}
-            runs={completionRuns}
-            busy={busy}
-            onRun={handleRunDraftCompletion}
-            onPatch={handleCompletionPatch}
-          />
-        )}
-        {activeTab === "review" && (
-          <ReviewView project={selectedProject} busy={busy} onReview={handleReview} />
-        )}
-        {activeTab === "export" && <ExportView project={selectedProject} packageValue={currentPackage} />}
       </section>
     </main>
   );
@@ -971,6 +1033,112 @@ function percent(value: number | undefined): string {
 
 function latestCompletedDisclosure(runs: DisclosureRun[]): DisclosureRun | null {
   return runs.find((run) => run.status === "completed" && run.package) ?? null;
+}
+
+function GenerateEntryView({
+  project,
+  flowStepLabel,
+  processedMaterialCount,
+  projectName,
+  draftText,
+  busy,
+  onProjectName,
+  onDraftText,
+  onSubmit,
+  onOpenProjects,
+  onOpenMaterials,
+}: {
+  project: ProjectRecord | null;
+  flowStepLabel: string;
+  processedMaterialCount: number;
+  projectName: string;
+  draftText: string;
+  busy: string;
+  onProjectName: (value: string) => void;
+  onDraftText: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+  onOpenProjects: () => void;
+  onOpenMaterials: () => void;
+}) {
+  return (
+    <div className="stack">
+      <section className="panel wide generate-entry">
+        <div>
+          <h3>专利生成入口</h3>
+          <p>
+            这里是面向用户的一句话想法入口。完整向导会在下一任务接入；当前可以先创建项目、
+            选择已有项目，或进入前置材料继续生成交底书和初稿。
+          </p>
+        </div>
+        <div className="metric-grid">
+          <StatusPill label="当前阶段" value={flowStepLabel} />
+          <StatusPill label="当前项目" value={project?.name ?? "未选择"} />
+          <StatusPill label="已处理材料" value={String(processedMaterialCount)} />
+          <StatusPill label="初稿状态" value={project?.package ? "已有初稿" : "未生成"} />
+        </div>
+        <div className="current-idea">
+          <span>当前想法</span>
+          <p>{project?.draft_text?.trim() || "还没有项目想法。可以在下方输入一句技术构想创建项目。"}</p>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={onOpenProjects} type="button">
+            <FileArchive size={17} />
+            <span>选择已有项目</span>
+          </button>
+          <button className="icon-button" disabled={!project} onClick={onOpenMaterials} type="button">
+            <ClipboardList size={17} />
+            <span>继续材料与交底</span>
+          </button>
+        </div>
+      </section>
+      <CreateProjectView
+        projectName={projectName}
+        draftText={draftText}
+        busy={busy}
+        onProjectName={onProjectName}
+        onDraftText={onDraftText}
+        onSubmit={onSubmit}
+      />
+    </div>
+  );
+}
+
+function ExpertToolChooser({
+  activeToolId,
+  onSelect,
+}: {
+  activeToolId: ExpertToolId;
+  onSelect: (id: ExpertToolId) => void;
+}) {
+  return (
+    <section className="panel wide expert-tool-panel">
+      <h3>专家工具</h3>
+      <div className="expert-tool-groups">
+        {expertToolGroups.map((group) => (
+          <div className="expert-tool-group" key={group.id}>
+            <p>{group.label}</p>
+            <div className="expert-tool-list">
+              {group.tools.map((tool) => {
+                const Icon = tool.icon;
+                return (
+                  <button
+                    className={activeToolId === tool.id ? "expert-tool-button active" : "expert-tool-button"}
+                    key={tool.id}
+                    onClick={() => onSelect(tool.id)}
+                    type="button"
+                    title={tool.description}
+                  >
+                    <Icon size={17} />
+                    <span>{tool.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 type MoatForm = {
@@ -1419,6 +1587,74 @@ function ProjectSelect({
       </select>
     </label>
   );
+}
+
+type ProjectMetadata = {
+  created_at?: string;
+  updated_at?: string;
+};
+
+function ProjectsOverview({
+  projects,
+  selectedProjectId,
+  onSelect,
+}: {
+  projects: ProjectRecord[];
+  selectedProjectId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <section className="panel wide">
+      <h3>项目</h3>
+      <p className="section-copy">选择历史项目后，可以继续生成、质检或导出。</p>
+      <div className="project-grid">
+        {projects.map((project) => {
+          const metadata = project as ProjectRecord & ProjectMetadata;
+          const isSelected = project.id === selectedProjectId;
+          return (
+            <article className={isSelected ? "project-card selected" : "project-card"} key={project.id}>
+              <div>
+                <strong>{project.name}</strong>
+                <span>{project.package ? "已有初稿" : "仅有想法"}</span>
+              </div>
+              <dl className="project-meta">
+                <div>
+                  <dt>创建</dt>
+                  <dd>{formatProjectDate(metadata.created_at)}</dd>
+                </div>
+                <div>
+                  <dt>更新</dt>
+                  <dd>{formatProjectDate(metadata.updated_at)}</dd>
+                </div>
+              </dl>
+              <button
+                className={isSelected ? "icon-button selected-project-button" : "primary"}
+                disabled={isSelected}
+                onClick={() => onSelect(project.id)}
+                type="button"
+              >
+                {isSelected ? "当前项目" : "选择项目"}
+              </button>
+            </article>
+          );
+        })}
+        {projects.length === 0 && <p className="empty">暂无项目。进入“专利生成”输入想法即可创建。</p>}
+      </div>
+    </section>
+  );
+}
+
+function formatProjectDate(value: string | undefined): string {
+  if (!value) return "未记录";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function CorpusView({

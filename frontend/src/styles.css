@@ -162,6 +162,12 @@ a {
   font-size: 28px;
 }
 
+.topbar-subtitle {
+  margin: 4px 0 0;
+  color: #555f5a;
+  line-height: 1.45;
+}
+
 .project-select {
   display: grid;
   gap: 6px;
@@ -216,6 +222,152 @@ textarea {
 
 .panel.wide {
   max-width: 1120px;
+}
+
+.section-copy,
+.generate-entry p {
+  color: #555f5a;
+  line-height: 1.55;
+}
+
+.section-copy {
+  margin: -4px 0 14px;
+}
+
+.generate-entry {
+  display: grid;
+  gap: 16px;
+}
+
+.generate-entry p {
+  margin: 8px 0 0;
+}
+
+.current-idea {
+  border: 1px solid #e0e5df;
+  border-radius: 8px;
+  background: #fbfaf4;
+  padding: 14px;
+}
+
+.current-idea span {
+  display: block;
+  color: #66716b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.current-idea p {
+  margin: 6px 0 0;
+}
+
+.expert-tool-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.expert-tool-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.expert-tool-group {
+  display: grid;
+  gap: 8px;
+}
+
+.expert-tool-group p {
+  margin: 0;
+  color: #66716b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.expert-tool-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.expert-tool-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #d8ddd7;
+  border-radius: 8px;
+  background: #fffefa;
+  color: #26332f;
+  cursor: pointer;
+  padding: 0 12px;
+}
+
+.expert-tool-button.active,
+.expert-tool-button:hover {
+  border-color: #2f6f73;
+  background: #e8f4ec;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.project-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d8ddd5;
+  border-radius: 8px;
+  background: #fffefa;
+  color: #202124;
+  padding: 16px;
+}
+
+.project-card.selected {
+  border-color: #2f6f73;
+  box-shadow: 0 0 0 2px rgba(47, 111, 115, 0.16);
+}
+
+.project-card strong,
+.project-card span {
+  display: block;
+}
+
+.project-card span {
+  margin-top: 4px;
+  color: #66716b;
+  font-size: 13px;
+}
+
+.project-meta {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.project-meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.project-meta dt {
+  color: #66716b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.project-meta dd {
+  margin: 0;
+  color: #26332f;
+  font-size: 12px;
+  text-align: right;
+}
+
+.selected-project-button {
+  color: #26332f;
+  background: #f1c84b;
 }
 
 .panel h3 {
