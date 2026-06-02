@@ -48,6 +48,9 @@ export type GuidedPatentFlowProps = {
   onGenerateDraft: () => void;
   onRunQualityChecks: () => void;
   onAcceptPatch: (runId: string, patchId: string) => void;
+  onOpenExpertTool: (
+    tool: "materials" | "moat" | "readiness" | "claimDefense" | "completion" | "export",
+  ) => void;
 };
 
 export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
@@ -98,6 +101,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onUploadMaterial={props.onUploadMaterial}
           onStartDisclosure={props.onStartDisclosure}
           onSelectPatentPoint={props.onSelectPatentPoint}
+          onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
       {state.currentStepId === "draft" && (
@@ -116,6 +120,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           busy={props.busy}
           onRunQualityChecks={props.onRunQualityChecks}
           onAcceptPatch={props.onAcceptPatch}
+          onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
       {state.currentStepId === "export" && (
@@ -123,6 +128,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           project={props.project}
           filingReport={latestFilingReport}
           completionRun={latestCompletionRun}
+          onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
     </div>
@@ -259,6 +265,7 @@ function InventionPointConfirmation({
   onUploadMaterial,
   onStartDisclosure,
   onSelectPatentPoint,
+  onOpenExpertTool,
 }: {
   disclosure: DisclosureRun | null;
   materials: ProjectMaterial[];
@@ -267,6 +274,7 @@ function InventionPointConfirmation({
   onUploadMaterial: GuidedPatentFlowProps["onUploadMaterial"];
   onStartDisclosure: () => void;
   onSelectPatentPoint: (point: PatentPointCandidate) => void;
+  onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   const disclosureCandidates = disclosure?.package?.candidates ?? [];
   const candidates = disclosureCandidates.length ? disclosureCandidates : patentPoints;
@@ -280,6 +288,14 @@ function InventionPointConfirmation({
           <p>这里是默认流程的第一个暂停点。确认主线后，系统才进入初稿生成。</p>
         </div>
         <ShieldCheck size={24} />
+      </div>
+      <div className="button-row">
+        <button className="icon-button" onClick={() => onOpenExpertTool("materials")} type="button">
+          查看前置材料详情
+        </button>
+        <button className="icon-button" onClick={() => onOpenExpertTool("moat")} type="button">
+          查看护城河地图
+        </button>
       </div>
       <form className="guided-upload" onSubmit={onUploadMaterial}>
         <input
@@ -364,6 +380,7 @@ function QualityPanel({
   busy,
   onRunQualityChecks,
   onAcceptPatch,
+  onOpenExpertTool,
 }: {
   filingReport: FilingReadinessReport | null;
   worksheet: ClaimDefenseWorksheet | null;
@@ -371,6 +388,7 @@ function QualityPanel({
   busy: string;
   onRunQualityChecks: () => void;
   onAcceptPatch: (runId: string, patchId: string) => void;
+  onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   const summary = qualitySummaryFromRuns({ filingReport, worksheet, completionRun });
   return (
@@ -385,6 +403,17 @@ function QualityPanel({
       {(filingReport || worksheet || completionRun) && (
         <p className="workflow-hint">已获得部分检查结果。可以继续补强，也可以重新运行质量检查。</p>
       )}
+      <div className="button-row">
+        <button className="icon-button" onClick={() => onOpenExpertTool("readiness")} type="button">
+          查看提交成熟度
+        </button>
+        <button className="icon-button" onClick={() => onOpenExpertTool("claimDefense")} type="button">
+          查看权利要求防线
+        </button>
+        <button className="icon-button" onClick={() => onOpenExpertTool("completion")} type="button">
+          查看初稿完善
+        </button>
+      </div>
       <button className="primary" disabled={busy === "guided-quality"} onClick={onRunQualityChecks} type="button">
         {busy === "guided-quality" ? <Loader2 className="spin" size={17} /> : <Gauge size={17} />}
         <span>运行质量检查</span>
@@ -438,10 +467,12 @@ function ExportConfirmationPanel({
   project,
   filingReport,
   completionRun,
+  onOpenExpertTool,
 }: {
   project: ProjectRecord | null;
   filingReport: FilingReadinessReport | null;
   completionRun: DraftCompletionRun | null;
+  onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   if (!project?.package) {
     return (
@@ -461,6 +492,23 @@ function ExportConfirmationPanel({
         <Download size={24} />
       </div>
       {filingReport?.status === "high_risk" && <p className="workflow-hint">当前为高风险但允许导出。请先查看检查报告。</p>}
+      <div className="export-confirmation">
+        <article>
+          <strong>正式稿</strong>
+          <span>只包含摘要、权利要求书、说明书和附图说明。</span>
+        </article>
+        <article>
+          <strong>内部稿</strong>
+          <span>保留策略、风险、会审、支撑矩阵和补强报告。</span>
+        </article>
+        <article>
+          <strong>导出原则</strong>
+          <span>高风险会提示，但不会阻止导出。</span>
+        </article>
+      </div>
+      <button className="icon-button" onClick={() => onOpenExpertTool("export")} type="button">
+        查看专家导出工具
+      </button>
       <div className="export-grid">
         <a className="export-link" href={officialExportUrl(project.id, "docx")}>
           <Download size={18} />

@@ -643,6 +643,11 @@ function App() {
     });
   }
 
+  function openExpertTool(tool: ExpertToolId) {
+    setActiveExpertTool(tool);
+    setActiveSection("expert");
+  }
+
   function renderExpertTool() {
     switch (activeExpertTool) {
       case "build":
@@ -842,6 +847,7 @@ function App() {
             onGenerateDraft={() => void handleGenerate()}
             onRunQualityChecks={() => void handleRunGuidedQualityChecks()}
             onAcceptPatch={(runId, patchId) => void handleCompletionPatch(runId, patchId, "accept")}
+            onOpenExpertTool={openExpertTool}
           />
         )}
         {activeSection === "projects" && (
