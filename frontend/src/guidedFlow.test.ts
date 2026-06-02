@@ -16,6 +16,7 @@ import {
   expertToolGroups,
   guidedStepLabels,
   mainSections,
+  patentGoalModes,
   qualitySummaryFromRuns,
 } from "./guidedFlow";
 
@@ -151,6 +152,17 @@ describe("guided flow defaults", () => {
   it("opens on patent generation and keeps expert tools on knowledge import", () => {
     expect(defaultMainSectionId).toBe("generate");
     expect(defaultExpertToolId).toBe("build");
+  });
+});
+
+describe("patent goal modes", () => {
+  it("exposes user-facing goal modes for the idea intake", () => {
+    expect(patentGoalModes.map((mode) => mode.label)).toEqual([
+      "授权稳健",
+      "保护范围优先",
+      "快速初稿",
+      "专利护城河",
+    ]);
   });
 });
 

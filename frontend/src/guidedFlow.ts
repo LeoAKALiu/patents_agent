@@ -102,6 +102,13 @@ export type QualitySummary = {
 export const defaultMainSectionId: MainSectionId = "generate";
 export const defaultExpertToolId: ExpertToolId = "build";
 
+export const patentGoalModes: Array<{ id: PatentGoalMode; label: string; description: string }> = [
+  { id: "stable", label: "授权稳健", description: "收紧独权，强调组合闭环和说明书支撑。" },
+  { id: "broad", label: "保护范围优先", description: "先上位覆盖，再用从权兜底替代实现。" },
+  { id: "fast", label: "快速初稿", description: "优先生成可审阅的完整初稿。" },
+  { id: "moat", label: "专利护城河", description: "允许可行未验证方案进入内部策略和分案布局。" },
+];
+
 export const mainSections: Array<NavEntry<MainSectionId>> = [
   { id: "generate", label: "专利生成", description: "从一句想法到可导出文件", icon: Wand2 },
   { id: "projects", label: "项目", description: "查看历史项目和运行记录", icon: FolderKanban },

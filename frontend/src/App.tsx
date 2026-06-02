@@ -78,6 +78,7 @@ import {
   uploadCorpusJobFile,
   uploadProjectMaterial,
 } from "./api";
+import { GuidedPatentFlowView } from "./GuidedPatentFlow";
 import {
   canExportPackage,
   completionCategoryLabel,
@@ -93,11 +94,11 @@ import {
 import {
   defaultExpertToolId,
   defaultMainSectionId,
-  deriveGuidedFlowState,
   expertToolGroups,
   mainSections,
   type ExpertToolId,
   type MainSectionId,
+  type PatentGoalMode,
 } from "./guidedFlow";
 import "./styles.css";
 
@@ -165,15 +166,6 @@ function App() {
   const latestFilingReport = filingReports[0] ?? null;
   const latestWorksheet = worksheets[0] ?? null;
   const latestCompletionRun = completionRuns[0] ?? null;
-  const guidedFlowState = deriveGuidedFlowState({
-    project: selectedProject,
-    materials: projectMaterials,
-    disclosures: disclosureRuns,
-    patentPoints: visiblePatentPoints,
-    filingReports,
-    worksheets,
-    completionRuns,
-  });
   const activeMainSection = mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   const activeExpertToolEntry = expertToolGroups
     .flatMap((group) => group.tools)
@@ -444,6 +436,26 @@ function App() {
     });
   }
 
+  async function handleCreateIdeaProject(payload: { name: string; idea: string; mode: PatentGoalMode }) {
+    await withStatus("guided-create", async () => {
+      const prefix =
+        payload.mode === "stable"
+          ? "目标模式：授权稳健。"
+          : payload.mode === "broad"
+            ? "目标模式：保护范围优先。"
+            : payload.mode === "fast"
+              ? "目标模式：快速初稿。"
+              : "目标模式：专利护城河，允许可行未验证方案进入内部策略。";
+      const project = await createProject(payload.name, `${prefix}\n${payload.idea}`);
+      const nextProjects = await listProjects();
+      setProjects(nextProjects);
+      setSelectedProjectId(project.id);
+      setProjectName("");
+      setDraftText("");
+      setMessage(`已创建项目：${project.name}`);
+    });
+  }
+
   async function handleUploadMaterial(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedProject) return;
@@ -519,6 +531,10 @@ function App() {
     });
   }
 
+  async function handleRunGuidedQualityChecks() {
+    await handleRunFilingReadiness();
+  }
+
   async function handleCreateWorksheet() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
@@ -573,7 +589,27 @@ function App() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     await withStatus("patent-point-select", async () => {
-      await updateProjectPatentPoint(projectId, point.id, { selected: true });
+      const alreadySaved = visiblePatentPoints.some((candidate) => candidate.id === point.id);
+      if (alreadySaved) {
+        await updateProjectPatentPoint(projectId, point.id, { selected: true });
+      } else {
+        await createProjectPatentPoint(projectId, {
+          title: point.title,
+          technical_problem: point.technical_problem,
+          innovation: point.innovation,
+          technical_solution: point.technical_solution,
+          beneficial_effects: point.beneficial_effects,
+          protection_focus: point.protection_focus,
+          evidence_status: point.evidence_status,
+          source_type: point.source_type,
+          feasibility_basis: point.feasibility_basis,
+          support_gaps: point.support_gaps,
+          experiment_needed: point.experiment_needed,
+          moat_scores: point.moat_scores,
+          selected: true,
+          rationale: point.rationale,
+        });
+      }
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
       setMessage(`已选择专利点：${point.title}`);
@@ -774,21 +810,22 @@ function App() {
         )}
 
         {activeSection === "generate" && (
-          <GenerateEntryView
+          <GuidedPatentFlowView
             project={selectedProject}
-            flowStepLabel={guidedFlowState.steps.find((step) => step.status === "current")?.label ?? "想法与材料"}
-            processedMaterialCount={guidedFlowState.processedMaterialCount}
-            projectName={projectName}
-            draftText={draftText}
+            materials={projectMaterials}
+            disclosures={disclosureRuns}
+            patentPoints={visiblePatentPoints}
+            filingReports={filingReports}
+            worksheets={worksheets}
+            completionRuns={completionRuns}
             busy={busy}
-            onProjectName={setProjectName}
-            onDraftText={setDraftText}
-            onSubmit={handleCreateProject}
-            onOpenProjects={() => setActiveSection("projects")}
-            onOpenMaterials={() => {
-              setActiveExpertTool("materials");
-              setActiveSection("expert");
-            }}
+            onCreateIdeaProject={handleCreateIdeaProject}
+            onUploadMaterial={handleUploadMaterial}
+            onStartDisclosure={() => void handleStartDisclosure(false)}
+            onSelectPatentPoint={(point) => void handleSelectPatentPoint(point)}
+            onGenerateDraft={() => void handleGenerate()}
+            onRunQualityChecks={() => void handleRunGuidedQualityChecks()}
+            onAcceptPatch={(runId, patchId) => void handleCompletionPatch(runId, patchId, "accept")}
           />
         )}
         {activeSection === "projects" && (
@@ -1033,74 +1070,6 @@ function percent(value: number | undefined): string {
 
 function latestCompletedDisclosure(runs: DisclosureRun[]): DisclosureRun | null {
   return runs.find((run) => run.status === "completed" && run.package) ?? null;
-}
-
-function GenerateEntryView({
-  project,
-  flowStepLabel,
-  processedMaterialCount,
-  projectName,
-  draftText,
-  busy,
-  onProjectName,
-  onDraftText,
-  onSubmit,
-  onOpenProjects,
-  onOpenMaterials,
-}: {
-  project: ProjectRecord | null;
-  flowStepLabel: string;
-  processedMaterialCount: number;
-  projectName: string;
-  draftText: string;
-  busy: string;
-  onProjectName: (value: string) => void;
-  onDraftText: (value: string) => void;
-  onSubmit: (event: FormEvent) => void;
-  onOpenProjects: () => void;
-  onOpenMaterials: () => void;
-}) {
-  return (
-    <div className="stack">
-      <section className="panel wide generate-entry">
-        <div>
-          <h3>专利生成入口</h3>
-          <p>
-            这里是面向用户的一句话想法入口。完整向导会在下一任务接入；当前可以先创建项目、
-            选择已有项目，或进入前置材料继续生成交底书和初稿。
-          </p>
-        </div>
-        <div className="metric-grid">
-          <StatusPill label="当前阶段" value={flowStepLabel} />
-          <StatusPill label="当前项目" value={project?.name ?? "未选择"} />
-          <StatusPill label="已处理材料" value={String(processedMaterialCount)} />
-          <StatusPill label="初稿状态" value={project?.package ? "已有初稿" : "未生成"} />
-        </div>
-        <div className="current-idea">
-          <span>当前想法</span>
-          <p>{project?.draft_text?.trim() || "还没有项目想法。可以在下方输入一句技术构想创建项目。"}</p>
-        </div>
-        <div className="button-row">
-          <button className="primary" onClick={onOpenProjects} type="button">
-            <FileArchive size={17} />
-            <span>选择已有项目</span>
-          </button>
-          <button className="icon-button" disabled={!project} onClick={onOpenMaterials} type="button">
-            <ClipboardList size={17} />
-            <span>继续材料与交底</span>
-          </button>
-        </div>
-      </section>
-      <CreateProjectView
-        projectName={projectName}
-        draftText={draftText}
-        busy={busy}
-        onProjectName={onProjectName}
-        onDraftText={onDraftText}
-        onSubmit={onSubmit}
-      />
-    </div>
-  );
 }
 
 function ExpertToolChooser({
