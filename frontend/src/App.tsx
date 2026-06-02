@@ -1566,7 +1566,7 @@ function ProjectSelect({
     <label className="project-select">
       <span>当前项目</span>
       <select value={selectedProjectId} onChange={(event) => onChange(event.target.value)}>
-        {projects.length === 0 && <option value="">暂无项目</option>}
+        <option value="">{projects.length === 0 ? "暂无项目" : "新建项目"}</option>
         {projects.map((project) => (
           <option key={project.id} value={project.id}>
             {project.name}
