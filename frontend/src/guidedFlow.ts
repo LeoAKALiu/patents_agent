@@ -81,6 +81,7 @@ export type GuidedFlowState = {
   processedMaterialCount: number;
   hasIdea: boolean;
   hasCompletedDisclosure: boolean;
+  hasInventionCandidates: boolean;
   hasConfirmedInventionPoint: boolean;
   draftReady: boolean;
   qualityChecked: boolean;
@@ -159,6 +160,7 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   const hasIdea = Boolean(input.project?.draft_text.trim());
   const hasCompletedDisclosure = input.disclosures.some((run) => run.status === "completed" && run.package);
   const draftReady = canExportPackage(input.project?.package);
+  const hasInventionCandidates = hasCompletedDisclosure || input.patentPoints.length > 0;
   const hasConfirmedInventionPoint = draftReady || input.patentPoints.some((point) => point.selected);
   const qualityChecked = Boolean(
     input.filingReports.length
@@ -192,6 +194,7 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     processedMaterialCount,
     hasIdea,
     hasCompletedDisclosure,
+    hasInventionCandidates,
     hasConfirmedInventionPoint,
     draftReady,
     qualityChecked,

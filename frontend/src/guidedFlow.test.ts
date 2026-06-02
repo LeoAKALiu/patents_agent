@@ -5,6 +5,7 @@ import type {
   DisclosureRun,
   DraftCompletionRun,
   FilingReadinessReport,
+  PatentPointCandidate,
   ProjectMaterial,
   ProjectRecord,
 } from "./api";
@@ -108,6 +109,35 @@ const completionRun: DraftCompletionRun = {
   created_at: "2026-06-02T00:00:00Z",
 };
 
+function patentPoint(selected: boolean): PatentPointCandidate {
+  return {
+    id: selected ? "pp-selected" : "pp-candidate",
+    title: "外立面点云逆建模",
+    technical_problem: "人工建模效率低。",
+    innovation: "从单图估计结构线并反推立面几何。",
+    technical_solution: "检测楼层线、窗洞和立面边界后生成参数化模型。",
+    beneficial_effects: ["提高逆建模效率"],
+    protection_focus: ["图像到立面参数的转换链路"],
+    grantability_score: 0.8,
+    rationale: "材料中已有技术链路。",
+    evidence_status: "feasible_unverified",
+    source_type: "model",
+    feasibility_basis: "已有视觉模型可支撑。",
+    support_gaps: [],
+    experiment_needed: [],
+    moat_scores: {
+      scope_width: 0.8,
+      designaround_difficulty: 0.7,
+      feasibility: 0.7,
+      support_strength: 0.6,
+      prior_art_distance: 0.6,
+      strategic_value: 0.8,
+    },
+    claim_chart: [],
+    selected,
+  };
+}
+
 describe("guided flow navigation", () => {
   it("uses three main sections and keeps expert tools grouped", () => {
     expect(mainSections.map((item) => item.label)).toEqual(["专利生成", "项目", "专家工具"]);
@@ -143,8 +173,26 @@ describe("deriveGuidedFlowState", () => {
     });
 
     expect(state.currentStepId).toBe("invention");
+    expect(state.hasInventionCandidates).toBe(true);
+    expect(state.hasConfirmedInventionPoint).toBe(false);
     expect(state.steps[0].status).toBe("done");
     expect(state.steps[1].status).toBe("current");
+  });
+
+  it("distinguishes available invention candidates from confirmed selections", () => {
+    const state = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [],
+      patentPoints: [patentPoint(false)],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(state.currentStepId).toBe("invention");
+    expect(state.hasInventionCandidates).toBe(true);
+    expect(state.hasConfirmedInventionPoint).toBe(false);
   });
 
   it("marks export ready after package and quality runs exist", () => {

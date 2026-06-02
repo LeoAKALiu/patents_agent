@@ -11,6 +11,7 @@ import {
   readinessStatusLabel,
   sourceTypeLabel,
   splitLines,
+  workspaceTabs,
 } from "./domain";
 import { expertToolGroups, mainSections } from "./guidedFlow";
 
@@ -30,6 +31,26 @@ describe("guided navigation", () => {
       "审查修改",
       "导出文件",
     ]);
+  });
+});
+
+describe("workspaceTabs compatibility", () => {
+  it("keeps the legacy project creation tab until the shell migrates", () => {
+    expect(workspaceTabs.map((tab) => tab.id)).toEqual([
+      "build",
+      "corpus",
+      "create",
+      "moat",
+      "materials",
+      "deliberate",
+      "write",
+      "readiness",
+      "claimDefense",
+      "completion",
+      "review",
+      "export",
+    ]);
+    expect(workspaceTabs.find((tab) => tab.id === "create")?.label).toBe("创建专利项目");
   });
 });
 

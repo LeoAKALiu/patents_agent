@@ -4,6 +4,7 @@ import {
   ClipboardList,
   Database,
   Download,
+  FilePlus2,
   Gauge,
   PenLine,
   Scale,
@@ -13,13 +14,24 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import type { ExpertToolId } from "./guidedFlow";
-
-export type WorkspaceTabId = ExpertToolId;
+export type WorkspaceTabId =
+  | "build"
+  | "corpus"
+  | "create"
+  | "moat"
+  | "materials"
+  | "deliberate"
+  | "write"
+  | "readiness"
+  | "claimDefense"
+  | "completion"
+  | "review"
+  | "export";
 
 export const workspaceTabs = [
   { id: "build", label: "语料库建设", icon: Database },
-  { id: "corpus", label: "知识库检索", icon: BookOpen },
+  { id: "corpus", label: "知识库", icon: BookOpen },
+  { id: "create", label: "创建专利项目", icon: FilePlus2 },
   { id: "moat", label: "护城河地图", icon: ShieldCheck },
   { id: "materials", label: "前置材料", icon: ClipboardList },
   { id: "deliberate", label: "多 Agent 会审", icon: UsersRound },
@@ -28,7 +40,7 @@ export const workspaceTabs = [
   { id: "claimDefense", label: "权利要求防线", icon: Scale },
   { id: "completion", label: "初稿完善", icon: Gauge },
   { id: "review", label: "审查修改", icon: SearchCheck },
-  { id: "export", label: "导出文件", icon: Download },
+  { id: "export", label: "导出", icon: Download },
 ] satisfies Array<{ id: WorkspaceTabId; label: string; icon: LucideIcon }>;
 
 export function canExportPackage(
