@@ -157,7 +157,7 @@ function App() {
   const selectedProjectIdRef = useRef("");
 
   const selectedProject = useMemo(
-    () => projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null,
+    () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId],
   );
   const currentPackage: DraftPackage | null = selectedProject?.package ?? null;
@@ -231,9 +231,6 @@ function App() {
       setCorpusVersions(versionsData);
       setCorpusStats(statsData);
       setProjects(projectsData);
-      if (!selectedProjectId && projectsData[0]) {
-        setSelectedProjectId(projectsData[0].id);
-      }
     });
   }
 
