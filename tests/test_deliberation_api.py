@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
+from backend.app.schemas import AgentDoctorReport, AgentProviderStatus
 
 
 def test_deliberation_api_lifecycle_and_generation_injection(tmp_path):
@@ -30,6 +31,10 @@ def test_deliberation_api_lifecycle_and_generation_injection(tmp_path):
     )
     project_id = project_response.json()["id"]
 
+    generate_without_deliberation = client.post(f"/api/projects/{project_id}/generate", json={})
+    assert generate_without_deliberation.status_code == 409
+    assert "Multi-agent deliberation" in generate_without_deliberation.json()["detail"]
+
     run_response = client.post(
         f"/api/projects/{project_id}/deliberations",
         json={"providers": ["codex", "gemini", "claude"], "trace": False},
@@ -51,13 +56,81 @@ def test_deliberation_api_lifecycle_and_generation_injection(tmp_path):
     assert any("deliberation" in log for log in package["generation_logs"])
 
 
+def test_failed_deliberation_has_diagnostic_logs_and_cannot_generate(tmp_path):
+    llm = FakeLLMClient(
+        {
+            "claims": "1. 一种方法。",
+            "description": "说明书。",
+            "abstract": "摘要。",
+            "drawings": "图1为流程图。",
+            "diagram": "flowchart TD\nA-->B",
+            "image_prompt": "黑白线稿。",
+        }
+    )
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm, provider_runner=_FailingOpeningProviderRunner()))
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "城市体检指标驱动无人机采集",
+            "draft_text": "根据指标置信度增益生成无人机任务包。",
+        },
+    ).json()["id"]
+
+    run_response = client.post(
+        f"/api/projects/{project_id}/deliberations",
+        json={"providers": ["codex", "gemini", "claude"], "trace": False},
+    )
+
+    assert run_response.status_code == 200
+    run = run_response.json()
+    assert run["status"] == "failed"
+    assert run["strategy_brief"] is None
+    assert any(log["level"] == "error" and log["provider_id"] == "codex" for log in run["logs"])
+    assert any(log["repair_suggestion"] for log in run["logs"])
+
+    generate_response = client.post(f"/api/projects/{project_id}/generate", json={"deliberation_run_id": run["id"]})
+    assert generate_response.status_code == 409
+    assert "strict multi-agent deliberation" in generate_response.json()["detail"]
+
+
+def test_missing_required_provider_creates_failed_diagnostic_run(tmp_path, monkeypatch):
+    def fake_doctor():
+        return AgentDoctorReport(
+            status="degraded",
+            run_mode="partial",
+            commands={
+                "codex": AgentProviderStatus(id="codex", label="Codex", command="codex", available=True, path="/bin/codex", required=True),
+                "gemini": AgentProviderStatus(id="gemini", label="Gemini", command="gemini", available=False, required=False),
+                "claude": AgentProviderStatus(id="claude", label="Claude", command="claude", available=True, path="/bin/claude", required=False),
+            },
+            active_provider_ids=["codex", "claude"],
+            missing_optional=["gemini"],
+        )
+
+    monkeypatch.setattr("backend.app.main.inspect_agent_environment", fake_doctor)
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_minimal_llm()))
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "缺少 provider 项目", "draft_text": "一种城市体检指标驱动采集方法。"},
+    ).json()["id"]
+
+    response = client.post(f"/api/projects/{project_id}/deliberations", json={})
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "failed"
+    assert run["strategy_brief"] is None
+    assert run["failures"][0]["reason"] == "provider_missing"
+    assert any(log["provider_id"] == "gemini" and log["repair_suggestion"] for log in run["logs"])
+
+
 class _FakeProviderResult:
     def __init__(self, payload):
         self.payload = payload
 
 
 class _FakeProviderRunner:
-    async def run_json_task(self, provider_id, prompt, workdir, label, trace, task_timeout_ms):
+    async def run_json_task(self, provider_id, prompt, workdir, label, trace, task_timeout_ms, log_callback=None):
         if label.startswith("opening"):
             return _FakeProviderResult(
                 {
@@ -85,3 +158,30 @@ class _FakeProviderRunner:
                 "agent_consensus": "三方一致建议收敛保护范围。",
             }
         )
+
+
+def _minimal_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": "1. 一种方法。",
+            "description": "说明书。",
+            "abstract": "摘要。",
+            "drawings": "图1为流程图。",
+            "diagram": "flowchart TD\nA-->B",
+            "image_prompt": "黑白线稿。",
+        }
+    )
+
+
+class _FailingOpeningProviderRunner:
+    async def run_json_task(self, provider_id, prompt, workdir, label, trace, task_timeout_ms, log_callback=None):
+        if provider_id == "codex" and label.startswith("opening"):
+            from backend.app.deliberation.providers import ProviderFailure
+
+            raise ProviderFailure(
+                "process_error",
+                "opening codex failed with exit code 1",
+                provider_id="codex",
+                stderr="attempt to write a readonly database",
+            )
+        return await _FakeProviderRunner().run_json_task(provider_id, prompt, workdir, label, trace, task_timeout_ms, log_callback)

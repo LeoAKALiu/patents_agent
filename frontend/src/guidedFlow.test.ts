@@ -5,6 +5,9 @@ import type {
   DisclosureRun,
   DraftCompletionRun,
   FilingReadinessReport,
+  DeliberationRun,
+  FormulaNeedAssessment,
+  FormulaRun,
   PatentPointCandidate,
   ProjectMaterial,
   ProjectRecord,
@@ -12,9 +15,11 @@ import type {
 import {
   defaultExpertToolId,
   defaultMainSectionId,
+  buildPatentPointSelectionPayloads,
   deriveGuidedFlowState,
   expertToolGroups,
   guidedBusyLabel,
+  guidedOperationLog,
   guidedStepLabels,
   mainSections,
   patentGoalModes,
@@ -26,6 +31,8 @@ const projectWithIdea: ProjectRecord = {
   name: "外立面逆建模",
   draft_text: "一种外立面逆建模方法。",
   package: null,
+  created_at: "2026-06-07T00:00:00Z",
+  updated_at: "2026-06-07T00:00:00Z",
 };
 
 const processedMaterial: ProjectMaterial = {
@@ -65,6 +72,112 @@ const completedDisclosure: DisclosureRun = {
   },
   failures: [],
   events: ["done"],
+};
+
+const completedDeliberation: DeliberationRun = {
+  id: "dr1",
+  project_id: "p1",
+  status: "completed",
+  providers: ["codex", "gemini", "claude"],
+  run_mode: "full",
+  round_depth: "converged_two_round",
+  trace: false,
+  run_dir: "data/deliberation-runs/p1/dr1",
+  stage_results: [
+    ...["codex", "gemini", "claude"].map((provider) => ({
+      phase: "opening",
+      provider_id: provider,
+      label: `opening ${provider}`,
+      payload: {},
+      status: "completed" as const,
+    })),
+    ...["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"].map((label) => ({
+      phase: "pair",
+      provider_id: "codex",
+      label,
+      payload: {},
+      status: "completed" as const,
+    })),
+    {
+      phase: "chair",
+      provider_id: "codex",
+      label: "chair synthesis",
+      payload: {},
+      status: "completed",
+    },
+  ],
+  strategy_brief: {
+    summary: "会审建议收敛权利要求边界。",
+    claim_strategy: ["方法独权", "系统独权"],
+    description_strategy: ["补充实施例"],
+    risk_controls: ["避免功能性概括"],
+    agent_consensus: "三方一致建议先会审再生成。",
+  },
+  failures: [],
+  events: ["run started", "strategy generated"],
+  logs: [],
+};
+
+const failedDeliberation: DeliberationRun = {
+  ...completedDeliberation,
+  id: "dr-failed",
+  status: "failed",
+  strategy_brief: null,
+  failures: [{ provider_id: "codex", phase: "opening", reason: "process_error", message: "codex failed" }],
+  logs: [
+    {
+      level: "error",
+      phase: "opening",
+      provider_id: "codex",
+      attempt: 1,
+      message: "attempt failed",
+      detail: "stderr: readonly db",
+      repair_suggestion: "以后端非沙箱权限重启并检查 Codex 登录状态。",
+      elapsed_ms: 20,
+      created_at: "2026-06-07T00:00:00Z",
+    },
+  ],
+};
+
+const formulaRequired: FormulaNeedAssessment = {
+  required: true,
+  signals: ["置信度", "贡献矩阵", "增益"],
+  reasons: ["项目文本包含公式型信号。"],
+};
+
+const formulaNotRequired: FormulaNeedAssessment = {
+  required: false,
+  signals: [],
+  reasons: [],
+};
+
+const completedFormulaRun: FormulaRun = {
+  id: "fr1",
+  project_id: "p1",
+  status: "completed",
+  requirement: formulaRequired,
+  package: {
+    summary: "以指标置信度增益作为核心公式。",
+    formula_blocks: [
+      {
+        id: "F01",
+        name: "指标置信度增益",
+        latex: "\\Delta C_i = C_i^{post} - C_i^{prior}",
+        purpose: "衡量置信度提升。",
+        claim_hook: "根据指标置信度增益生成任务包",
+      },
+    ],
+    variable_definitions: [],
+    derivation_notes: [],
+    claim_hooks: ["写入任务优化目标"],
+    description_insert: "公式F01用于计算置信度增益。",
+    latex_markdown: "# 核心公式",
+    generation_logs: [],
+  },
+  failures: [],
+  events: ["formula package generated"],
+  created_at: "2026-06-07T00:00:00Z",
+  updated_at: "2026-06-07T00:00:00Z",
 };
 
 function filingReport(status: FilingReadinessReport["status"]): FilingReadinessReport {
@@ -146,6 +259,7 @@ describe("guided flow navigation", () => {
   it("uses three main sections and keeps expert tools grouped", () => {
     expect(mainSections.map((item) => item.label)).toEqual(["专利生成", "项目", "专家工具"]);
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
+    expect(guidedStepLabels).toEqual(["想法与材料", "发明点", "多 Agent 会审", "核心公式", "生成初稿", "质量检查", "导出"]);
   });
 });
 
@@ -176,12 +290,53 @@ describe("guidedBusyLabel", () => {
   });
 });
 
+describe("guidedOperationLog", () => {
+  it("returns terminal-style operation logs instead of ETA progress", () => {
+    const log = guidedOperationLog("disclosure", 30);
+
+    expect(log?.label).toBe("正在提炼发明点");
+    expect(log?.lines.join("\n")).toContain("[00:00]");
+    expect(log?.lines.join("\n")).toContain("等待模型或服务返回");
+    expect(log?.lines.join("\n")).not.toContain("预计剩余");
+  });
+
+  it("keeps short project actions as concise system logs", () => {
+    const log = guidedOperationLog("patent-point-select", 2);
+
+    expect(log?.label).toBe("正在保存主路线和后备路线");
+    expect(log?.lines.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("buildPatentPointSelectionPayloads", () => {
+  it("keeps non-selected generated candidates as backup routes when a main route is selected", () => {
+    const selected = patentPoint(false);
+    const backup = {
+      ...patentPoint(false),
+      id: "pp-backup",
+      title: "热红外补采路线",
+      innovation: "根据热红外窗口补采围护结构证据。",
+    };
+
+    const payloads = buildPatentPointSelectionPayloads(selected, [selected, backup]);
+
+    expect(payloads).toHaveLength(2);
+    expect(payloads[0].candidateId).toBe(selected.id);
+    expect(payloads[0].payload.selected).toBe(true);
+    expect(payloads[0].payload.source_candidate_id).toBe(selected.id);
+    expect(payloads[1].candidateId).toBe(backup.id);
+    expect(payloads[1].payload.selected).toBe(false);
+    expect(payloads[1].payload.source_candidate_id).toBe(backup.id);
+  });
+});
+
 describe("deriveGuidedFlowState", () => {
   it("starts at idea intake when no project exists", () => {
     const state = deriveGuidedFlowState({
       project: null,
       materials: [],
       disclosures: [],
+      deliberations: [],
       patentPoints: [],
       filingReports: [],
       worksheets: [],
@@ -189,7 +344,7 @@ describe("deriveGuidedFlowState", () => {
     });
 
     expect(state.currentStepId).toBe("idea");
-    expect(state.steps.map((step) => step.status)).toEqual(["current", "locked", "locked", "locked", "locked"]);
+    expect(state.steps.map((step) => step.status)).toEqual(["current", "locked", "locked", "locked", "locked", "locked", "locked"]);
   });
 
   it("moves to invention confirmation after disclosure is completed", () => {
@@ -197,6 +352,7 @@ describe("deriveGuidedFlowState", () => {
       project: projectWithIdea,
       materials: [processedMaterial],
       disclosures: [completedDisclosure],
+      deliberations: [],
       patentPoints: [],
       filingReports: [],
       worksheets: [],
@@ -215,6 +371,7 @@ describe("deriveGuidedFlowState", () => {
       project: projectWithIdea,
       materials: [processedMaterial],
       disclosures: [],
+      deliberations: [],
       patentPoints: [patentPoint(false)],
       filingReports: [],
       worksheets: [],
@@ -224,6 +381,91 @@ describe("deriveGuidedFlowState", () => {
     expect(state.currentStepId).toBe("invention");
     expect(state.hasInventionCandidates).toBe(true);
     expect(state.hasConfirmedInventionPoint).toBe(false);
+  });
+
+  it("requires completed multi-agent deliberation before draft generation", () => {
+    const selectedPoint = patentPoint(true);
+    const awaitingDeliberation = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [],
+      patentPoints: [selectedPoint],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(awaitingDeliberation.currentStepId).toBe("deliberation");
+    expect(awaitingDeliberation.hasCompletedDeliberation).toBe(false);
+
+    const readyForDraft = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [selectedPoint],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(readyForDraft.currentStepId).toBe("draft");
+    expect(readyForDraft.hasCompletedDeliberation).toBe(true);
+  });
+
+  it("requires a completed formula package when formula assessment is required", () => {
+    const selectedPoint = patentPoint(true);
+    const awaitingFormula = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [selectedPoint],
+      formulaRequirement: formulaRequired,
+      formulaRuns: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(awaitingFormula.currentStepId).toBe("formula");
+    expect(awaitingFormula.hasCompletedFormula).toBe(false);
+
+    const readyForDraft = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [selectedPoint],
+      formulaRequirement: formulaRequired,
+      formulaRuns: [completedFormulaRun],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(readyForDraft.currentStepId).toBe("draft");
+    expect(readyForDraft.hasCompletedFormula).toBe(true);
+  });
+
+  it("does not treat failed deliberation as completed", () => {
+    const selectedPoint = patentPoint(true);
+    const state = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [failedDeliberation],
+      patentPoints: [selectedPoint],
+      formulaRequirement: formulaNotRequired,
+      formulaRuns: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(state.currentStepId).toBe("deliberation");
+    expect(state.hasCompletedDeliberation).toBe(false);
   });
 
   it("marks export ready after package and quality runs exist", () => {
@@ -245,6 +487,7 @@ describe("deriveGuidedFlowState", () => {
       },
       materials: [processedMaterial],
       disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
       patentPoints: [],
       filingReports: [filingReport("warning")],
       worksheets: [worksheet],
@@ -253,7 +496,7 @@ describe("deriveGuidedFlowState", () => {
 
     expect(state.currentStepId).toBe("export");
     expect(state.exportReady).toBe(true);
-    expect(state.steps.map((step) => step.status)).toEqual(["done", "done", "done", "done", "current"]);
+    expect(state.steps.map((step) => step.status)).toEqual(["done", "done", "done", "done", "done", "done", "current"]);
   });
 });
 
@@ -275,6 +518,6 @@ describe("qualitySummaryFromRuns", () => {
 
 describe("guidedStepLabels", () => {
   it("uses user-action language instead of internal module names", () => {
-    expect(guidedStepLabels).toEqual(["想法与材料", "发明点", "生成初稿", "质量检查", "导出"]);
+    expect(guidedStepLabels).toEqual(["想法与材料", "发明点", "多 Agent 会审", "核心公式", "生成初稿", "质量检查", "导出"]);
   });
 });

@@ -17,14 +17,18 @@ import {
 
 import type {
   ClaimDefenseWorksheet,
+  DeliberationRun,
   DisclosureRun,
   DraftCompletionRun,
   FilingReadinessReport,
+  FormulaNeedAssessment,
+  FormulaRun,
   PatentPointCandidate,
+  PatentPointCreatePayload,
   ProjectMaterial,
   ProjectRecord,
 } from "./api";
-import { canExportPackage } from "./domain";
+import { canExportPackage, latestCompletedDeliberation } from "./domain";
 
 export type MainSectionId = "generate" | "projects" | "expert";
 
@@ -41,7 +45,7 @@ export type ExpertToolId =
   | "review"
   | "export";
 
-export type GuidedStepId = "idea" | "invention" | "draft" | "quality" | "export";
+export type GuidedStepId = "idea" | "invention" | "deliberation" | "formula" | "draft" | "quality" | "export";
 export type GuidedStepStatus = "done" | "current" | "ready" | "locked";
 export type PatentGoalMode = "stable" | "broad" | "fast" | "moat";
 
@@ -69,7 +73,10 @@ export type GuidedFlowInput = {
   project: ProjectRecord | null;
   materials: ProjectMaterial[];
   disclosures: DisclosureRun[];
+  deliberations: DeliberationRun[];
   patentPoints: PatentPointCandidate[];
+  formulaRequirement?: FormulaNeedAssessment | null;
+  formulaRuns?: FormulaRun[];
   filingReports: FilingReadinessReport[];
   worksheets: ClaimDefenseWorksheet[];
   completionRuns: DraftCompletionRun[];
@@ -83,6 +90,9 @@ export type GuidedFlowState = {
   hasCompletedDisclosure: boolean;
   hasInventionCandidates: boolean;
   hasConfirmedInventionPoint: boolean;
+  hasCompletedDeliberation: boolean;
+  formulaRequired: boolean;
+  hasCompletedFormula: boolean;
   draftReady: boolean;
   qualityChecked: boolean;
   exportReady: boolean;
@@ -97,6 +107,17 @@ export type QualitySummary = {
   supportGapCount: number;
   taskCount: number;
   officialExportAllowed: boolean;
+};
+
+export type GuidedOperationLog = {
+  label: string;
+  elapsedSeconds: number;
+  lines: string[];
+};
+
+export type PatentPointSelectionPayload = {
+  candidateId: string;
+  payload: PatentPointCreatePayload;
 };
 
 export const defaultMainSectionId: MainSectionId = "generate";
@@ -158,6 +179,8 @@ export const expertToolGroups: ExpertToolGroup[] = [
 export const guidedStepDefinitions: Array<Omit<GuidedStepState, "status">> = [
   { id: "idea", label: "想法与材料", description: "输入一句想法，上传可选材料。" },
   { id: "invention", label: "发明点", description: "确认主发明点、证据状态和护城河方向。" },
+  { id: "deliberation", label: "多 Agent 会审", description: "会审权利要求边界、说明书支撑和规避风险。" },
+  { id: "formula", label: "核心公式", description: "凝练算法公式、变量定义和权利要求落点。" },
   { id: "draft", label: "生成初稿", description: "生成摘要、权利要求书和说明书。" },
   { id: "quality", label: "质量检查", description: "运行提交成熟度、权利要求防线和初稿完善。" },
   { id: "export", label: "导出", description: "确认风险并导出正式稿和内部报告。" },
@@ -172,6 +195,9 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   const draftReady = canExportPackage(input.project?.package);
   const hasInventionCandidates = hasCompletedDisclosure || input.patentPoints.length > 0;
   const hasConfirmedInventionPoint = draftReady || input.patentPoints.some((point) => point.selected);
+  const hasCompletedDeliberation = draftReady || Boolean(latestCompletedDeliberation(input.deliberations));
+  const formulaRequired = Boolean(input.formulaRequirement?.required);
+  const hasCompletedFormula = draftReady || !formulaRequired || Boolean(input.formulaRuns?.some((run) => run.status === "completed" && run.package));
   const qualityChecked = Boolean(
     input.filingReports.length
       && input.worksheets.length
@@ -184,6 +210,10 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     currentStepId = "idea";
   } else if (!hasConfirmedInventionPoint && !draftReady) {
     currentStepId = "invention";
+  } else if (!hasCompletedDeliberation && !draftReady) {
+    currentStepId = "deliberation";
+  } else if (!hasCompletedFormula && !draftReady) {
+    currentStepId = "formula";
   } else if (!draftReady) {
     currentStepId = "draft";
   } else if (!qualityChecked) {
@@ -206,6 +236,9 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     hasCompletedDisclosure,
     hasInventionCandidates,
     hasConfirmedInventionPoint,
+    hasCompletedDeliberation,
+    formulaRequired,
+    hasCompletedFormula,
     draftReady,
     qualityChecked,
     exportReady,
@@ -251,10 +284,131 @@ export function qualitySummaryFromRuns(input: {
 
 export function guidedBusyLabel(value: string): string {
   if (value === "guided-quality") return "正在运行质量检查";
+  if (value === "score-improve") return "正在一键提升分数";
   if (value === "disclosure") return "正在提炼发明点";
   if (value === "generate") return "正在生成专利初稿";
+  if (value === "formula") return "正在凝练核心公式";
   if (value === "guided-create") return "正在创建专利项目";
   if (value === "material-upload") return "正在上传材料";
+  if (value === "patent-point-select") return "正在保存主路线和后备路线";
+  if (value === "project-delete") return "正在删除项目";
+  if (value === "claim-defense") return "正在生成权利要求防线";
+  if (value === "filing-readiness") return "正在检查提交成熟度";
+  if (value === "completion") return "正在运行初稿完善";
+  if (value === "review") return "正在生成审查意见";
+  if (value === "deliberate") return "正在启动多 Agent 会审";
+  if (value === "corpus-run") return "正在运行语料导入";
+  if (value === "corpus-upload") return "正在上传语料文件";
+  if (value === "corpus-job") return "正在创建语料任务";
+  if (value === "import") return "正在导入专利文件";
+  if (value === "search") return "正在检索知识库";
+  if (value === "refresh") return "正在刷新工作台";
   if (value.startsWith("completion-")) return "正在处理补强建议";
   return value ? "正在处理" : "";
+}
+
+export function guidedOperationLog(value: string, elapsedSeconds = 0): GuidedOperationLog | null {
+  if (!value) return null;
+  const safeElapsed = Math.max(0, Math.floor(elapsedSeconds));
+  const lines = operationLogSteps(value)
+    .filter((step) => step.at <= safeElapsed)
+    .map((step) => `[${formatElapsed(step.at)}] ${step.text}`);
+  return {
+    label: guidedBusyLabel(value),
+    elapsedSeconds: safeElapsed,
+    lines: lines.length ? lines : [`[00:00] ${guidedBusyLabel(value) || "操作已启动"}`],
+  };
+}
+
+export function buildPatentPointSelectionPayloads(
+  selectedPoint: PatentPointCandidate,
+  candidatePool: PatentPointCandidate[],
+): PatentPointSelectionPayload[] {
+  const seen = new Set<string>();
+  const orderedCandidates = [selectedPoint, ...candidatePool].filter((candidate) => {
+    if (seen.has(candidate.id)) return false;
+    seen.add(candidate.id);
+    return true;
+  });
+  return orderedCandidates.map((candidate) => ({
+    candidateId: candidate.id,
+    payload: {
+      source_candidate_id: candidate.id,
+      title: candidate.title,
+      technical_problem: candidate.technical_problem,
+      innovation: candidate.innovation,
+      technical_solution: candidate.technical_solution,
+      beneficial_effects: candidate.beneficial_effects,
+      protection_focus: candidate.protection_focus,
+      evidence_status: candidate.evidence_status,
+      source_type: candidate.source_type,
+      feasibility_basis: candidate.feasibility_basis,
+      support_gaps: candidate.support_gaps,
+      experiment_needed: candidate.experiment_needed,
+      moat_scores: candidate.moat_scores,
+      claim_chart: candidate.claim_chart,
+      selected: candidate.id === selectedPoint.id,
+      rationale: candidate.id === selectedPoint.id ? candidate.rationale : candidate.rationale || "未选中的候选后备路线",
+    },
+  }));
+}
+
+function operationLogSteps(value: string): Array<{ at: number; text: string }> {
+  const commonModelSteps = [
+    { at: 0, text: "启动任务，锁定当前项目快照" },
+    { at: 3, text: "读取项目、材料、候选路线和历史运行记录" },
+    { at: 8, text: "组装专利审查上下文与提示词" },
+    { at: 15, text: "调用模型或外部 agent 服务" },
+    { at: 25, text: "等待模型或服务返回" },
+    { at: 45, text: "解析结构化结果并准备写入项目" },
+  ];
+  if (value === "deliberate") {
+    return [
+      { at: 0, text: "启动多 Agent 会审，锁定项目和发明点" },
+      { at: 4, text: "分发会审任务到可用 agent" },
+      { at: 12, text: "收集权利要求边界、说明书支撑和风险控制意见" },
+      { at: 25, text: "等待模型或服务返回" },
+      { at: 50, text: "合并冲突意见并生成会审策略" },
+    ];
+  }
+  if (value === "formula") {
+    return [
+      { at: 0, text: "读取项目、发明点、会审策略和交底书" },
+      { at: 4, text: "识别公式型信号和变量关系" },
+      { at: 10, text: "凝练核心公式、变量定义和权利要求落点" },
+      { at: 25, text: "等待模型或服务返回" },
+      { at: 45, text: "生成 LaTeX 公式包并写入项目" },
+    ];
+  }
+  if (value === "score-improve") {
+    return [
+      { at: 0, text: "启动一键提升分数，读取当前初稿" },
+      { at: 3, text: "按通用专利审查标准重新评分" },
+      { at: 8, text: "生成可进入正式稿的补强补丁" },
+      { at: 15, text: "应用安全补丁并保留未验证边界" },
+      { at: 25, text: "重新评分并写入项目运行记录" },
+      { at: 40, text: "等待模型或服务返回" },
+    ];
+  }
+  if (value === "patent-point-select") {
+    return [
+      { at: 0, text: "保存选中的主路线" },
+      { at: 1, text: "写入未选路线到后备路线池" },
+      { at: 2, text: "刷新项目发明点列表" },
+    ];
+  }
+  if (value.includes("upload") || value.includes("delete") || value.includes("create") || value === "search" || value === "refresh") {
+    return [
+      { at: 0, text: "提交请求到本地服务" },
+      { at: 1, text: "写入或读取项目数据" },
+      { at: 2, text: "刷新界面状态" },
+    ];
+  }
+  return commonModelSteps;
+}
+
+function formatElapsed(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -116,6 +117,22 @@ class AgentFailure(BaseModel):
     message: str
 
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+class DeliberationLogEntry(BaseModel):
+    level: str = Field(pattern="^(info|warn|error)$")
+    phase: str = ""
+    provider_id: str = ""
+    attempt: int | None = None
+    message: str
+    detail: str = ""
+    repair_suggestion: str = ""
+    elapsed_ms: int | None = None
+    created_at: str = Field(default_factory=_utc_now_iso)
+
+
 class DeliberationStageResult(BaseModel):
     phase: str
     provider_id: str
@@ -157,6 +174,7 @@ class DeliberationRun(BaseModel):
     strategy_brief: PatentStrategyBrief | None = None
     failures: list[AgentFailure] = Field(default_factory=list)
     events: list[str] = Field(default_factory=list)
+    logs: list[DeliberationLogEntry] = Field(default_factory=list)
 
 
 class DraftPackage(BaseModel):
@@ -176,6 +194,8 @@ class DraftPackage(BaseModel):
     disclosure_run_id: str | None = None
     disclosure_summary: str | None = None
     patent_point_summary: str | None = None
+    formula_run_id: str | None = None
+    core_formula_summary: str | None = None
 
 
 class ProjectCreate(BaseModel):
@@ -188,6 +208,8 @@ class ProjectRecord(BaseModel):
     name: str
     draft_text: str
     package: DraftPackage | None = None
+    created_at: str = ""
+    updated_at: str = ""
 
 
 class FilingReadinessIssue(BaseModel):
@@ -325,8 +347,67 @@ class DraftCompletionRun(BaseModel):
     created_at: str = ""
 
 
+class ScoreImprovementRequest(BaseModel):
+    max_rounds: int = Field(default=1, ge=1, le=3)
+    target_score: int = Field(default=85, ge=0, le=100)
+
+
+class ScoreImprovementResult(BaseModel):
+    project_id: str
+    before_score: int
+    after_score: int
+    accepted_patch_ids: list[str] = Field(default_factory=list)
+    before_run: DraftCompletionRun
+    after_run: DraftCompletionRun
+    logs: list[str] = Field(default_factory=list)
+
+
 class GenerateRequest(BaseModel):
     deliberation_run_id: str | None = None
+    formula_run_id: str | None = None
+
+
+class FormulaNeedAssessment(BaseModel):
+    required: bool
+    signals: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+
+
+class FormulaBlock(BaseModel):
+    id: str
+    name: str
+    latex: str
+    purpose: str
+    claim_hook: str = ""
+
+
+class FormulaVariableDefinition(BaseModel):
+    symbol: str
+    meaning: str
+    unit: str = ""
+
+
+class CoreFormulaPackage(BaseModel):
+    summary: str
+    formula_blocks: list[FormulaBlock] = Field(default_factory=list)
+    variable_definitions: list[FormulaVariableDefinition] = Field(default_factory=list)
+    derivation_notes: list[str] = Field(default_factory=list)
+    claim_hooks: list[str] = Field(default_factory=list)
+    description_insert: str = ""
+    latex_markdown: str = ""
+    generation_logs: list[str] = Field(default_factory=list)
+
+
+class FormulaRun(BaseModel):
+    id: str
+    project_id: str
+    status: str = Field(pattern="^(queued|running|completed|failed)$")
+    requirement: FormulaNeedAssessment
+    package: CoreFormulaPackage | None = None
+    failures: list[str] = Field(default_factory=list)
+    events: list[str] = Field(default_factory=list)
+    created_at: str = ""
+    updated_at: str = ""
 
 
 class ProjectMaterial(BaseModel):
@@ -371,6 +452,7 @@ class ClaimChartItem(BaseModel):
 
 
 class PatentPointCreate(BaseModel):
+    source_candidate_id: str | None = None
     title: str
     technical_problem: str
     innovation: str

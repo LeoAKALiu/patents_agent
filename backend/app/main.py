@@ -11,8 +11,10 @@ from pydantic import ValidationError
 
 from backend.app.corpus.pipeline import CorpusImportService
 from backend.app.claim_defense import generate_claim_defense_worksheet
+from backend.app.core_formula import assess_formula_need, formula_package_to_markdown, generate_formula_run
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
+from backend.app.deliberation.providers import repair_suggestion_for_failure
 from backend.app.disclosure.exporter import disclosure_to_markdown, export_disclosure_docx, write_disclosure_artifacts
 from backend.app.disclosure.generator import DisclosureGenerator
 from backend.app.disclosure.material_parser import read_project_material_text
@@ -30,26 +32,36 @@ from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLL
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
 from backend.app.rag import LocalVectorIndex, create_vector_index
 from backend.app.schemas import (
+    AgentFailure,
     DeliberationRun,
+    DeliberationLogEntry,
     DeliberationRunCreate,
     DisclosurePackage,
     DisclosureRun,
     DisclosureRunCreate,
+    DraftCompletionRun,
     DraftPackage,
+    FormulaRun,
     GenerateRequest,
     InventionBrief,
     PatentChunk,
     PatentPointCandidate,
     PatentPointCreate,
     PatentPointUpdate,
+    ProposedPatch,
     CorpusImportJobCreate,
     ProjectMaterial,
     ProjectCreate,
     ProjectRecord,
     SectionType,
+    ScoreImprovementRequest,
+    ScoreImprovementResult,
 )
 from backend.app.settings import Settings, build_settings
 from backend.app.storage import SQLiteStore
+
+
+STRICT_DELIBERATION_PROVIDERS = ("codex", "gemini", "claude")
 
 
 def create_app(
@@ -203,13 +215,20 @@ def create_app(
     @app.post("/api/projects")
     def create_project(payload: ProjectCreate) -> dict:
         project = ProjectRecord(id=uuid.uuid4().hex, name=payload.name, draft_text=payload.draft_text)
-        store.create_project(project)
-        return project.model_dump(mode="json")
+        stored = store.create_project(project)
+        return stored.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}")
     def get_project(project_id: str) -> dict:
         project = _require_project(store, project_id)
         return project.model_dump(mode="json")
+
+    @app.delete("/api/projects/{project_id}")
+    def delete_project(project_id: str) -> dict:
+        deleted = store.delete_project(project_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Project not found.")
+        return {"ok": True}
 
     @app.post("/api/projects/{project_id}/materials")
     async def upload_project_material(project_id: str, file: UploadFile = File(...)) -> dict:
@@ -254,7 +273,7 @@ def create_app(
     @app.post("/api/projects/{project_id}/patent-points")
     def create_project_patent_point(project_id: str, payload: PatentPointCreate) -> dict:
         _require_project(store, project_id)
-        point: PatentPointCandidate = payload.to_candidate(f"user-{uuid.uuid4().hex}")
+        point: PatentPointCandidate = payload.to_candidate(payload.source_candidate_id or f"user-{uuid.uuid4().hex}")
         stored = store.add_project_patent_point(project_id, point)
         return stored.model_dump(mode="json")
 
@@ -352,21 +371,55 @@ def create_app(
     ) -> dict:
         project = _require_project(store, project_id)
         doctor = inspect_agent_environment()
-        if doctor.status == "blocked" and app.state.provider_runner is None:
-            raise HTTPException(status_code=503, detail=f"Agent doctor blocked: {doctor.missing_required}")
-        requested = payload.providers or ["codex", "gemini", "claude"]
+        requested = payload.providers or list(STRICT_DELIBERATION_PROVIDERS)
         available = set(doctor.active_provider_ids)
-        providers = requested if app.state.provider_runner is not None else [provider for provider in requested if provider in available]
-        if "codex" not in providers and app.state.provider_runner is None:
-            raise HTTPException(status_code=503, detail="Codex provider is required for deliberation.")
+        active_requested_count = len(requested) if app.state.provider_runner is not None else len([provider for provider in requested if provider in available])
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
+        if app.state.provider_runner is None:
+            missing_providers = [provider for provider in requested if provider not in available]
+            if missing_providers:
+                failures = [
+                    AgentFailure(
+                        provider_id=provider,
+                        phase="doctor",
+                        reason="provider_missing",
+                        message=f"{provider} provider is not available.",
+                    )
+                    for provider in missing_providers
+                ]
+                logs = [
+                    DeliberationLogEntry(
+                        level="error",
+                        phase="doctor",
+                        provider_id=provider,
+                        message="provider missing",
+                        detail=f"{provider} CLI is not available in PATH or is not usable by the backend process.",
+                        repair_suggestion=repair_suggestion_for_failure("provider_missing", provider),
+                    )
+                    for provider in missing_providers
+                ]
+                failed_run = DeliberationRun(
+                    id=run_id,
+                    project_id=project_id,
+                    status="failed",
+                    providers=requested,
+                    run_mode=_run_mode(active_requested_count),
+                    round_depth=payload.round_depth,
+                    trace=payload.trace,
+                    run_dir=str(run_dir),
+                    failures=failures,
+                    events=[f"provider missing: {provider}" for provider in missing_providers],
+                    logs=logs,
+                )
+                store.create_deliberation_run(failed_run)
+                return failed_run.model_dump(mode="json")
         run = DeliberationRun(
             id=run_id,
             project_id=project_id,
             status="queued",
-            providers=providers,
-            run_mode=_run_mode(len(providers)),
+            providers=requested,
+            run_mode=_run_mode(active_requested_count),
             round_depth=payload.round_depth,
             trace=payload.trace,
             run_dir=str(run_dir),
@@ -408,9 +461,66 @@ def create_app(
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
         return run.model_dump(mode="json")
 
+    @app.get("/api/projects/{project_id}/formula-requirement")
+    def get_formula_requirement(project_id: str) -> dict:
+        project = _require_project(store, project_id)
+        disclosure = store.get_latest_completed_disclosure_run(project_id)
+        deliberation = _resolve_deliberation(store, project_id, None)
+        assessment = assess_formula_need(
+            project=project,
+            patent_points=store.list_project_patent_points(project_id),
+            disclosure=disclosure.package if disclosure else None,
+            strategy_brief=deliberation.strategy_brief if deliberation else None,
+        )
+        return assessment.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/formula-runs")
+    def create_formula_run(project_id: str) -> dict:
+        project = _require_project(store, project_id)
+        disclosure = store.get_latest_completed_disclosure_run(project_id)
+        deliberation = _resolve_deliberation(store, project_id, None)
+        patent_points = store.list_project_patent_points(project_id)
+        assessment = assess_formula_need(
+            project=project,
+            patent_points=patent_points,
+            disclosure=disclosure.package if disclosure else None,
+            strategy_brief=deliberation.strategy_brief if deliberation else None,
+        )
+        if assessment.required and isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating core formulas.")
+        run = generate_formula_run(
+            project_id=project_id,
+            project=project,
+            patent_points=patent_points,
+            disclosure=disclosure.package if disclosure else None,
+            strategy_brief=deliberation.strategy_brief if deliberation else None,
+            llm=app.state.llm,
+        )
+        return store.create_formula_run(run).model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/formula-runs")
+    def list_formula_runs(project_id: str) -> dict:
+        _require_project(store, project_id)
+        return {"runs": [run.model_dump(mode="json") for run in store.list_formula_runs(project_id)]}
+
+    @app.get("/api/projects/{project_id}/formula-runs/{run_id}/latex.md")
+    def export_formula_markdown(project_id: str, run_id: str) -> PlainTextResponse:
+        _require_project(store, project_id)
+        run = store.get_formula_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Formula run not found.")
+        if not run.package:
+            raise HTTPException(status_code=409, detail="Formula run has no generated package.")
+        return PlainTextResponse(formula_package_to_markdown(run.package), media_type="text/markdown; charset=utf-8")
+
     @app.post("/api/projects/{project_id}/generate")
     def generate_project(project_id: str, payload: GenerateRequest | None = None) -> dict:
         project = _require_project(store, project_id)
+        if isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating drafts.")
+        deliberation = _resolve_deliberation(store, project_id, payload.deliberation_run_id if payload else None)
+        if deliberation is None:
+            raise HTTPException(status_code=409, detail="Multi-agent deliberation is required before generating a patent draft.")
         disclosure = store.get_latest_completed_disclosure_run(project_id)
         disclosure_package = disclosure.package if disclosure else None
         user_candidates = store.list_project_patent_points(project_id)
@@ -431,9 +541,17 @@ def create_app(
                 self_check_findings=[],
                 generation_logs=["disclosure: synthesized from selected user patent point"],
             )
+        formula_run = _resolve_formula_run(
+            store=store,
+            project=project,
+            project_id=project_id,
+            formula_run_id=payload.formula_run_id if payload else None,
+            patent_points=user_candidates,
+            disclosure_package=disclosure_package,
+            strategy_brief=deliberation.strategy_brief if deliberation else None,
+        )
         brief = _brief_from_draft(project, disclosure_package)
         context = _retrieve_generation_context(index, brief)
-        deliberation = _resolve_deliberation(store, project_id, payload.deliberation_run_id if payload else None)
         generator = PatentDraftGenerator(app.state.llm)
         try:
             package = generator.generate(
@@ -441,6 +559,7 @@ def create_app(
                 context,
                 strategy_brief=deliberation.strategy_brief if deliberation else None,
                 disclosure=disclosure_package,
+                formula_package=formula_run.package if formula_run else None,
             )
         except ConfigError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -464,6 +583,12 @@ def create_app(
             package.generation_logs.append("disclosure: injected selected user patent point without completed disclosure")
         else:
             package.generation_logs.append("disclosure: no completed pre-filing disclosure injected")
+        if formula_run and formula_run.package:
+            package.formula_run_id = formula_run.id
+            package.core_formula_summary = formula_run.package.summary
+            package.generation_logs.append(f"formula: injected core formula package from run {formula_run.id}")
+        else:
+            package.generation_logs.append("formula: no core formula package required")
         store.update_project_package(project_id, package)
         return package.model_dump(mode="json")
 
@@ -599,6 +724,51 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion patch not found.")
         return run.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/score-improvement")
+    def improve_project_score(project_id: str, payload: ScoreImprovementRequest) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        logs = ["score-improvement: 启动通用专利审查视角评分闭环"]
+        before_run = _run_quality_cycle(app, store, project_id)
+        current_run = before_run
+        current_package = package
+        accepted_patch_ids: list[str] = []
+        logs.append(f"score-improvement: 初始评分 {before_run.scorecard.overall}/100")
+
+        for round_index in range(1, payload.max_rounds + 1):
+            safe_patches = [
+                patch
+                for patch in current_run.patches
+                if patch.status == "proposed" and patch.can_enter_official_draft and patch.after_text.strip()
+            ]
+            if not safe_patches:
+                logs.append("score-improvement: 未发现可自动进入正式稿的补强补丁")
+                break
+            for patch in safe_patches:
+                current_package = _apply_completion_patch(current_package, patch)
+                store.update_completion_patch_status(project_id, current_run.id, patch.id, "accepted")
+                accepted_patch_ids.append(patch.id)
+                logs.append(f"score-improvement: 已应用补丁 {patch.id} -> {patch.target_section}")
+            store.update_project_package(project_id, current_package)
+            current_run = _run_quality_cycle(app, store, project_id)
+            logs.append(f"score-improvement: 第 {round_index} 轮重新评分 {current_run.scorecard.overall}/100")
+            if current_run.scorecard.overall >= payload.target_score:
+                logs.append(f"score-improvement: 已达到目标分 {payload.target_score}/100")
+                break
+            if current_run.scorecard.overall <= before_run.scorecard.overall and round_index == payload.max_rounds:
+                logs.append("score-improvement: 当前补强未继续提高分数，等待人工补充证据或实施例")
+
+        result = ScoreImprovementResult(
+            project_id=project_id,
+            before_score=before_run.scorecard.overall,
+            after_score=current_run.scorecard.overall,
+            accepted_patch_ids=accepted_patch_ids,
+            before_run=before_run,
+            after_run=current_run,
+            logs=logs,
+        )
+        return result.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/official-export.docx")
     def export_project_official_docx(project_id: str) -> FileResponse:
@@ -758,6 +928,7 @@ def _execute_deliberation(
                 run_dir=Path(run.run_dir),
                 trace=trace,
                 task_timeout_ms=task_timeout_ms,
+                on_update=store.update_deliberation_run,
             )
         )
         store.update_deliberation_run(completed)
@@ -766,6 +937,51 @@ def _execute_deliberation(
         failed = running.model_copy(update={"status": "failed", "events": [*running.events, f"run failed: {exc}"]})
         store.update_deliberation_run(failed)
         return failed
+
+
+def _run_quality_cycle(app: FastAPI, store: SQLiteStore, project_id: str) -> DraftCompletionRun:
+    project = _require_project(store, project_id)
+    package = _require_package(project)
+    verified_effects = any(point.evidence_status == "verified" for point in store.list_project_patent_points(project_id))
+    report = assess_filing_readiness(project_id, package, verified_effects=verified_effects)
+    store.create_filing_readiness_report(report)
+    worksheet = generate_claim_defense_worksheet(
+        project_id=project_id,
+        package=package,
+        disclosures=store.list_disclosure_runs(project_id),
+        patent_points=store.list_project_patent_points(project_id),
+        llm=app.state.llm,
+    )
+    store.create_claim_defense_worksheet(worksheet)
+    run = run_draft_completion(
+        project_id=project_id,
+        package=package,
+        filing_reports=store.list_filing_readiness_reports(project_id),
+        worksheets=store.list_claim_defense_worksheets(project_id),
+        patent_points=store.list_project_patent_points(project_id),
+        disclosures=store.list_disclosure_runs(project_id),
+        materials=store.list_project_materials(project_id),
+    )
+    return store.create_draft_completion_run(run)
+
+
+def _apply_completion_patch(package: DraftPackage, patch: ProposedPatch) -> DraftPackage:
+    if not patch.can_enter_official_draft or not patch.after_text.strip():
+        return package
+    text = patch.after_text.strip()
+    if patch.target_section in {"description", "embodiment", "term"}:
+        return package.model_copy(update={"description": _append_once(package.description, "补充实施方式", text)})
+    if patch.target_section == "claim":
+        return package.model_copy(update={"claims": _append_once(package.claims, "补充权利要求", text)})
+    if patch.target_section == "drawing":
+        return package.model_copy(update={"drawing_description": _append_once(package.drawing_description, "补充附图说明", text)})
+    return package
+
+
+def _append_once(original: str, heading: str, addition: str) -> str:
+    if addition in original:
+        return original
+    return f"{original.rstrip()}\n\n{heading}：\n{addition}\n"
 
 
 def _build_llm(settings: Settings) -> LLMClient:
@@ -809,10 +1025,63 @@ def _resolve_deliberation(store: SQLiteStore, project_id: str, run_id: str | Non
         run = store.get_deliberation_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
-        if run.status != "completed":
-            raise HTTPException(status_code=409, detail="Deliberation run is not completed.")
+        if not _is_strict_completed_deliberation(run):
+            raise HTTPException(status_code=409, detail="A strict multi-agent deliberation is required before generating a patent draft.")
         return run
-    return store.get_latest_completed_deliberation_run(project_id)
+    for run in store.list_deliberation_runs(project_id):
+        if _is_strict_completed_deliberation(run):
+            return run
+    return None
+
+
+def _is_strict_completed_deliberation(run: DeliberationRun) -> bool:
+    if run.status != "completed" or run.strategy_brief is None or run.failures:
+        return False
+    required = set(STRICT_DELIBERATION_PROVIDERS)
+    if set(run.providers) != required:
+        return False
+    completed = {(stage.phase, stage.provider_id, stage.label) for stage in run.stage_results if stage.status == "completed"}
+    if not all(("opening", provider, f"opening {provider}") in completed for provider in required):
+        return False
+    pair_labels = {
+        "pair codex-vs-gemini",
+        "pair codex-vs-claude",
+        "pair gemini-vs-claude",
+    }
+    if not pair_labels.issubset({label for phase, _provider, label in completed if phase == "pair"}):
+        return False
+    return any(phase == "chair" and label == "chair synthesis" for phase, _provider, label in completed)
+
+
+def _resolve_formula_run(
+    *,
+    store: SQLiteStore,
+    project: ProjectRecord,
+    project_id: str,
+    formula_run_id: str | None,
+    patent_points: list[PatentPointCandidate],
+    disclosure_package: DisclosurePackage | None,
+    strategy_brief: object | None,
+) -> FormulaRun | None:
+    assessment = assess_formula_need(
+        project=project,
+        patent_points=patent_points,
+        disclosure=disclosure_package,
+        strategy_brief=strategy_brief,  # type: ignore[arg-type]
+    )
+    if formula_run_id:
+        run = store.get_formula_run(project_id, formula_run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Formula run not found.")
+        if run.status != "completed" or run.package is None:
+            raise HTTPException(status_code=409, detail="Formula run is not completed.")
+        return run
+    if not assessment.required:
+        return None
+    run = store.get_latest_completed_formula_run(project_id)
+    if not run or not run.package:
+        raise HTTPException(status_code=409, detail="Core formula package is required before generating a patent draft.")
+    return run
 
 
 def _brief_from_draft(project: ProjectRecord, disclosure: DisclosurePackage | None = None) -> InventionBrief:

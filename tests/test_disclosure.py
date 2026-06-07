@@ -13,7 +13,16 @@ from backend.app.disclosure.material_parser import read_project_material_text
 from backend.app.disclosure.prior_art import StaticPriorArtProvider, parse_cnipa_epub_html
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
-from backend.app.schemas import ClaimChartItem, DisclosurePackage, PatentPointCandidate, PriorArtHit, ProjectRecord
+from backend.app.schemas import (
+    ClaimChartItem,
+    DeliberationRun,
+    DeliberationStageResult,
+    DisclosurePackage,
+    PatentPointCandidate,
+    PatentStrategyBrief,
+    PriorArtHit,
+    ProjectRecord,
+)
 
 
 def test_project_material_parser_reads_text_docx_pptx_and_rejects_blank_pdf(tmp_path: Path):
@@ -181,6 +190,7 @@ def test_disclosure_api_lifecycle_and_generation_injection(tmp_path: Path):
 
     list_response = client.get(f"/api/projects/{project_id}/disclosures")
     assert list_response.json()["runs"][0]["id"] == run["id"]
+    _create_completed_deliberation(client, project_id)
 
     generate_response = client.post(f"/api/projects/{project_id}/generate", json={})
     assert generate_response.status_code == 200
@@ -302,3 +312,57 @@ def _disclosure_llm(extra: dict[str, str] | None = None) -> FakeLLMClient:
     }
     responses.update(extra or {})
     return FakeLLMClient(responses)
+
+
+def _create_completed_deliberation(client: TestClient, project_id: str) -> None:
+    stages = _strict_deliberation_stages()
+    client.app.state.store.create_deliberation_run(
+        DeliberationRun(
+            id=f"delib-{project_id}",
+            project_id=project_id,
+            status="completed",
+            providers=["codex", "gemini", "claude"],
+            run_mode="full",
+            stage_results=stages,
+            strategy_brief=PatentStrategyBrief(
+                summary="测试会审策略",
+                claim_strategy=["方法独权"],
+                description_strategy=["补充实施例"],
+                risk_controls=["避免功能性概括"],
+                agent_consensus="测试会审通过。",
+            ),
+            events=["test deliberation completed"],
+        )
+    )
+
+
+def _strict_deliberation_stages() -> list[DeliberationStageResult]:
+    return [
+        *[
+            DeliberationStageResult(
+                phase="opening",
+                provider_id=provider,
+                label=f"opening {provider}",
+                payload={"stance": "ok"},
+                status="completed",
+            )
+            for provider in ["codex", "gemini", "claude"]
+        ],
+        *[
+            DeliberationStageResult(
+                phase="pair",
+                provider_id="codex",
+                label=label,
+                payload={"resolved_recommendation": "ok"},
+                status="completed",
+            )
+            for label in ["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"]
+        ],
+        DeliberationStageResult(
+            phase="chair",
+            provider_id="codex",
+            label="chair synthesis",
+            payload={"summary": "ok"},
+            status="completed",
+        ),
+    ]

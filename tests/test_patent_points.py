@@ -2,11 +2,14 @@ import json
 import sqlite3
 
 from backend.app.schemas import (
+    DeliberationRun,
+    DeliberationStageResult,
     DisclosurePackage,
     DisclosureRun,
     MoatScores,
     PatentPointCandidate,
     PatentPointCreate,
+    PatentStrategyBrief,
     PriorArtHit,
     ProjectRecord,
 )
@@ -443,6 +446,7 @@ def test_draft_generation_prompt_marks_unverified_schemes_as_optional(tmp_path):
             "selected": True,
         },
     )
+    _create_completed_deliberation(client, project_id)
 
     client.post(f"/api/projects/{project_id}/generate", json={})
 
@@ -498,6 +502,7 @@ def test_generate_prefers_completed_disclosure_over_selected_user_synthesis(tmp_
             package=completed_package,
         )
     )
+    _create_completed_deliberation(client, project_id)
 
     package = client.post(f"/api/projects/{project_id}/generate", json={}).json()
 
@@ -523,6 +528,7 @@ def test_generate_synthesizes_disclosure_from_selected_user_points_only(tmp_path
     project_id = _create_project(client)
     _create_patent_point(client, project_id, title="未选中用户点", selected=False)
     selected = _create_patent_point(client, project_id, title="选中用户点", selected=True)
+    _create_completed_deliberation(client, project_id)
 
     package = client.post(f"/api/projects/{project_id}/generate", json={}).json()
 
@@ -562,3 +568,56 @@ def _create_patent_point(
     )
     assert response.status_code == 200
     return response.json()
+
+
+def _create_completed_deliberation(client: TestClient, project_id: str) -> None:
+    client.app.state.store.create_deliberation_run(
+        DeliberationRun(
+            id=f"delib-{project_id}",
+            project_id=project_id,
+            status="completed",
+            providers=["codex", "gemini", "claude"],
+            run_mode="full",
+            stage_results=_strict_deliberation_stages(),
+            strategy_brief=PatentStrategyBrief(
+                summary="测试会审策略",
+                claim_strategy=["方法独权"],
+                description_strategy=["补充实施例"],
+                risk_controls=["避免功能性概括"],
+                agent_consensus="测试会审通过。",
+            ),
+            events=["test deliberation completed"],
+        )
+    )
+
+
+def _strict_deliberation_stages() -> list[DeliberationStageResult]:
+    return [
+        *[
+            DeliberationStageResult(
+                phase="opening",
+                provider_id=provider,
+                label=f"opening {provider}",
+                payload={"stance": "ok"},
+                status="completed",
+            )
+            for provider in ["codex", "gemini", "claude"]
+        ],
+        *[
+            DeliberationStageResult(
+                phase="pair",
+                provider_id="codex",
+                label=label,
+                payload={"resolved_recommendation": "ok"},
+                status="completed",
+            )
+            for label in ["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"]
+        ],
+        DeliberationStageResult(
+            phase="chair",
+            provider_id="codex",
+            label="chair synthesis",
+            payload={"summary": "ok"},
+            status="completed",
+        ),
+    ]

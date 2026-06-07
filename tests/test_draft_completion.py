@@ -128,8 +128,8 @@ def test_completion_engine_finds_support_gaps_and_patch_suggestions():
     patch_text = "\n".join(patch.after_text for patch in run.patches)
     assert "claim_support_gap" in categories
     assert "format_pollution" in categories
-    assert "BillTraceRecord" in task_outputs
-    assert "IfcRelVoidsElement" in patch_text
+    assert "权利要求特征" in task_outputs
+    assert "伪代码" in patch_text
     assert run.support_matrix[0].completion_status == "partial"
     assert run.scorecard.support_strength < 70
 
@@ -293,3 +293,56 @@ def test_completion_support_matrix_does_not_apply_unrelated_formula_globally():
     assert row.description_refs
     assert row.formula_refs == []
     assert row.completion_status == "partial"
+
+
+def test_completion_scorecard_uses_generic_examiner_rules_instead_of_domain_keywords():
+    ifc_package = _completion_package().model_copy(
+        update={
+            "claims": (
+                "1. 一种数据处理方法，其特征在于，包括接收输入数据、"
+                "生成IfcRelVoidsElement记录并输出处理结果。"
+            ),
+            "description": (
+                "本实施例接收输入数据。针对生成IfcRelVoidsElement记录，系统执行伪代码："
+                "步骤S1获取输入数据，步骤S2生成中间状态记录，步骤S3输出处理结果。"
+                "所述中间状态记录为数据结构，包括input_data和output_result字段。"
+            ),
+        }
+    )
+    neutral_package = _completion_package().model_copy(
+        update={
+            "title": "一种数据处理与结果回链方法",
+            "claims": (
+                "1. 一种数据处理方法，其特征在于，包括接收输入数据、"
+                "生成对象关系记录并输出处理结果。"
+            ),
+            "description": (
+                "本实施例接收输入数据。针对生成对象关系记录，系统执行伪代码："
+                "步骤S1获取输入数据，步骤S2生成中间状态记录，步骤S3输出处理结果。"
+                "所述中间状态记录为数据结构，包括input_data和output_result字段。"
+            ),
+        }
+    )
+
+    ifc_run = run_draft_completion(
+        project_id="project-ifc",
+        package=ifc_package,
+        filing_reports=[],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[],
+        materials=[],
+    )
+    neutral_run = run_draft_completion(
+        project_id="project-neutral",
+        package=neutral_package,
+        filing_reports=[],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[],
+        materials=[],
+    )
+
+    assert ifc_run.scorecard.protection_scope == neutral_run.scorecard.protection_scope
+    assert ifc_run.scorecard.prior_art_distinction == neutral_run.scorecard.prior_art_distinction
+    assert ifc_run.scorecard.overall == neutral_run.scorecard.overall

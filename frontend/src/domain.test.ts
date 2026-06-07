@@ -81,14 +81,36 @@ describe("patent moat helpers", () => {
 });
 
 describe("latestCompletedDeliberation", () => {
-  it("returns the first completed deliberation run", async () => {
+  it("returns the first strict completed deliberation run", async () => {
     const { latestCompletedDeliberation } = await import("./domain");
-    expect(
-      latestCompletedDeliberation([
+    const result = latestCompletedDeliberation([
         { id: "running", status: "running" },
-        { id: "completed", status: "completed" },
-      ]),
-    ).toEqual({ id: "completed", status: "completed" });
+        { id: "failed", status: "failed" },
+        { id: "partial", status: "completed", providers: ["codex"], failures: [], stage_results: [], strategy_brief: {} },
+        {
+          id: "completed",
+          status: "completed",
+          providers: ["codex", "gemini", "claude"],
+          failures: [],
+          strategy_brief: {},
+          stage_results: [
+            ...["codex", "gemini", "claude"].map((provider) => ({
+              phase: "opening",
+              provider_id: provider,
+              label: `opening ${provider}`,
+              status: "completed",
+            })),
+            ...["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"].map((label) => ({
+              phase: "pair",
+              provider_id: "codex",
+              label,
+              status: "completed",
+            })),
+            { phase: "chair", provider_id: "codex", label: "chair synthesis", status: "completed" },
+          ],
+        },
+      ]);
+    expect(result?.id).toBe("completed");
   });
 });
 

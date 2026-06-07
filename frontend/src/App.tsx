@@ -30,6 +30,8 @@ import {
   DraftPackage,
   EvidenceStatus,
   FilingReadinessReport,
+  FormulaNeedAssessment,
+  FormulaRun,
   Health,
   PatentPointCandidate,
   PatentPointCreatePayload,
@@ -47,15 +49,18 @@ import {
   createFilingReadinessReport,
   createProject,
   createProjectPatentPoint,
+  deleteProject,
   deleteProjectPatentPoint,
   disclosureExportUrl,
   draftCompletionReportUrl,
   exportUrl,
   filingReadinessReportUrl,
   generateProject,
+  getFormulaRequirement,
   getAgentDoctor,
   getCorpusStats,
   getHealth,
+  improveProjectScore,
   importPatent,
   listClaimDefenseWorksheets,
   listCorpus,
@@ -64,6 +69,7 @@ import {
   listFilingReadinessReports,
   listProjectDisclosures,
   listProjectDeliberations,
+  listFormulaRuns,
   listProjectMaterials,
   listProjectPatentPoints,
   listProjects,
@@ -74,6 +80,7 @@ import {
   searchCorpus,
   startProjectDisclosure,
   startProjectDeliberation,
+  startFormulaRun,
   updateProjectPatentPoint,
   uploadCorpusJobFile,
   uploadProjectMaterial,
@@ -94,8 +101,10 @@ import {
 import {
   defaultExpertToolId,
   defaultMainSectionId,
+  buildPatentPointSelectionPayloads,
   expertToolGroups,
   guidedBusyLabel,
+  guidedOperationLog,
   mainSections,
   type ExpertToolId,
   type MainSectionId,
@@ -120,6 +129,11 @@ type CorpusJobForm = {
   version_name: string;
 };
 
+type BusyTimer = {
+  elapsedSeconds: number;
+  startedAt: number | null;
+};
+
 function App() {
   const [activeSection, setActiveSection] = useState<MainSectionId>(defaultMainSectionId);
   const [activeExpertTool, setActiveExpertTool] = useState<ExpertToolId>(defaultExpertToolId);
@@ -141,6 +155,8 @@ function App() {
   const [projectMaterials, setProjectMaterials] = useState<ProjectMaterial[]>([]);
   const [disclosureRuns, setDisclosureRuns] = useState<DisclosureRun[]>([]);
   const [patentPoints, setPatentPoints] = useState<PatentPointCandidate[]>([]);
+  const [formulaRequirement, setFormulaRequirement] = useState<FormulaNeedAssessment | null>(null);
+  const [formulaRuns, setFormulaRuns] = useState<FormulaRun[]>([]);
   const [filingReports, setFilingReports] = useState<FilingReadinessReport[]>([]);
   const [worksheets, setWorksheets] = useState<ClaimDefenseWorksheet[]>([]);
   const [completionRuns, setCompletionRuns] = useState<DraftCompletionRun[]>([]);
@@ -155,6 +171,7 @@ function App() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const selectedProjectIdRef = useRef("");
+  const busyTimer = useBusyTimer(busy);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -163,6 +180,7 @@ function App() {
   const currentPackage: DraftPackage | null = selectedProject?.package ?? null;
   const currentDeliberation = latestCompletedDeliberation(deliberationRuns);
   const currentDisclosure = latestCompletedDisclosure(disclosureRuns);
+  const currentFormulaRun = formulaRuns.find((run) => run.status === "completed" && run.package) ?? null;
   const visiblePatentPoints = patentPointsProjectId === selectedProject?.id ? patentPoints : [];
   const latestFilingReport = filingReports[0] ?? null;
   const latestWorksheet = worksheets[0] ?? null;
@@ -182,6 +200,7 @@ function App() {
       void loadDeliberations(selectedProject.id);
       void loadMaterials(selectedProject.id);
       void loadDisclosures(selectedProject.id);
+      void loadFormulaState(selectedProject.id);
       setPatentPoints([]);
       setPatentPointsProjectId("");
       setFilingReports([]);
@@ -195,6 +214,8 @@ function App() {
       setDeliberationRuns([]);
       setProjectMaterials([]);
       setDisclosureRuns([]);
+      setFormulaRequirement(null);
+      setFormulaRuns([]);
       setPatentPoints([]);
       setFilingReports([]);
       setWorksheets([]);
@@ -206,15 +227,17 @@ function App() {
   useEffect(() => {
     const deliberating = deliberationRuns.some((run) => run.status === "queued" || run.status === "running");
     const disclosing = disclosureRuns.some((run) => run.status === "queued" || run.status === "running");
-    if (!selectedProject?.id || (!deliberating && !disclosing)) {
+    const formulaRunning = formulaRuns.some((run) => run.status === "queued" || run.status === "running");
+    if (!selectedProject?.id || (!deliberating && !disclosing && !formulaRunning)) {
       return;
     }
     const timer = window.setInterval(() => {
       void loadDeliberations(selectedProject.id);
       void loadDisclosures(selectedProject.id);
+      void loadFormulaState(selectedProject.id);
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [selectedProject?.id, deliberationRuns, disclosureRuns]);
+  }, [selectedProject?.id, deliberationRuns, disclosureRuns, formulaRuns]);
 
   async function refreshAll() {
     await withStatus("refresh", async () => {
@@ -277,6 +300,24 @@ function App() {
     } catch {
       if (selectedProjectIdRef.current === projectId) {
         setDisclosureRuns([]);
+      }
+      return false;
+    }
+  }
+
+  async function loadFormulaState(projectId: string): Promise<boolean> {
+    try {
+      const [requirement, runs] = await Promise.all([getFormulaRequirement(projectId), listFormulaRuns(projectId)]);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setFormulaRequirement(requirement);
+      setFormulaRuns(runs);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setFormulaRequirement(null);
+        setFormulaRuns([]);
       }
       return false;
     }
@@ -488,7 +529,19 @@ function App() {
       const run = await startProjectDeliberation(projectId, trace);
       const stillSelected = await loadDeliberations(projectId);
       if (!stillSelected) return;
+      await loadFormulaState(projectId);
       setMessage(`会审已${run.status === "completed" ? "完成" : "启动"}：${run.run_mode}`);
+    });
+  }
+
+  async function handleStartFormula() {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("formula", async () => {
+      const run = await startFormulaRun(projectId);
+      const stillSelected = await loadFormulaState(projectId);
+      if (!stillSelected) return;
+      setMessage(`核心公式已${run.status === "completed" ? "完成" : "启动"}：${run.status}`);
     });
   }
 
@@ -496,7 +549,7 @@ function App() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     await withStatus("generate", async () => {
-      await generateProject(projectId, currentDeliberation?.id ?? null);
+      await generateProject(projectId, currentDeliberation?.id ?? null, currentFormulaRun?.id ?? null);
       const nextProjects = await listProjects();
       if (selectedProjectIdRef.current !== projectId) return;
       setProjects(nextProjects);
@@ -545,6 +598,22 @@ function App() {
       setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== worksheet.id)]);
       setCompletionRuns((current) => [completion, ...current.filter((item) => item.id !== completion.id)]);
       setMessage(`质量检查完成：整体评分 ${completion.scorecard.overall}/100`);
+    });
+  }
+
+  async function handleImproveScore() {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("score-improve", async () => {
+      const result = await improveProjectScore(projectId, { max_rounds: 1 });
+      const nextProjects = await listProjects();
+      if (selectedProjectIdRef.current !== projectId) return;
+      setProjects(nextProjects);
+      setSelectedProjectId(projectId);
+      await Promise.all([loadFilingReports(projectId), loadWorksheets(projectId), loadCompletionRuns(projectId)]);
+      setMessage(
+        `一键提升完成：${result.before_score}/100 -> ${result.after_score}/100，应用 ${result.accepted_patch_ids.length} 条补强`,
+      );
     });
   }
 
@@ -598,34 +667,26 @@ function App() {
     return succeeded;
   }
 
-  async function handleSelectPatentPoint(point: PatentPointCandidate) {
+  async function handleSelectPatentPoint(point: PatentPointCandidate, candidatePool: PatentPointCandidate[] = []) {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     await withStatus("patent-point-select", async () => {
-      const alreadySaved = visiblePatentPoints.some((candidate) => candidate.id === point.id);
-      if (alreadySaved) {
-        await updateProjectPatentPoint(projectId, point.id, { selected: true });
-      } else {
-        await createProjectPatentPoint(projectId, {
-          title: point.title,
-          technical_problem: point.technical_problem,
-          innovation: point.innovation,
-          technical_solution: point.technical_solution,
-          beneficial_effects: point.beneficial_effects,
-          protection_focus: point.protection_focus,
-          evidence_status: point.evidence_status,
-          source_type: point.source_type,
-          feasibility_basis: point.feasibility_basis,
-          support_gaps: point.support_gaps,
-          experiment_needed: point.experiment_needed,
-          moat_scores: point.moat_scores,
-          selected: true,
-          rationale: point.rationale,
-        });
+      const payloads = buildPatentPointSelectionPayloads(point, candidatePool.length ? candidatePool : [point]);
+      const existingById = new Map(visiblePatentPoints.map((candidate) => [candidate.id, candidate]));
+      for (const entry of payloads) {
+        const existing = existingById.get(entry.candidateId);
+        if (existing) {
+          if (existing.selected !== entry.payload.selected) {
+            await updateProjectPatentPoint(projectId, entry.candidateId, { selected: entry.payload.selected });
+          }
+          continue;
+        }
+        await createProjectPatentPoint(projectId, entry.payload);
       }
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
-      setMessage(`已选择专利点：${point.title}`);
+      const backupCount = Math.max(0, payloads.length - 1);
+      setMessage(`已选择主路线：${point.title}${backupCount ? `；已保存 ${backupCount} 条后备路线` : ""}`);
     });
   }
 
@@ -637,6 +698,23 @@ function App() {
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
       setMessage(`已删除专利点：${point.title}`);
+    });
+  }
+
+  async function handleDeleteProject(project: ProjectRecord) {
+    if (!window.confirm(`确认删除项目“${project.name}”？该项目的运行记录和专利点也会删除。`)) {
+      return;
+    }
+    await withStatus("project-delete", async () => {
+      await deleteProject(project.id);
+      const nextProjects = await listProjects();
+      setProjects(nextProjects);
+      if (selectedProjectIdRef.current === project.id) {
+        setSelectedProjectId(nextProjects[0]?.id ?? "");
+      } else if (!nextProjects.some((item) => item.id === selectedProjectIdRef.current)) {
+        setSelectedProjectId("");
+      }
+      setMessage(`已删除项目：${project.name}`);
     });
   }
 
@@ -716,6 +794,8 @@ function App() {
             project={selectedProject}
             deliberation={currentDeliberation}
             disclosure={currentDisclosure}
+            formulaRequirement={formulaRequirement}
+            formulaRun={currentFormulaRun}
             busy={busy}
             onGenerate={handleGenerate}
           />
@@ -748,6 +828,7 @@ function App() {
             runs={completionRuns}
             busy={busy}
             onRun={handleRunDraftCompletion}
+            onImprove={handleImproveScore}
             onPatch={handleCompletionPatch}
           />
         );
@@ -824,6 +905,7 @@ function App() {
           <div className={error ? "notice error" : "notice"}>
             {busy && <Loader2 className="spin" size={16} />}
             <span>{error || message || guidedBusyLabel(busy) || "处理中"}</span>
+            {!error && busy && <BusyOperationConsole log={guidedOperationLog(busy, busyTimer.elapsedSeconds)} />}
           </div>
         )}
 
@@ -832,17 +914,24 @@ function App() {
             project={selectedProject}
             materials={projectMaterials}
             disclosures={disclosureRuns}
+            deliberations={deliberationRuns}
             patentPoints={visiblePatentPoints}
+            formulaRequirement={formulaRequirement}
+            formulaRuns={formulaRuns}
             filingReports={filingReports}
             worksheets={worksheets}
             completionRuns={completionRuns}
             busy={busy}
+            busyElapsedSeconds={busyTimer.elapsedSeconds}
             onCreateIdeaProject={handleCreateIdeaProject}
             onUploadMaterial={handleUploadMaterial}
             onStartDisclosure={() => void handleStartDisclosure(false)}
-            onSelectPatentPoint={(point) => void handleSelectPatentPoint(point)}
+            onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
+            onStartDeliberation={() => void handleStartDeliberation(false)}
+            onStartFormula={() => void handleStartFormula()}
             onGenerateDraft={() => void handleGenerate()}
             onRunQualityChecks={() => void handleRunGuidedQualityChecks()}
+            onImproveScore={() => void handleImproveScore()}
             onAcceptPatch={(runId, patchId) => void handleCompletionPatch(runId, patchId, "accept")}
             onOpenExpertTool={openExpertTool}
           />
@@ -852,6 +941,8 @@ function App() {
             projects={projects}
             selectedProjectId={selectedProject?.id ?? ""}
             onSelect={setSelectedProjectId}
+            onDelete={(project) => void handleDeleteProject(project)}
+            busy={busy}
           />
         )}
         {activeSection === "expert" && (
@@ -862,6 +953,37 @@ function App() {
         )}
       </section>
     </main>
+  );
+}
+
+function useBusyTimer(busy: string): BusyTimer {
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!busy) {
+      setStartedAt(null);
+      return;
+    }
+    const nextStartedAt = Date.now();
+    setStartedAt(nextStartedAt);
+    setNow(nextStartedAt);
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [busy]);
+
+  return {
+    elapsedSeconds: startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0,
+    startedAt,
+  };
+}
+
+function BusyOperationConsole({ log }: { log: ReturnType<typeof guidedOperationLog> }) {
+  if (!log) return null;
+  return (
+    <div className="busy-console" role="status" aria-label={log.label}>
+      <pre>{log.lines.join("\n")}</pre>
+    </div>
   );
 }
 
@@ -1435,6 +1557,41 @@ function DeliberationView({
                 </div>
                 <p>{run.providers.join(" / ")}</p>
                 <p>{run.events.at(-1) ?? "暂无事件"}</p>
+                <div className="result-meta">
+                  <span>{run.stage_results.length} 阶段</span>
+                  <span>{run.failures.length} 失败</span>
+                  <span>{run.logs.length} 日志</span>
+                </div>
+                {run.failures.length > 0 && (
+                  <div className="finding-list compact">
+                    {run.failures.map((failure) => (
+                      <article className="finding high" key={`${run.id}-${failure.phase}-${failure.provider_id}`}>
+                        <span>{failure.phase}</span>
+                        <div>
+                          <strong>{failure.provider_id} / {failure.reason}</strong>
+                          <p>{failure.message}</p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                {run.logs.length > 0 && (
+                  <div className="log-table">
+                    {run.logs.slice(-6).map((log, index) => (
+                      <article className={`log-row ${log.level}`} key={`${run.id}-log-${index}`}>
+                        <div className="result-meta">
+                          <span>{log.level}</span>
+                          <span>{log.phase || "phase"}</span>
+                          <span>{log.provider_id || "system"}</span>
+                          {log.attempt != null && <span>attempt {log.attempt}</span>}
+                        </div>
+                        <p>{log.message}</p>
+                        {log.detail && <p>{log.detail}</p>}
+                        {log.repair_suggestion && <p><strong>修复建议：</strong>{log.repair_suggestion}</p>}
+                      </article>
+                    ))}
+                  </div>
+                )}
               </article>
             ))}
             {runs.length === 0 && <p className="empty">暂无会审记录</p>}
@@ -1586,10 +1743,14 @@ function ProjectsOverview({
   projects,
   selectedProjectId,
   onSelect,
+  onDelete,
+  busy,
 }: {
   projects: ProjectRecord[];
   selectedProjectId: string;
   onSelect: (id: string) => void;
+  onDelete: (project: ProjectRecord) => void;
+  busy: string;
 }) {
   return (
     <section className="panel wide">
@@ -1615,14 +1776,26 @@ function ProjectsOverview({
                   <dd>{formatProjectDate(metadata.updated_at)}</dd>
                 </div>
               </dl>
-              <button
-                className={isSelected ? "icon-button selected-project-button" : "primary"}
-                disabled={isSelected}
-                onClick={() => onSelect(project.id)}
-                type="button"
-              >
-                {isSelected ? "当前项目" : "选择项目"}
-              </button>
+              <div className="button-row project-actions">
+                <button
+                  className={isSelected ? "icon-button selected-project-button" : "primary"}
+                  disabled={isSelected}
+                  onClick={() => onSelect(project.id)}
+                  type="button"
+                >
+                  {isSelected ? "当前项目" : "选择项目"}
+                </button>
+                <button
+                  className="icon-button danger"
+                  disabled={busy === "project-delete"}
+                  onClick={() => onDelete(project)}
+                  type="button"
+                  title="删除项目"
+                >
+                  <Trash2 size={17} />
+                  <span>删除项目</span>
+                </button>
+              </div>
             </article>
           );
         })}
@@ -1767,15 +1940,20 @@ function WriteView({
   project,
   deliberation,
   disclosure,
+  formulaRequirement,
+  formulaRun,
   busy,
   onGenerate,
 }: {
   project: ProjectRecord | null;
   deliberation: DeliberationRun | null;
   disclosure: DisclosureRun | null;
+  formulaRequirement: FormulaNeedAssessment | null;
+  formulaRun: FormulaRun | null;
   busy: string;
   onGenerate: () => void;
 }) {
+  const formulaReady = !formulaRequirement?.required || Boolean(formulaRun?.package);
   return (
     <div className="stack">
       <section className="panel action-band">
@@ -1788,8 +1966,9 @@ function WriteView({
               : "未完成多 Agent 会审，仍可直接生成。"}
           </p>
           <p>{disclosure ? `将注入前置交底书 run：${disclosure.id}` : "未完成前置交底书，仍可直接生成。"}</p>
+          <p>{formulaRun ? `将注入核心公式 run：${formulaRun.id}` : formulaRequirement?.required ? "核心公式包未完成，暂不能生成。" : "无需核心公式包。"}</p>
         </div>
-        <button className="primary" disabled={!project || busy === "generate"} onClick={onGenerate} type="button">
+        <button className="primary" disabled={!project || !deliberation || !formulaReady || busy === "generate"} onClick={onGenerate} type="button">
           <Wand2 size={18} />
           <span>生成</span>
         </button>
@@ -2151,6 +2330,7 @@ function DraftCompletionView({
   runs,
   busy,
   onRun,
+  onImprove,
   onPatch,
 }: {
   project: ProjectRecord | null;
@@ -2158,6 +2338,7 @@ function DraftCompletionView({
   runs: DraftCompletionRun[];
   busy: string;
   onRun: () => void;
+  onImprove: () => void;
   onPatch: (runId: string, patchId: string, action: "accept" | "reject") => void;
 }) {
   const scoreItems: Array<[string, number]> = run
@@ -2204,15 +2385,26 @@ function DraftCompletionView({
             Warning mode：发现缺口、生成任务和候选补丁，但不把风险判断包装成已验证事实；补丁需人工接受后才进入完善结果。
           </p>
         </div>
-        <button
-          className="primary"
-          disabled={!project?.package || Boolean(busy)}
-          onClick={onRun}
-          type="button"
-        >
-          <Gauge size={18} />
-          <span>运行完善</span>
-        </button>
+        <div className="button-row">
+          <button
+            className="primary"
+            disabled={!project?.package || Boolean(busy)}
+            onClick={onRun}
+            type="button"
+          >
+            <Gauge size={18} />
+            <span>运行完善</span>
+          </button>
+          <button
+            className="primary"
+            disabled={!project?.package || Boolean(busy)}
+            onClick={onImprove}
+            type="button"
+          >
+            <Wand2 size={18} />
+            <span>一键提升分数</span>
+          </button>
+        </div>
       </section>
 
       <section className="panel">

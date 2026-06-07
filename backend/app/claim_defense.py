@@ -15,7 +15,7 @@ from backend.app.schemas import (
 )
 
 
-COMBO_MARKERS = ("IFC", "Ifc", "工程量", "回链", "闭环", "增量", "置信度", "拓扑")
+COMBO_MARKERS = ("关系", "映射", "矩阵", "记录", "闭环", "回链", "增量", "置信度", "阈值", "规则", "状态", "任务", "证据")
 VALID_CLASSIFICATIONS = {
     "known_base",
     "differentiator",
@@ -294,7 +294,7 @@ def _risk_tags(text: str) -> list[str]:
     if "置信度" in text or "增量" in text:
         tags.append("效果支撑")
     if "回链" in text or "闭环" in text:
-        tags.append("单点核心规避")
+        tags.append("规避设计关注")
     return tags
 
 
@@ -312,7 +312,7 @@ def _defense_recommendations(feature_records: list[FeatureRecord]) -> list[str]:
     has_support_needed = any(record.classification == "support_needed" for record in feature_records)
     if has_core or has_support_needed:
         return [
-            "独立权利要求应围绕组合特征组织，优先覆盖可核验的拓扑、回链、闭环或增量校验关系。",
+            "独立权利要求应围绕组合特征组织，优先覆盖可核验的输入、处理规则、状态更新和输出关系。",
             "避免将单一功能点作为唯一发明核心，应保留从属权利要求作为退守层级。",
         ]
     return ["需补充披露材料或现有技术差异说明后，再形成权利要求防线。"]

@@ -3,7 +3,16 @@ from __future__ import annotations
 import json
 
 from backend.app.llm import LLMClient
-from backend.app.schemas import Citation, DisclosurePackage, DraftPackage, InventionBrief, PatentChunk, PatentStrategyBrief, ReviewFinding
+from backend.app.schemas import (
+    Citation,
+    CoreFormulaPackage,
+    DisclosurePackage,
+    DraftPackage,
+    InventionBrief,
+    PatentChunk,
+    PatentStrategyBrief,
+    ReviewFinding,
+)
 
 
 class PatentDraftGenerator:
@@ -16,13 +25,15 @@ class PatentDraftGenerator:
         context_chunks: list[PatentChunk],
         strategy_brief: PatentStrategyBrief | None = None,
         disclosure: DisclosurePackage | None = None,
+        formula_package: CoreFormulaPackage | None = None,
     ) -> DraftPackage:
         context = _format_context(context_chunks)
         strategy_context = _format_strategy(strategy_brief)
         disclosure_context = _format_disclosure(disclosure)
-        claims = self.llm.complete_stage("claims", SYSTEM_PROMPT, _claims_prompt(brief, context, strategy_context, disclosure_context))
+        formula_context = _format_formula(formula_package)
+        claims = self.llm.complete_stage("claims", SYSTEM_PROMPT, _claims_prompt(brief, context, strategy_context, disclosure_context, formula_context))
         description = self.llm.complete_stage(
-            "description", SYSTEM_PROMPT, _description_prompt(brief, claims, context, strategy_context, disclosure_context)
+            "description", SYSTEM_PROMPT, _description_prompt(brief, claims, context, strategy_context, disclosure_context, formula_context)
         )
         abstract = self.llm.complete_stage("abstract", SYSTEM_PROMPT, _abstract_prompt(brief, claims, description))
         drawings = self.llm.complete_stage("drawings", SYSTEM_PROMPT, _drawings_prompt(brief, claims))
@@ -58,6 +69,7 @@ class PatentDraftGenerator:
             agent_consensus=strategy_brief.agent_consensus if strategy_brief else None,
             disclosure_summary=disclosure.summary if disclosure else None,
             patent_point_summary=disclosure.selected_candidate.title if disclosure and disclosure.selected_candidate else None,
+            core_formula_summary=formula_package.summary if formula_package else None,
         )
 
     def review(self, package: DraftPackage) -> list[ReviewFinding]:
@@ -120,7 +132,13 @@ def _format_disclosure(disclosure: DisclosurePackage | None) -> str:
     )
 
 
-def _claims_prompt(brief: InventionBrief, context: str, strategy_context: str, disclosure_context: str) -> str:
+def _format_formula(formula_package: CoreFormulaPackage | None) -> str:
+    if not formula_package:
+        return "无核心公式包。"
+    return formula_package.model_dump_json(ensure_ascii=False, indent=2)
+
+
+def _claims_prompt(brief: InventionBrief, context: str, strategy_context: str, disclosure_context: str, formula_context: str) -> str:
     return f"""
 请为以下技术方案撰写中国发明专利权利要求书。
 要求：
@@ -129,6 +147,7 @@ def _claims_prompt(brief: InventionBrief, context: str, strategy_context: str, d
 3. 从属权利要求限定关键步骤、模型、数据处理和输出；
 4. 对 evidence_status 为 feasible_unverified 或 needs_experiment 的方案，只能写成可选实施例、变形例、从属限定或待验证改进方向，不得写成已经完成验证的实施事实；
 5. 对用户指定专利点，要保留其保护意图，并用 support_gaps 指明提交前需补强的实验或工程材料。
+6. 如果存在核心公式包，独立权利要求或从属权利要求必须吸收 formula_blocks 的计算目标、变量关系和 claim_hooks，但不要把未验证效果写成已验证事实。
 
 技术交底：
 {brief.model_dump_json(ensure_ascii=False, indent=2)}
@@ -141,16 +160,20 @@ def _claims_prompt(brief: InventionBrief, context: str, strategy_context: str, d
 
 前置技术交底书：
 {disclosure_context}
+
+核心公式包：
+{formula_context}
 """
 
 
-def _description_prompt(brief: InventionBrief, claims: str, context: str, strategy_context: str, disclosure_context: str) -> str:
+def _description_prompt(brief: InventionBrief, claims: str, context: str, strategy_context: str, disclosure_context: str, formula_context: str) -> str:
     return f"""
 基于技术交底和权利要求，撰写说明书正文，必须包含技术领域、背景技术、发明内容、附图说明、具体实施方式。
 说明书要支撑每一项权利要求，不引入权利要求无法对应的核心特征。
 要求：
 1. 对 evidence_status 为 feasible_unverified 或 needs_experiment 的方案，只能写成可选实施例、变形例、从属限定或待验证改进方向，不得写成已经完成验证的实施事实；
 2. 对用户指定专利点，要保留其保护意图，并用 support_gaps 指明提交前需补强的实验或工程材料。
+3. 如果存在核心公式包，必须给出公式编号、变量定义、计算流程、权利要求落点和说明书插入建议。
 
 技术交底：
 {brief.model_dump_json(ensure_ascii=False, indent=2)}
@@ -166,6 +189,9 @@ def _description_prompt(brief: InventionBrief, claims: str, context: str, strate
 
 前置技术交底书：
 {disclosure_context}
+
+核心公式包：
+{formula_context}
 """
 
 

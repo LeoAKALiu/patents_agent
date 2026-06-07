@@ -384,6 +384,11 @@ textarea {
   font-size: 13px;
 }
 
+.project-actions {
+  width: 100%;
+  justify-content: space-between;
+}
+
 .project-meta {
   display: grid;
   gap: 6px;
@@ -650,6 +655,12 @@ textarea {
   box-shadow: 0 10px 22px rgba(32, 57, 60, 0.08);
 }
 
+.icon-button.danger {
+  color: var(--danger);
+  border-color: rgba(163, 58, 47, 0.26);
+  background: rgba(255, 240, 237, 0.68);
+}
+
 .icon-button.ghost {
   border: 1px solid rgba(255, 255, 255, 0.24);
   color: #f8ffff;
@@ -672,6 +683,7 @@ textarea {
 .notice {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-height: 42px;
   padding: 0 14px;
@@ -686,6 +698,47 @@ textarea {
   background: rgba(255, 240, 237, 0.84);
   color: var(--danger);
   border-color: rgba(240, 194, 186, 0.72);
+}
+
+.busy-console,
+.inline-console {
+  display: grid;
+  gap: 7px;
+}
+
+.busy-console {
+  flex: 1 1 100%;
+  min-width: 220px;
+  margin: 0 0 10px 24px;
+}
+
+.inline-console {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(10, 22, 28, 0.92);
+  color: #d8f7e5;
+  padding: 10px 12px;
+}
+
+.console-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.busy-console pre,
+.inline-console pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.busy-console pre {
+  color: var(--ink-soft);
 }
 
 .spin {
@@ -703,6 +756,40 @@ textarea {
 .finding-list {
   display: grid;
   gap: 10px;
+}
+
+.finding-list.compact {
+  gap: 8px;
+}
+
+.log-table {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.log-row {
+  border: 1px solid var(--line);
+  border-left: 4px solid #7a8b8c;
+  border-radius: var(--radius-md);
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.log-row.error {
+  border-left-color: #b42318;
+}
+
+.log-row.warn {
+  border-left-color: #b7791f;
+}
+
+.log-row.info {
+  border-left-color: #1b6b75;
+}
+
+.log-row p {
+  margin: 4px 0 0;
 }
 
 .row-item,

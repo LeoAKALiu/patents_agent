@@ -93,6 +93,8 @@ export interface DraftPackage {
   disclosure_run_id?: string | null;
   disclosure_summary?: string | null;
   patent_point_summary?: string | null;
+  formula_run_id?: string | null;
+  core_formula_summary?: string | null;
 }
 
 export type FilingReadinessStatus = "clean" | "warning" | "high_risk";
@@ -224,11 +226,23 @@ export interface DraftCompletionRun {
   created_at: string;
 }
 
+export interface ScoreImprovementResult {
+  project_id: string;
+  before_score: number;
+  after_score: number;
+  accepted_patch_ids: string[];
+  before_run: DraftCompletionRun;
+  after_run: DraftCompletionRun;
+  logs: string[];
+}
+
 export interface ProjectRecord {
   id: string;
   name: string;
   draft_text: string;
   package: DraftPackage | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ProjectMaterial {
@@ -264,6 +278,7 @@ export interface PatentPointCandidate {
 }
 
 export interface PatentPointCreatePayload {
+  source_candidate_id?: string | null;
   title: string;
   technical_problem: string;
   innovation: string;
@@ -276,6 +291,7 @@ export interface PatentPointCreatePayload {
   support_gaps: string[];
   experiment_needed: string[];
   moat_scores: MoatScores;
+  claim_chart?: ClaimChartItem[];
   selected: boolean;
   rationale: string;
 }
@@ -378,6 +394,62 @@ export interface DeliberationRun {
     message: string;
   }>;
   events: string[];
+  logs: DeliberationLogEntry[];
+}
+
+export interface DeliberationLogEntry {
+  level: "info" | "warn" | "error";
+  phase: string;
+  provider_id: string;
+  attempt?: number | null;
+  message: string;
+  detail: string;
+  repair_suggestion: string;
+  elapsed_ms?: number | null;
+  created_at: string;
+}
+
+export interface FormulaNeedAssessment {
+  required: boolean;
+  signals: string[];
+  reasons: string[];
+}
+
+export interface FormulaBlock {
+  id: string;
+  name: string;
+  latex: string;
+  purpose: string;
+  claim_hook: string;
+}
+
+export interface FormulaVariableDefinition {
+  symbol: string;
+  meaning: string;
+  unit: string;
+}
+
+export interface CoreFormulaPackage {
+  summary: string;
+  formula_blocks: FormulaBlock[];
+  variable_definitions: FormulaVariableDefinition[];
+  derivation_notes: string[];
+  claim_hooks: string[];
+  description_insert: string;
+  latex_markdown: string;
+  generation_logs: string[];
+}
+
+export interface FormulaRun {
+  id: string;
+  project_id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  requirement: FormulaNeedAssessment;
+  package: CoreFormulaPackage | null;
+  failures: string[];
+  events: string[];
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CorpusQualityReport {
@@ -522,6 +594,10 @@ export async function createProject(name: string, draftText: string): Promise<Pr
   });
 }
 
+export async function deleteProject(projectId: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/api/projects/${projectId}`, { method: "DELETE" });
+}
+
 export async function uploadProjectMaterial(projectId: string, file: File): Promise<ProjectMaterial> {
   const form = new FormData();
   form.append("file", file);
@@ -579,11 +655,11 @@ export async function listProjectDisclosures(projectId: string): Promise<Disclos
   return data.runs;
 }
 
-export async function generateProject(projectId: string, deliberationRunId?: string | null): Promise<DraftPackage> {
+export async function generateProject(projectId: string, deliberationRunId?: string | null, formulaRunId?: string | null): Promise<DraftPackage> {
   return request<DraftPackage>(`/api/projects/${projectId}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ deliberation_run_id: deliberationRunId ?? null }),
+    body: JSON.stringify({ deliberation_run_id: deliberationRunId ?? null, formula_run_id: formulaRunId ?? null }),
   });
 }
 
@@ -652,9 +728,37 @@ export async function rejectCompletionPatch(
   });
 }
 
+export async function improveProjectScore(
+  projectId: string,
+  payload: { max_rounds?: number; target_score?: number } = {},
+): Promise<ScoreImprovementResult> {
+  return request<ScoreImprovementResult>(`/api/projects/${projectId}/score-improvement`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function listProjectDeliberations(projectId: string): Promise<DeliberationRun[]> {
   const data = await request<{ runs: DeliberationRun[] }>(`/api/projects/${projectId}/deliberations`);
   return data.runs;
+}
+
+export async function getFormulaRequirement(projectId: string): Promise<FormulaNeedAssessment> {
+  return request<FormulaNeedAssessment>(`/api/projects/${projectId}/formula-requirement`);
+}
+
+export async function startFormulaRun(projectId: string): Promise<FormulaRun> {
+  return request<FormulaRun>(`/api/projects/${projectId}/formula-runs`, { method: "POST" });
+}
+
+export async function listFormulaRuns(projectId: string): Promise<FormulaRun[]> {
+  const data = await request<{ runs: FormulaRun[] }>(`/api/projects/${projectId}/formula-runs`);
+  return data.runs;
+}
+
+export function formulaMarkdownUrl(projectId: string, runId: string): string {
+  return `/api/projects/${projectId}/formula-runs/${runId}/latex.md`;
 }
 
 export async function startProjectDeliberation(projectId: string, trace = false): Promise<DeliberationRun> {

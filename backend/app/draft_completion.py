@@ -22,8 +22,10 @@ from backend.app.schemas import (
 )
 
 
-CORE_TERMS = ("IfcRelVoidsElement", "工程量清单回链", "BillTraceRecord", "GUID依赖图", "增量更新")
 SEVERITY_PENALTY = {"high": 12, "medium": 7, "low": 3}
+PROCEDURAL_VERBS = ("采集", "获取", "接收", "解析", "生成", "计算", "确定", "判断", "更新", "输出", "训练", "识别", "匹配", "调度", "校验")
+SUPPORT_DETAIL_MARKERS = ("数据结构", "字段", "参数", "伪代码", "步骤S", "算法", "公式", "矩阵", "阈值", "实施例")
+DISTINCTION_CLASSIFICATIONS = {"differentiator", "core_combo", "support_needed"}
 READINESS_TARGET_MAP = {
     "claims": "claim",
     "drawings": "drawing",
@@ -228,18 +230,12 @@ def _support_matrix(
             if _formula_relevant(record.text) and _has_formula_support(package.description)
             else []
         )
-        data_refs = (
-            ["description:BillTraceRecord"]
-            if _data_structure_relevant(record.text) and "BillTraceRecord" in package.description
-            else []
-        )
-        pseudo_refs = (
-            ["description:IFC pseudo-code"]
-            if _pseudo_ifc_relevant(record.text)
-            and "RelatingBuildingElement" in package.description
-            and "RelatedOpeningElement" in package.description
-            else []
-        )
+        data_refs = ["description:data-structure"] if _data_structure_relevant(record.text) and _has_data_support(
+            record.text, package.description
+        ) else []
+        pseudo_refs = ["description:pseudo-code"] if _pseudo_code_relevant(record.text) and _has_pseudo_support(
+            record.text, package.description
+        ) else []
         completion_status = _completion_status(description_refs, data_refs, pseudo_refs, formula_refs)
         rows.append(
             ClaimSupportMatrixRow(
@@ -299,43 +295,29 @@ def _specification_sufficiency_issues(
     package: DraftPackage,
     matrix: list[ClaimSupportMatrixRow],
 ) -> list[CompletionIssue]:
-    source_text = "\n".join([package.claims, *(row.feature_text for row in matrix)])
-    checks = [
-        (
-            "BillTraceRecord",
-            ("工程量清单回链" in source_text or "BillTraceRecord" in source_text)
-            and "BillTraceRecord" not in package.description,
-            "补充BillTraceRecord字段、字段含义和清单项回链示例。",
-        ),
-        (
-            "IfcRelVoidsElement",
-            "IfcRelVoidsElement" in source_text and "IfcRelVoidsElement" not in package.description,
-            "补充IfcWall、IfcOpeningElement、IfcRelVoidsElement的伪IFC关联片段。",
-        ),
-        (
-            "GUID依赖图",
-            "GUID依赖图" in source_text and "GUID依赖图" not in package.description,
-            "补充人工修正事件触发后的GUID依赖图遍历和局部重算算法。",
-        ),
-    ]
-
     issues: list[CompletionIssue] = []
-    for index, (term, missing, action) in enumerate(checks, start=1):
-        if not missing:
+    seen_terms: set[str] = set()
+    for row in matrix:
+        if row.completion_status != "missing":
             continue
-        issues.append(
-            CompletionIssue(
-                id=f"i-sufficiency-{index}",
-                category="specification_sufficiency_gap",
-                severity="high",
-                target="description",
-                source_refs=[f"term:{term}"],
-                message=f"核心术语 {term} 出现在权利要求或特征中，但说明书缺少具体实现。",
-                why_it_matters="核心组合特征需要工程化支撑，不能只停留在流程罗列。",
-                suggested_action=action,
-                blocks_submission=True,
+        for term in _candidate_core_terms(row.feature_text):
+            if term in seen_terms or term in package.description:
+                continue
+            seen_terms.add(term)
+            issues.append(
+                CompletionIssue(
+                    id=f"i-sufficiency-{len(issues) + 1}",
+                    category="specification_sufficiency_gap",
+                    severity="high" if row.feature_classification in {"core_combo", "support_needed"} else "medium",
+                    target="description",
+                    source_refs=[f"term:{term}"],
+                    message=f"权利要求中的技术术语“{term}”在说明书中缺少定义或实施方式。",
+                    why_it_matters="审查员会从清楚性、支持性和充分公开角度检查权利要求术语是否能在说明书中找到对应实现。",
+                    suggested_action=f"在说明书中补充“{term}”的含义、输入输出、处理步骤和可替代实施例。",
+                    blocks_submission=row.feature_classification in {"core_combo", "support_needed"},
+                )
             )
-        )
+            break
     return issues
 
 
@@ -384,12 +366,15 @@ def _tasks_from_issues(issues: list[CompletionIssue]) -> list[CompletionTask]:
 def _task_spec(issue: CompletionIssue) -> tuple[str, str, str]:
     if issue.category == "format_pollution":
         return "clean_official_text", "删除 Mermaid、prompt、Markdown 代码块和内部生成日志。", "export"
-    if issue.category == "specification_sufficiency_gap" and "BillTraceRecord" in issue.suggested_action:
-        return "add_data_structure", "BillTraceRecord 数据结构及字段解释。", "description"
-    if issue.category == "specification_sufficiency_gap" and "IfcWall" in issue.suggested_action:
-        return "add_pseudo_ifc", "IfcWall、IfcOpeningElement、IfcRelVoidsElement 伪IFC片段。", "description"
-    if issue.category == "specification_sufficiency_gap" and "GUID" in issue.suggested_action:
-        return "add_incremental_algorithm", "GUID依赖图遍历和受影响清单项局部重算伪代码。", "description"
+    if issue.category == "claim_support_gap":
+        feature = _feature_from_issue(issue)
+        return (
+            "add_claim_support",
+            f"补充权利要求特征“{feature}”的实施例、数据结构或伪代码支撑。",
+            "description",
+        )
+    if issue.category == "specification_sufficiency_gap":
+        return "add_term_definition", issue.suggested_action, "description"
     return "revise_draft_support", issue.suggested_action, issue.target
 
 
@@ -414,22 +399,19 @@ def _patches_from_tasks(tasks: list[CompletionTask]) -> list[ProposedPatch]:
 
 
 def _patch_text(task: CompletionTask) -> str:
-    if task.task_type == "add_data_structure":
+    if task.task_type == "add_claim_support":
+        feature = _quoted_feature(task.expected_output)
         return (
-            "在一个实施例中，工程量清单回链记录 BillTraceRecord 包括 item_id、formula_id、"
-            "ifc_guid_list、void_relation_guid_list、image_frame_ids、pixel_regions、"
-            "point_cloud_indices、confidence_score 和 update_version。"
+            f"在一个实施例中，针对权利要求特征“{feature}”，系统接收输入数据并形成中间状态记录，"
+            "所述中间状态记录包括 input_data、processing_rule、intermediate_state、output_result "
+            "和 confidence_record 字段。其伪代码包括：步骤S1，获取与该特征对应的输入数据；"
+            "步骤S2，根据预设处理规则生成中间状态；步骤S3，输出处理结果并记录结果与输入之间的对应关系。"
         )
-    if task.task_type == "add_pseudo_ifc":
+    if task.task_type == "add_term_definition":
+        feature = _quoted_feature(task.expected_output)
         return (
-            "在一个实施例中，墙体实体 IfcWall 通过 IfcRelVoidsElement.RelatingBuildingElement "
-            "关联至墙体GUID，并通过 IfcRelVoidsElement.RelatedOpeningElement 关联至 "
-            "IfcOpeningElement 的洞口GUID，以形成洞口扣减拓扑。"
-        )
-    if task.task_type == "add_incremental_algorithm":
-        return (
-            "在一个实施例中，人工修正事件记录被修改构件GUID，系统沿GUID依赖图查找受影响的"
-            "IfcRelVoidsElement和清单项，仅对受影响清单项执行局部重算并更新update_version。"
+            f"在一个实施例中，术语“{feature}”表示在权利要求技术方案中用于限定输入、处理过程、"
+            "输出结果或状态更新关系的技术单元；其具体含义以说明书中的数据结构、处理步骤和附图流程为准。"
         )
     if task.task_type == "clean_official_text":
         return "该项仅进入侧车报告：正式稿导出时删除内部痕迹、Mermaid、prompt和生成日志。"
@@ -445,14 +427,37 @@ def _scorecard(
     medium = sum(1 for issue in issues if issue.severity == "medium")
     support_missing = sum(1 for row in matrix if row.completion_status == "missing")
     support_partial = sum(1 for row in matrix if row.completion_status == "partial")
+    claim_count = _claim_count(package.claims)
+    category_count = _claim_category_count(package.claims)
+    procedural_count = _procedural_verb_count(package.claims)
+    differentiator_count = sum(1 for row in matrix if row.feature_classification in DISTINCTION_CLASSIFICATIONS)
+    prior_art_ref_count = sum(1 for row in matrix if row.prior_art_refs)
 
     support_strength = _clamp(100 - support_missing * 35 - support_partial * 15)
     official_hygiene = _clamp(
         100 - sum(SEVERITY_PENALTY[issue.severity] for issue in issues if issue.category in HYGIENE_CATEGORIES)
     )
-    authorization = _clamp(100 - high * 10 - medium * 5)
-    distinction = _clamp(85 if any(term in package.claims for term in CORE_TERMS) else 60)
-    protection = _clamp(78 if "工程量" in package.claims and "IFC" in package.claims.upper() else 62)
+    authorization = _clamp(
+        100
+        - high * 10
+        - medium * 5
+        - (12 if "其特征在于" not in package.claims else 0)
+        - (8 if claim_count <= 1 else 0)
+    )
+    protection = _clamp(
+        45
+        + min(claim_count, 10) * 4
+        + min(category_count, 4) * 5
+        + min(procedural_count, 8) * 2
+        - support_missing * 6
+        - support_partial * 2
+    )
+    distinction = _clamp(
+        55
+        + min(differentiator_count, 5) * 6
+        + min(prior_art_ref_count, 3) * 5
+        - sum(5 for issue in issues if issue.category == "prior_art_distinction_gap")
+    )
     maturity = _clamp((support_strength + official_hygiene + authorization) // 3)
     overall = _clamp((authorization + protection + support_strength + distinction + maturity + official_hygiene) // 6)
 
@@ -473,34 +478,114 @@ def _priority(issue: CompletionIssue) -> int:
 
 
 def _appears_in_description(feature: str, description: str) -> bool:
-    terms = [term for term in CORE_TERMS if term in feature]
-    if terms:
-        return any(term in description for term in terms)
-    return feature[:12] in description
+    for marker in _feature_markers(feature):
+        if marker in description:
+            return True
+        if len(marker) >= 5 and marker[:5] in description:
+            return True
+    return False
 
 
 def _has_formula_support(description: str) -> bool:
-    return any(symbol in description for symbol in ("=", "∑", "矩阵", "射线"))
+    return any(symbol in description for symbol in ("=", "∑", "Σ", "矩阵", "公式", "函数"))
 
 
 def _formula_relevant(feature: str) -> bool:
-    return any(term in feature for term in ("反投", "射线", "基面", "平面", "多视角", "相机"))
+    return any(term in feature for term in ("计算", "公式", "函数", "矩阵", "坐标", "向量", "投影", "阈值", "权重", "置信", "概率", "面积"))
 
 
 def _data_structure_relevant(feature: str) -> bool:
-    return any(term in feature for term in ("BillTraceRecord", "清单", "回链", "工程量"))
+    return any(term in feature for term in ("数据", "参数", "矩阵", "记录", "关系", "映射", "集合", "索引", "列表", "表", "状态", "结果"))
 
 
-def _pseudo_ifc_relevant(feature: str) -> bool:
-    return any(term in feature for term in ("Ifc", "IFC", "洞口", "扣减"))
+def _pseudo_code_relevant(feature: str) -> bool:
+    return any(term in feature for term in PROCEDURAL_VERBS)
+
+
+def _has_data_support(feature: str, description: str) -> bool:
+    if not _appears_in_description(feature, description):
+        return False
+    return any(term in description for term in ("数据结构", "字段", "参数", "记录", "映射", "索引", "集合", "状态记录"))
+
+
+def _has_pseudo_support(feature: str, description: str) -> bool:
+    if not _appears_in_description(feature, description):
+        return False
+    return any(term in description for term in ("伪代码", "步骤S", "算法", "执行如下", "处理规则"))
 
 
 def _evidence_status(feature: str, patent_points: list[PatentPointCandidate]) -> str:
+    markers = _feature_markers(feature)
     for point in patent_points:
         haystack = "\n".join([point.title, point.innovation, point.technical_solution])
-        if any(term in haystack for term in CORE_TERMS if term in feature):
+        if markers and any(marker in haystack for marker in markers):
             return point.evidence_status
     return "model_generated"
+
+
+def _feature_from_issue(issue: CompletionIssue) -> str:
+    marker = "权利要求特征缺少充分支撑："
+    if marker in issue.message:
+        return issue.message.split(marker, 1)[1].strip()
+    return issue.message.strip("。")[:80]
+
+
+def _quoted_feature(text: str) -> str:
+    if "“" in text and "”" in text:
+        return text.split("“", 1)[1].split("”", 1)[0]
+    return text[:80]
+
+
+def _feature_markers(feature: str) -> list[str]:
+    cleaned = feature.strip()
+    raw_parts = [
+        part.strip()
+        for part in __import__("re").split(r"[\s,，、；;。:：()（）]+|并|以及|和", cleaned)
+        if len(part.strip()) >= 3
+    ]
+    markers: list[str] = []
+    for part in raw_parts:
+        if part.startswith("一种") or part in {"其特征在于", "包括", "根据权利要求1所述的方法"}:
+            continue
+        markers.append(part)
+        normalized = _strip_leading_action(part)
+        if normalized and normalized != part and len(normalized) >= 3:
+            markers.append(normalized)
+    if len(cleaned) >= 6:
+        markers.append(cleaned[:12])
+    return list(dict.fromkeys(markers[:8]))
+
+
+def _strip_leading_action(text: str) -> str:
+    for verb in (*PROCEDURAL_VERBS, "建立", "基于"):
+        if text.startswith(verb) and len(text) > len(verb) + 2:
+            return text[len(verb):]
+    return text
+
+
+def _candidate_core_terms(feature: str) -> list[str]:
+    return [
+        marker
+        for marker in _feature_markers(feature)
+        if len(marker) >= 4 and not any(marker.startswith(prefix) for prefix in ("一种", "包括", "根据"))
+    ]
+
+
+def _claim_count(claims: str) -> int:
+    count = sum(1 for line in claims.splitlines() if __import__("re").match(r"^\s*\d+[.、．]", line))
+    return count or (1 if claims.strip() else 0)
+
+
+def _claim_category_count(claims: str) -> int:
+    categories = 0
+    for marker in ("方法", "系统", "装置", "设备", "存储介质"):
+        if marker in claims:
+            categories += 1
+    return categories
+
+
+def _procedural_verb_count(claims: str) -> int:
+    return sum(1 for verb in PROCEDURAL_VERBS if verb in claims)
 
 
 def _dedupe_issues(issues: list[CompletionIssue]) -> list[CompletionIssue]:

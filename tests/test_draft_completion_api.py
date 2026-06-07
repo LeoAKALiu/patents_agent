@@ -144,3 +144,45 @@ def test_completion_api_runs_lists_exports_and_updates_patch_status(tmp_path):
         task["id"] == rejected_patch["task_id"] and task["status"] == "rejected"
         for task in rejected_run["tasks"]
     )
+
+
+def test_score_improvement_applies_safe_patches_and_re_scores_project(tmp_path):
+    client = _client(tmp_path)
+    project = client.post(
+        "/api/projects",
+        json={
+            "name": "通用处理流程",
+            "draft_text": "一种输入数据处理方法，解决处理结果不可追溯的问题。",
+        },
+    ).json()
+    app = client.app
+    store = app.state.store
+    from backend.app.schemas import DraftPackage
+
+    store.update_project_package(
+        project["id"],
+        DraftPackage(
+            title="一种输入数据处理方法",
+            abstract="本发明公开一种输入数据处理方法。",
+            claims="1. 一种输入数据处理方法，其特征在于，包括接收输入数据、生成处理结果并输出控制指令。",
+            description="本实施例接收输入数据。",
+            drawing_description="图1为流程图。",
+            mermaid="flowchart TD\nA-->B",
+            image_prompt="prompt",
+            review_findings=[],
+            citations=[],
+            generation_logs=[],
+        ),
+    )
+
+    response = client.post(f"/api/projects/{project['id']}/score-improvement", json={"max_rounds": 1})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["before_score"] < payload["after_score"]
+    assert payload["accepted_patch_ids"]
+    assert any("重新评分" in line for line in payload["logs"])
+
+    updated_project = client.get(f"/api/projects/{project['id']}").json()
+    assert "生成处理结果" in updated_project["package"]["description"]
+    assert "伪代码" in updated_project["package"]["description"]

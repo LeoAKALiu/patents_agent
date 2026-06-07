@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Awaitable, Callable
+
+from backend.app.schemas import DeliberationLogEntry
 
 
 DEFAULT_TASK_TIMEOUT_MS = 180_000
@@ -37,6 +40,7 @@ class ProviderTaskResult:
 
 
 SpawnFunc = Callable[[str, list[str], Path, str, int], Awaitable[tuple[int, str, str]]]
+LogCallback = Callable[[DeliberationLogEntry], None]
 
 
 class AgentProviderRunner:
@@ -52,12 +56,32 @@ class AgentProviderRunner:
         label: str,
         trace: bool,
         task_timeout_ms: int = DEFAULT_TASK_TIMEOUT_MS,
+        log_callback: LogCallback | None = None,
     ) -> ProviderTaskResult:
+        workdir = workdir.resolve()
         last_failure: ProviderFailure | None = None
         for attempt in range(1, 3):
             command, args = build_provider_command(provider_id, workdir, attempt)
+            started_at = time.perf_counter()
+            _emit_log(
+                log_callback,
+                level="info",
+                provider_id=provider_id,
+                label=label,
+                attempt=attempt,
+                message="attempt started",
+                detail=f"{command} {' '.join(args[:4])}".strip(),
+            )
             try:
-                exit_code, stdout, stderr = await self.spawn_func(command, args, workdir, prompt, task_timeout_ms)
+                try:
+                    exit_code, stdout, stderr = await self.spawn_func(command, args, workdir, prompt, task_timeout_ms)
+                except OSError as exc:
+                    raise ProviderFailure(
+                        "provider_missing",
+                        f"{label} could not start {command}: {exc}",
+                        provider_id=provider_id,
+                        stderr=str(exc),
+                    ) from exc
                 if exit_code != 0:
                     raise ProviderFailure(
                         "process_error",
@@ -75,6 +99,16 @@ class AgentProviderRunner:
                         stderr=stderr,
                     )
                 payload = _extract_json_payload(stdout)
+                _emit_log(
+                    log_callback,
+                    level="info",
+                    provider_id=provider_id,
+                    label=label,
+                    attempt=attempt,
+                    message="attempt completed",
+                    detail=_trim(stdout or stderr),
+                    elapsed_ms=_elapsed_ms(started_at),
+                )
                 if trace:
                     _write_trace(workdir, provider_id, label, attempt, prompt, stdout, stderr, "ok")
                 return ProviderTaskResult(
@@ -85,7 +119,20 @@ class AgentProviderRunner:
                     attempts=attempt,
                 )
             except ProviderFailure as exc:
+                if not exc.provider_id:
+                    exc.provider_id = provider_id
                 last_failure = exc
+                _emit_log(
+                    log_callback,
+                    level="error",
+                    provider_id=provider_id,
+                    label=label,
+                    attempt=attempt,
+                    message="attempt failed",
+                    detail=_failure_detail(exc),
+                    repair_suggestion=repair_suggestion_for_failure(exc.reason, provider_id),
+                    elapsed_ms=_elapsed_ms(started_at),
+                )
                 if trace:
                     _write_trace(
                         workdir,
@@ -192,6 +239,78 @@ def _extract_json_payload(text: str) -> dict:
         except json.JSONDecodeError:
             continue
     raise ProviderFailure("invalid_json", "Provider returned invalid JSON", stdout=text)
+
+
+def repair_suggestion_for_failure(reason: str, provider_id: str) -> str:
+    if reason == "process_error":
+        return f"检查 {provider_id} CLI 是否可直接运行、登录状态是否有效、后端是否以非沙箱权限启动，并查看 stderr 摘要。"
+    if reason == "timeout":
+        return f"{provider_id} 调用超时；建议降低上下文长度、重试该阶段，或检查该 CLI 是否卡在交互式确认。"
+    if reason == "invalid_json":
+        return f"{provider_id} 返回内容不是结构化 JSON；建议重试，必要时收窄提示词并开启 trace 查看原始输出。"
+    if reason == "empty_output":
+        return f"{provider_id} 没有返回内容；建议确认模型额度、网络、CLI 输出格式和登录状态。"
+    if reason == "provider_missing":
+        return f"本机未找到 {provider_id} CLI；请安装或修复 PATH 后重新会审。"
+    return f"检查 {provider_id} 的本地 CLI、模型配置、网络和 trace 日志。"
+
+
+def _emit_log(
+    callback: LogCallback | None,
+    *,
+    level: str,
+    provider_id: str,
+    label: str,
+    attempt: int | None,
+    message: str,
+    detail: str = "",
+    repair_suggestion: str = "",
+    elapsed_ms: int | None = None,
+) -> None:
+    if callback is None:
+        return
+    callback(
+        DeliberationLogEntry(
+            level=level,
+            phase=_phase_from_label(label),
+            provider_id=provider_id,
+            attempt=attempt,
+            message=message,
+            detail=detail,
+            repair_suggestion=repair_suggestion,
+            elapsed_ms=elapsed_ms,
+        )
+    )
+
+
+def _phase_from_label(label: str) -> str:
+    if label.startswith("opening"):
+        return "opening"
+    if label.startswith("pair"):
+        return "pair"
+    if label.startswith("chair"):
+        return "chair"
+    return label.split(" ", 1)[0] if label else ""
+
+
+def _elapsed_ms(started_at: float) -> int:
+    return int((time.perf_counter() - started_at) * 1000)
+
+
+def _failure_detail(exc: ProviderFailure) -> str:
+    parts = [str(exc)]
+    if exc.stderr:
+        parts.append(f"stderr: {_trim(exc.stderr)}")
+    if exc.stdout:
+        parts.append(f"stdout: {_trim(exc.stdout)}")
+    return "\n".join(part for part in parts if part)
+
+
+def _trim(value: str, limit: int = 1200) -> str:
+    stripped = value.strip()
+    if len(stripped) <= limit:
+        return stripped
+    return stripped[:limit] + "...[truncated]"
 
 
 def _write_trace(

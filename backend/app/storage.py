@@ -16,6 +16,7 @@ from backend.app.schemas import (
     DraftCompletionRun,
     DraftPackage,
     FilingReadinessReport,
+    FormulaRun,
     PatentAsset,
     PatentChunk,
     PatentPointCandidate,
@@ -274,7 +275,7 @@ class SQLiteStore:
                     else None,
                 ),
             )
-        return project
+        return self.get_project(project.id) or project
 
     def get_project(self, project_id: str) -> ProjectRecord | None:
         row = self.connection.execute("select * from projects where id = ?", (project_id,)).fetchone()
@@ -283,6 +284,22 @@ class SQLiteStore:
     def list_projects(self) -> list[ProjectRecord]:
         rows = self.connection.execute("select * from projects order by updated_at desc").fetchall()
         return [self._project_from_row(row) for row in rows]
+
+    def delete_project(self, project_id: str) -> bool:
+        with self.connection:
+            for table in [
+                "project_materials",
+                "project_patent_points",
+                "disclosure_runs",
+                "deliberation_runs",
+                "formula_runs",
+                "filing_readiness_reports",
+                "claim_defense_worksheets",
+                "draft_completion_runs",
+            ]:
+                self.connection.execute(f"delete from {table} where project_id = ?", (project_id,))
+            cursor = self.connection.execute("delete from projects where id = ?", (project_id,))
+        return cursor.rowcount > 0
 
     def update_project_package(self, project_id: str, package: DraftPackage) -> None:
         with self.connection:
@@ -381,6 +398,43 @@ class SQLiteStore:
             (project_id, run_id),
         ).fetchone()
         return self._draft_completion_run_from_row(row) if row else None
+
+    def create_formula_run(self, run: FormulaRun) -> FormulaRun:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into formula_runs(id, project_id, status, requirement_json, package_json, failures_json, events_json)
+                values (?, ?, ?, ?, ?, ?, ?)
+                """,
+                self._formula_run_values(run),
+            )
+        return run
+
+    def list_formula_runs(self, project_id: str) -> list[FormulaRun]:
+        rows = self.connection.execute(
+            "select * from formula_runs where project_id = ? order by created_at desc, rowid desc",
+            (project_id,),
+        ).fetchall()
+        return [self._formula_run_from_row(row) for row in rows]
+
+    def get_formula_run(self, project_id: str, run_id: str) -> FormulaRun | None:
+        row = self.connection.execute(
+            "select * from formula_runs where project_id = ? and id = ?",
+            (project_id, run_id),
+        ).fetchone()
+        return self._formula_run_from_row(row) if row else None
+
+    def get_latest_completed_formula_run(self, project_id: str) -> FormulaRun | None:
+        row = self.connection.execute(
+            """
+            select * from formula_runs
+            where project_id = ? and status = 'completed'
+            order by updated_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return self._formula_run_from_row(row) if row else None
 
     def update_completion_patch_status(
         self, project_id: str, run_id: str, patch_id: str, status: str
@@ -575,9 +629,10 @@ class SQLiteStore:
                 """
                 insert into deliberation_runs(
                     id, project_id, status, providers_json, run_mode, round_depth, trace,
-                    run_dir, stage_results_json, strategy_brief_json, failures_json, events_json
+                    run_dir, stage_results_json, strategy_brief_json, failures_json, events_json,
+                    logs_json
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._run_values(run),
             )
@@ -590,7 +645,7 @@ class SQLiteStore:
                 update deliberation_runs
                 set status = ?, providers_json = ?, run_mode = ?, round_depth = ?, trace = ?,
                     run_dir = ?, stage_results_json = ?, strategy_brief_json = ?,
-                    failures_json = ?, events_json = ?, updated_at = current_timestamp
+                    failures_json = ?, events_json = ?, logs_json = ?, updated_at = current_timestamp
                 where id = ? and project_id = ?
                 """,
                 (
@@ -606,6 +661,7 @@ class SQLiteStore:
                     else None,
                     json.dumps([failure.model_dump(mode="json") for failure in run.failures], ensure_ascii=False),
                     json.dumps(run.events, ensure_ascii=False),
+                    json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
                     run.id,
                     run.project_id,
                 ),
@@ -683,6 +739,7 @@ class SQLiteStore:
                     strategy_brief_json text,
                     failures_json text not null,
                     events_json text not null,
+                    logs_json text not null default '[]',
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
                     foreign key(project_id) references projects(id)
@@ -775,6 +832,19 @@ class SQLiteStore:
                     foreign key(project_id) references projects(id)
                 );
 
+                create table if not exists formula_runs (
+                    id text primary key,
+                    project_id text not null,
+                    status text not null,
+                    requirement_json text not null,
+                    package_json text,
+                    failures_json text not null,
+                    events_json text not null,
+                    created_at text not null default current_timestamp,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
                 create table if not exists project_patent_points (
                     id text not null,
                     project_id text not null,
@@ -804,6 +874,7 @@ class SQLiteStore:
                 """
             )
             self._migrate_project_patent_points_primary_key()
+            self._ensure_column("deliberation_runs", "logs_json", "text not null default '[]'")
 
     def _migrate_project_patent_points_primary_key(self) -> None:
         columns = self.connection.execute("pragma table_info(project_patent_points)").fetchall()
@@ -843,6 +914,12 @@ class SQLiteStore:
             """
         )
 
+    def _ensure_column(self, table: str, column: str, definition: str) -> None:
+        columns = self.connection.execute(f"pragma table_info({table})").fetchall()
+        if column in {row["name"] for row in columns}:
+            return
+        self.connection.execute(f"alter table {table} add column {column} {definition}")
+
     def _document_from_row(self, row: sqlite3.Row) -> PatentDocument:
         return PatentDocument(
             id=row["id"],
@@ -870,6 +947,8 @@ class SQLiteStore:
             name=row["name"],
             draft_text=row["draft_text"],
             package=DraftPackage(**json.loads(package_json)) if package_json else None,
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
     def _filing_readiness_report_from_row(self, row: sqlite3.Row) -> FilingReadinessReport:
@@ -889,6 +968,30 @@ class SQLiteStore:
         if not run.created_at:
             run = run.model_copy(update={"created_at": row["created_at"]})
         return run
+
+    def _formula_run_values(self, run: FormulaRun) -> tuple:
+        return (
+            run.id,
+            run.project_id,
+            run.status,
+            json.dumps(run.requirement.model_dump(mode="json"), ensure_ascii=False),
+            json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False) if run.package else None,
+            json.dumps(run.failures, ensure_ascii=False),
+            json.dumps(run.events, ensure_ascii=False),
+        )
+
+    def _formula_run_from_row(self, row: sqlite3.Row) -> FormulaRun:
+        package_json: str | None = row["package_json"]
+        run = FormulaRun(
+            id=row["id"],
+            project_id=row["project_id"],
+            status=row["status"],
+            requirement=json.loads(row["requirement_json"]),
+            package=json.loads(package_json) if package_json else None,
+            failures=json.loads(row["failures_json"]),
+            events=json.loads(row["events_json"]),
+        )
+        return run.model_copy(update={"created_at": row["created_at"], "updated_at": row["updated_at"]})
 
     def _project_material_from_row(self, row: sqlite3.Row) -> ProjectMaterial:
         return ProjectMaterial(
@@ -917,9 +1020,11 @@ class SQLiteStore:
             json.dumps(run.strategy_brief.model_dump(mode="json"), ensure_ascii=False) if run.strategy_brief else None,
             json.dumps([failure.model_dump(mode="json") for failure in run.failures], ensure_ascii=False),
             json.dumps(run.events, ensure_ascii=False),
+            json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
         )
 
     def _run_from_row(self, row: sqlite3.Row) -> DeliberationRun:
+        logs_json = row["logs_json"] if "logs_json" in row.keys() else "[]"
         return DeliberationRun(
             id=row["id"],
             project_id=row["project_id"],
@@ -933,6 +1038,7 @@ class SQLiteStore:
             strategy_brief=json.loads(row["strategy_brief_json"]) if row["strategy_brief_json"] else None,
             failures=json.loads(row["failures_json"]),
             events=json.loads(row["events_json"]),
+            logs=json.loads(logs_json),
         )
 
     def _disclosure_run_values(self, run: DisclosureRun) -> tuple:
