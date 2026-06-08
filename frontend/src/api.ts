@@ -97,6 +97,40 @@ export interface DraftPackage {
   core_formula_summary?: string | null;
 }
 
+export interface OfficialFigurePlanItem {
+  figure_no: string;
+  title: string;
+  description: string;
+  referenced_sections: string[];
+}
+
+export interface OfficialDraftPackage {
+  title: string;
+  abstract: string;
+  claims: string;
+  description: string;
+  drawing_description: string;
+  figure_plan: OfficialFigurePlanItem[];
+  compile_warnings: string[];
+  source_draft_hash: string;
+  official_package_hash: string;
+}
+
+export interface OfficialCompileRun {
+  id: string;
+  project_id: string;
+  status: "completed" | "blocked" | "failed";
+  source_draft_hash: string;
+  official_package_hash: string;
+  official_package: OfficialDraftPackage | null;
+  contamination_removed: Array<Record<string, string>>;
+  blocked_items: Array<Record<string, string>>;
+  sidecar_notes: Array<Record<string, string>>;
+  logs: DeliberationLogEntry[];
+  created_at: string;
+  updated_at: string;
+}
+
 export type FilingReadinessStatus = "clean" | "warning" | "high_risk";
 export type FilingIssueSeverity = "low" | "medium" | "high";
 export type FeatureClassification =
@@ -486,6 +520,8 @@ export interface PostDraftReviewRun {
   providers: string[];
   prompt_pack_version: string;
   draft_package_hash: string;
+  official_compile_run_id: string;
+  official_package_hash: string;
   role_results: PostDraftReviewRoleResult[];
   chair_result: PostDraftReviewChairResult | null;
   export_allowed: boolean;
@@ -807,6 +843,26 @@ export async function listFormulaRuns(projectId: string): Promise<FormulaRun[]> 
 
 export function formulaMarkdownUrl(projectId: string, runId: string): string {
   return `/api/projects/${projectId}/formula-runs/${runId}/latex.md`;
+}
+
+export async function startOfficialCompileRun(projectId: string): Promise<OfficialCompileRun> {
+  return request<OfficialCompileRun>(`/api/projects/${projectId}/official-compile-runs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
+export async function listOfficialCompileRuns(
+  projectId: string,
+): Promise<{ runs: OfficialCompileRun[]; current_source_draft_hash: string }> {
+  return request<{ runs: OfficialCompileRun[]; current_source_draft_hash: string }>(
+    `/api/projects/${projectId}/official-compile-runs`,
+  );
+}
+
+export function officialCompileReportUrl(projectId: string, runId: string): string {
+  return `/api/projects/${projectId}/official-compile-runs/${runId}/report.md`;
 }
 
 export async function startPostDraftReview(projectId: string, providers?: string[]): Promise<PostDraftReviewRun> {

@@ -23,6 +23,7 @@ import type {
   FilingReadinessReport,
   FormulaNeedAssessment,
   FormulaRun,
+  OfficialCompileRun,
   PatentPointCandidate,
   PatentPointCreatePayload,
   PostDraftReviewRun,
@@ -46,7 +47,16 @@ export type ExpertToolId =
   | "review"
   | "export";
 
-export type GuidedStepId = "idea" | "invention" | "deliberation" | "formula" | "draft" | "quality" | "postReview" | "export";
+export type GuidedStepId =
+  | "idea"
+  | "invention"
+  | "deliberation"
+  | "formula"
+  | "draft"
+  | "quality"
+  | "officialCompile"
+  | "postReview"
+  | "export";
 export type GuidedStepStatus = "done" | "current" | "ready" | "locked";
 export type PatentGoalMode = "stable" | "broad" | "fast" | "moat";
 
@@ -81,6 +91,7 @@ export type GuidedFlowInput = {
   filingReports: FilingReadinessReport[];
   worksheets: ClaimDefenseWorksheet[];
   completionRuns: DraftCompletionRun[];
+  officialCompileRuns?: OfficialCompileRun[];
   postDraftReviews?: PostDraftReviewRun[];
 };
 
@@ -97,6 +108,7 @@ export type GuidedFlowState = {
   hasCompletedFormula: boolean;
   draftReady: boolean;
   qualityChecked: boolean;
+  hasCompletedOfficialCompile: boolean;
   hasPassedPostDraftReview: boolean;
   exportReady: boolean;
 };
@@ -186,6 +198,7 @@ export const guidedStepDefinitions: Array<Omit<GuidedStepState, "status">> = [
   { id: "formula", label: "核心公式", description: "凝练算法公式、变量定义和权利要求落点。" },
   { id: "draft", label: "生成初稿", description: "生成摘要、权利要求书和说明书。" },
   { id: "quality", label: "质量检查", description: "运行提交成熟度、权利要求防线和初稿完善。" },
+  { id: "officialCompile", label: "正式稿编译", description: "清除内部痕迹，生成可提交正式稿包。" },
   { id: "postReview", label: "成稿会审", description: "提交前强制审查权利要求、说明书支撑、清污和技术硬度。" },
   { id: "export", label: "导出", description: "确认风险并导出正式稿和内部报告。" },
 ];
@@ -207,10 +220,11 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
       && input.worksheets.length
       && input.completionRuns.some((run) => run.status === "completed"),
   );
+  const hasCompletedOfficialCompile = Boolean(input.officialCompileRuns?.some((run) => run.status === "completed"));
   const hasPassedPostDraftReview = Boolean(
     input.postDraftReviews?.some((run) => run.status === "completed" && run.export_allowed),
   );
-  const exportReady = draftReady && qualityChecked && hasPassedPostDraftReview;
+  const exportReady = draftReady && qualityChecked && hasCompletedOfficialCompile && hasPassedPostDraftReview;
 
   let currentStepId: GuidedStepId = "idea";
   if (!hasIdea) {
@@ -225,6 +239,8 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     currentStepId = "draft";
   } else if (!qualityChecked) {
     currentStepId = "quality";
+  } else if (!hasCompletedOfficialCompile) {
+    currentStepId = "officialCompile";
   } else if (!hasPassedPostDraftReview) {
     currentStepId = "postReview";
   } else {
@@ -250,6 +266,7 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     hasCompletedFormula,
     draftReady,
     qualityChecked,
+    hasCompletedOfficialCompile,
     hasPassedPostDraftReview,
     exportReady,
   };
@@ -294,6 +311,7 @@ export function qualitySummaryFromRuns(input: {
 
 export function guidedBusyLabel(value: string): string {
   if (value === "guided-quality") return "正在运行质量检查";
+  if (value === "official-compile") return "正在编译正式稿";
   if (value === "post-draft-review") return "正在运行成稿会审";
   if (value === "score-improve") return "正在一键提升分数";
   if (value === "disclosure") return "正在提炼发明点";
@@ -398,6 +416,14 @@ function operationLogSteps(value: string): Array<{ at: number; text: string }> {
       { at: 12, text: "收集 blocking issue、污染命中和可提交补丁建议" },
       { at: 25, text: "等待模型或服务返回" },
       { at: 45, text: "主席综合裁决并写入导出门禁" },
+    ];
+  }
+  if (value === "official-compile") {
+    return [
+      { at: 0, text: "锁定当前初稿快照" },
+      { at: 2, text: "移除内部提示、会审痕迹和非正式内容" },
+      { at: 5, text: "检查正式稿必备章节和交叉项目污染" },
+      { at: 8, text: "生成正式稿包、hash 和编译报告" },
     ];
   }
   if (value === "score-improve") {
