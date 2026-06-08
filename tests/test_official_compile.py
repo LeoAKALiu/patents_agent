@@ -70,6 +70,36 @@ def test_compiler_removes_json_style_prompt_internal_field():
     assert any(item["pattern"] == "prompt" for item in run.contamination_removed)
 
 
+def test_compiler_removes_case_insensitive_internal_labels_and_memos():
+    package = _draft_package(
+        description=(
+            "本发明涉及无人机任务规划技术领域。\n"
+            "attorney_memo: 代理人复核从属权利要求。\n"
+            "System_Trace: deliberation payload\n"
+            "official_safe_patches: patch-1"
+        ),
+        drawing_description="图1为方法流程图。\nPrompt: 黑白线稿。",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "completed"
+    assert run.official_package is not None
+    official_text = official_package_to_markdown(run.official_package)
+    assert "Prompt" not in official_text
+    assert "黑白线稿" not in official_text
+    assert "attorney_memo" not in official_text
+    assert "代理人复核" not in official_text
+    assert "System_Trace" not in official_text
+    assert "official_safe_patches" not in official_text
+    assert {item["pattern"] for item in run.contamination_removed} >= {
+        "prompt",
+        "attorney_memo",
+        "system_trace",
+        "official_safe_patches",
+    }
+
+
 def test_compiler_blocks_ai_preface_title_contamination():
     package = _draft_package(title="好的，下面撰写一种方法")
 

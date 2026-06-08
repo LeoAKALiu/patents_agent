@@ -25,11 +25,18 @@ RESIDUAL_INTERNAL_PATTERNS = (
     "image_prompt",
     "prompt",
     "diagram",
+    "attorney_memo",
+    "system_trace",
+    "official_safe_patches",
     "好的，下面",
 )
-INTERNAL_FIELD_RE = re.compile(r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs)["']?\s*[:：=]""")
+INTERNAL_FIELD_RE = re.compile(
+    r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs|attorney_memo|system_trace|official_safe_patches)["']?\s*[:：=]""",
+    re.IGNORECASE,
+)
 EMPTY_OFFICIAL_FIELD_RE = re.compile(
-    r"""^\s*["']?(title|abstract|claims|description|drawing_description)["']?\s*[:：=]\s*["']?\s*["']?\s*,?\s*$"""
+    r"""^\s*["']?(title|abstract|claims|description|drawing_description)["']?\s*[:：=]\s*["']?\s*["']?\s*,?\s*$""",
+    re.IGNORECASE,
 )
 JSON_WRAPPER_RE = re.compile(r"^[{}\[\],]+$")
 
@@ -118,8 +125,9 @@ class OfficialDraftCompiler:
 
         all_cleaned_text = {"title": cleaned_title, **cleaned}
         for section, text in all_cleaned_text.items():
+            comparable_text = text.lower()
             for pattern in RESIDUAL_INTERNAL_PATTERNS:
-                if pattern in text:
+                if pattern in comparable_text:
                     blocked_items.append(
                         {
                             "category": "residual_internal_text",
@@ -285,12 +293,13 @@ def _clean_section(
 
 
 def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
+    comparable_line = line.lower()
     if in_fence:
         return {"category": "format_pollution", "pattern": "markdown_fence"}
     if re.search(r"^好的，下面.*撰写", line):
         return {"category": "ai_preface", "pattern": "好的，下面"}
     for pattern in ("support_gap", "support_gaps", "支撑不足提示", "撰写说明"):
-        if pattern in line:
+        if pattern in comparable_line:
             return {"category": "support_gap", "pattern": pattern}
     if line.startswith("```"):
         return {"category": "format_pollution", "pattern": "markdown_fence"}
@@ -300,12 +309,12 @@ def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
         return {"category": "format_pollution", "pattern": "json_wrapper"}
     official_field = EMPTY_OFFICIAL_FIELD_RE.match(line)
     if official_field:
-        return {"category": "json_wrapper", "pattern": official_field.group(1)}
+        return {"category": "json_wrapper", "pattern": official_field.group(1).lower()}
     internal_field = INTERNAL_FIELD_RE.match(line)
     if internal_field:
-        return {"category": "internal_field", "pattern": internal_field.group(1)}
+        return {"category": "internal_field", "pattern": internal_field.group(1).lower()}
     for pattern in ("根据会审策略", "多 Agent 会审", "多Agent会审", "主席汇总", "deliberation", "generation_logs"):
-        if pattern in line:
+        if pattern.lower() in comparable_line:
             return {"category": "internal_trace", "pattern": pattern}
     for pattern in ("可能不具备创造性", "禁止直接提交", "存在充分公开风险"):
         if pattern in line:

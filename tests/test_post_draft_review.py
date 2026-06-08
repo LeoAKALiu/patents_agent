@@ -84,6 +84,47 @@ def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path
     assert "Official draft compile blocked official export" in docx_response.json()["detail"]
 
 
+def test_official_export_removes_case_insensitive_internal_labels_after_passing_review(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            description=(
+                "本发明涉及无人机任务规划技术领域。\n"
+                "attorney_memo: 代理人复核从属权利要求。\n"
+                "official_safe_patches: patch-1"
+            ),
+            drawing_description="图1为系统流程图。\nPrompt: 黑白线稿。",
+        ),
+    )
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert review["export_allowed"] is True
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+
+    assert export_response.status_code == 200
+    assert "本发明涉及无人机任务规划技术领域。" in export_response.text
+    assert "图1为系统流程图。" in export_response.text
+    assert "attorney_memo" not in export_response.text
+    assert "代理人复核" not in export_response.text
+    assert "official_safe_patches" not in export_response.text
+    assert "Prompt" not in export_response.text
+    assert "黑白线稿" not in export_response.text
+
+    docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
+    assert docx_response.status_code == 200
+    docx_path = tmp_path / "clean-official.docx"
+    docx_path.write_bytes(docx_response.content)
+    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+    assert "本发明涉及无人机任务规划技术领域。" in docx_text
+    assert "图1为系统流程图。" in docx_text
+    assert "attorney_memo" not in docx_text
+    assert "代理人复核" not in docx_text
+    assert "official_safe_patches" not in docx_text
+    assert "Prompt" not in docx_text
+    assert "黑白线稿" not in docx_text
+
+
 def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
     project_id = _create_project_with_package(client, _package(description="说明书包含 support_gap 和 好的，下面将继续撰写。"))
