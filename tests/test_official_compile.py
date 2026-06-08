@@ -182,8 +182,16 @@ def test_sqlite_store_persists_official_compile_run(tmp_path):
     run = OfficialDraftCompiler().compile(project_id="p1", package=package)
     assert run.status == "completed"
     assert run.official_package is not None
+    blocked_run = OfficialDraftCompiler().compile(
+        project_id="p1",
+        package=_draft_package(description="support_gap: 说明书待补充。"),
+    )
+    assert blocked_run.status == "blocked"
+    failed_run = run.model_copy(update={"id": "failed-official-compile", "status": "failed"})
 
     stored = store.create_official_compile_run(run)
+    store.create_official_compile_run(blocked_run)
+    store.create_official_compile_run(failed_run)
 
     assert stored.created_at
     assert stored.updated_at
@@ -197,10 +205,13 @@ def test_sqlite_store_persists_official_compile_run(tmp_path):
     assert fetched.sidecar_notes == run.sidecar_notes
     assert fetched.logs[0].phase == "official_compile"
     listed = store.list_official_compile_runs("p1")
-    assert [item.id for item in listed] == [run.id]
-    latest = store.get_latest_completed_official_compile_run("p1", run.source_draft_hash)
+    assert {item.id for item in listed} == {run.id, blocked_run.id, failed_run.id}
+    latest = store.get_latest_completed_official_compile_run("p1")
     assert latest is not None
     assert latest.id == run.id
+    latest_for_hash = store.get_latest_completed_official_compile_run_for_hash("p1", run.source_draft_hash)
+    assert latest_for_hash is not None
+    assert latest_for_hash.id == run.id
 
 
 def test_official_compile_api_creates_lists_gets_and_exports_report(tmp_path):

@@ -516,7 +516,20 @@ class SQLiteStore:
         ).fetchone()
         return self._official_compile_run_from_row(row) if row else None
 
-    def get_latest_completed_official_compile_run(
+    def get_latest_completed_official_compile_run(self, project_id: str) -> OfficialCompileRun | None:
+        row = self.connection.execute(
+            """
+            select * from official_compile_runs
+            where project_id = ?
+                and status = 'completed'
+            order by updated_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return self._official_compile_run_from_row(row) if row else None
+
+    def get_latest_completed_official_compile_run_for_hash(
         self, project_id: str, source_draft_hash: str
     ) -> OfficialCompileRun | None:
         row = self.connection.execute(
