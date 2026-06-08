@@ -34,6 +34,7 @@ import {
   FormulaNeedAssessment,
   FormulaRun,
   Health,
+  OfficialCompileRun,
   PatentPointCandidate,
   PatentPointCreatePayload,
   PatentDocument,
@@ -72,6 +73,7 @@ import {
   listProjectDisclosures,
   listProjectDeliberations,
   listFormulaRuns,
+  listOfficialCompileRuns,
   listPostDraftReviews,
   listProjectMaterials,
   listProjectPatentPoints,
@@ -84,6 +86,7 @@ import {
   startProjectDisclosure,
   startProjectDeliberation,
   startFormulaRun,
+  startOfficialCompileRun,
   startPostDraftReview,
   updateProjectPatentPoint,
   uploadCorpusJobFile,
@@ -161,6 +164,8 @@ function App() {
   const [patentPoints, setPatentPoints] = useState<PatentPointCandidate[]>([]);
   const [formulaRequirement, setFormulaRequirement] = useState<FormulaNeedAssessment | null>(null);
   const [formulaRuns, setFormulaRuns] = useState<FormulaRun[]>([]);
+  const [officialCompileRuns, setOfficialCompileRuns] = useState<OfficialCompileRun[]>([]);
+  const [currentSourceDraftHash, setCurrentSourceDraftHash] = useState("");
   const [postDraftReviews, setPostDraftReviews] = useState<PostDraftReviewRun[]>([]);
   const [currentDraftHash, setCurrentDraftHash] = useState("");
   const [selectedDeliberationProviders, setSelectedDeliberationProviders] = useState<string[]>(requiredAgentProviderIds);
@@ -193,6 +198,8 @@ function App() {
   const latestFilingReport = filingReports[0] ?? null;
   const latestWorksheet = worksheets[0] ?? null;
   const latestCompletionRun = completionRuns[0] ?? null;
+  const latestOfficialCompileRun =
+    officialCompileRuns.find((run) => run.source_draft_hash === currentSourceDraftHash) ?? null;
   const latestPostDraftReview = postDraftReviews[0] ?? null;
   const activeMainSection = mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   const activeExpertToolEntry = expertToolGroups
@@ -215,6 +222,7 @@ function App() {
       void loadMaterials(selectedProject.id);
       void loadDisclosures(selectedProject.id);
       void loadFormulaState(selectedProject.id);
+      void loadOfficialCompileRuns(selectedProject.id);
       void loadPostDraftReviews(selectedProject.id);
       setPatentPoints([]);
       setPatentPointsProjectId("");
@@ -231,6 +239,8 @@ function App() {
       setDisclosureRuns([]);
       setFormulaRequirement(null);
       setFormulaRuns([]);
+      setOfficialCompileRuns([]);
+      setCurrentSourceDraftHash("");
       setPostDraftReviews([]);
       setCurrentDraftHash("");
       setPatentPoints([]);
@@ -253,6 +263,7 @@ function App() {
       void loadDeliberations(selectedProject.id);
       void loadDisclosures(selectedProject.id);
       void loadFormulaState(selectedProject.id);
+      void loadOfficialCompileRuns(selectedProject.id);
       void loadPostDraftReviews(selectedProject.id);
     }, 2500);
     return () => window.clearInterval(timer);
@@ -355,6 +366,24 @@ function App() {
       if (selectedProjectIdRef.current === projectId) {
         setPostDraftReviews([]);
         setCurrentDraftHash("");
+      }
+      return false;
+    }
+  }
+
+  async function loadOfficialCompileRuns(projectId: string): Promise<boolean> {
+    try {
+      const { runs, current_source_draft_hash } = await listOfficialCompileRuns(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setOfficialCompileRuns(runs);
+      setCurrentSourceDraftHash(current_source_draft_hash);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setOfficialCompileRuns([]);
+        setCurrentSourceDraftHash("");
       }
       return false;
     }
@@ -593,6 +622,17 @@ function App() {
     });
   }
 
+  async function handleStartOfficialCompile() {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("official-compile", async () => {
+      const run = await startOfficialCompileRun(projectId);
+      const stillSelected = await loadOfficialCompileRuns(projectId);
+      if (!stillSelected) return;
+      setMessage(run.status === "completed" ? "正式稿编译完成" : `正式稿编译${run.status}`);
+    });
+  }
+
   function handleToggleDeliberationProvider(providerId: string, enabled: boolean) {
     setSelectedDeliberationProviders((providers) => {
       const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
@@ -616,6 +656,7 @@ function App() {
       if (selectedProjectIdRef.current !== projectId) return;
       setProjects(nextProjects);
       setSelectedProjectId(projectId);
+      await loadOfficialCompileRuns(projectId);
       await loadPostDraftReviews(projectId);
       setMessage("申请文本已生成");
     });
@@ -630,6 +671,7 @@ function App() {
       if (selectedProjectIdRef.current !== projectId) return;
       setProjects(nextProjects);
       setSelectedProjectId(projectId);
+      await loadOfficialCompileRuns(projectId);
       await loadPostDraftReviews(projectId);
       setMessage("审查意见已更新");
     });
@@ -661,6 +703,7 @@ function App() {
       setFilingReports((current) => [report, ...current.filter((item) => item.id !== report.id)]);
       setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== worksheet.id)]);
       setCompletionRuns((current) => [completion, ...current.filter((item) => item.id !== completion.id)]);
+      await loadOfficialCompileRuns(projectId);
       await loadPostDraftReviews(projectId);
       setMessage(`质量检查完成：整体评分 ${completion.scorecard.overall}/100`);
     });
@@ -675,7 +718,13 @@ function App() {
       if (selectedProjectIdRef.current !== projectId) return;
       setProjects(nextProjects);
       setSelectedProjectId(projectId);
-      await Promise.all([loadFilingReports(projectId), loadWorksheets(projectId), loadCompletionRuns(projectId), loadPostDraftReviews(projectId)]);
+      await Promise.all([
+        loadFilingReports(projectId),
+        loadWorksheets(projectId),
+        loadCompletionRuns(projectId),
+        loadOfficialCompileRuns(projectId),
+        loadPostDraftReviews(projectId),
+      ]);
       setMessage(
         `一键提升完成：${result.before_score}/100 -> ${result.after_score}/100，应用 ${result.accepted_patch_ids.length} 条补强`,
       );
@@ -714,6 +763,8 @@ function App() {
           : await rejectCompletionPatch(projectId, runId, patchId);
       if (selectedProjectIdRef.current !== projectId) return;
       setCompletionRuns((current) => current.map((item) => (item.id === run.id ? run : item)));
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
       setMessage(action === "accept" ? "已接受完善补丁" : "已拒绝完善补丁");
     });
   }
@@ -874,7 +925,9 @@ function App() {
             report={latestFilingReport}
             reports={filingReports}
             postDraftReview={latestPostDraftReview}
+            officialCompileRun={latestOfficialCompileRun}
             currentDraftHash={currentDraftHash}
+            currentSourceDraftHash={currentSourceDraftHash}
             busy={busy}
             onRun={handleRunFilingReadiness}
           />
@@ -909,7 +962,9 @@ function App() {
             project={selectedProject}
             packageValue={currentPackage}
             postDraftReview={latestPostDraftReview}
+            officialCompileRun={latestOfficialCompileRun}
             currentDraftHash={currentDraftHash}
+            currentSourceDraftHash={currentSourceDraftHash}
           />
         );
     }
@@ -994,6 +1049,8 @@ function App() {
             patentPoints={visiblePatentPoints}
             formulaRequirement={formulaRequirement}
             formulaRuns={formulaRuns}
+            officialCompileRuns={officialCompileRuns}
+            currentSourceDraftHash={currentSourceDraftHash}
             postDraftReviews={postDraftReviews}
             currentDraftHash={currentDraftHash}
             agentDoctor={agentDoctor}
@@ -1010,6 +1067,7 @@ function App() {
             onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
             onStartDeliberation={() => void handleStartDeliberation(false)}
             onStartFormula={() => void handleStartFormula()}
+            onStartOfficialCompile={() => void handleStartOfficialCompile()}
             onStartPostDraftReview={() => void handleStartPostDraftReview()}
             onToggleDeliberationProvider={handleToggleDeliberationProvider}
             onToggleFormulaProvider={handleToggleFormulaProvider}
@@ -2152,7 +2210,9 @@ function FilingReadinessView({
   report,
   reports,
   postDraftReview,
+  officialCompileRun,
   currentDraftHash,
+  currentSourceDraftHash,
   busy,
   onRun,
 }: {
@@ -2160,7 +2220,9 @@ function FilingReadinessView({
   report: FilingReadinessReport | null;
   reports: FilingReadinessReport[];
   postDraftReview: PostDraftReviewRun | null;
+  officialCompileRun: OfficialCompileRun | null;
   currentDraftHash: string;
+  currentSourceDraftHash: string;
   busy: string;
   onRun: () => void;
 }) {
@@ -2169,7 +2231,10 @@ function FilingReadinessView({
     canExport
       && postDraftReview?.status === "completed"
       && postDraftReview.export_allowed
-      && postDraftReview.draft_package_hash === currentDraftHash,
+      && postDraftReview.draft_package_hash === currentDraftHash
+      && postDraftReview.draft_package_hash === currentSourceDraftHash
+      && postDraftReview.official_compile_run_id === officialCompileRun?.id
+      && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
   const reportStatusClass = report?.status === "high_risk" ? "danger" : report?.status === "warning" ? "warn" : "";
   return (
@@ -2197,7 +2262,10 @@ function FilingReadinessView({
             {report?.status === "high_risk" && (
               <p className="workflow-hint">高风险：请结合成稿会审报告处理命中项。</p>
             )}
-            {!officialAllowed && <p className="workflow-hint">正式稿入口已锁定：需先通过匹配当前成稿 hash 的成稿会审。</p>}
+            {!officialAllowed && <p className="workflow-hint">正式稿入口已锁定：需先完成正式稿编译，并通过匹配 official hash 的成稿会审。</p>}
+            {officialCompileRun?.official_package_hash && (
+              <p className="workflow-hint">当前 official hash：{officialCompileRun.official_package_hash.slice(0, 12)}</p>
+            )}
             <div className="export-grid">
               <a
                 aria-disabled={!officialAllowed}
@@ -2675,27 +2743,34 @@ function ExportView({
   project,
   packageValue,
   postDraftReview,
+  officialCompileRun,
   currentDraftHash,
+  currentSourceDraftHash,
 }: {
   project: ProjectRecord | null;
   packageValue: DraftPackage | null;
   postDraftReview: PostDraftReviewRun | null;
+  officialCompileRun: OfficialCompileRun | null;
   currentDraftHash: string;
+  currentSourceDraftHash: string;
 }) {
   const enabled = canExportPackage(packageValue);
   const officialAllowed = Boolean(
     enabled
       && postDraftReview?.status === "completed"
       && postDraftReview.export_allowed
-      && postDraftReview.draft_package_hash === currentDraftHash,
+      && postDraftReview.draft_package_hash === currentDraftHash
+      && postDraftReview.draft_package_hash === currentSourceDraftHash
+      && postDraftReview.official_compile_run_id === officialCompileRun?.id
+      && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
   return (
     <section className="panel wide">
       <h3>导出文件</h3>
       <p className="workflow-hint">
         {officialAllowed
-          ? `正式稿已由成稿会审解锁：${postDraftReview?.draft_package_hash.slice(0, 12)}`
-          : "正式稿需通过匹配当前成稿 hash 的成稿会审；内部稿和报告可继续导出。"}
+          ? `正式稿已由成稿会审解锁：${officialCompileRun?.official_package_hash.slice(0, 12)}`
+          : "正式稿需完成编译，并通过匹配当前 official hash 的成稿会审；内部稿和报告可继续导出。"}
       </p>
       <div className="export-grid">
         <a

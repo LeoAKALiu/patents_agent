@@ -20,6 +20,7 @@ import {
   exportUrl,
   filingReadinessReportUrl,
   formulaMarkdownUrl,
+  officialCompileReportUrl,
   officialExportUrl,
   postDraftReviewReportUrl,
   type AgentDoctorReport,
@@ -30,6 +31,7 @@ import {
   type FilingReadinessReport,
   type FormulaNeedAssessment,
   type FormulaRun,
+  type OfficialCompileRun,
   type PatentPointCandidate,
   type PostDraftReviewRun,
   type ProjectMaterial,
@@ -53,6 +55,8 @@ export type GuidedPatentFlowProps = {
   patentPoints: PatentPointCandidate[];
   formulaRequirement: FormulaNeedAssessment | null;
   formulaRuns: FormulaRun[];
+  officialCompileRuns: OfficialCompileRun[];
+  currentSourceDraftHash: string;
   postDraftReviews: PostDraftReviewRun[];
   currentDraftHash: string;
   agentDoctor: AgentDoctorReport | null;
@@ -69,6 +73,7 @@ export type GuidedPatentFlowProps = {
   onSelectPatentPoint: (point: PatentPointCandidate, candidates: PatentPointCandidate[]) => void;
   onStartDeliberation: () => void;
   onStartFormula: () => void;
+  onStartOfficialCompile: () => void;
   onStartPostDraftReview: () => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
   onToggleFormulaProvider: (providerId: string, enabled: boolean) => void;
@@ -82,6 +87,13 @@ export type GuidedPatentFlowProps = {
 };
 
 export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
+  const currentOfficialCompileRuns = useMemo(
+    () =>
+      props.currentSourceDraftHash
+        ? props.officialCompileRuns.filter((run) => run.source_draft_hash === props.currentSourceDraftHash)
+        : props.officialCompileRuns,
+    [props.officialCompileRuns, props.currentSourceDraftHash],
+  );
   const state = useMemo(
     () =>
       deriveGuidedFlowState({
@@ -95,8 +107,9 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         filingReports: props.filingReports,
         worksheets: props.worksheets,
         completionRuns: props.completionRuns,
+        officialCompileRuns: currentOfficialCompileRuns,
         postDraftReviews: props.postDraftReviews.filter((run) =>
-          props.currentDraftHash ? run.draft_package_hash === props.currentDraftHash : true,
+          props.currentSourceDraftHash ? run.draft_package_hash === props.currentSourceDraftHash : true,
         ),
       }),
     [
@@ -110,8 +123,9 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       props.filingReports,
       props.worksheets,
       props.completionRuns,
+      currentOfficialCompileRuns,
       props.postDraftReviews,
-      props.currentDraftHash,
+      props.currentSourceDraftHash,
     ],
   );
   const latestDisclosure = props.disclosures.find((run) => run.status === "completed" && run.package) ?? null;
@@ -120,8 +134,15 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
   const latestFilingReport = props.filingReports[0] ?? null;
   const latestWorksheet = props.worksheets[0] ?? null;
   const latestCompletionRun = props.completionRuns[0] ?? null;
+  const latestOfficialCompileRun = currentOfficialCompileRuns[0] ?? null;
   const latestMatchingPostDraftReview =
-    props.postDraftReviews.find((run) => run.draft_package_hash === props.currentDraftHash) ?? null;
+    props.postDraftReviews.find((run) =>
+      latestOfficialCompileRun
+        ? run.official_compile_run_id === latestOfficialCompileRun.id
+          && run.official_package_hash === latestOfficialCompileRun.official_package_hash
+          && run.draft_package_hash === latestOfficialCompileRun.source_draft_hash
+        : run.draft_package_hash === props.currentDraftHash,
+    ) ?? null;
 
   return (
     <div className="guided-flow">
@@ -201,12 +222,24 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
+      {state.currentStepId === "officialCompile" && (
+        <OfficialCompilePanel
+          project={props.project}
+          run={latestOfficialCompileRun}
+          runs={props.officialCompileRuns}
+          currentSourceDraftHash={props.currentSourceDraftHash}
+          busy={props.busy}
+          busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
+          onStartOfficialCompile={props.onStartOfficialCompile}
+        />
+      )}
       {state.currentStepId === "postReview" && (
         <PostDraftReviewPanel
           project={props.project}
           review={latestMatchingPostDraftReview}
           runs={props.postDraftReviews}
           currentDraftHash={props.currentDraftHash}
+          officialCompileRun={latestOfficialCompileRun}
           doctor={props.agentDoctor}
           selectedProviders={props.selectedDeliberationProviders}
           busy={props.busy}
@@ -222,6 +255,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           completionRun={latestCompletionRun}
           postDraftReview={latestMatchingPostDraftReview}
           currentDraftHash={props.currentDraftHash}
+          officialCompileRun={latestOfficialCompileRun}
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
@@ -758,11 +792,83 @@ function ScoreTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+function OfficialCompilePanel({
+  project,
+  run,
+  runs,
+  currentSourceDraftHash,
+  busy,
+  busyElapsedSeconds,
+  onStartOfficialCompile,
+}: {
+  project: ProjectRecord | null;
+  run: OfficialCompileRun | null;
+  runs: OfficialCompileRun[];
+  currentSourceDraftHash: string;
+  busy: string;
+  busyElapsedSeconds: number;
+  onStartOfficialCompile: () => void;
+}) {
+  const completed = Boolean(run?.status === "completed" && run.official_package);
+  const blocked = Boolean(run?.status === "blocked");
+  const statusText = completed ? "已完成" : blocked ? "已阻断" : run?.status === "failed" ? "失败" : "等待编译";
+  const statusClass = completed ? "status-badge" : blocked || run?.status === "failed" ? "status-badge danger" : "status-badge warn";
+
+  return (
+    <section className="guided-panel">
+      <div className="guided-panel-heading">
+        <div>
+          <h3>正式稿编译</h3>
+          <p>隔离内部痕迹、support gaps、绘图提示和会审过程文本，生成正式申请文本专用包。</p>
+        </div>
+        <FileText size={24} />
+      </div>
+      <div className="result-meta">
+        <span className={statusClass}>{statusText}</span>
+        <span>source hash：{currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成"}</span>
+        {run?.official_package_hash && <span>official hash：{run.official_package_hash.slice(0, 12)}</span>}
+      </div>
+      <button
+        className="primary"
+        disabled={!project?.package || busy === "official-compile"}
+        onClick={onStartOfficialCompile}
+        type="button"
+      >
+        {busy === "official-compile" ? <Loader2 className="spin" size={17} /> : <FileText size={17} />}
+        <span>{run ? "重新编译正式稿" : "编译正式稿"}</span>
+      </button>
+      <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "official-compile"} />
+      {run && (
+        <article className={completed ? "guided-choice selected" : "guided-choice"}>
+          <div className="result-meta">
+            <span className={statusClass}>{run.status}</span>
+            <span>移除污染 {run.contamination_removed.length} 项</span>
+            <span>阻断 {run.blocked_items.length} 项</span>
+            {project && (
+              <a href={officialCompileReportUrl(project.id, run.id)} rel="noreferrer" target="_blank">
+                编译报告
+              </a>
+            )}
+          </div>
+          <h4>{completed ? "正式稿包已生成" : "正式稿未放行"}</h4>
+          <p>source hash：{run.source_draft_hash.slice(0, 12)}</p>
+          <p>official hash：{run.official_package_hash ? run.official_package_hash.slice(0, 12) : "未生成"}</p>
+          {run.blocked_items.length > 0 && (
+            <p>阻断项：{run.blocked_items.map((item) => item.message || item.category || "未命名阻断项").slice(0, 3).join("；")}</p>
+          )}
+        </article>
+      )}
+      {!run && runs.length > 0 && <p className="workflow-hint">已有正式稿编译记录，但未匹配当前 source hash。</p>}
+    </section>
+  );
+}
+
 function PostDraftReviewPanel({
   project,
   review,
   runs,
   currentDraftHash,
+  officialCompileRun,
   doctor,
   selectedProviders,
   busy,
@@ -774,6 +880,7 @@ function PostDraftReviewPanel({
   review: PostDraftReviewRun | null;
   runs: PostDraftReviewRun[];
   currentDraftHash: string;
+  officialCompileRun: OfficialCompileRun | null;
   doctor: AgentDoctorReport | null;
   selectedProviders: string[];
   busy: string;
@@ -798,6 +905,7 @@ function PostDraftReviewPanel({
         </span>
         <span>{review?.prompt_pack_version ?? "post-draft-review-v1"}</span>
         <span>当前 hash：{currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成"}</span>
+        <span>official hash：{officialCompileRun?.official_package_hash.slice(0, 12) ?? "未编译"}</span>
       </div>
       <AgentProviderCards
         doctor={doctor}
@@ -822,6 +930,7 @@ function PostDraftReviewPanel({
             <span className={passed ? "status-badge" : "status-badge danger"}>{review.status}</span>
             <span>{review.providers.join(" / ") || "默认三方"}</span>
             <span>review hash：{review.draft_package_hash.slice(0, 12)}</span>
+            {review.official_package_hash && <span>official hash：{review.official_package_hash.slice(0, 12)}</span>}
             {project && (
               <a href={postDraftReviewReportUrl(project.id, review.id)} rel="noreferrer" target="_blank">
                 会审报告
@@ -844,6 +953,7 @@ function ExportConfirmationPanel({
   completionRun,
   postDraftReview,
   currentDraftHash,
+  officialCompileRun,
   onOpenExpertTool,
 }: {
   project: ProjectRecord | null;
@@ -851,6 +961,7 @@ function ExportConfirmationPanel({
   completionRun: DraftCompletionRun | null;
   postDraftReview: PostDraftReviewRun | null;
   currentDraftHash: string;
+  officialCompileRun: OfficialCompileRun | null;
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   if (!project?.package) {
@@ -863,7 +974,9 @@ function ExportConfirmationPanel({
   const officialAllowed = Boolean(
     postDraftReview?.status === "completed"
       && postDraftReview.export_allowed
-      && postDraftReview.draft_package_hash === currentDraftHash,
+      && postDraftReview.draft_package_hash === currentDraftHash
+      && postDraftReview.official_compile_run_id === officialCompileRun?.id
+      && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
 
   return (
@@ -876,11 +989,11 @@ function ExportConfirmationPanel({
         <Download size={24} />
       </div>
       {filingReport?.status === "high_risk" && <p className="workflow-hint">当前提交成熟度为高风险，请结合成稿会审报告处理。</p>}
-      {!officialAllowed && <p className="workflow-hint">正式稿入口已锁定：需要通过匹配当前成稿 hash 的成稿会审。</p>}
+      {!officialAllowed && <p className="workflow-hint">正式稿入口已锁定：需要通过匹配当前正式稿编译 hash 的成稿会审。</p>}
       <div className="export-confirmation">
         <article>
           <strong>正式稿</strong>
-          <span>{officialAllowed ? "已通过成稿会审，可导出。" : "等待成稿会审通过后解锁。"}</span>
+          <span>{officialAllowed ? `已通过成稿会审，可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}` : "等待正式稿编译和成稿会审通过后解锁。"}</span>
         </article>
         <article>
           <strong>内部稿</strong>
