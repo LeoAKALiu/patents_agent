@@ -27,3 +27,7 @@ chroma = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "golden_eval: golden-set evaluation tests",
+    "llm_judge: LLM-as-Judge tests (require EVAL_LLM_API_KEY)",
+]

@@ -1,0 +1,34 @@
+name: Golden-set Evaluation
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/generator.py'
+      - 'backend/app/llm.py'
+      - 'backend/app/schemas.py'
+      - 'golden_set/v1/**'
+  workflow_dispatch:
+
+jobs:
+  fast-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -e ".[dev]"
+      - run: python3 -m pytest tests/test_golden_set_eval.py -m "not llm_judge" -q
+
+  judge-eval:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      EVAL_LLM_API_KEY: ${{ secrets.EVAL_LLM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -e ".[dev]"
+      - run: python3 -m pytest tests/test_golden_set_eval.py -m "llm_judge" -q
