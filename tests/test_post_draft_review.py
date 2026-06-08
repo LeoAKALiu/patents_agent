@@ -167,6 +167,28 @@ def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_pat
     assert "attorney_memo" in report_response.text
 
 
+def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compile(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+
+    passed_review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert passed_review["export_allowed"] is True
+
+    client.app.state.llm = _review_llm(export_allowed=False)
+    blocking_review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert blocking_review["status"] == "completed"
+    assert blocking_review["export_allowed"] is False
+    assert blocking_review["official_compile_run_id"] == passed_review["official_compile_run_id"]
+    assert blocking_review["official_package_hash"] == passed_review["official_package_hash"]
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+
+    assert export_response.status_code == 409
+    assert "Post-draft multi-agent review is required" in export_response.json()["detail"]
+
+
 def test_post_draft_review_hash_mismatch_invalidates_export_gate(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _package())

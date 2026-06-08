@@ -304,6 +304,26 @@ def test_official_export_uses_compiled_package_not_raw_draft(tmp_path):
     assert "1. 一种方法，包括生成任务包。" in response.text
 
 
+def test_review_for_previous_compile_run_cannot_unlock_latest_compile(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package())
+    first_compile = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert review["export_allowed"] is True
+    assert review["official_compile_run_id"] == first_compile["id"]
+
+    second_compile = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert second_compile["status"] == "completed"
+    assert second_compile["id"] != first_compile["id"]
+    assert second_compile["source_draft_hash"] == first_compile["source_draft_hash"]
+    assert second_compile["official_package_hash"] == first_compile["official_package_hash"]
+
+    response = client.get(f"/api/projects/{project_id}/official-export.md")
+
+    assert response.status_code == 409
+    assert "Post-draft multi-agent review is required" in response.json()["detail"]
+
+
 def test_official_export_requires_recompile_when_draft_changes(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _draft_package())

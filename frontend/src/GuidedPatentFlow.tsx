@@ -43,6 +43,7 @@ import {
   patentGoalModes,
   qualitySummaryFromRuns,
   selectCurrentOfficialCompileRun,
+  selectLatestMatchingPostDraftReview,
   type GuidedFlowState,
   type PatentGoalMode,
 } from "./guidedFlow";
@@ -131,14 +132,10 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
     props.officialCompileRuns,
     props.currentSourceDraftHash,
   );
-  const latestMatchingPostDraftReview =
-    props.postDraftReviews.find((run) =>
-      latestOfficialCompileRun
-        ? run.official_compile_run_id === latestOfficialCompileRun.id
-          && run.official_package_hash === latestOfficialCompileRun.official_package_hash
-          && run.draft_package_hash === latestOfficialCompileRun.source_draft_hash
-        : run.draft_package_hash === props.currentDraftHash,
-    ) ?? null;
+  const latestMatchingPostDraftReview = selectLatestMatchingPostDraftReview(
+    props.postDraftReviews,
+    latestOfficialCompileRun,
+  );
 
   return (
     <div className="guided-flow">
@@ -968,11 +965,9 @@ function ExportConfirmationPanel({
     );
   }
   const officialAllowed = Boolean(
-    postDraftReview?.status === "completed"
-      && postDraftReview.export_allowed
+    postDraftReview?.export_allowed
       && postDraftReview.draft_package_hash === currentDraftHash
-      && postDraftReview.official_compile_run_id === officialCompileRun?.id
-      && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
+      && postDraftReview.official_compile_run_id === officialCompileRun?.id,
   );
 
   return (

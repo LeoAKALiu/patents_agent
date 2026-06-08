@@ -114,6 +114,7 @@ import {
   guidedOperationLog,
   mainSections,
   selectCurrentOfficialCompileRun,
+  selectLatestMatchingPostDraftReview,
   type ExpertToolId,
   type MainSectionId,
   type PatentGoalMode,
@@ -200,7 +201,7 @@ function App() {
   const latestWorksheet = worksheets[0] ?? null;
   const latestCompletionRun = completionRuns[0] ?? null;
   const latestOfficialCompileRun = selectCurrentOfficialCompileRun(officialCompileRuns, currentSourceDraftHash);
-  const latestPostDraftReview = postDraftReviews[0] ?? null;
+  const latestPostDraftReview = selectLatestMatchingPostDraftReview(postDraftReviews, latestOfficialCompileRun);
   const activeMainSection = mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   const activeExpertToolEntry = expertToolGroups
     .flatMap((group) => group.tools)

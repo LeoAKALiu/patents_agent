@@ -794,6 +794,54 @@ describe("deriveGuidedFlowState", () => {
     expect(state.exportReady).toBe(false);
   });
 
+  it("uses the latest matching post-draft review instead of an older pass", () => {
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        package: {
+          title: "一种外立面逆建模方法",
+          abstract: "摘要",
+          claims: "1. 一种方法。",
+          description: "说明书",
+          drawing_description: "附图说明",
+          mermaid: "flowchart TD",
+          image_prompt: "黑白线稿",
+          review_findings: [],
+          citations: [],
+          generation_logs: [],
+        },
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [filingReport("warning")],
+      worksheets: [worksheet],
+      completionRuns: [completionRun],
+      officialCompileRuns: [completedOfficialCompileRun],
+      postDraftReviews: [
+        {
+          ...passedPostDraftReview,
+          id: "older-pass",
+          created_at: "2026-06-02T00:00:00Z",
+          updated_at: "2026-06-02T00:00:00Z",
+        },
+        {
+          ...passedPostDraftReview,
+          id: "newer-block",
+          export_allowed: false,
+          blocking_issues: ["正式稿支持不足。"],
+          created_at: "2026-06-02T00:01:00Z",
+          updated_at: "2026-06-02T00:01:00Z",
+        },
+      ],
+    });
+
+    expect(state.currentStepId).toBe("postReview");
+    expect(state.hasPassedPostDraftReview).toBe(false);
+    expect(state.exportReady).toBe(false);
+  });
+
   it("does not treat blocked post-draft review as export ready", () => {
     const state = deriveGuidedFlowState({
       project: {

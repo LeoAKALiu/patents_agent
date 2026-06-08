@@ -1122,18 +1122,18 @@ def _require_official_export_gate(store: SQLiteStore, project_id: str, package: 
             status_code=409,
             detail="Official draft compile is required for the current draft before official export.",
         )
-    matching_review = next(
+    latest_matching_review = next(
         (
             run
             for run in store.list_post_draft_review_runs(project_id)
             if run.status == "completed"
-            and run.export_allowed
             and run.draft_package_hash == current_source_hash
+            and run.official_compile_run_id == compile_run.id
             and run.official_package_hash == compile_run.official_package_hash
         ),
         None,
     )
-    if not matching_review:
+    if not latest_matching_review or not latest_matching_review.export_allowed:
         raise HTTPException(
             status_code=409,
             detail="Post-draft multi-agent review is required for the current official draft before official export.",

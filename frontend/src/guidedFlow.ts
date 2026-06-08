@@ -226,9 +226,12 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     input.currentSourceDraftHash,
   );
   const hasCompletedOfficialCompile = Boolean(currentOfficialCompileRun);
+  const latestMatchingPostDraftReview = selectLatestMatchingPostDraftReview(
+    input.postDraftReviews ?? [],
+    currentOfficialCompileRun,
+  );
   const hasPassedPostDraftReview = Boolean(
-    currentOfficialCompileRun
-      && input.postDraftReviews?.some((review) => isMatchingPassedPostDraftReview(review, currentOfficialCompileRun)),
+    latestMatchingPostDraftReview?.export_allowed,
   );
   const exportReady = draftReady && qualityChecked && hasCompletedOfficialCompile && hasPassedPostDraftReview;
 
@@ -278,16 +281,37 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   };
 }
 
-function isMatchingPassedPostDraftReview(review: PostDraftReviewRun, compile: OfficialCompileRun): boolean {
+function isMatchingPostDraftReview(review: PostDraftReviewRun, compile: OfficialCompileRun): boolean {
   return Boolean(
     review.status === "completed"
-      && review.export_allowed
       && compile.official_package_hash
       && compile.source_draft_hash
       && review.official_compile_run_id === compile.id
       && review.official_package_hash === compile.official_package_hash
       && review.draft_package_hash === compile.source_draft_hash,
   );
+}
+
+export function selectLatestMatchingPostDraftReview(
+  reviews: PostDraftReviewRun[],
+  compile: OfficialCompileRun | null,
+): PostDraftReviewRun | null {
+  if (!compile) {
+    return null;
+  }
+  return reviews.reduce<PostDraftReviewRun | null>((latest, review) => {
+    if (!isMatchingPostDraftReview(review, compile)) {
+      return latest;
+    }
+    if (!latest) {
+      return review;
+    }
+    return postDraftReviewTime(review) > postDraftReviewTime(latest) ? review : latest;
+  }, null);
+}
+
+function postDraftReviewTime(review: PostDraftReviewRun): number {
+  return Date.parse(review.updated_at || review.created_at || "") || 0;
 }
 
 export function selectCurrentOfficialCompileRun(
