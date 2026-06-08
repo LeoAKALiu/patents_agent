@@ -84,6 +84,50 @@ def test_compiler_blocks_ai_preface_title_contamination():
     )
 
 
+def test_compiler_blocks_inline_prompt_contamination_in_drawing_description():
+    package = _draft_package(drawing_description="图1为方法流程图。prompt: 黑白线稿")
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(
+        item["category"] == "residual_internal_text"
+        and item["section"] == "drawing_description"
+        and item["pattern"] == "prompt"
+        for item in run.blocked_items
+    )
+
+
+def test_compiler_blocks_inline_prompt_contamination_in_title():
+    package = _draft_package(title="一种方法 prompt: 黑白线稿")
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(
+        item["category"] == "residual_internal_text"
+        and item["section"] == "title"
+        and item["pattern"] == "prompt"
+        for item in run.blocked_items
+    )
+
+
+def test_compiler_blocks_json_wrapper_only_required_section():
+    package = _draft_package(drawing_description='{\n  "prompt": "黑白线稿"\n}')
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(
+        item["category"] == "empty_required_section"
+        and item["section"] == "drawing_description"
+        for item in run.blocked_items
+    )
+
+
 def _draft_package(**overrides) -> DraftPackage:
     data = {
         "title": "一种城市体检指标驱动无人机主动采集方法",

@@ -18,8 +18,17 @@ from backend.app.schemas import (
 
 CROSS_PROJECT_TITLE = "基于边缘端动态推理的无人机飞行中任务调整方法"
 REQUIRED_SECTIONS = ("abstract", "claims", "description", "drawing_description")
-RESIDUAL_INTERNAL_PATTERNS = ("support_gap", "support_gaps", "generation_logs", "image_prompt", "好的，下面")
+RESIDUAL_INTERNAL_PATTERNS = (
+    "support_gap",
+    "support_gaps",
+    "generation_logs",
+    "image_prompt",
+    "prompt",
+    "diagram",
+    "好的，下面",
+)
 INTERNAL_FIELD_RE = re.compile(r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs)["']?\s*[:：=]""")
+JSON_WRAPPER_RE = re.compile(r"^[{}\[\],]+$")
 
 
 def source_draft_hash(package: DraftPackage) -> str:
@@ -284,6 +293,8 @@ def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
         return {"category": "format_pollution", "pattern": "markdown_fence"}
     if re.match(r"^#{1,6}\s+", line):
         return {"category": "format_pollution", "pattern": "markdown_heading"}
+    if JSON_WRAPPER_RE.match(line):
+        return {"category": "format_pollution", "pattern": "json_wrapper"}
     internal_field = INTERNAL_FIELD_RE.match(line)
     if internal_field:
         return {"category": "internal_field", "pattern": internal_field.group(1)}
