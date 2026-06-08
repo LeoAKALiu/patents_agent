@@ -797,3 +797,44 @@ class CorpusImportJob(BaseModel):
     failed_documents: int = 0
     errors: list[str] = Field(default_factory=list)
     quality_report: CorpusQualityReport | None = None
+
+
+# --- Golden-set evaluation models -------------------------------------------------
+
+
+class EvalPatentResult(BaseModel):
+    """Single patent evaluation result within a golden-set run."""
+
+    patent_id: str
+    title: str
+    technical_field: str
+    gate_pass: bool
+    gate_warnings: list[str] = Field(default_factory=list)
+    sas: float  # 0-1
+    sas_detail: dict[str, float] = Field(default_factory=dict)
+    ccs: float  # 0-1
+    ccs_detail: dict[str, float] = Field(default_factory=dict)
+    llm_judge: dict[str, float | None] | None = None
+
+
+class GoldenEvalSummary(BaseModel):
+    """Aggregated summary across all patents in a golden-set run."""
+
+    sas_avg: float
+    ccs_avg: float
+    gate_pass_rate: float
+    llm_judge_avg: dict[str, float] | None = None
+    pass_: bool
+    warnings: int
+
+
+class GoldenEvalReport(BaseModel):
+    """Full evaluation report for a golden-set run."""
+
+    run_id: str
+    commit: str
+    golden_set_version: str
+    timestamp: datetime = Field(default_factory=_utc_now_iso)
+    summary: GoldenEvalSummary
+    per_patent: list[EvalPatentResult] = Field(default_factory=list)
+    diff_from_previous: dict[str, Any] | None = None
