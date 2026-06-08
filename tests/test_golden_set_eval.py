@@ -217,8 +217,9 @@ def test_evaluator_loads_golden_set(tmp_path):
     (tmp_path / "CN-test-001.json").write_text(json.dumps(_sample_golden_entry()))
 
     evaluator = GoldenSetEvaluator(golden_set_dir=tmp_path)
-    entries = evaluator.load_golden_set()
+    entries, errors = evaluator.load_golden_set()
     assert len(entries) == 1
+    assert errors == []
     assert entries[0]["id"] == "CN-test-001"
 
 
@@ -230,7 +231,7 @@ def test_evaluator_run_one_produces_eval_result(tmp_path):
     (tmp_path / "CN-test-001.json").write_text(json.dumps(_sample_golden_entry()))
 
     evaluator = GoldenSetEvaluator(golden_set_dir=tmp_path)
-    entries = evaluator.load_golden_set()
+    entries, errors = evaluator.load_golden_set()
     llm = FakeLLMClient({
         "claims": json.dumps({
             "claims": [
@@ -302,8 +303,10 @@ def test_evaluator_handles_missing_golden_file(tmp_path):
         "entries": [{"id": "CN-missing", "title": "缺失", "technical_field": "ai_software", "claims_count": 1}],
     }))
     evaluator = GoldenSetEvaluator(golden_set_dir=tmp_path)
-    entries = evaluator.load_golden_set()
+    entries, errors = evaluator.load_golden_set()
     assert len(entries) == 0
+    assert len(errors) == 1
+    assert "missing" in errors[0]
 
 
 def test_evaluator_run_one_failure_does_not_stop_full_run(tmp_path):
@@ -362,7 +365,7 @@ def test_llm_judge_produces_score_dict(tmp_path):
     })
 
     evaluator = GoldenSetEvaluator(golden_set_dir=tmp_path, judge_llm=judge_llm)
-    entries = evaluator.load_golden_set()
+    entries, _ = evaluator.load_golden_set()
     llm = FakeLLMClient({
         "claims": json.dumps({
             "claims": [
@@ -402,7 +405,7 @@ def test_llm_judge_skipped_when_judge_llm_is_none(tmp_path):
     (tmp_path / "CN-test-001.json").write_text(json.dumps(_sample_golden_entry()))
 
     evaluator = GoldenSetEvaluator(golden_set_dir=tmp_path, judge_llm=None)
-    entries = evaluator.load_golden_set()
+    entries, _ = evaluator.load_golden_set()
     llm = FakeLLMClient({
         "claims": json.dumps({"claims": [
             {"number": 1, "kind": "independent", "category": "method", "depends_on": None,

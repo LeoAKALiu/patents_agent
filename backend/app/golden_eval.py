@@ -314,32 +314,52 @@ class GoldenSetEvaluator:
 
     # ---- loading ----
 
-    def load_golden_set(self) -> list[dict]:
-        """Load manifest and all referenced JSON files. Silently skips missing files."""
+    def load_golden_set(self) -> tuple[list[dict], list[str]]:
+        """Load manifest and all referenced JSON files.
+
+        Returns (entries, errors) — errors list each missing or invalid file by ID.
+        Callers must handle non-empty errors as a gate failure.
+        """
         manifest_path = self.golden_set_dir / "manifest.json"
         if not manifest_path.exists():
             raise FileNotFoundError(f"Golden-set manifest not found: {manifest_path}")
 
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         entries: list[dict] = []
+        errors: list[str] = []
         for entry in manifest.get("entries", []):
             patent_file = self.golden_set_dir / f"{entry['id']}.json"
             if not patent_file.exists():
+                errors.append(f"missing golden-set file: {entry['id']}.json")
                 continue
             try:
                 data = json.loads(patent_file.read_text(encoding="utf-8"))
                 entries.append(data)
-            except (json.JSONDecodeError, KeyError):
+            except (json.JSONDecodeError, KeyError) as exc:
+                errors.append(f"invalid golden-set file: {entry['id']}.json ({exc})")
                 continue
-        return entries
+        return entries, errors
 
     # ---- top-level ----
 
     def run(self, generator: PatentDraftGenerator) -> GoldenEvalReport:
         """Run evaluation on all golden-set entries and produce a report."""
-        entries = self.load_golden_set()
+        entries, load_errors = self.load_golden_set()
         run_id = uuid.uuid4().hex[:12]
         per_patent: list[EvalPatentResult] = []
+
+        # Encode load errors as synthetic failed results so the gate sees them.
+        for err in load_errors:
+            patent_id = err.split(":")[1].strip().removesuffix(".json") if ":" in err else "unknown"
+            per_patent.append(EvalPatentResult(
+                patent_id=patent_id,
+                title="[load error]",
+                technical_field="unknown",
+                gate_pass=False,
+                gate_warnings=[err],
+                sas=0.0,
+                ccs=0.0,
+            ))
 
         for entry in entries:
             try:

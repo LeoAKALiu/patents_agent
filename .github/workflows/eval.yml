@@ -4,9 +4,13 @@ on:
   pull_request:
     paths:
       - 'backend/app/generator.py'
+      - 'backend/app/golden_eval.py'
       - 'backend/app/llm.py'
       - 'backend/app/schemas.py'
       - 'golden_set/v1/**'
+      - 'tests/test_golden_set_eval.py'
+      - '.github/workflows/eval.yml'
+      - 'pyproject.toml'
   workflow_dispatch:
 
 jobs:
