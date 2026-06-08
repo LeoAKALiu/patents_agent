@@ -19,6 +19,7 @@ from backend.app.schemas import (
 CROSS_PROJECT_TITLE = "基于边缘端动态推理的无人机飞行中任务调整方法"
 REQUIRED_SECTIONS = ("abstract", "claims", "description", "drawing_description")
 RESIDUAL_INTERNAL_PATTERNS = ("support_gap", "support_gaps", "generation_logs", "image_prompt", "好的，下面")
+INTERNAL_FIELD_RE = re.compile(r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs)["']?\s*[:：=]""")
 
 
 def source_draft_hash(package: DraftPackage) -> str:
@@ -66,6 +67,12 @@ class OfficialDraftCompiler:
                 }
             )
 
+        cleaned_title = _clean_section(
+            section="title",
+            text=package.title,
+            contamination_removed=contamination_removed,
+            sidecar_notes=sidecar_notes,
+        )
         cleaned = {
             section: _clean_section(
                 section=section,
@@ -75,6 +82,16 @@ class OfficialDraftCompiler:
             )
             for section in REQUIRED_SECTIONS
         }
+
+        if not cleaned_title.strip():
+            blocked_items.append(
+                {
+                    "category": "empty_required_section",
+                    "section": "title",
+                    "pattern": "empty_after_cleaning",
+                    "message": "title is empty after removing internal contamination.",
+                }
+            )
 
         for section, text in cleaned.items():
             if not text.strip():
@@ -87,7 +104,8 @@ class OfficialDraftCompiler:
                     }
                 )
 
-        for section, text in cleaned.items():
+        all_cleaned_text = {"title": cleaned_title, **cleaned}
+        for section, text in all_cleaned_text.items():
             for pattern in RESIDUAL_INTERNAL_PATTERNS:
                 if pattern in text:
                     blocked_items.append(
@@ -122,7 +140,7 @@ class OfficialDraftCompiler:
             )
 
         official_package = OfficialDraftPackage(
-            title=_clean_title(package.title),
+            title=cleaned_title,
             abstract=cleaned["abstract"],
             claims=cleaned["claims"],
             description=cleaned["description"],
@@ -266,9 +284,9 @@ def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
         return {"category": "format_pollution", "pattern": "markdown_fence"}
     if re.match(r"^#{1,6}\s+", line):
         return {"category": "format_pollution", "pattern": "markdown_heading"}
-    for pattern in ("image_prompt", "prompt:", "prompt：", "diagram", "generation_logs"):
-        if pattern in line:
-            return {"category": "internal_field", "pattern": pattern}
+    internal_field = INTERNAL_FIELD_RE.match(line)
+    if internal_field:
+        return {"category": "internal_field", "pattern": internal_field.group(1)}
     for pattern in ("根据会审策略", "多 Agent 会审", "多Agent会审", "主席汇总", "deliberation", "generation_logs"):
         if pattern in line:
             return {"category": "internal_trace", "pattern": pattern}
@@ -298,10 +316,6 @@ def _looks_like_mermaid(line: str) -> bool:
 def _strip_inline_markdown(line: str) -> str:
     line = re.sub(r"^\s*#{1,6}\s*", "", line)
     return line.strip()
-
-
-def _clean_title(title: str) -> str:
-    return _strip_inline_markdown(title.strip())
 
 
 def _parse_figure_plan(drawing_description: str) -> list[OfficialFigurePlanItem]:

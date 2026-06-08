@@ -55,6 +55,35 @@ def test_compiler_blocks_when_cleaning_empties_required_section():
     assert any(item["category"] == "empty_required_section" for item in run.blocked_items)
 
 
+def test_compiler_removes_json_style_prompt_internal_field():
+    package = _draft_package(
+        drawing_description='图1为方法流程图。\n"prompt": "黑白线稿"',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "completed"
+    assert run.official_package is not None
+    official_text = official_package_to_markdown(run.official_package)
+    assert "prompt" not in official_text
+    assert "黑白线稿" not in official_text
+    assert any(item["pattern"] == "prompt" for item in run.contamination_removed)
+
+
+def test_compiler_blocks_ai_preface_title_contamination():
+    package = _draft_package(title="好的，下面撰写一种方法")
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(
+        item["category"] in {"residual_internal_text", "empty_required_section"}
+        and item["section"] == "title"
+        for item in run.blocked_items
+    )
+
+
 def _draft_package(**overrides) -> DraftPackage:
     data = {
         "title": "一种城市体检指标驱动无人机主动采集方法",
