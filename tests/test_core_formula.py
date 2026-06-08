@@ -176,10 +176,10 @@ def _fake_llm() -> FakeLLMClient:
   "latex_markdown": ""
 }
 """,
-            "claims": "1. 一种城市体检指标驱动的无人机主动采集方法，其特征在于，根据指标置信度增益生成任务包。",
-            "description": "技术领域\n本发明涉及无人机主动采集。\n具体实施方式\n本实施例包括公式F01。",
-            "abstract": "本发明公开一种无人机主动采集方法。",
-            "drawings": "图1为方法流程图。\n图2为系统结构图。",
+            "claims": '{"claims":[{"number":1,"kind":"independent","category":"method","depends_on":null,"preamble":"一种城市体检指标驱动的无人机主动采集方法，其特征在于，包括：","features":["根据指标置信度增益生成任务包"]}]}',
+            "description": '{"technical_field":"本发明涉及无人机主动采集技术领域。","background":"现有方法效率低。","summary":"本发明通过指标置信度增益生成任务包。","embodiments":"本实施例包括公式F01。"}',
+            "abstract": '{"abstract":"本发明公开一种无人机主动采集方法。"}',
+            "drawings": '{"figures":[{"figure_no":"图1","title":"方法流程图"},{"figure_no":"图2","title":"系统结构图"}]}',
             "diagram": "flowchart TD\nA[指标] --> B[任务包]",
             "image_prompt": "黑白线稿。",
         }

@@ -154,10 +154,10 @@ def test_disclosure_generator_injects_user_candidate_context_into_prompts():
 def test_disclosure_api_lifecycle_and_generation_injection(tmp_path: Path):
     llm = _disclosure_llm(
         extra={
-            "claims": "1. 一种图像缺陷识别方法，其特征在于，包括采集图像并输出缺陷位置。",
-            "description": "技术领域\n本发明涉及AI检测。\n发明内容\n本发明基于交底书限定输入输出。",
-            "abstract": "本发明公开了一种图像缺陷识别方法。",
-            "drawings": "图1为方法流程图。",
+            "claims": '{"claims":[{"number":1,"kind":"independent","category":"method","depends_on":null,"preamble":"一种图像缺陷识别方法，其特征在于，包括：","features":["采集图像","输出缺陷位置"]}]}',
+            "description": '{"technical_field":"本发明涉及AI检测技术领域。","background":"现有方法效率低。","summary":"本发明基于交底书限定输入输出。","embodiments":"采集图像并输出缺陷位置。"}',
+            "abstract": '{"abstract":"本发明公开了一种图像缺陷识别方法。"}',
+            "drawings": '{"figures":[{"figure_no":"图1","title":"方法流程图"}]}',
             "diagram": "flowchart TD\nA[采集] --> B[输出]",
             "image_prompt": "黑白线稿，展示采集和输出流程。",
         }

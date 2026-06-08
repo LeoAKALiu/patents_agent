@@ -244,6 +244,7 @@ class DraftPackage(BaseModel):
     claims_struct: ClaimsOutput | None = None
     description_struct: DescriptionOutput | None = None
     drawings_struct: DrawingsOutput | None = None
+    abstract_struct: AbstractOutput | None = None
 
 
 class OfficialFigurePlanItem(BaseModel):

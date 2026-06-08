@@ -100,9 +100,12 @@ def test_draft_package_accepts_optional_struct_fields():
         mermaid="",
         image_prompt="",
         claims_struct=ClaimsOutput(claims=[ClaimItem(number=1, preamble="一种方法", features=["步骤A"])]),
+        abstract_struct=AbstractOutput(abstract="摘要"),
     )
     assert package.claims_struct is not None
     assert package.claims_struct.claims[0].number == 1
+    assert package.abstract_struct is not None
+    assert package.abstract_struct.abstract == "摘要"
     # Backward compatibility: struct fields default to None when omitted.
     assert DraftPackage(
         title="t", abstract="a", claims="c", description="d", drawing_description="e", mermaid="", image_prompt=""

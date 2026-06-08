@@ -414,10 +414,10 @@ def test_disclosure_ignores_claim_chart_for_unknown_prior_art_hit(tmp_path):
 def test_draft_generation_prompt_marks_unverified_schemes_as_optional(tmp_path):
     llm = FakeLLMClient(
         {
-            "claims": "1. 一种外立面逆建模方法。\n2. 根据权利要求1所述的方法，其中可选地进行遮挡洞口语义补全。",
-            "description": "具体实施方式\n在可选实施例中，执行遮挡洞口语义补全。",
-            "abstract": "本发明公开了一种外立面逆建模方法。",
-            "drawings": "图1为流程图。",
+            "claims": '{"claims":[{"number":1,"kind":"independent","category":"method","preamble":"一种外立面逆建模方法，其特征在于，包括：","features":["逆建模"]},{"number":2,"kind":"dependent","depends_on":1,"category":"method","preamble":"根据权利要求1所述的方法，其特征在于","features":["可选地进行遮挡洞口语义补全"]}]}',
+            "description": '{"technical_field":"本发明涉及外立面逆建模技术领域。","background":"遮挡导致洞口漏识别。","summary":"本发明通过多视角互证补全洞口。","embodiments":"在可选实施例中，执行遮挡洞口语义补全。"}',
+            "abstract": '{"abstract":"本发明公开了一种外立面逆建模方法。"}',
+            "drawings": '{"figures":[{"figure_no":"图1","title":"流程图"}]}',
             "diagram": "flowchart TD\nA[点云] --> B[模型]",
             "image_prompt": "黑白线稿。",
         }
@@ -462,10 +462,10 @@ def test_draft_generation_prompt_marks_unverified_schemes_as_optional(tmp_path):
 def test_generate_prefers_completed_disclosure_over_selected_user_synthesis(tmp_path):
     llm = FakeLLMClient(
         {
-            "claims": "1. 一种外立面逆建模方法。",
-            "description": "具体实施方式\n基于已完成交底书撰写。",
-            "abstract": "本发明公开了一种外立面逆建模方法。",
-            "drawings": "图1为流程图。",
+            "claims": '{"claims":[{"number":1,"kind":"independent","category":"method","preamble":"一种外立面逆建模方法，其特征在于，包括：","features":["逆建模"]}]}',
+            "description": '{"technical_field":"本发明涉及外立面逆建模技术领域。","background":"现有方法效率低。","summary":"本发明基于已完成交底书。","embodiments":"基于已完成交底书撰写。"}',
+            "abstract": '{"abstract":"本发明公开了一种外立面逆建模方法。"}',
+            "drawings": '{"figures":[{"figure_no":"图1","title":"流程图"}]}',
             "diagram": "flowchart TD\nA[点云] --> B[模型]",
             "image_prompt": "黑白线稿。",
         }
@@ -516,10 +516,10 @@ def test_generate_prefers_completed_disclosure_over_selected_user_synthesis(tmp_
 def test_generate_synthesizes_disclosure_from_selected_user_points_only(tmp_path):
     llm = FakeLLMClient(
         {
-            "claims": "1. 一种外立面逆建模方法。",
-            "description": "具体实施方式\n基于选中用户点撰写。",
-            "abstract": "本发明公开了一种外立面逆建模方法。",
-            "drawings": "图1为流程图。",
+            "claims": '{"claims":[{"number":1,"kind":"independent","category":"method","preamble":"一种外立面逆建模方法，其特征在于，包括：","features":["逆建模"]}]}',
+            "description": '{"technical_field":"本发明涉及外立面逆建模技术领域。","background":"现有方法效率低。","summary":"本发明基于选中用户点。","embodiments":"基于选中用户点撰写。"}',
+            "abstract": '{"abstract":"本发明公开了一种外立面逆建模方法。"}',
+            "drawings": '{"figures":[{"figure_no":"图1","title":"流程图"}]}',
             "diagram": "flowchart TD\nA[点云] --> B[模型]",
             "image_prompt": "黑白线稿。",
         }

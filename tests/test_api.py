@@ -12,10 +12,10 @@ def _test_app_without_env(tmp_path):
 def test_api_corpus_project_generation_review_and_export(tmp_path):
     llm = FakeLLMClient(
         {
-            "claims": "1. 一种图像缺陷识别方法，其特征在于，包括采集图像并训练模型。\n2. 根据权利要求1所述的方法，其特征在于，输出缺陷位置。",
-            "description": "技术领域\n本发明涉及AI检测技术领域。\n发明内容\n本发明通过模型训练实现缺陷识别。",
-            "abstract": "本发明公开了一种图像缺陷识别方法，能够提高检测准确性。",
-            "drawings": "图1为图像缺陷识别方法流程图。\n图2为系统结构图。",
+            "claims": '{"claims":[{"number":1,"kind":"independent","category":"method","depends_on":null,"preamble":"一种图像缺陷识别方法，其特征在于，包括：","features":["采集图像","训练模型"]},{"number":2,"kind":"dependent","category":"method","depends_on":1,"preamble":"根据权利要求1所述的方法，其特征在于","features":["输出缺陷位置"]}]}',
+            "description": '{"technical_field":"本发明涉及AI检测技术领域。","background":"人工检测效率低。","summary":"本发明通过模型训练实现缺陷识别。","embodiments":"采集图像、训练模型并输出缺陷位置。"}',
+            "abstract": '{"abstract":"本发明公开了一种图像缺陷识别方法，能够提高检测准确性。"}',
+            "drawings": '{"figures":[{"figure_no":"图1","title":"图像缺陷识别方法流程图"},{"figure_no":"图2","title":"系统结构图"}]}',
             "diagram": "flowchart TD\nA[采集图像] --> B[训练模型] --> C[输出结果]",
             "image_prompt": "黑白线稿，展示图像采集、模型训练和结果输出流程。",
             "review": '[{"category":"支持性","severity":"medium","message":"从属权利要求支撑略少。","suggestion":"在具体实施方式中补充缺陷位置输出细节。","evidence":"权利要求2"}]',

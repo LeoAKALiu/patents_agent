@@ -8,10 +8,10 @@ from backend.app.schemas import AgentDoctorReport, AgentProviderStatus
 def test_deliberation_api_lifecycle_and_generation_injection(tmp_path):
     llm = FakeLLMClient(
         {
-            "claims": "1. 一种图像缺陷识别方法，其特征在于，包括采集图像、训练模型并输出缺陷位置。",
-            "description": "技术领域\n本发明涉及AI检测技术领域。\n发明内容\n本发明根据会审策略限定方法和系统边界。",
-            "abstract": "本发明公开了一种图像缺陷识别方法，能够提高检测效率。",
-            "drawings": "图1为方法流程图。\n图2为系统结构图。",
+            "claims": '{"claims":[{"number":1,"kind":"independent","category":"method","depends_on":null,"preamble":"一种图像缺陷识别方法，其特征在于，包括：","features":["采集图像","训练模型","输出缺陷位置"]}]}',
+            "description": '{"technical_field":"本发明涉及AI检测技术领域。","background":"现有方法效率低。","summary":"本发明根据会审策略限定方法和系统边界。","embodiments":"采集图像、训练模型并输出缺陷位置。"}',
+            "abstract": '{"abstract":"本发明公开了一种图像缺陷识别方法，能够提高检测效率。"}',
+            "drawings": '{"figures":[{"figure_no":"图1","title":"方法流程图"},{"figure_no":"图2","title":"系统结构图"}]}',
             "diagram": "flowchart TD\nA[采集图像] --> B[训练模型] --> C[输出缺陷位置]",
             "image_prompt": "黑白线稿，展示图像采集、模型训练、缺陷输出流程。",
         }
@@ -59,10 +59,10 @@ def test_deliberation_api_lifecycle_and_generation_injection(tmp_path):
 def test_failed_deliberation_has_diagnostic_logs_and_cannot_generate(tmp_path):
     llm = FakeLLMClient(
         {
-            "claims": "1. 一种方法。",
-            "description": "说明书。",
-            "abstract": "摘要。",
-            "drawings": "图1为流程图。",
+            "claims": '{"claims":[{"number":1,"kind":"independent","category":"method","depends_on":null,"preamble":"一种方法，其特征在于，包括：","features":["执行步骤"]}]}',
+            "description": '{"technical_field":"技术领域。","background":"背景。","summary":"发明内容。","embodiments":"具体实施例。"}',
+            "abstract": '{"abstract":"摘要。"}',
+            "drawings": '{"figures":[{"figure_no":"图1","title":"流程图"}]}',
             "diagram": "flowchart TD\nA-->B",
             "image_prompt": "黑白线稿。",
         }
@@ -163,10 +163,10 @@ class _FakeProviderRunner:
 def _minimal_llm() -> FakeLLMClient:
     return FakeLLMClient(
         {
-            "claims": "1. 一种方法。",
-            "description": "说明书。",
-            "abstract": "摘要。",
-            "drawings": "图1为流程图。",
+            "claims": '{"claims":[{"number":1,"kind":"independent","category":"method","depends_on":null,"preamble":"一种方法，其特征在于，包括：","features":["执行步骤"]}]}',
+            "description": '{"technical_field":"技术领域。","background":"背景。","summary":"发明内容。","embodiments":"具体实施例。"}',
+            "abstract": '{"abstract":"摘要。"}',
+            "drawings": '{"figures":[{"figure_no":"图1","title":"流程图"}]}',
             "diagram": "flowchart TD\nA-->B",
             "image_prompt": "黑白线稿。",
         }

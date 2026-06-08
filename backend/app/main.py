@@ -26,7 +26,7 @@ from backend.app.filing_readiness import (
     readiness_report_to_markdown,
 )
 from backend.app.generator import PatentDraftGenerator
-from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
+from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient, StructuredOutputError
 from backend.app.official_compile import (
     OfficialDraftCompiler,
     export_official_package_docx,
@@ -576,7 +576,7 @@ def create_app(
                 disclosure=disclosure_package,
                 formula_package=formula_run.package if formula_run else None,
             )
-        except ConfigError as exc:
+        except (ConfigError, StructuredOutputError) as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         if deliberation:
             package.deliberation_run_id = deliberation.id
