@@ -4,6 +4,7 @@ from backend.app.official_compile import (
     OfficialDraftCompiler,
     official_package_to_markdown,
 )
+from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.storage import SQLiteStore
 from backend.app.schemas import DraftPackage
@@ -244,6 +245,78 @@ def test_official_compile_api_creates_lists_gets_and_exports_report(tmp_path):
     assert "## Official Package" in report_response.text
 
 
+def test_post_draft_review_requires_completed_official_compile(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package())
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 409
+    assert "Official draft compile is required" in response.json()["detail"]
+
+
+def test_post_draft_review_requires_completed_official_compile_for_current_draft(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package())
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+    client.app.state.store.update_project_package(project_id, _draft_package(abstract="修改后的摘要。"))
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 409
+    assert "Official draft compile is required" in response.json()["detail"]
+
+
+def test_post_draft_review_records_official_package_hash_and_unlocks_export(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package(claims="好的，下面撰写权利要求书。\n1. 一种方法。"))
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+    compile_run = compile_response.json()
+    assert compile_run["status"] == "completed"
+
+    review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert review_response.status_code == 200
+    review = review_response.json()
+    assert review["status"] == "completed"
+    assert review["export_allowed"] is True
+    assert review["draft_package_hash"] == compile_run["source_draft_hash"]
+    assert review["official_compile_run_id"] == compile_run["id"]
+    assert review["official_package_hash"] == compile_run["official_package_hash"]
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 200
+    assert "权利要求书" in export_response.text
+
+
+def test_official_export_uses_compiled_package_not_raw_draft(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package(claims="好的，下面撰写权利要求书。\n1. 一种方法，包括生成任务包。"))
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    response = client.get(f"/api/projects/{project_id}/official-export.md")
+
+    assert response.status_code == 200
+    assert "好的" not in response.text
+    assert "1. 一种方法，包括生成任务包。" in response.text
+
+
+def test_official_export_requires_recompile_when_draft_changes(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package())
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+    client.app.state.store.update_project_package(project_id, _draft_package(abstract="修改后的摘要。"))
+
+    response = client.get(f"/api/projects/{project_id}/official-export.md")
+
+    assert response.status_code == 409
+    assert "Official draft compile is required for the current draft" in response.json()["detail"]
+
+
 def _create_project_with_package(client: TestClient, package: DraftPackage) -> str:
     project_id = client.post(
         "/api/projects",
@@ -268,3 +341,45 @@ def _draft_package(**overrides) -> DraftPackage:
     }
     data.update(overrides)
     return DraftPackage(**data)
+
+
+def _review_llm(*, export_allowed: bool) -> FakeLLMClient:
+    role_status = "passed" if export_allowed else "blocked"
+    chair_status = "passed" if export_allowed else "blocked"
+    blocking_issues = [] if export_allowed else ["正式稿存在阻断问题。"]
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": _role_json("claims_reviewer", role_status, blocking_issues),
+            "post_draft_spec_cleaner": _role_json("spec_cleaner", role_status, blocking_issues),
+            "post_draft_technical_hardness": _role_json("technical_hardness", role_status, blocking_issues),
+            "post_draft_chair_synthesis": f"""
+{{
+  "status": "{chair_status}",
+  "export_allowed": {str(export_allowed).lower()},
+  "blocking_issues": {blocking_issues!r},
+  "contamination_hits": [],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [],
+  "attorney_memo": ["内部备忘。"],
+  "next_actions": []
+}}
+""".replace("'", '"'),
+        }
+    )
+
+
+def _role_json(role: str, status: str, blocking_issues: list[str]) -> str:
+    return f"""
+{{
+  "role": "{role}",
+  "status": "{status}",
+  "blocking_issues": {blocking_issues!r},
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": ["内部备忘。"]
+}}
+""".replace("'", '"')

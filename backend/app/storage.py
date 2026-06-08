@@ -447,10 +447,10 @@ class SQLiteStore:
                 """
                 insert into post_draft_review_runs(
                     id, project_id, status, providers_json, prompt_pack_version, draft_package_hash,
-                    role_results_json, chair_result_json, export_allowed, blocking_issues_json,
-                    contamination_hits_json, logs_json
+                    official_compile_run_id, official_package_hash, role_results_json, chair_result_json,
+                    export_allowed, blocking_issues_json, contamination_hits_json, logs_json
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._post_draft_review_run_values(run),
             )
@@ -962,6 +962,8 @@ class SQLiteStore:
                     providers_json text not null default '[]',
                     prompt_pack_version text not null,
                     draft_package_hash text not null,
+                    official_compile_run_id text not null default '',
+                    official_package_hash text not null default '',
                     role_results_json text not null,
                     chair_result_json text,
                     export_allowed integer not null default 0,
@@ -1020,6 +1022,8 @@ class SQLiteStore:
             self._migrate_project_patent_points_primary_key()
             self._ensure_column("deliberation_runs", "logs_json", "text not null default '[]'")
             self._ensure_column("formula_runs", "providers_json", "text not null default '[]'")
+            self._ensure_column("post_draft_review_runs", "official_compile_run_id", "text not null default ''")
+            self._ensure_column("post_draft_review_runs", "official_package_hash", "text not null default ''")
 
     def _migrate_project_patent_points_primary_key(self) -> None:
         columns = self.connection.execute("pragma table_info(project_patent_points)").fetchall()
@@ -1148,6 +1152,8 @@ class SQLiteStore:
             json.dumps(run.providers, ensure_ascii=False),
             run.prompt_pack_version,
             run.draft_package_hash,
+            run.official_compile_run_id,
+            run.official_package_hash,
             json.dumps([result.model_dump(mode="json") for result in run.role_results], ensure_ascii=False),
             json.dumps(run.chair_result.model_dump(mode="json"), ensure_ascii=False) if run.chair_result else None,
             1 if run.export_allowed else 0,
@@ -1164,6 +1170,8 @@ class SQLiteStore:
             providers=json.loads(row["providers_json"]),
             prompt_pack_version=row["prompt_pack_version"],
             draft_package_hash=row["draft_package_hash"],
+            official_compile_run_id=row["official_compile_run_id"] if "official_compile_run_id" in row.keys() else "",
+            official_package_hash=row["official_package_hash"] if "official_package_hash" in row.keys() else "",
             role_results=json.loads(row["role_results_json"]),
             chair_result=json.loads(row["chair_result_json"]) if row["chair_result_json"] else None,
             export_allowed=bool(row["export_allowed"]),

@@ -15,7 +15,12 @@ def test_post_draft_review_pass_unlocks_official_export(tmp_path):
 
     blocked = client.get(f"/api/projects/{project_id}/official-export.md")
     assert blocked.status_code == 409
-    assert "Post-draft multi-agent review" in blocked.json()["detail"]
+    assert "Official draft compile is required" in blocked.json()["detail"]
+
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+    compile_run = compile_response.json()
+    assert compile_run["status"] == "completed"
 
     review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     assert review_response.status_code == 200
@@ -23,6 +28,8 @@ def test_post_draft_review_pass_unlocks_official_export(tmp_path):
     assert run["status"] == "completed"
     assert run["prompt_pack_version"] == "post-draft-review-v1"
     assert run["export_allowed"] is True
+    assert run["official_compile_run_id"] == compile_run["id"]
+    assert run["official_package_hash"] == compile_run["official_package_hash"]
     assert {result["role"] for result in run["role_results"]} == {
         "claims_reviewer",
         "spec_cleaner",
@@ -52,17 +59,21 @@ def test_official_export_blocks_inline_prompt_after_passing_review(tmp_path):
         client,
         _package(drawing_description="图1为方法流程图。prompt: 黑白线稿"),
     )
-    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
-    assert review["export_allowed"] is True
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.json()["status"] == "blocked"
+
+    review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+    assert review_response.status_code == 409
+    assert "Official draft compile is required" in review_response.json()["detail"]
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Official draft compile blocked official export" in export_response.json()["detail"]
+    assert "Official draft compile is required" in export_response.json()["detail"]
 
     docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert docx_response.status_code == 409
-    assert "Official draft compile blocked official export" in docx_response.json()["detail"]
+    assert "Official draft compile is required" in docx_response.json()["detail"]
 
 
 def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path):
@@ -71,17 +82,21 @@ def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path
         client,
         _package(drawing_description='{\n  "drawing_description": ""\n}'),
     )
-    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
-    assert review["export_allowed"] is True
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.json()["status"] == "blocked"
+
+    review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+    assert review_response.status_code == 409
+    assert "Official draft compile is required" in review_response.json()["detail"]
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Official draft compile blocked official export" in export_response.json()["detail"]
+    assert "Official draft compile is required" in export_response.json()["detail"]
 
     docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert docx_response.status_code == 409
-    assert "Official draft compile blocked official export" in docx_response.json()["detail"]
+    assert "Official draft compile is required" in docx_response.json()["detail"]
 
 
 def test_official_export_removes_case_insensitive_internal_labels_after_passing_review(tmp_path):
@@ -97,6 +112,8 @@ def test_official_export_removes_case_insensitive_internal_labels_after_passing_
             drawing_description="图1为系统流程图。\nPrompt: 黑白线稿。",
         ),
     )
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
     review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
     assert review["export_allowed"] is True
 
@@ -127,7 +144,9 @@ def test_official_export_removes_case_insensitive_internal_labels_after_passing_
 
 def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
-    project_id = _create_project_with_package(client, _package(description="说明书包含 support_gap 和 好的，下面将继续撰写。"))
+    project_id = _create_project_with_package(client, _package())
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
 
     review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     assert review_response.status_code == 200
@@ -139,7 +158,7 @@ def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_pat
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert export_response.status_code == 409
-    assert "Post-draft multi-agent review blocked official export" in export_response.json()["detail"]
+    assert "Post-draft multi-agent review is required" in export_response.json()["detail"]
 
     report_response = client.get(f"/api/projects/{project_id}/post-draft-reviews/{run['id']}/report.md")
     assert report_response.status_code == 200
@@ -151,6 +170,8 @@ def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_pat
 def test_post_draft_review_hash_mismatch_invalidates_export_gate(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
     review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
     assert review["export_allowed"] is True
 
@@ -171,6 +192,8 @@ def test_invalid_json_post_draft_review_fails_with_diagnostic_log(tmp_path):
         )
     )
     project_id = _create_project_with_package(client, _package())
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
 
     response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
 

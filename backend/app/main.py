@@ -36,7 +36,6 @@ from backend.app.official_compile import (
 )
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
 from backend.app.post_draft_review import (
-    draft_package_hash,
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
@@ -56,6 +55,7 @@ from backend.app.schemas import (
     GenerateRequest,
     InventionBrief,
     OfficialCompileRunCreate,
+    OfficialCompileRun,
     PatentChunk,
     PatentPointCandidate,
     PatentPointCreate,
@@ -789,14 +789,16 @@ def create_app(
     def create_post_draft_review(project_id: str, payload: PostDraftReviewRunCreate | None = None) -> dict:
         project = _require_project(store, project_id)
         package = _require_package(project)
+        compile_run = _require_latest_completed_official_compile(store, project_id, package)
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
         providers = list(payload.providers if payload and payload.providers else STRICT_DELIBERATION_PROVIDERS)
         run = run_post_draft_review(
             project_id=project_id,
-            package=package,
+            package=compile_run.official_package,
             llm=app.state.llm,
             providers=providers,
+            official_compile_run_id=compile_run.id,
         )
         stored = store.create_post_draft_review_run(run)
         return stored.model_dump(mode="json")
@@ -804,7 +806,7 @@ def create_app(
     @app.get("/api/projects/{project_id}/post-draft-reviews")
     def list_post_draft_reviews(project_id: str) -> dict:
         project = _require_project(store, project_id)
-        current_hash = draft_package_hash(project.package) if project.package else ""
+        current_hash = source_draft_hash(project.package) if project.package else ""
         return {
             "runs": [run.model_dump(mode="json") for run in store.list_post_draft_review_runs(project_id)],
             "current_draft_hash": current_hash,
@@ -865,10 +867,9 @@ def create_app(
     def export_project_official_docx(project_id: str) -> FileResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        _require_post_draft_export_gate(store, project_id, package)
-        official_package = _require_compiled_official_package(project_id, package)
+        compile_run = _require_official_export_gate(store, project_id, package)
         output_path = export_official_package_docx(
-            official_package,
+            compile_run.official_package,
             settings.data_dir / "exports" / f"{project.id}-official.docx",
         )
         return FileResponse(
@@ -881,9 +882,8 @@ def create_app(
     def export_project_official_markdown(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        _require_post_draft_export_gate(store, project_id, package)
-        official_package = _require_compiled_official_package(project_id, package)
-        return PlainTextResponse(official_package_to_markdown(official_package), media_type="text/markdown; charset=utf-8")
+        compile_run = _require_official_export_gate(store, project_id, package)
+        return PlainTextResponse(official_package_to_markdown(compile_run.official_package), media_type="text/markdown; charset=utf-8")
 
     @app.get("/api/projects/{project_id}/export.docx")
     def export_project_docx(project_id: str) -> FileResponse:
@@ -1105,42 +1105,40 @@ def _require_package(project: ProjectRecord) -> DraftPackage:
     return project.package
 
 
-def _require_post_draft_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> None:
-    current_hash = draft_package_hash(package)
-    if store.get_latest_export_allowed_post_draft_review(project_id, current_hash):
-        return
-    reviews = store.list_post_draft_review_runs(project_id)
-    current_reviews = [
-        run for run in reviews if run.draft_package_hash == current_hash and run.status == "completed"
-    ]
-    if current_reviews:
-        raise HTTPException(
-            status_code=409,
-            detail="Post-draft multi-agent review blocked official export. See the review report.",
-        )
-    if reviews:
-        raise HTTPException(
-            status_code=409,
-            detail="Post-draft multi-agent review is required for the current draft before official export.",
-        )
-    raise HTTPException(
-        status_code=409,
-        detail="Post-draft multi-agent review is required before official export.",
-    )
+def _require_latest_completed_official_compile(
+    store: SQLiteStore, project_id: str, package: DraftPackage
+) -> OfficialCompileRun:
+    run = store.get_latest_completed_official_compile_run_for_hash(project_id, source_draft_hash(package))
+    if not run or not run.official_package:
+        raise HTTPException(status_code=409, detail="Official draft compile is required before post-draft review.")
+    return run
 
 
-def _require_compiled_official_package(project_id: str, package: DraftPackage):
-    run = OfficialDraftCompiler().compile(project_id=project_id, package=package)
-    if run.status == "completed" and run.official_package is not None:
-        return run.official_package
-    blocked = "; ".join(
-        f"{item.get('section', 'draft_package')}:{item.get('category', 'blocked')}:{item.get('pattern', '')}"
-        for item in run.blocked_items
+def _require_official_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> OfficialCompileRun:
+    current_source_hash = source_draft_hash(package)
+    compile_run = store.get_latest_completed_official_compile_run(project_id)
+    if not compile_run or not compile_run.official_package or compile_run.source_draft_hash != current_source_hash:
+        raise HTTPException(
+            status_code=409,
+            detail="Official draft compile is required for the current draft before official export.",
+        )
+    matching_review = next(
+        (
+            run
+            for run in store.list_post_draft_review_runs(project_id)
+            if run.status == "completed"
+            and run.export_allowed
+            and run.draft_package_hash == current_source_hash
+            and run.official_package_hash == compile_run.official_package_hash
+        ),
+        None,
     )
-    raise HTTPException(
-        status_code=409,
-        detail=f"Official draft compile blocked official export. {blocked}".strip(),
-    )
+    if not matching_review:
+        raise HTTPException(
+            status_code=409,
+            detail="Post-draft multi-agent review is required for the current official draft before official export.",
+        )
+    return compile_run
 
 
 def _require_disclosure_run(store: SQLiteStore, project_id: str, run_id: str) -> DisclosureRun:

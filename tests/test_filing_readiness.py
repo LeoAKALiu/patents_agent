@@ -218,7 +218,7 @@ def test_filing_readiness_api_no_longer_unlocks_official_export_without_post_dra
 
     official_md = client.get(f"/api/projects/{project_id}/official-export.md")
     assert official_md.status_code == 409
-    assert "Post-draft multi-agent review" in official_md.json()["detail"]
+    assert "Official draft compile is required" in official_md.json()["detail"]
 
 
 def test_filing_readiness_api_warning_allows_official_markdown_and_docx_export(tmp_path):
@@ -233,6 +233,9 @@ def test_filing_readiness_api_warning_allows_official_markdown_and_docx_export(t
     report_response = client.post(f"/api/projects/{project_id}/filing-readiness")
     assert report_response.status_code == 200
     assert report_response.json()["status"] == "warning"
+
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
 
     review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     assert review_response.status_code == 200

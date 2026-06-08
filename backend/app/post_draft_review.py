@@ -8,7 +8,7 @@ from typing import Any
 from backend.app.llm import LLMClient
 from backend.app.schemas import (
     DeliberationLogEntry,
-    DraftPackage,
+    OfficialDraftPackage,
     PostDraftReviewChairResult,
     PostDraftReviewRoleResult,
     PostDraftReviewRun,
@@ -29,19 +29,21 @@ SYSTEM_PROMPT = (
 )
 
 
-def draft_package_hash(package: DraftPackage) -> str:
-    return hashlib.sha256(package.model_dump_json().encode("utf-8")).hexdigest()
+def package_hash_for_review(package: OfficialDraftPackage) -> str:
+    return package.official_package_hash or hashlib.sha256(package.model_dump_json().encode("utf-8")).hexdigest()
 
 
 def run_post_draft_review(
     *,
     project_id: str,
-    package: DraftPackage,
+    package: OfficialDraftPackage,
     llm: LLMClient,
     providers: list[str],
+    official_compile_run_id: str,
 ) -> PostDraftReviewRun:
     run_id = uuid.uuid4().hex
-    package_hash = draft_package_hash(package)
+    package_hash = package_hash_for_review(package)
+    source_hash = package.source_draft_hash
     logs: list[DeliberationLogEntry] = []
     role_results: list[PostDraftReviewRoleResult] = []
     try:
@@ -76,7 +78,9 @@ def run_post_draft_review(
             status="completed",
             providers=providers,
             prompt_pack_version=PROMPT_PACK_VERSION,
-            draft_package_hash=package_hash,
+            draft_package_hash=source_hash,
+            official_compile_run_id=official_compile_run_id,
+            official_package_hash=package_hash,
             role_results=role_results,
             chair_result=chair,
             export_allowed=export_allowed,
@@ -101,7 +105,9 @@ def run_post_draft_review(
             status="failed",
             providers=providers,
             prompt_pack_version=PROMPT_PACK_VERSION,
-            draft_package_hash=package_hash,
+            draft_package_hash=source_hash,
+            official_compile_run_id=official_compile_run_id,
+            official_package_hash=package_hash,
             export_allowed=False,
             logs=logs,
         )
@@ -167,7 +173,7 @@ def post_draft_review_to_markdown(run: PostDraftReviewRun) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
-def _role_prompt(role: str, package: DraftPackage, providers: list[str]) -> str:
+def _role_prompt(role: str, package: OfficialDraftPackage, providers: list[str]) -> str:
     focus = {
         "claims_reviewer": "重点审查权利要求1、从属层次、系统/设备/介质一致性。",
         "spec_cleaner": "重点审查正式申请文本污染、内部提示泄漏、说明书支撑和绝对化表述。",
@@ -180,12 +186,12 @@ def _role_prompt(role: str, package: DraftPackage, providers: list[str]) -> str:
 
 本轮启用 agent：{json.dumps(providers, ensure_ascii=False)}
 
-当前成稿：
+当前正式稿：
 {package.model_dump_json(ensure_ascii=False, indent=2)}
 """
 
 
-def _chair_prompt(package: DraftPackage, providers: list[str], role_results: list[PostDraftReviewRoleResult]) -> str:
+def _chair_prompt(package: OfficialDraftPackage, providers: list[str], role_results: list[PostDraftReviewRoleResult]) -> str:
     return f"""
 你是成稿后会审主席，只综合角色 JSON，不重新发散。
 如任一角色存在 blocking_issues，除非有明确反证，否则 export_allowed=false。
@@ -193,7 +199,7 @@ def _chair_prompt(package: DraftPackage, providers: list[str], role_results: lis
 
 本轮启用 agent：{json.dumps(providers, ensure_ascii=False)}
 
-当前成稿：
+当前正式稿：
 {package.model_dump_json(ensure_ascii=False, indent=2)}
 
 角色结果：
