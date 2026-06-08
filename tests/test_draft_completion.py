@@ -134,7 +134,7 @@ def test_completion_engine_finds_support_gaps_and_patch_suggestions():
     assert run.scorecard.support_strength < 70
 
 
-def test_completion_report_is_sidecar_and_mentions_warning_mode():
+def test_completion_report_is_sidecar_and_mentions_formal_export_gates():
     run = run_draft_completion(
         project_id="project-1",
         package=_completion_package(),
@@ -147,7 +147,7 @@ def test_completion_report_is_sidecar_and_mentions_warning_mode():
     markdown = completion_run_to_markdown(run)
 
     assert "# DRAFT_COMPLETION_REPORT" in markdown
-    assert "警告但允许导出" in markdown
+    assert "正式导出仍需通过正式稿编译和成稿后多 Agent 会审" in markdown
     assert "## Scorecard" in markdown
     assert "## Proposed Patches" in markdown
 

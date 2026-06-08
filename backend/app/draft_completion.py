@@ -93,7 +93,9 @@ def run_draft_completion(
         patches=patches,
         support_matrix=matrix,
         scorecard=scorecard,
-        notes=["completion-run uses warning-mode export: risks are sidecar guidance, not export blockers."],
+        notes=[
+            "completion-run is an internal improvement report; official export still requires official compile and post-draft review gates."
+        ],
         created_at=datetime.now(timezone.utc).isoformat(),
     )
 
@@ -102,7 +104,7 @@ def completion_run_to_markdown(run: DraftCompletionRun) -> str:
     lines = [
         "# DRAFT_COMPLETION_REPORT",
         "",
-        "本报告为内部侧车文件。系统采用警告但允许导出：高风险不会硬性阻止正式稿导出。",
+        "本报告为内部侧车文件，用于补强正式文本；正式导出仍需通过正式稿编译和成稿后多 Agent 会审。",
         "",
         f"- run_id: {run.id}",
         f"- project_id: {run.project_id}",

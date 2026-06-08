@@ -828,7 +828,7 @@ describe("deriveGuidedFlowState", () => {
 });
 
 describe("qualitySummaryFromRuns", () => {
-  it("summarizes warning-mode export and scorecards", () => {
+  it("summarizes formal gate status and scorecards", () => {
     const summary = qualitySummaryFromRuns({
       filingReport: filingReport("high_risk"),
       worksheet,
