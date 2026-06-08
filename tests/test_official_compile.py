@@ -1,7 +1,11 @@
+from fastapi.testclient import TestClient
+
 from backend.app.official_compile import (
     OfficialDraftCompiler,
     official_package_to_markdown,
 )
+from backend.app.main import create_app
+from backend.app.storage import SQLiteStore
 from backend.app.schemas import DraftPackage
 
 
@@ -170,6 +174,72 @@ def test_compiler_blocks_empty_official_section_json_wrapper():
         and item["section"] == "drawing_description"
         for item in run.blocked_items
     )
+
+
+def test_sqlite_store_persists_official_compile_run(tmp_path):
+    store = SQLiteStore(tmp_path / "store.sqlite3")
+    package = _draft_package(claims="好的，下面撰写权利要求书。\n1. 一种方法。")
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+    assert run.status == "completed"
+    assert run.official_package is not None
+
+    stored = store.create_official_compile_run(run)
+
+    assert stored.created_at
+    assert stored.updated_at
+    fetched = store.get_official_compile_run("p1", run.id)
+    assert fetched is not None
+    assert fetched.id == run.id
+    assert fetched.official_package is not None
+    assert fetched.official_package.title == package.title
+    assert fetched.official_package_hash == run.official_package_hash
+    assert fetched.contamination_removed == run.contamination_removed
+    assert fetched.sidecar_notes == run.sidecar_notes
+    assert fetched.logs[0].phase == "official_compile"
+    listed = store.list_official_compile_runs("p1")
+    assert [item.id for item in listed] == [run.id]
+    latest = store.get_latest_completed_official_compile_run("p1", run.source_draft_hash)
+    assert latest is not None
+    assert latest.id == run.id
+
+
+def test_official_compile_api_creates_lists_gets_and_exports_report(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package(claims="好的，下面撰写权利要求书。\n1. 一种方法。"))
+
+    create_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+
+    assert create_response.status_code == 200
+    run = create_response.json()
+    assert run["status"] == "completed"
+    assert run["official_package"]["title"] == "一种城市体检指标驱动无人机主动采集方法"
+    assert "好的" not in run["official_package"]["claims"]
+
+    list_response = client.get(f"/api/projects/{project_id}/official-compile-runs")
+    assert list_response.status_code == 200
+    listed = list_response.json()
+    assert listed["current_source_draft_hash"] == run["source_draft_hash"]
+    assert [item["id"] for item in listed["runs"]] == [run["id"]]
+
+    detail_response = client.get(f"/api/projects/{project_id}/official-compile-runs/{run['id']}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["official_package_hash"] == run["official_package_hash"]
+
+    report_response = client.get(f"/api/projects/{project_id}/official-compile-runs/{run['id']}/report.md")
+    assert report_response.status_code == 200
+    assert report_response.headers["content-type"].startswith("text/markdown")
+    assert "# OFFICIAL_COMPILE_RUN" in report_response.text
+    assert run["id"] in report_response.text
+    assert "## Official Package" in report_response.text
+
+
+def _create_project_with_package(client: TestClient, package: DraftPackage) -> str:
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "正式稿编译测试", "draft_text": "一种城市体检指标驱动无人机采集方法。"},
+    ).json()["id"]
+    client.app.state.store.update_project_package(project_id, package)
+    return project_id
 
 
 def _draft_package(**overrides) -> DraftPackage:

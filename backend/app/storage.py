@@ -17,6 +17,8 @@ from backend.app.schemas import (
     DraftPackage,
     FilingReadinessReport,
     FormulaRun,
+    OfficialCompileRun,
+    OfficialDraftPackage,
     PatentAsset,
     PatentChunk,
     PatentPointCandidate,
@@ -294,6 +296,7 @@ class SQLiteStore:
                 "disclosure_runs",
                 "deliberation_runs",
                 "formula_runs",
+                "official_compile_runs",
                 "post_draft_review_runs",
                 "filing_readiness_reports",
                 "claim_defense_worksheets",
@@ -483,6 +486,51 @@ class SQLiteStore:
             (project_id, draft_package_hash),
         ).fetchone()
         return self._post_draft_review_run_from_row(row) if row else None
+
+    def create_official_compile_run(self, run: OfficialCompileRun) -> OfficialCompileRun:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into official_compile_runs(
+                    id, project_id, status, source_draft_hash, official_package_hash,
+                    official_package_json, contamination_removed_json, blocked_items_json,
+                    sidecar_notes_json, logs_json
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                self._official_compile_run_values(run),
+            )
+        return self.get_official_compile_run(run.project_id, run.id) or run
+
+    def list_official_compile_runs(self, project_id: str) -> list[OfficialCompileRun]:
+        rows = self.connection.execute(
+            "select * from official_compile_runs where project_id = ? order by created_at desc, rowid desc",
+            (project_id,),
+        ).fetchall()
+        return [self._official_compile_run_from_row(row) for row in rows]
+
+    def get_official_compile_run(self, project_id: str, run_id: str) -> OfficialCompileRun | None:
+        row = self.connection.execute(
+            "select * from official_compile_runs where project_id = ? and id = ?",
+            (project_id, run_id),
+        ).fetchone()
+        return self._official_compile_run_from_row(row) if row else None
+
+    def get_latest_completed_official_compile_run(
+        self, project_id: str, source_draft_hash: str
+    ) -> OfficialCompileRun | None:
+        row = self.connection.execute(
+            """
+            select * from official_compile_runs
+            where project_id = ?
+                and source_draft_hash = ?
+                and status = 'completed'
+            order by updated_at desc, rowid desc
+            limit 1
+            """,
+            (project_id, source_draft_hash),
+        ).fetchone()
+        return self._official_compile_run_from_row(row) if row else None
 
     def update_completion_patch_status(
         self, project_id: str, run_id: str, patch_id: str, status: str
@@ -912,6 +960,22 @@ class SQLiteStore:
                     foreign key(project_id) references projects(id)
                 );
 
+                create table if not exists official_compile_runs (
+                    id text primary key,
+                    project_id text not null,
+                    status text not null,
+                    source_draft_hash text not null,
+                    official_package_hash text not null,
+                    official_package_json text,
+                    contamination_removed_json text not null,
+                    blocked_items_json text not null,
+                    sidecar_notes_json text not null,
+                    logs_json text not null default '[]',
+                    created_at text not null default current_timestamp,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
                 create table if not exists project_patent_points (
                     id text not null,
                     project_id text not null,
@@ -1092,6 +1156,40 @@ class SQLiteStore:
             export_allowed=bool(row["export_allowed"]),
             blocking_issues=json.loads(row["blocking_issues_json"]),
             contamination_hits=json.loads(row["contamination_hits_json"]),
+            logs=json.loads(row["logs_json"]),
+        )
+        return run.model_copy(update={"created_at": row["created_at"], "updated_at": row["updated_at"]})
+
+    def _official_compile_run_values(self, run: OfficialCompileRun) -> tuple:
+        return (
+            run.id,
+            run.project_id,
+            run.status,
+            run.source_draft_hash,
+            run.official_package_hash,
+            json.dumps(run.official_package.model_dump(mode="json"), ensure_ascii=False)
+            if run.official_package
+            else None,
+            json.dumps(run.contamination_removed, ensure_ascii=False),
+            json.dumps(run.blocked_items, ensure_ascii=False),
+            json.dumps(run.sidecar_notes, ensure_ascii=False),
+            json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+        )
+
+    def _official_compile_run_from_row(self, row: sqlite3.Row) -> OfficialCompileRun:
+        official_package_json: str | None = row["official_package_json"]
+        run = OfficialCompileRun(
+            id=row["id"],
+            project_id=row["project_id"],
+            status=row["status"],
+            source_draft_hash=row["source_draft_hash"],
+            official_package_hash=row["official_package_hash"],
+            official_package=OfficialDraftPackage.model_validate(json.loads(official_package_json))
+            if official_package_json
+            else None,
+            contamination_removed=json.loads(row["contamination_removed_json"]),
+            blocked_items=json.loads(row["blocked_items_json"]),
+            sidecar_notes=json.loads(row["sidecar_notes_json"]),
             logs=json.loads(row["logs_json"]),
         )
         return run.model_copy(update={"created_at": row["created_at"], "updated_at": row["updated_at"]})

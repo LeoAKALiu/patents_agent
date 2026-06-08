@@ -30,7 +30,9 @@ from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLL
 from backend.app.official_compile import (
     OfficialDraftCompiler,
     export_official_package_docx,
+    official_compile_run_to_markdown,
     official_package_to_markdown,
+    source_draft_hash,
 )
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
 from backend.app.post_draft_review import (
@@ -53,6 +55,7 @@ from backend.app.schemas import (
     FormulaRunCreate,
     GenerateRequest,
     InventionBrief,
+    OfficialCompileRunCreate,
     PatentChunk,
     PatentPointCandidate,
     PatentPointCreate,
@@ -822,6 +825,41 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         return PlainTextResponse(post_draft_review_to_markdown(run), media_type="text/markdown; charset=utf-8")
+
+    @app.post("/api/projects/{project_id}/official-compile-runs")
+    def create_official_compile_run(
+        project_id: str, payload: OfficialCompileRunCreate | None = None
+    ) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        run = OfficialDraftCompiler().compile(project_id=project_id, package=package)
+        stored = store.create_official_compile_run(run)
+        return stored.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/official-compile-runs")
+    def list_official_compile_runs(project_id: str) -> dict:
+        project = _require_project(store, project_id)
+        current_hash = source_draft_hash(project.package) if project.package else ""
+        return {
+            "runs": [run.model_dump(mode="json") for run in store.list_official_compile_runs(project_id)],
+            "current_source_draft_hash": current_hash,
+        }
+
+    @app.get("/api/projects/{project_id}/official-compile-runs/{run_id}")
+    def get_official_compile_run(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_official_compile_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Official compile run not found.")
+        return run.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/official-compile-runs/{run_id}/report.md")
+    def export_official_compile_report(project_id: str, run_id: str) -> PlainTextResponse:
+        _require_project(store, project_id)
+        run = store.get_official_compile_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Official compile run not found.")
+        return PlainTextResponse(official_compile_run_to_markdown(run), media_type="text/markdown; charset=utf-8")
 
     @app.get("/api/projects/{project_id}/official-export.docx")
     def export_project_official_docx(project_id: str) -> FileResponse:
