@@ -138,7 +138,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
   );
 
   return (
-    <div className="guided-flow">
+    <div className="max-w-[1200px] mx-auto w-full flex flex-col gap-8 pb-24">
       <WorkflowStepper state={state} />
       {state.currentStepId === "idea" && (
         <IdeaIntakePanel
@@ -258,10 +258,10 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
 
 function WorkflowStepper({ state }: { state: GuidedFlowState }) {
   return (
-    <section className="guided-stepper">
+    <section className="grid grid-cols-5 gap-3">
       {state.steps.map((step, index) => (
-        <article className={`guided-step ${step.status}`} key={step.id}>
-          <span>{index + 1}</span>
+        <article className={`flex gap-3 min-h-[94px] rounded-2xl p-3.5 backdrop-blur-md saturate-110 ${step.status === 'current' ? 'border border-[#267a78]/40 bg-white/90 shadow-[0_0_0_3px_rgba(38,122,120,0.12),0_16px_50px_rgba(31,52,54,0.12)]' : 'border border-white/70 bg-white/50 shadow-lg'}`} key={step.id}>
+          <span className={step.status === "done" ? "bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white flex items-center justify-center w-6 h-6 rounded-full text-sm font-bold" : "flex items-center justify-center w-6 h-6 rounded-full bg-white/60 text-[#142424] text-sm font-bold"}>{index + 1}</span>
           <div>
             <strong>{step.label}</strong>
             <p>{step.description}</p>
@@ -299,15 +299,15 @@ function IdeaIntakePanel({
   }
 
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <div>
           <h3>把你的想法写成一段话</h3>
           <p>系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。</p>
         </div>
         <Wand2 size={24} />
       </div>
-      <form className="guided-intake" onSubmit={handleSubmit}>
+      <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
         <label>
           <span>项目名称</span>
           <input value={name} onChange={(event) => setName(event.target.value)} disabled={Boolean(project)} />
@@ -315,17 +315,17 @@ function IdeaIntakePanel({
         <label>
           <span>一句话想法</span>
           <textarea
-            className="idea-input"
+            className="w-full rounded-2xl border border-white/60 bg-white/50 px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[#267a78]/40 min-h-[160px] text-lg"
             value={idea}
             onChange={(event) => setIdea(event.target.value)}
             disabled={Boolean(project)}
             placeholder="例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。"
           />
         </label>
-        <div className="mode-grid">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {patentGoalModes.map((item) => (
             <button
-              className={mode === item.id ? "mode-card selected" : "mode-card"}
+              className={mode === item.id ? "flex flex-col gap-2 p-5 bg-white/90 border border-[#267a78]/40 rounded-2xl shadow-[0_4px_20px_rgba(38,122,120,0.08)] ring-1 ring-[#267a78]/20" : "flex flex-col gap-2 p-5 bg-white/40 border border-white/50 rounded-2xl cursor-pointer hover:bg-white/60 transition-colors"}
               key={item.id}
               onClick={() => setMode(item.id)}
               type="button"
@@ -335,21 +335,21 @@ function IdeaIntakePanel({
             </button>
           ))}
         </div>
-        <button className="primary" disabled={!canSubmit || busy === "guided-create"} type="submit">
+        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!canSubmit || busy === "guided-create"} type="submit">
           <FileText size={17} />
           <span>{project ? "已创建想法" : "创建并继续"}</span>
         </button>
         <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "guided-create"} />
       </form>
       {project && (
-        <form className="guided-upload" onSubmit={onUploadMaterial}>
+        <form className="flex items-center gap-4 p-4 border-2 border-dashed border-white/60 rounded-2xl bg-white/30" onSubmit={onUploadMaterial}>
           <input
             id="project-material-file"
             name="project-material-file"
             type="file"
             accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
           />
-          <button className="primary" disabled={busy === "material-upload"} type="submit">
+          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "material-upload"} type="submit">
             <Upload size={17} />
             <span>上传补充材料</span>
           </button>
@@ -363,9 +363,9 @@ function IdeaIntakePanel({
 
 function MaterialSummary({ materials }: { materials: ProjectMaterial[] }) {
   return (
-    <div className="guided-summary-list">
+    <div className="flex flex-col gap-3">
       {materials.map((material) => (
-        <article className="guided-summary-row" key={material.id}>
+        <article className="flex items-start gap-3 p-4 bg-white/40 border border-white/50 rounded-2xl" key={material.id}>
           {material.status === "processed" ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
           <div>
             <strong>{material.file_name}</strong>
@@ -377,7 +377,7 @@ function MaterialSummary({ materials }: { materials: ProjectMaterial[] }) {
           </div>
         </article>
       ))}
-      {materials.length === 0 && <p className="empty">可先不上传材料，系统会基于想法生成第一版。</p>}
+      {materials.length === 0 && <p className="text-sm text-[#142424]/50 italic py-4">可先不上传材料，系统会基于想法生成第一版。</p>}
     </div>
   );
 }
@@ -394,8 +394,8 @@ function GuidedOperationConsole({
   const log = active ? guidedOperationLog(busy, elapsedSeconds) : null;
   if (!log) return null;
   return (
-    <div className="inline-console" role="status" aria-label={log.label}>
-      <div className="console-heading">
+    <div className="bg-[#112a2d] text-white/90 rounded-2xl overflow-hidden shadow-lg border border-white/10" role="status" aria-label={log.label}>
+      <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10 text-xs font-mono text-white/60">
         <span>{log.label}</span>
         <span>{formatElapsedLabel(log.elapsedSeconds)}</span>
       </div>
@@ -436,30 +436,30 @@ function InventionPointConfirmation({
   const needsGeneration = !disclosure || candidates.length === 0;
 
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <div>
           <h3>确认发明点与护城河</h3>
           <p>这里是默认流程的第一个暂停点。确认主线后，系统才进入初稿生成。</p>
         </div>
         <ShieldCheck size={24} />
       </div>
-      <div className="button-row">
-        <button className="icon-button" onClick={() => onOpenExpertTool("materials")} type="button">
+      <div className="flex items-center gap-3">
+        <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 hover:bg-white/90 text-[#142424] shadow-sm border border-white/50 disabled:opacity-50 transition-colors" onClick={() => onOpenExpertTool("materials")} type="button">
           查看前置材料详情
         </button>
-        <button className="icon-button" onClick={() => onOpenExpertTool("moat")} type="button">
+        <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 hover:bg-white/90 text-[#142424] shadow-sm border border-white/50 disabled:opacity-50 transition-colors" onClick={() => onOpenExpertTool("moat")} type="button">
           查看护城河地图
         </button>
       </div>
-      <form className="guided-upload" onSubmit={onUploadMaterial}>
+      <form className="flex items-center gap-4 p-4 border-2 border-dashed border-white/60 rounded-2xl bg-white/30" onSubmit={onUploadMaterial}>
         <input
           id="project-material-file-invention"
           name="project-material-file"
           type="file"
           accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
         />
-        <button className="primary" disabled={busy === "material-upload"} type="submit">
+        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "material-upload"} type="submit">
           <Upload size={17} />
           <span>上传补充材料</span>
         </button>
@@ -467,28 +467,28 @@ function InventionPointConfirmation({
       </form>
       <MaterialSummary materials={materials} />
       {needsGeneration && (
-        <button className="primary" disabled={busy === "disclosure"} onClick={onStartDisclosure} type="button">
-          {busy === "disclosure" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
+        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "disclosure"} onClick={onStartDisclosure} type="button">
+          {busy === "disclosure" ? <Loader2 className="animate-spin" size={17} /> : <Wand2 size={17} />}
           <span>提炼发明点</span>
         </button>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "disclosure"} />
-      <div className="guided-card-grid">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {candidates.map((point) => (
-          <article className={point.selected ? "guided-choice selected" : "guided-choice"} key={point.id}>
-            <div className="result-meta">
-              <span className="status-badge">{evidenceStatusText(point.evidence_status)}</span>
+          <article className={point.selected ? "flex flex-col gap-3 p-5 bg-white/90 border border-[#267a78]/30 rounded-3xl shadow-[0_8px_30px_rgba(38,122,120,0.12)] ring-1 ring-[#267a78]/20" : "flex flex-col gap-3 p-5 bg-white/50 border border-white/60 rounded-3xl shadow-sm"} key={point.id}>
+            <div className="flex items-center gap-3 text-xs text-[#142424]/60 font-medium mb-1">
+              <span className="px-2.5 py-0.5 rounded-md bg-white/80 border border-white text-[#142424]">{evidenceStatusText(point.evidence_status)}</span>
               <span>{point.protection_focus.join(" / ") || "方法 / 系统"}</span>
             </div>
             <h4>{point.title}</h4>
             <p>{point.innovation || point.technical_solution}</p>
-            {point.support_gaps.length > 0 && <p className="workflow-hint">支撑缺口：{point.support_gaps.join("；")}</p>}
-            <button className="icon-button" onClick={() => onSelectPatentPoint(point, candidates)} type="button">
+            {point.support_gaps.length > 0 && <p className="text-sm text-[#142424]/70 bg-white/40 px-4 py-3 rounded-xl border border-white/50 flex items-center gap-2">支撑缺口：{point.support_gaps.join("；")}</p>}
+            <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 hover:bg-white/90 text-[#142424] shadow-sm border border-white/50 disabled:opacity-50 transition-colors" onClick={() => onSelectPatentPoint(point, candidates)} type="button">
               选为主线并保存后备路线
             </button>
           </article>
         ))}
-        {candidates.length === 0 && <p className="empty">点击“提炼发明点”后显示候选主线。</p>}
+        {candidates.length === 0 && <p className="text-sm text-[#142424]/50 italic py-4">点击“提炼发明点”后显示候选主线。</p>}
       </div>
     </section>
   );
@@ -523,16 +523,16 @@ function DeliberationPanel({
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <div>
           <h3>多 Agent 会审</h3>
           <p>专利生成前必须完成会审，用于收敛权利要求边界、说明书支撑和规避风险。</p>
         </div>
         <UsersRound size={24} />
       </div>
-      <div className="button-row">
-        <button className="icon-button" onClick={() => onOpenExpertTool("deliberate")} type="button">
+      <div className="flex items-center gap-3">
+        <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 hover:bg-white/90 text-[#142424] shadow-sm border border-white/50 disabled:opacity-50 transition-colors" onClick={() => onOpenExpertTool("deliberate")} type="button">
           查看会审详情
         </button>
       </div>
@@ -543,22 +543,22 @@ function DeliberationPanel({
         disabled={busy === "deliberate"}
         onToggleProvider={onToggleProvider}
       />
-      <button className="primary" disabled={busy === "deliberate"} onClick={onStartDeliberation} type="button">
-        {busy === "deliberate" ? <Loader2 className="spin" size={17} /> : <UsersRound size={17} />}
+      <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "deliberate"} onClick={onStartDeliberation} type="button">
+        {busy === "deliberate" ? <Loader2 className="animate-spin" size={17} /> : <UsersRound size={17} />}
         <span>{deliberation ? "重新会审" : "启动多 Agent 会审"}</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "deliberate"} />
       {deliberation?.strategy_brief && (
-        <article className="guided-choice selected">
-          <div className="result-meta">
-            <span className="status-badge">{deliberation.run_mode}</span>
+        <article className="flex flex-col gap-3 p-5 bg-white/90 border border-[#267a78]/30 rounded-3xl shadow-[0_8px_30px_rgba(38,122,120,0.12)] ring-1 ring-[#267a78]/20">
+          <div className="flex items-center gap-3 text-xs text-[#142424]/60 font-medium mb-1">
+            <span className="px-2.5 py-0.5 rounded-md bg-white/80 border border-white text-[#142424]">{deliberation.run_mode}</span>
             <span>{deliberation.providers.join(" / ")}</span>
           </div>
           <h4>会审共识</h4>
           <p>{deliberation.strategy_brief.agent_consensus || deliberation.strategy_brief.summary}</p>
         </article>
       )}
-      {!deliberation && runs.length > 0 && <p className="workflow-hint">已有会审运行，但尚无 completed 策略结果。</p>}
+      {!deliberation && runs.length > 0 && <p className="text-sm text-[#142424]/70 bg-white/40 px-4 py-3 rounded-xl border border-white/50 flex items-center gap-2">已有会审运行，但尚无 completed 策略结果。</p>}
     </section>
   );
 }
@@ -584,8 +584,8 @@ function DraftGenerationPanel({
 }) {
   const formulaReady = !formulaRequirement?.required || Boolean(formulaRun?.package);
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <div>
           <h3>生成专利初稿</h3>
           <p>
@@ -599,12 +599,12 @@ function DraftGenerationPanel({
         </div>
         <FileText size={24} />
       </div>
-      <button className="primary" disabled={!project || !deliberation || !formulaReady || busy === "generate"} onClick={onGenerateDraft} type="button">
-        {busy === "generate" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
+      <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || !deliberation || !formulaReady || busy === "generate"} onClick={onGenerateDraft} type="button">
+        {busy === "generate" ? <Loader2 className="animate-spin" size={17} /> : <Wand2 size={17} />}
         <span>生成初稿</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "generate"} />
-      {project?.package && <pre className="guided-preview">{project.package.claims.slice(0, 1200)}</pre>}
+      {project?.package && <pre className="p-6 bg-white/40 border border-white/50 rounded-3xl font-mono text-sm leading-relaxed overflow-auto max-h-[500px]">{project.package.claims.slice(0, 1200)}</pre>}
     </section>
   );
 }
@@ -634,8 +634,8 @@ function FormulaPanel({
 }) {
   const required = Boolean(requirement?.required);
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <div>
           <h3>核心公式</h3>
           <p>{required ? "该项目包含公式型信号，需先凝练公式包。" : "当前项目未检测到必须凝练的公式型信号。"}</p>
@@ -643,8 +643,8 @@ function FormulaPanel({
         <Sigma size={24} />
       </div>
       {requirement && (
-        <div className="result-meta">
-          <span className={required ? "status-badge warn" : "status-badge"}>{required ? "需要公式包" : "无需公式包"}</span>
+        <div className="flex items-center gap-3 text-xs text-[#142424]/60 font-medium mb-1">
+          <span className={required ? "px-2.5 py-0.5 rounded-md bg-amber-100 border border-amber-200 text-amber-700" : "px-2.5 py-0.5 rounded-md bg-white/80 border border-white text-[#142424]"}>{required ? "需要公式包" : "无需公式包"}</span>
           <span>{requirement.signals.join(" / ") || "无公式信号"}</span>
         </div>
       )}
@@ -656,16 +656,16 @@ function FormulaPanel({
         onToggleProvider={onToggleProvider}
       />
       {required && (
-        <button className="primary" disabled={!project || busy === "formula"} onClick={onStartFormula} type="button">
-          {busy === "formula" ? <Loader2 className="spin" size={17} /> : <Sigma size={17} />}
+        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || busy === "formula"} onClick={onStartFormula} type="button">
+          {busy === "formula" ? <Loader2 className="animate-spin" size={17} /> : <Sigma size={17} />}
           <span>{formulaRun ? "重新凝练核心公式" : "凝练核心公式"}</span>
         </button>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "formula"} />
       {formulaRun?.package && (
-        <article className="guided-choice selected">
-          <div className="result-meta">
-            <span className="status-badge">{formulaRun.status}</span>
+        <article className="flex flex-col gap-3 p-5 bg-white/90 border border-[#267a78]/30 rounded-3xl shadow-[0_8px_30px_rgba(38,122,120,0.12)] ring-1 ring-[#267a78]/20">
+          <div className="flex items-center gap-3 text-xs text-[#142424]/60 font-medium mb-1">
+            <span className="px-2.5 py-0.5 rounded-md bg-white/80 border border-white text-[#142424]">{formulaRun.status}</span>
             <span>{formulaRun.package.formula_blocks.length} 个公式</span>
             {formulaRun.providers.length > 0 && <span>{formulaRun.providers.join(" / ")}</span>}
             {project && (
@@ -678,7 +678,7 @@ function FormulaPanel({
           <p>{formulaRun.package.formula_blocks.map((block) => `${block.id} ${block.name}`).join("；")}</p>
         </article>
       )}
-      {!formulaRun && runs.length > 0 && <p className="workflow-hint">已有公式运行，但尚无 completed 公式包。</p>}
+      {!formulaRun && runs.length > 0 && <p className="text-sm text-[#142424]/70 bg-white/40 px-4 py-3 rounded-xl border border-white/50 flex items-center gap-2">已有公式运行，但尚无 completed 公式包。</p>}
     </section>
   );
 }
@@ -706,8 +706,8 @@ function QualityPanel({
 }) {
   const summary = qualitySummaryFromRuns({ filingReport, worksheet, completionRun });
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <div>
           <h3>质量检查与补强</h3>
           <p>系统会运行提交成熟度、权利要求防线、初稿完善和审查意见。</p>
@@ -715,32 +715,32 @@ function QualityPanel({
         <Gauge size={24} />
       </div>
       {(filingReport || worksheet || completionRun) && (
-        <p className="workflow-hint">已获得部分检查结果。可以继续补强，也可以重新运行质量检查。</p>
+        <p className="text-sm text-[#142424]/70 bg-white/40 px-4 py-3 rounded-xl border border-white/50 flex items-center gap-2">已获得部分检查结果。可以继续补强，也可以重新运行质量检查。</p>
       )}
-      <div className="button-row">
-        <button className="icon-button" onClick={() => onOpenExpertTool("readiness")} type="button">
+      <div className="flex items-center gap-3">
+        <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 hover:bg-white/90 text-[#142424] shadow-sm border border-white/50 disabled:opacity-50 transition-colors" onClick={() => onOpenExpertTool("readiness")} type="button">
           查看提交成熟度
         </button>
-        <button className="icon-button" onClick={() => onOpenExpertTool("claimDefense")} type="button">
+        <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 hover:bg-white/90 text-[#142424] shadow-sm border border-white/50 disabled:opacity-50 transition-colors" onClick={() => onOpenExpertTool("claimDefense")} type="button">
           查看权利要求防线
         </button>
-        <button className="icon-button" onClick={() => onOpenExpertTool("completion")} type="button">
+        <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 hover:bg-white/90 text-[#142424] shadow-sm border border-white/50 disabled:opacity-50 transition-colors" onClick={() => onOpenExpertTool("completion")} type="button">
           查看初稿完善
         </button>
       </div>
-      <div className="button-row">
-        <button className="primary" disabled={Boolean(busy)} onClick={onRunQualityChecks} type="button">
-          {busy === "guided-quality" ? <Loader2 className="spin" size={17} /> : <Gauge size={17} />}
+      <div className="flex items-center gap-3">
+        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={Boolean(busy)} onClick={onRunQualityChecks} type="button">
+          {busy === "guided-quality" ? <Loader2 className="animate-spin" size={17} /> : <Gauge size={17} />}
           <span>运行质量检查</span>
         </button>
-        <button className="primary" disabled={Boolean(busy)} onClick={onImproveScore} type="button">
-          {busy === "score-improve" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
+        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={Boolean(busy)} onClick={onImproveScore} type="button">
+          {busy === "score-improve" ? <Loader2 className="animate-spin" size={17} /> : <Wand2 size={17} />}
           <span>一键提升分数</span>
         </button>
       </div>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "guided-quality"} />
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "score-improve"} />
-      <div className="guided-score-grid">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <ScoreTile label="状态" value={summary.statusLabel} />
         <ScoreTile
           label="授权稳定性"
@@ -750,7 +750,7 @@ function QualityPanel({
         <ScoreTile label="提交成熟度" value={summary.filingMaturity === null ? "未评分" : `${summary.filingMaturity}/100`} />
       </div>
       {filingReport?.issues.slice(0, 5).map((issue, index) => (
-        <article className={`finding ${issue.severity}`} key={`${issue.category}-${index}`}>
+        <article className={`flex items-start gap-3 p-4 border rounded-2xl ${ issue.severity === "high" ? "bg-red-50 border-red-100" : issue.severity === "medium" ? "bg-amber-50 border-amber-100" : "bg-blue-50 border-blue-100" }`} key={`${issue.category}-${index}`}>
           <span>{issue.severity === "high" ? "高" : issue.severity === "medium" ? "中" : "低"}</span>
           <div>
             <strong>{issue.category}</strong>
@@ -763,11 +763,11 @@ function QualityPanel({
         .filter((patch) => patch.status === "proposed")
         .slice(0, 3)
         .map((patch) => (
-          <article className="guided-choice" key={patch.id}>
+          <article className="flex flex-col gap-3 p-5 bg-white/50 border border-white/60 rounded-3xl shadow-sm" key={patch.id}>
             <h4>{patch.rationale}</h4>
             <p>{patch.risk_delta}</p>
-            <pre className="patch-preview">{patch.after_text}</pre>
-            <button className="primary" onClick={() => onAcceptPatch(completionRun.id, patch.id)} type="button">
+            <pre className="p-4 bg-white/40 rounded-xl border border-white/50 font-mono text-sm whitespace-pre-wrap">{patch.after_text}</pre>
+            <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" onClick={() => onAcceptPatch(completionRun.id, patch.id)} type="button">
               接受补强建议
             </button>
           </article>
@@ -778,7 +778,7 @@ function QualityPanel({
 
 function ScoreTile({ label, value }: { label: string; value: string }) {
   return (
-    <article className="score-card">
+    <article className="flex flex-col gap-2 p-4 bg-white/60 border border-white/70 rounded-2xl">
       <span>{label}</span>
       <strong>{value}</strong>
     </article>
@@ -805,35 +805,35 @@ function OfficialCompilePanel({
   const completed = Boolean(run?.status === "completed" && run.official_package);
   const blocked = Boolean(run?.status === "blocked");
   const statusText = completed ? "已完成" : blocked ? "已阻断" : run?.status === "failed" ? "失败" : "等待编译";
-  const statusClass = completed ? "status-badge" : blocked || run?.status === "failed" ? "status-badge danger" : "status-badge warn";
+  const statusClass = completed ? "px-2.5 py-0.5 rounded-md bg-white/80 border border-white text-[#142424]" : blocked || run?.status === "failed" ? "px-2.5 py-0.5 rounded-md bg-red-100 border border-red-200 text-red-700" : "px-2.5 py-0.5 rounded-md bg-amber-100 border border-amber-200 text-amber-700";
 
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <div>
           <h3>正式稿编译</h3>
           <p>隔离内部痕迹、support gaps、绘图提示和会审过程文本，生成正式申请文本专用包。</p>
         </div>
         <FileText size={24} />
       </div>
-      <div className="result-meta">
+      <div className="flex items-center gap-3 text-xs text-[#142424]/60 font-medium mb-1">
         <span className={statusClass}>{statusText}</span>
         <span>source hash：{currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成"}</span>
         {run?.official_package_hash && <span>official hash：{run.official_package_hash.slice(0, 12)}</span>}
       </div>
       <button
-        className="primary"
+        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
         disabled={!project?.package || busy === "official-compile"}
         onClick={onStartOfficialCompile}
         type="button"
       >
-        {busy === "official-compile" ? <Loader2 className="spin" size={17} /> : <FileText size={17} />}
+        {busy === "official-compile" ? <Loader2 className="animate-spin" size={17} /> : <FileText size={17} />}
         <span>{run ? "重新编译正式稿" : "编译正式稿"}</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "official-compile"} />
       {run && (
-        <article className={completed ? "guided-choice selected" : "guided-choice"}>
-          <div className="result-meta">
+        <article className={completed ? "flex flex-col gap-3 p-5 bg-white/90 border border-[#267a78]/30 rounded-3xl shadow-[0_8px_30px_rgba(38,122,120,0.12)] ring-1 ring-[#267a78]/20" : "flex flex-col gap-3 p-5 bg-white/50 border border-white/60 rounded-3xl shadow-sm"}>
+          <div className="flex items-center gap-3 text-xs text-[#142424]/60 font-medium mb-1">
             <span className={statusClass}>{run.status}</span>
             <span>移除污染 {run.contamination_removed.length} 项</span>
             <span>阻断 {run.blocked_items.length} 项</span>
@@ -851,7 +851,7 @@ function OfficialCompilePanel({
           )}
         </article>
       )}
-      {!run && runs.length > 0 && <p className="workflow-hint">已有正式稿编译记录，但未匹配当前 source hash。</p>}
+      {!run && runs.length > 0 && <p className="text-sm text-[#142424]/70 bg-white/40 px-4 py-3 rounded-xl border border-white/50 flex items-center gap-2">已有正式稿编译记录，但未匹配当前 source hash。</p>}
     </section>
   );
 }
@@ -884,16 +884,16 @@ function PostDraftReviewPanel({
   const passed = Boolean(review?.status === "completed" && review.export_allowed);
   const blocked = Boolean(review?.status === "completed" && !review.export_allowed);
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <div>
           <h3>成稿后多 Agent 会审</h3>
           <p>正式导出前必选。内置 Prompt Pack 会审权利要求质量、说明书清污、技术硬度和主席裁决。</p>
         </div>
         <ClipboardCheck size={24} />
       </div>
-      <div className="result-meta">
-        <span className={passed ? "status-badge" : blocked ? "status-badge danger" : "status-badge warn"}>
+      <div className="flex items-center gap-3 text-xs text-[#142424]/60 font-medium mb-1">
+        <span className={passed ? "px-2.5 py-0.5 rounded-md bg-white/80 border border-white text-[#142424]" : blocked ? "px-2.5 py-0.5 rounded-md bg-red-100 border border-red-200 text-red-700" : "px-2.5 py-0.5 rounded-md bg-amber-100 border border-amber-200 text-amber-700"}>
           {passed ? "已通过" : blocked ? "阻止正式导出" : "等待会审"}
         </span>
         <span>{review?.prompt_pack_version ?? "post-draft-review-v1"}</span>
@@ -908,19 +908,19 @@ function PostDraftReviewPanel({
         onToggleProvider={onToggleProvider}
       />
       <button
-        className="primary"
+        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#267a78] to-[#165b5d] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
         disabled={!project?.package || busy === "post-draft-review"}
         onClick={onStartPostDraftReview}
         type="button"
       >
-        {busy === "post-draft-review" ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
+        {busy === "post-draft-review" ? <Loader2 className="animate-spin" size={17} /> : <ClipboardCheck size={17} />}
         <span>{review ? "重新成稿会审" : "启动成稿会审"}</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "post-draft-review"} />
       {review && (
-        <article className={passed ? "guided-choice selected" : "guided-choice"}>
-          <div className="result-meta">
-            <span className={passed ? "status-badge" : "status-badge danger"}>{review.status}</span>
+        <article className={passed ? "flex flex-col gap-3 p-5 bg-white/90 border border-[#267a78]/30 rounded-3xl shadow-[0_8px_30px_rgba(38,122,120,0.12)] ring-1 ring-[#267a78]/20" : "flex flex-col gap-3 p-5 bg-white/50 border border-white/60 rounded-3xl shadow-sm"}>
+          <div className="flex items-center gap-3 text-xs text-[#142424]/60 font-medium mb-1">
+            <span className={passed ? "px-2.5 py-0.5 rounded-md bg-white/80 border border-white text-[#142424]" : "px-2.5 py-0.5 rounded-md bg-red-100 border border-red-200 text-red-700"}>{review.status}</span>
             <span>{review.providers.join(" / ") || "默认三方"}</span>
             <span>review hash：{review.draft_package_hash.slice(0, 12)}</span>
             {review.official_package_hash && <span>official hash：{review.official_package_hash.slice(0, 12)}</span>}
@@ -935,7 +935,7 @@ function PostDraftReviewPanel({
           {review.contamination_hits.length > 0 && <p>污染命中：{review.contamination_hits.slice(0, 5).join("；")}</p>}
         </article>
       )}
-      {!review && runs.length > 0 && <p className="workflow-hint">已有成稿会审记录，但未匹配当前成稿 hash。</p>}
+      {!review && runs.length > 0 && <p className="text-sm text-[#142424]/70 bg-white/40 px-4 py-3 rounded-xl border border-white/50 flex items-center gap-2">已有成稿会审记录，但未匹配当前成稿 hash。</p>}
     </section>
   );
 }
@@ -959,8 +959,8 @@ function ExportConfirmationPanel({
 }) {
   if (!project?.package) {
     return (
-      <section className="guided-panel">
-        <p className="empty">生成初稿后才能导出。</p>
+      <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+        <p className="text-sm text-[#142424]/50 italic py-4">生成初稿后才能导出。</p>
       </section>
     );
   }
@@ -971,17 +971,17 @@ function ExportConfirmationPanel({
   );
 
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-4 border border-white/70 rounded-[34px] bg-white/60 p-6 shadow-xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4 mb-2">
         <div>
           <h3>导出前确认</h3>
           <p>这是默认流程的第二个暂停点。正式稿只在成稿会审通过且匹配当前成稿 hash 后放行。</p>
         </div>
         <Download size={24} />
       </div>
-      {filingReport?.status === "high_risk" && <p className="workflow-hint">当前提交成熟度为高风险，请结合成稿会审报告处理。</p>}
-      {!officialAllowed && <p className="workflow-hint">正式稿入口已锁定：需要通过匹配当前正式稿编译 hash 的成稿会审。</p>}
-      <div className="export-confirmation">
+      {filingReport?.status === "high_risk" && <p className="text-sm text-[#142424]/70 bg-white/40 px-4 py-3 rounded-xl border border-white/50 flex items-center gap-2">当前提交成熟度为高风险，请结合成稿会审报告处理。</p>}
+      {!officialAllowed && <p className="text-sm text-[#142424]/70 bg-white/40 px-4 py-3 rounded-xl border border-white/50 flex items-center gap-2">正式稿入口已锁定：需要通过匹配当前正式稿编译 hash 的成稿会审。</p>}
+      <div className="p-6 bg-[#267a78]/5 border border-[#267a78]/20 rounded-2xl flex flex-col gap-4">
         <article>
           <strong>正式稿</strong>
           <span>{officialAllowed ? `已通过成稿会审，可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}` : "等待正式稿编译和成稿会审通过后解锁。"}</span>
@@ -995,13 +995,13 @@ function ExportConfirmationPanel({
           <span>blocking issue 阻止正式稿；内部稿和报告不受阻止。</span>
         </article>
       </div>
-      <button className="icon-button" onClick={() => onOpenExpertTool("export")} type="button">
+      <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 hover:bg-white/90 text-[#142424] shadow-sm border border-white/50 disabled:opacity-50 transition-colors" onClick={() => onOpenExpertTool("export")} type="button">
         查看专家导出工具
       </button>
-      <div className="export-grid">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <a
           aria-disabled={!officialAllowed}
-          className={officialAllowed ? "export-link" : "export-link disabled"}
+          className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/80 border border-white shadow-sm hover:bg-white text-[#142424] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/40 border border-white/50 text-[#142424]/40 font-medium cursor-not-allowed"}
           href={officialAllowed ? officialExportUrl(project.id, "docx") : undefined}
         >
           <Download size={18} />
@@ -1009,24 +1009,24 @@ function ExportConfirmationPanel({
         </a>
         <a
           aria-disabled={!officialAllowed}
-          className={officialAllowed ? "export-link" : "export-link disabled"}
+          className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/80 border border-white shadow-sm hover:bg-white text-[#142424] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/40 border border-white/50 text-[#142424]/40 font-medium cursor-not-allowed"}
           href={officialAllowed ? officialExportUrl(project.id, "md") : undefined}
         >
           <Download size={18} />
           <span>正式提交稿 MD</span>
         </a>
-        <a className="export-link" href={exportUrl(project.id, "md")}>
+        <a className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/80 border border-white shadow-sm hover:bg-white text-[#142424] font-medium transition-colors" href={exportUrl(project.id, "md")}>
           <Download size={18} />
           <span>内部策略稿 MD</span>
         </a>
         {filingReport && (
-          <a className="export-link" href={filingReadinessReportUrl(project.id, filingReport.id)}>
+          <a className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/80 border border-white shadow-sm hover:bg-white text-[#142424] font-medium transition-colors" href={filingReadinessReportUrl(project.id, filingReport.id)}>
             <Download size={18} />
             <span>提交成熟度报告</span>
           </a>
         )}
         {completionRun && (
-          <a className="export-link" href={draftCompletionReportUrl(project.id, completionRun.id)}>
+          <a className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/80 border border-white shadow-sm hover:bg-white text-[#142424] font-medium transition-colors" href={draftCompletionReportUrl(project.id, completionRun.id)}>
             <Download size={18} />
             <span>初稿完善报告</span>
           </a>
