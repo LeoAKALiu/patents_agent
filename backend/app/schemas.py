@@ -826,6 +826,7 @@ class GoldenEvalSummary(BaseModel):
     llm_judge_avg: dict[str, float] | None = None
     pass_: bool
     warnings: int
+    load_errors: int = 0
 
 
 class GoldenEvalReport(BaseModel):

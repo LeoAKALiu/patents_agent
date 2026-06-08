@@ -309,6 +309,45 @@ def test_evaluator_handles_missing_golden_file(tmp_path):
     assert "missing" in errors[0]
 
 
+def test_evaluator_fails_when_any_load_errors(tmp_path):
+    good = _sample_golden_entry()
+    (tmp_path / "manifest.json").write_text(json.dumps({
+        "version": "v1", "created": "2026-06-08",
+        "entries": [
+            {"id": "CN-test-001", "title": "一种测试方法", "technical_field": "ai_software", "claims_count": 1},
+            {"id": "CN-missing", "title": "缺失", "technical_field": "ai_software", "claims_count": 1},
+        ],
+    }))
+    (tmp_path / "CN-test-001.json").write_text(json.dumps(good))
+    # CN-missing.json is NOT created
+
+    evaluator = GoldenSetEvaluator(golden_set_dir=tmp_path)
+    llm = FakeLLMClient({
+        "claims": json.dumps({
+            "claims": [
+                {"number": 1, "kind": "independent", "category": "method", "depends_on": None,
+                 "preamble": "一种测试方法，其特征在于，包括：", "features": ["采集数据", "输出结果"]}
+            ]
+        }),
+        "description": json.dumps({
+            "technical_field": "本发明涉及测试领域，具体涉及一种用于自动化测试的专利生成方法。",
+            "background": "现有技术效率低，且存在一致性差和人工成本高的问题。",
+            "summary": "本发明提供一种测试方法，包括采集数据和输出结果的完整流程。",
+            "embodiments": "采集数据后经过预处理，然后由处理器输出最终结果。",
+        }),
+        "abstract": json.dumps({"abstract": "本发明公开了一种测试方法。"}),
+        "drawings": json.dumps({"figures": [{"figure_no": "图1", "title": "方法流程图"}]}),
+        "diagram": "flowchart TD\nA-->B",
+        "image_prompt": "黑白线稿。",
+    })
+    generator = PatentDraftGenerator(llm)
+    report = evaluator.run(generator)
+
+    assert report.summary.load_errors == 1
+    assert report.summary.pass_ is False
+    assert any(r.patent_id == "CN-missing" and not r.gate_pass for r in report.per_patent)
+
+
 def test_evaluator_run_one_failure_does_not_stop_full_run(tmp_path):
     good = _sample_golden_entry()
     (tmp_path / "manifest.json").write_text(json.dumps({

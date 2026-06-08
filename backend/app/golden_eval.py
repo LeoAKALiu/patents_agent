@@ -396,9 +396,10 @@ class GoldenSetEvaluator:
             sas_avg=round(sas_avg, 4),
             ccs_avg=round(ccs_avg, 4),
             gate_pass_rate=round(gate_pass_rate, 4),
-            pass_=sas_avg >= 0.6 and ccs_avg >= 0.5 and gate_pass_rate >= 0.9,
+            pass_=len(load_errors) == 0 and sas_avg >= 0.6 and ccs_avg >= 0.5 and gate_pass_rate >= 0.9,
             warnings=total_warnings,
             llm_judge_avg=llm_judge_avg,
+            load_errors=len(load_errors),
         )
 
         return GoldenEvalReport(
