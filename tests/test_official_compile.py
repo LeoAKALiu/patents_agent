@@ -128,6 +128,20 @@ def test_compiler_blocks_json_wrapper_only_required_section():
     )
 
 
+def test_compiler_blocks_empty_official_section_json_wrapper():
+    package = _draft_package(drawing_description='{\n  "drawing_description": ""\n}')
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(
+        item["category"] in {"empty_required_section", "json_wrapper"}
+        and item["section"] == "drawing_description"
+        for item in run.blocked_items
+    )
+
+
 def _draft_package(**overrides) -> DraftPackage:
     data = {
         "title": "一种城市体检指标驱动无人机主动采集方法",

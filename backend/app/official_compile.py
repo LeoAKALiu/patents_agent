@@ -28,6 +28,9 @@ RESIDUAL_INTERNAL_PATTERNS = (
     "好的，下面",
 )
 INTERNAL_FIELD_RE = re.compile(r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs)["']?\s*[:：=]""")
+EMPTY_OFFICIAL_FIELD_RE = re.compile(
+    r"""^\s*["']?(title|abstract|claims|description|drawing_description)["']?\s*[:：=]\s*["']?\s*["']?\s*,?\s*$"""
+)
 JSON_WRAPPER_RE = re.compile(r"^[{}\[\],]+$")
 
 
@@ -295,6 +298,9 @@ def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
         return {"category": "format_pollution", "pattern": "markdown_heading"}
     if JSON_WRAPPER_RE.match(line):
         return {"category": "format_pollution", "pattern": "json_wrapper"}
+    official_field = EMPTY_OFFICIAL_FIELD_RE.match(line)
+    if official_field:
+        return {"category": "json_wrapper", "pattern": official_field.group(1)}
     internal_field = INTERNAL_FIELD_RE.match(line)
     if internal_field:
         return {"category": "internal_field", "pattern": internal_field.group(1)}
