@@ -204,6 +204,44 @@ class DraftPackage(BaseModel):
     core_formula_summary: str | None = None
 
 
+class OfficialFigurePlanItem(BaseModel):
+    figure_no: str
+    title: str
+    description: str
+    referenced_sections: list[str] = Field(default_factory=list)
+
+
+class OfficialDraftPackage(BaseModel):
+    title: str
+    abstract: str
+    claims: str
+    description: str
+    drawing_description: str
+    figure_plan: list[OfficialFigurePlanItem] = Field(default_factory=list)
+    compile_warnings: list[str] = Field(default_factory=list)
+    source_draft_hash: str = ""
+    official_package_hash: str = ""
+
+
+class OfficialCompileRunCreate(BaseModel):
+    pass
+
+
+class OfficialCompileRun(BaseModel):
+    id: str
+    project_id: str
+    status: str = Field(pattern="^(completed|blocked|failed)$")
+    source_draft_hash: str = ""
+    official_package_hash: str = ""
+    official_package: OfficialDraftPackage | None = None
+    contamination_removed: list[dict[str, str]] = Field(default_factory=list)
+    blocked_items: list[dict[str, str]] = Field(default_factory=list)
+    sidecar_notes: list[dict[str, str]] = Field(default_factory=list)
+    logs: list[DeliberationLogEntry] = Field(default_factory=list)
+    created_at: str = ""
+    updated_at: str = ""
+
+
 class ProjectCreate(BaseModel):
     name: str
     draft_text: str
@@ -452,6 +490,8 @@ class PostDraftReviewRun(BaseModel):
     providers: list[str] = Field(default_factory=list)
     prompt_pack_version: str = "post-draft-review-v1"
     draft_package_hash: str = ""
+    official_compile_run_id: str = ""
+    official_package_hash: str = ""
     role_results: list[PostDraftReviewRoleResult] = Field(default_factory=list)
     chair_result: PostDraftReviewChairResult | None = None
     export_allowed: bool = False
