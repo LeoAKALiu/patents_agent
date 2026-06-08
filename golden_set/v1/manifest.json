@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "created": "2026-06-08",
+  "entries": [
+    {"id": "CN-ai-001", "title": "一种图像缺陷识别方法及系统", "technical_field": "ai_software", "claims_count": 6},
+    {"id": "CN-mech-001", "title": "一种自适应夹持装置", "technical_field": "mechanical", "claims_count": 8},
+    {"id": "CN-elec-001", "title": "一种低功耗电源管理电路", "technical_field": "electronics", "claims_count": 7}
+  ]
+}
