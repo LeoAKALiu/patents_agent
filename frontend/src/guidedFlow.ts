@@ -220,9 +220,10 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
       && input.worksheets.length
       && input.completionRuns.some((run) => run.status === "completed"),
   );
-  const hasCompletedOfficialCompile = Boolean(input.officialCompileRuns?.some((run) => run.status === "completed"));
-  const hasPassedPostDraftReview = Boolean(
-    input.postDraftReviews?.some((run) => run.status === "completed" && run.export_allowed),
+  const completedOfficialCompileRuns = input.officialCompileRuns?.filter((run) => run.status === "completed") ?? [];
+  const hasCompletedOfficialCompile = completedOfficialCompileRuns.length > 0;
+  const hasPassedPostDraftReview = completedOfficialCompileRuns.some((compile) =>
+    input.postDraftReviews?.some((review) => isMatchingPassedPostDraftReview(review, compile)),
   );
   const exportReady = draftReady && qualityChecked && hasCompletedOfficialCompile && hasPassedPostDraftReview;
 
@@ -270,6 +271,18 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     hasPassedPostDraftReview,
     exportReady,
   };
+}
+
+function isMatchingPassedPostDraftReview(review: PostDraftReviewRun, compile: OfficialCompileRun): boolean {
+  return Boolean(
+    review.status === "completed"
+      && review.export_allowed
+      && compile.official_package_hash
+      && compile.source_draft_hash
+      && review.official_compile_run_id === compile.id
+      && review.official_package_hash === compile.official_package_hash
+      && review.draft_package_hash === compile.source_draft_hash,
+  );
 }
 
 function stepStatusForIndex(index: number, currentIndex: number, hasIdea: boolean): GuidedStepStatus {

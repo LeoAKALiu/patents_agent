@@ -269,7 +269,7 @@ const passedPostDraftReview: PostDraftReviewRun = {
   status: "completed",
   providers: ["codex", "gemini", "claude"],
   prompt_pack_version: "post-draft-review-v1",
-  draft_package_hash: "hash",
+  draft_package_hash: "draft-hash",
   official_compile_run_id: "ocr1",
   official_package_hash: "official-hash",
   role_results: [],
@@ -704,6 +704,48 @@ describe("deriveGuidedFlowState", () => {
       "done",
       "current",
     ]);
+  });
+
+  it("does not advance to export when post-draft review belongs to a different official compile", () => {
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        package: {
+          title: "一种外立面逆建模方法",
+          abstract: "摘要",
+          claims: "1. 一种方法。",
+          description: "说明书",
+          drawing_description: "附图说明",
+          mermaid: "flowchart TD",
+          image_prompt: "黑白线稿",
+          review_findings: [],
+          citations: [],
+          generation_logs: [],
+        },
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [filingReport("warning")],
+      worksheets: [worksheet],
+      completionRuns: [completionRun],
+      officialCompileRuns: [completedOfficialCompileRun],
+      postDraftReviews: [
+        {
+          ...passedPostDraftReview,
+          id: "review-for-stale-compile",
+          draft_package_hash: "stale-draft-hash",
+          official_compile_run_id: "stale-compile",
+          official_package_hash: "stale-official-hash",
+        },
+      ],
+    });
+
+    expect(state.currentStepId).toBe("postReview");
+    expect(state.hasCompletedOfficialCompile).toBe(true);
+    expect(state.hasPassedPostDraftReview).toBe(false);
+    expect(state.exportReady).toBe(false);
   });
 
   it("does not treat blocked post-draft review as export ready", () => {
