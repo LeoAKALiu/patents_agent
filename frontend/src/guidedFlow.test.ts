@@ -26,6 +26,7 @@ import {
   mainSections,
   patentGoalModes,
   qualitySummaryFromRuns,
+  selectCurrentOfficialCompileRun,
 } from "./guidedFlow";
 
 const projectWithIdea: ProjectRecord = {
@@ -704,6 +705,51 @@ describe("deriveGuidedFlowState", () => {
       "done",
       "current",
     ]);
+  });
+
+  it("uses latest completed compile for the current source when a newer run is blocked", () => {
+    const packageProject = {
+      ...projectWithIdea,
+      package: {
+        title: "一种外立面逆建模方法",
+        abstract: "摘要",
+        claims: "1. 一种方法。",
+        description: "说明书",
+        drawing_description: "附图说明",
+        mermaid: "flowchart TD",
+        image_prompt: "黑白线稿",
+        review_findings: [],
+        citations: [],
+        generation_logs: [],
+      },
+    };
+    const blockedNewerCompileRun: OfficialCompileRun = {
+      ...blockedOfficialCompileRun,
+      created_at: "2026-06-02T01:00:00Z",
+      updated_at: "2026-06-02T01:00:00Z",
+    };
+    const runs = [blockedNewerCompileRun, completedOfficialCompileRun];
+
+    expect(selectCurrentOfficialCompileRun(runs, "draft-hash")?.id).toBe(completedOfficialCompileRun.id);
+
+    const state = deriveGuidedFlowState({
+      project: packageProject,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [filingReport("warning")],
+      worksheets: [worksheet],
+      completionRuns: [completionRun],
+      officialCompileRuns: runs,
+      currentSourceDraftHash: "draft-hash",
+      postDraftReviews: [passedPostDraftReview],
+    });
+
+    expect(state.currentStepId).toBe("export");
+    expect(state.hasCompletedOfficialCompile).toBe(true);
+    expect(state.hasPassedPostDraftReview).toBe(true);
+    expect(state.exportReady).toBe(true);
   });
 
   it("does not advance to export when post-draft review belongs to a different official compile", () => {

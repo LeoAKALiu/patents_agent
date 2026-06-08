@@ -113,6 +113,7 @@ import {
   guidedBusyLabel,
   guidedOperationLog,
   mainSections,
+  selectCurrentOfficialCompileRun,
   type ExpertToolId,
   type MainSectionId,
   type PatentGoalMode,
@@ -198,8 +199,7 @@ function App() {
   const latestFilingReport = filingReports[0] ?? null;
   const latestWorksheet = worksheets[0] ?? null;
   const latestCompletionRun = completionRuns[0] ?? null;
-  const latestOfficialCompileRun =
-    officialCompileRuns.find((run) => run.source_draft_hash === currentSourceDraftHash) ?? null;
+  const latestOfficialCompileRun = selectCurrentOfficialCompileRun(officialCompileRuns, currentSourceDraftHash);
   const latestPostDraftReview = postDraftReviews[0] ?? null;
   const activeMainSection = mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   const activeExpertToolEntry = expertToolGroups
@@ -217,6 +217,10 @@ function App() {
   }, [agentDoctor]);
 
   useEffect(() => {
+    setOfficialCompileRuns([]);
+    setCurrentSourceDraftHash("");
+    setPostDraftReviews([]);
+    setCurrentDraftHash("");
     if (selectedProject?.id) {
       void loadDeliberations(selectedProject.id);
       void loadMaterials(selectedProject.id);
@@ -239,10 +243,6 @@ function App() {
       setDisclosureRuns([]);
       setFormulaRequirement(null);
       setFormulaRuns([]);
-      setOfficialCompileRuns([]);
-      setCurrentSourceDraftHash("");
-      setPostDraftReviews([]);
-      setCurrentDraftHash("");
       setPatentPoints([]);
       setFilingReports([]);
       setWorksheets([]);

@@ -92,6 +92,7 @@ export type GuidedFlowInput = {
   worksheets: ClaimDefenseWorksheet[];
   completionRuns: DraftCompletionRun[];
   officialCompileRuns?: OfficialCompileRun[];
+  currentSourceDraftHash?: string;
   postDraftReviews?: PostDraftReviewRun[];
 };
 
@@ -220,10 +221,14 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
       && input.worksheets.length
       && input.completionRuns.some((run) => run.status === "completed"),
   );
-  const completedOfficialCompileRuns = input.officialCompileRuns?.filter((run) => run.status === "completed") ?? [];
-  const hasCompletedOfficialCompile = completedOfficialCompileRuns.length > 0;
-  const hasPassedPostDraftReview = completedOfficialCompileRuns.some((compile) =>
-    input.postDraftReviews?.some((review) => isMatchingPassedPostDraftReview(review, compile)),
+  const currentOfficialCompileRun = selectCurrentOfficialCompileRun(
+    input.officialCompileRuns ?? [],
+    input.currentSourceDraftHash,
+  );
+  const hasCompletedOfficialCompile = Boolean(currentOfficialCompileRun);
+  const hasPassedPostDraftReview = Boolean(
+    currentOfficialCompileRun
+      && input.postDraftReviews?.some((review) => isMatchingPassedPostDraftReview(review, currentOfficialCompileRun)),
   );
   const exportReady = draftReady && qualityChecked && hasCompletedOfficialCompile && hasPassedPostDraftReview;
 
@@ -283,6 +288,18 @@ function isMatchingPassedPostDraftReview(review: PostDraftReviewRun, compile: Of
       && review.official_package_hash === compile.official_package_hash
       && review.draft_package_hash === compile.source_draft_hash,
   );
+}
+
+export function selectCurrentOfficialCompileRun(
+  runs: OfficialCompileRun[],
+  currentSourceDraftHash?: string,
+): OfficialCompileRun | null {
+  return runs.find((run) =>
+    run.status === "completed"
+      && run.official_package
+      && run.official_package_hash
+      && (!currentSourceDraftHash || run.source_draft_hash === currentSourceDraftHash),
+  ) ?? null;
 }
 
 function stepStatusForIndex(index: number, currentIndex: number, hasIdea: boolean): GuidedStepStatus {

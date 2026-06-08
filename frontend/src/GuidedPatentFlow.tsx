@@ -42,6 +42,7 @@ import {
   guidedOperationLog,
   patentGoalModes,
   qualitySummaryFromRuns,
+  selectCurrentOfficialCompileRun,
   type GuidedFlowState,
   type PatentGoalMode,
 } from "./guidedFlow";
@@ -87,13 +88,6 @@ export type GuidedPatentFlowProps = {
 };
 
 export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
-  const currentOfficialCompileRuns = useMemo(
-    () =>
-      props.currentSourceDraftHash
-        ? props.officialCompileRuns.filter((run) => run.source_draft_hash === props.currentSourceDraftHash)
-        : props.officialCompileRuns,
-    [props.officialCompileRuns, props.currentSourceDraftHash],
-  );
   const state = useMemo(
     () =>
       deriveGuidedFlowState({
@@ -107,10 +101,9 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         filingReports: props.filingReports,
         worksheets: props.worksheets,
         completionRuns: props.completionRuns,
-        officialCompileRuns: currentOfficialCompileRuns,
-        postDraftReviews: props.postDraftReviews.filter((run) =>
-          props.currentSourceDraftHash ? run.draft_package_hash === props.currentSourceDraftHash : true,
-        ),
+        officialCompileRuns: props.officialCompileRuns,
+        currentSourceDraftHash: props.currentSourceDraftHash,
+        postDraftReviews: props.postDraftReviews,
       }),
     [
       props.project,
@@ -123,9 +116,9 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       props.filingReports,
       props.worksheets,
       props.completionRuns,
-      currentOfficialCompileRuns,
-      props.postDraftReviews,
+      props.officialCompileRuns,
       props.currentSourceDraftHash,
+      props.postDraftReviews,
     ],
   );
   const latestDisclosure = props.disclosures.find((run) => run.status === "completed" && run.package) ?? null;
@@ -134,7 +127,10 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
   const latestFilingReport = props.filingReports[0] ?? null;
   const latestWorksheet = props.worksheets[0] ?? null;
   const latestCompletionRun = props.completionRuns[0] ?? null;
-  const latestOfficialCompileRun = currentOfficialCompileRuns[0] ?? null;
+  const latestOfficialCompileRun = selectCurrentOfficialCompileRun(
+    props.officialCompileRuns,
+    props.currentSourceDraftHash,
+  );
   const latestMatchingPostDraftReview =
     props.postDraftReviews.find((run) =>
       latestOfficialCompileRun
