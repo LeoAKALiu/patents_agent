@@ -21,6 +21,7 @@ from backend.app.schemas import (
     PatentChunk,
     PatentPointCandidate,
     PatentDocument,
+    PostDraftReviewRun,
     ProjectMaterial,
     ProjectRecord,
     SectionType,
@@ -293,6 +294,7 @@ class SQLiteStore:
                 "disclosure_runs",
                 "deliberation_runs",
                 "formula_runs",
+                "post_draft_review_runs",
                 "filing_readiness_reports",
                 "claim_defense_worksheets",
                 "draft_completion_runs",
@@ -435,6 +437,52 @@ class SQLiteStore:
             (project_id,),
         ).fetchone()
         return self._formula_run_from_row(row) if row else None
+
+    def create_post_draft_review_run(self, run: PostDraftReviewRun) -> PostDraftReviewRun:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into post_draft_review_runs(
+                    id, project_id, status, providers_json, prompt_pack_version, draft_package_hash,
+                    role_results_json, chair_result_json, export_allowed, blocking_issues_json,
+                    contamination_hits_json, logs_json
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                self._post_draft_review_run_values(run),
+            )
+        return self.get_post_draft_review_run(run.project_id, run.id) or run
+
+    def list_post_draft_review_runs(self, project_id: str) -> list[PostDraftReviewRun]:
+        rows = self.connection.execute(
+            "select * from post_draft_review_runs where project_id = ? order by created_at desc, rowid desc",
+            (project_id,),
+        ).fetchall()
+        return [self._post_draft_review_run_from_row(row) for row in rows]
+
+    def get_post_draft_review_run(self, project_id: str, run_id: str) -> PostDraftReviewRun | None:
+        row = self.connection.execute(
+            "select * from post_draft_review_runs where project_id = ? and id = ?",
+            (project_id, run_id),
+        ).fetchone()
+        return self._post_draft_review_run_from_row(row) if row else None
+
+    def get_latest_export_allowed_post_draft_review(
+        self, project_id: str, draft_package_hash: str
+    ) -> PostDraftReviewRun | None:
+        row = self.connection.execute(
+            """
+            select * from post_draft_review_runs
+            where project_id = ?
+                and draft_package_hash = ?
+                and status = 'completed'
+                and export_allowed = 1
+            order by updated_at desc, rowid desc
+            limit 1
+            """,
+            (project_id, draft_package_hash),
+        ).fetchone()
+        return self._post_draft_review_run_from_row(row) if row else None
 
     def update_completion_patch_status(
         self, project_id: str, run_id: str, patch_id: str, status: str
@@ -846,6 +894,24 @@ class SQLiteStore:
                     foreign key(project_id) references projects(id)
                 );
 
+                create table if not exists post_draft_review_runs (
+                    id text primary key,
+                    project_id text not null,
+                    status text not null,
+                    providers_json text not null default '[]',
+                    prompt_pack_version text not null,
+                    draft_package_hash text not null,
+                    role_results_json text not null,
+                    chair_result_json text,
+                    export_allowed integer not null default 0,
+                    blocking_issues_json text not null,
+                    contamination_hits_json text not null,
+                    logs_json text not null default '[]',
+                    created_at text not null default current_timestamp,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
                 create table if not exists project_patent_points (
                     id text not null,
                     project_id text not null,
@@ -994,6 +1060,39 @@ class SQLiteStore:
             package=json.loads(package_json) if package_json else None,
             failures=json.loads(row["failures_json"]),
             events=json.loads(row["events_json"]),
+        )
+        return run.model_copy(update={"created_at": row["created_at"], "updated_at": row["updated_at"]})
+
+    def _post_draft_review_run_values(self, run: PostDraftReviewRun) -> tuple:
+        return (
+            run.id,
+            run.project_id,
+            run.status,
+            json.dumps(run.providers, ensure_ascii=False),
+            run.prompt_pack_version,
+            run.draft_package_hash,
+            json.dumps([result.model_dump(mode="json") for result in run.role_results], ensure_ascii=False),
+            json.dumps(run.chair_result.model_dump(mode="json"), ensure_ascii=False) if run.chair_result else None,
+            1 if run.export_allowed else 0,
+            json.dumps(run.blocking_issues, ensure_ascii=False),
+            json.dumps(run.contamination_hits, ensure_ascii=False),
+            json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+        )
+
+    def _post_draft_review_run_from_row(self, row: sqlite3.Row) -> PostDraftReviewRun:
+        run = PostDraftReviewRun(
+            id=row["id"],
+            project_id=row["project_id"],
+            status=row["status"],
+            providers=json.loads(row["providers_json"]),
+            prompt_pack_version=row["prompt_pack_version"],
+            draft_package_hash=row["draft_package_hash"],
+            role_results=json.loads(row["role_results_json"]),
+            chair_result=json.loads(row["chair_result_json"]) if row["chair_result_json"] else None,
+            export_allowed=bool(row["export_allowed"]),
+            blocking_issues=json.loads(row["blocking_issues_json"]),
+            contamination_hits=json.loads(row["contamination_hits_json"]),
+            logs=json.loads(row["logs_json"]),
         )
         return run.model_copy(update={"created_at": row["created_at"], "updated_at": row["updated_at"]})
 

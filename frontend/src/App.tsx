@@ -37,6 +37,7 @@ import {
   PatentPointCandidate,
   PatentPointCreatePayload,
   PatentDocument,
+  PostDraftReviewRun,
   ProjectMaterial,
   PatentStrategyBrief,
   ProjectRecord,
@@ -71,6 +72,7 @@ import {
   listProjectDisclosures,
   listProjectDeliberations,
   listFormulaRuns,
+  listPostDraftReviews,
   listProjectMaterials,
   listProjectPatentPoints,
   listProjects,
@@ -82,6 +84,7 @@ import {
   startProjectDisclosure,
   startProjectDeliberation,
   startFormulaRun,
+  startPostDraftReview,
   updateProjectPatentPoint,
   uploadCorpusJobFile,
   uploadProjectMaterial,
@@ -158,6 +161,8 @@ function App() {
   const [patentPoints, setPatentPoints] = useState<PatentPointCandidate[]>([]);
   const [formulaRequirement, setFormulaRequirement] = useState<FormulaNeedAssessment | null>(null);
   const [formulaRuns, setFormulaRuns] = useState<FormulaRun[]>([]);
+  const [postDraftReviews, setPostDraftReviews] = useState<PostDraftReviewRun[]>([]);
+  const [currentDraftHash, setCurrentDraftHash] = useState("");
   const [selectedDeliberationProviders, setSelectedDeliberationProviders] = useState<string[]>(requiredAgentProviderIds);
   const [selectedFormulaProviders, setSelectedFormulaProviders] = useState<string[]>(requiredAgentProviderIds);
   const [filingReports, setFilingReports] = useState<FilingReadinessReport[]>([]);
@@ -188,6 +193,7 @@ function App() {
   const latestFilingReport = filingReports[0] ?? null;
   const latestWorksheet = worksheets[0] ?? null;
   const latestCompletionRun = completionRuns[0] ?? null;
+  const latestPostDraftReview = postDraftReviews[0] ?? null;
   const activeMainSection = mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   const activeExpertToolEntry = expertToolGroups
     .flatMap((group) => group.tools)
@@ -209,6 +215,7 @@ function App() {
       void loadMaterials(selectedProject.id);
       void loadDisclosures(selectedProject.id);
       void loadFormulaState(selectedProject.id);
+      void loadPostDraftReviews(selectedProject.id);
       setPatentPoints([]);
       setPatentPointsProjectId("");
       setFilingReports([]);
@@ -224,6 +231,8 @@ function App() {
       setDisclosureRuns([]);
       setFormulaRequirement(null);
       setFormulaRuns([]);
+      setPostDraftReviews([]);
+      setCurrentDraftHash("");
       setPatentPoints([]);
       setFilingReports([]);
       setWorksheets([]);
@@ -236,16 +245,18 @@ function App() {
     const deliberating = deliberationRuns.some((run) => run.status === "queued" || run.status === "running");
     const disclosing = disclosureRuns.some((run) => run.status === "queued" || run.status === "running");
     const formulaRunning = formulaRuns.some((run) => run.status === "queued" || run.status === "running");
-    if (!selectedProject?.id || (!deliberating && !disclosing && !formulaRunning)) {
+    const postDraftReviewing = postDraftReviews.some((run) => run.status === "queued" || run.status === "running");
+    if (!selectedProject?.id || (!deliberating && !disclosing && !formulaRunning && !postDraftReviewing)) {
       return;
     }
     const timer = window.setInterval(() => {
       void loadDeliberations(selectedProject.id);
       void loadDisclosures(selectedProject.id);
       void loadFormulaState(selectedProject.id);
+      void loadPostDraftReviews(selectedProject.id);
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [selectedProject?.id, deliberationRuns, disclosureRuns, formulaRuns]);
+  }, [selectedProject?.id, deliberationRuns, disclosureRuns, formulaRuns, postDraftReviews]);
 
   async function refreshAll() {
     await withStatus("refresh", async () => {
@@ -326,6 +337,24 @@ function App() {
       if (selectedProjectIdRef.current === projectId) {
         setFormulaRequirement(null);
         setFormulaRuns([]);
+      }
+      return false;
+    }
+  }
+
+  async function loadPostDraftReviews(projectId: string): Promise<boolean> {
+    try {
+      const { runs, current_draft_hash } = await listPostDraftReviews(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setPostDraftReviews(runs);
+      setCurrentDraftHash(current_draft_hash);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setPostDraftReviews([]);
+        setCurrentDraftHash("");
       }
       return false;
     }
@@ -553,6 +582,17 @@ function App() {
     });
   }
 
+  async function handleStartPostDraftReview() {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("post-draft-review", async () => {
+      const run = await startPostDraftReview(projectId, selectedDeliberationProviders);
+      const stillSelected = await loadPostDraftReviews(projectId);
+      if (!stillSelected) return;
+      setMessage(`成稿会审已${run.status === "completed" ? "完成" : "启动"}：${run.export_allowed ? "允许正式导出" : run.status}`);
+    });
+  }
+
   function handleToggleDeliberationProvider(providerId: string, enabled: boolean) {
     setSelectedDeliberationProviders((providers) => {
       const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
@@ -576,6 +616,7 @@ function App() {
       if (selectedProjectIdRef.current !== projectId) return;
       setProjects(nextProjects);
       setSelectedProjectId(projectId);
+      await loadPostDraftReviews(projectId);
       setMessage("申请文本已生成");
     });
   }
@@ -589,6 +630,7 @@ function App() {
       if (selectedProjectIdRef.current !== projectId) return;
       setProjects(nextProjects);
       setSelectedProjectId(projectId);
+      await loadPostDraftReviews(projectId);
       setMessage("审查意见已更新");
     });
   }
@@ -619,6 +661,7 @@ function App() {
       setFilingReports((current) => [report, ...current.filter((item) => item.id !== report.id)]);
       setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== worksheet.id)]);
       setCompletionRuns((current) => [completion, ...current.filter((item) => item.id !== completion.id)]);
+      await loadPostDraftReviews(projectId);
       setMessage(`质量检查完成：整体评分 ${completion.scorecard.overall}/100`);
     });
   }
@@ -632,7 +675,7 @@ function App() {
       if (selectedProjectIdRef.current !== projectId) return;
       setProjects(nextProjects);
       setSelectedProjectId(projectId);
-      await Promise.all([loadFilingReports(projectId), loadWorksheets(projectId), loadCompletionRuns(projectId)]);
+      await Promise.all([loadFilingReports(projectId), loadWorksheets(projectId), loadCompletionRuns(projectId), loadPostDraftReviews(projectId)]);
       setMessage(
         `一键提升完成：${result.before_score}/100 -> ${result.after_score}/100，应用 ${result.accepted_patch_ids.length} 条补强`,
       );
@@ -830,6 +873,8 @@ function App() {
             project={selectedProject}
             report={latestFilingReport}
             reports={filingReports}
+            postDraftReview={latestPostDraftReview}
+            currentDraftHash={currentDraftHash}
             busy={busy}
             onRun={handleRunFilingReadiness}
           />
@@ -859,7 +904,14 @@ function App() {
       case "review":
         return <ReviewView project={selectedProject} busy={busy} onReview={handleReview} />;
       case "export":
-        return <ExportView project={selectedProject} packageValue={currentPackage} />;
+        return (
+          <ExportView
+            project={selectedProject}
+            packageValue={currentPackage}
+            postDraftReview={latestPostDraftReview}
+            currentDraftHash={currentDraftHash}
+          />
+        );
     }
   }
 
@@ -942,6 +994,8 @@ function App() {
             patentPoints={visiblePatentPoints}
             formulaRequirement={formulaRequirement}
             formulaRuns={formulaRuns}
+            postDraftReviews={postDraftReviews}
+            currentDraftHash={currentDraftHash}
             agentDoctor={agentDoctor}
             selectedDeliberationProviders={selectedDeliberationProviders}
             selectedFormulaProviders={selectedFormulaProviders}
@@ -956,6 +1010,7 @@ function App() {
             onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
             onStartDeliberation={() => void handleStartDeliberation(false)}
             onStartFormula={() => void handleStartFormula()}
+            onStartPostDraftReview={() => void handleStartPostDraftReview()}
             onToggleDeliberationProvider={handleToggleDeliberationProvider}
             onToggleFormulaProvider={handleToggleFormulaProvider}
             onGenerateDraft={() => void handleGenerate()}
@@ -2096,16 +2151,26 @@ function FilingReadinessView({
   project,
   report,
   reports,
+  postDraftReview,
+  currentDraftHash,
   busy,
   onRun,
 }: {
   project: ProjectRecord | null;
   report: FilingReadinessReport | null;
   reports: FilingReadinessReport[];
+  postDraftReview: PostDraftReviewRun | null;
+  currentDraftHash: string;
   busy: string;
   onRun: () => void;
 }) {
   const canExport = Boolean(project?.package);
+  const officialAllowed = Boolean(
+    canExport
+      && postDraftReview?.status === "completed"
+      && postDraftReview.export_allowed
+      && postDraftReview.draft_package_hash === currentDraftHash,
+  );
   const reportStatusClass = report?.status === "high_risk" ? "danger" : report?.status === "warning" ? "warn" : "";
   return (
     <div className="stack">
@@ -2130,14 +2195,23 @@ function FilingReadinessView({
         {project && canExport ? (
           <div className="stack">
             {report?.status === "high_risk" && (
-              <p className="workflow-hint">高风险：仍允许导出，但建议先处理报告中的命中项。</p>
+              <p className="workflow-hint">高风险：请结合成稿会审报告处理命中项。</p>
             )}
+            {!officialAllowed && <p className="workflow-hint">正式稿入口已锁定：需先通过匹配当前成稿 hash 的成稿会审。</p>}
             <div className="export-grid">
-              <a className="export-link" href={officialExportUrl(project.id, "docx")}>
+              <a
+                aria-disabled={!officialAllowed}
+                className={officialAllowed ? "export-link" : "export-link disabled"}
+                href={officialAllowed ? officialExportUrl(project.id, "docx") : undefined}
+              >
                 <Download size={18} />
                 <span>官方 DOCX</span>
               </a>
-              <a className="export-link" href={officialExportUrl(project.id, "md")}>
+              <a
+                aria-disabled={!officialAllowed}
+                className={officialAllowed ? "export-link" : "export-link disabled"}
+                href={officialAllowed ? officialExportUrl(project.id, "md") : undefined}
+              >
                 <Download size={18} />
                 <span>官方 MD</span>
               </a>
@@ -2600,15 +2674,46 @@ function DraftCompletionView({
 function ExportView({
   project,
   packageValue,
+  postDraftReview,
+  currentDraftHash,
 }: {
   project: ProjectRecord | null;
   packageValue: DraftPackage | null;
+  postDraftReview: PostDraftReviewRun | null;
+  currentDraftHash: string;
 }) {
   const enabled = canExportPackage(packageValue);
+  const officialAllowed = Boolean(
+    enabled
+      && postDraftReview?.status === "completed"
+      && postDraftReview.export_allowed
+      && postDraftReview.draft_package_hash === currentDraftHash,
+  );
   return (
     <section className="panel wide">
       <h3>导出文件</h3>
+      <p className="workflow-hint">
+        {officialAllowed
+          ? `正式稿已由成稿会审解锁：${postDraftReview?.draft_package_hash.slice(0, 12)}`
+          : "正式稿需通过匹配当前成稿 hash 的成稿会审；内部稿和报告可继续导出。"}
+      </p>
       <div className="export-grid">
+        <a
+          aria-disabled={!officialAllowed}
+          className={officialAllowed ? "export-link" : "export-link disabled"}
+          href={officialAllowed && project ? officialExportUrl(project.id, "docx") : undefined}
+        >
+          <Download size={18} />
+          <span>正式提交稿 DOCX</span>
+        </a>
+        <a
+          aria-disabled={!officialAllowed}
+          className={officialAllowed ? "export-link" : "export-link disabled"}
+          href={officialAllowed && project ? officialExportUrl(project.id, "md") : undefined}
+        >
+          <Download size={18} />
+          <span>正式提交稿 MD</span>
+        </a>
         {[
           ["docx", "DOCX"],
           ["md", "Markdown"],

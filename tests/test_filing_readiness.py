@@ -194,7 +194,7 @@ def test_store_persists_multiple_filing_readiness_reports(tmp_path):
     assert store.get_filing_readiness_report("p1", "r1").status == "warning"
 
 
-def test_filing_readiness_api_warns_but_allows_official_export(tmp_path):
+def test_filing_readiness_api_no_longer_unlocks_official_export_without_post_draft_review(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False))
     project_id = client.post(
         "/api/projects",
@@ -217,15 +217,12 @@ def test_filing_readiness_api_warns_but_allows_official_export(tmp_path):
     assert "根据会审策略撰写" in report_md.text
 
     official_md = client.get(f"/api/projects/{project_id}/official-export.md")
-    assert official_md.status_code == 200
-    assert "权利要求书" in official_md.text
-    assert "生成日志" not in official_md.text
-    assert "多Agent会审" not in official_md.text
-    assert "image_prompt" not in official_md.text
+    assert official_md.status_code == 409
+    assert "Post-draft multi-agent review" in official_md.json()["detail"]
 
 
 def test_filing_readiness_api_warning_allows_official_markdown_and_docx_export(tmp_path):
-    client = TestClient(create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False))
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=FakeLLMClient(_passed_post_draft_review_responses()), load_env_file=False))
     project_id = client.post(
         "/api/projects",
         json={"name": "警告导出测试", "draft_text": "一种建筑外立面逆建模方法。"},
@@ -237,6 +234,10 @@ def test_filing_readiness_api_warning_allows_official_markdown_and_docx_export(t
     assert report_response.status_code == 200
     assert report_response.json()["status"] == "warning"
 
+    review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+    assert review_response.status_code == 200
+    assert review_response.json()["export_allowed"] is True
+
     official_md = client.get(f"/api/projects/{project_id}/official-export.md")
     assert official_md.status_code == 200
     assert "权利要求书" in official_md.text
@@ -246,3 +247,39 @@ def test_filing_readiness_api_warning_allows_official_markdown_and_docx_export(t
     assert official_docx.headers["content-type"] == (
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
+
+
+def _passed_post_draft_review_responses() -> dict[str, str]:
+    def role_payload(role: str) -> str:
+        return f"""
+{{
+  "role": "{role}",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": ["正式稿结构可提交。"],
+  "official_safe_patches": [],
+  "attorney_memo": ["代理人复核后提交。"]
+}}
+"""
+
+    return {
+        "post_draft_claims_reviewer": role_payload("claims_reviewer"),
+        "post_draft_spec_cleaner": role_payload("spec_cleaner"),
+        "post_draft_technical_hardness": role_payload("technical_hardness"),
+        "post_draft_chair_synthesis": """
+{
+  "status": "passed",
+  "export_allowed": true,
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [],
+  "attorney_memo": ["成稿会审通过。"],
+  "next_actions": ["允许正式导出。"]
+}
+""",
+    }

@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  ClipboardCheck,
   Download,
   FileText,
   Gauge,
@@ -20,6 +21,7 @@ import {
   filingReadinessReportUrl,
   formulaMarkdownUrl,
   officialExportUrl,
+  postDraftReviewReportUrl,
   type AgentDoctorReport,
   type ClaimDefenseWorksheet,
   type DeliberationRun,
@@ -29,6 +31,7 @@ import {
   type FormulaNeedAssessment,
   type FormulaRun,
   type PatentPointCandidate,
+  type PostDraftReviewRun,
   type ProjectMaterial,
   type ProjectRecord,
 } from "./api";
@@ -50,6 +53,8 @@ export type GuidedPatentFlowProps = {
   patentPoints: PatentPointCandidate[];
   formulaRequirement: FormulaNeedAssessment | null;
   formulaRuns: FormulaRun[];
+  postDraftReviews: PostDraftReviewRun[];
+  currentDraftHash: string;
   agentDoctor: AgentDoctorReport | null;
   selectedDeliberationProviders: string[];
   selectedFormulaProviders: string[];
@@ -64,6 +69,7 @@ export type GuidedPatentFlowProps = {
   onSelectPatentPoint: (point: PatentPointCandidate, candidates: PatentPointCandidate[]) => void;
   onStartDeliberation: () => void;
   onStartFormula: () => void;
+  onStartPostDraftReview: () => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
   onToggleFormulaProvider: (providerId: string, enabled: boolean) => void;
   onGenerateDraft: () => void;
@@ -89,6 +95,9 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         filingReports: props.filingReports,
         worksheets: props.worksheets,
         completionRuns: props.completionRuns,
+        postDraftReviews: props.postDraftReviews.filter((run) =>
+          props.currentDraftHash ? run.draft_package_hash === props.currentDraftHash : true,
+        ),
       }),
     [
       props.project,
@@ -101,6 +110,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       props.filingReports,
       props.worksheets,
       props.completionRuns,
+      props.postDraftReviews,
+      props.currentDraftHash,
     ],
   );
   const latestDisclosure = props.disclosures.find((run) => run.status === "completed" && run.package) ?? null;
@@ -109,6 +120,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
   const latestFilingReport = props.filingReports[0] ?? null;
   const latestWorksheet = props.worksheets[0] ?? null;
   const latestCompletionRun = props.completionRuns[0] ?? null;
+  const latestMatchingPostDraftReview =
+    props.postDraftReviews.find((run) => run.draft_package_hash === props.currentDraftHash) ?? null;
 
   return (
     <div className="guided-flow">
@@ -188,11 +201,27 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
+      {state.currentStepId === "postReview" && (
+        <PostDraftReviewPanel
+          project={props.project}
+          review={latestMatchingPostDraftReview}
+          runs={props.postDraftReviews}
+          currentDraftHash={props.currentDraftHash}
+          doctor={props.agentDoctor}
+          selectedProviders={props.selectedDeliberationProviders}
+          busy={props.busy}
+          busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
+          onStartPostDraftReview={props.onStartPostDraftReview}
+          onToggleProvider={props.onToggleDeliberationProvider}
+        />
+      )}
       {state.currentStepId === "export" && (
         <ExportConfirmationPanel
           project={props.project}
           filingReport={latestFilingReport}
           completionRun={latestCompletionRun}
+          postDraftReview={latestMatchingPostDraftReview}
+          currentDraftHash={props.currentDraftHash}
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
@@ -729,15 +758,99 @@ function ScoreTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+function PostDraftReviewPanel({
+  project,
+  review,
+  runs,
+  currentDraftHash,
+  doctor,
+  selectedProviders,
+  busy,
+  busyElapsedSeconds,
+  onStartPostDraftReview,
+  onToggleProvider,
+}: {
+  project: ProjectRecord | null;
+  review: PostDraftReviewRun | null;
+  runs: PostDraftReviewRun[];
+  currentDraftHash: string;
+  doctor: AgentDoctorReport | null;
+  selectedProviders: string[];
+  busy: string;
+  busyElapsedSeconds: number;
+  onStartPostDraftReview: () => void;
+  onToggleProvider: (providerId: string, enabled: boolean) => void;
+}) {
+  const passed = Boolean(review?.status === "completed" && review.export_allowed);
+  const blocked = Boolean(review?.status === "completed" && !review.export_allowed);
+  return (
+    <section className="guided-panel">
+      <div className="guided-panel-heading">
+        <div>
+          <h3>成稿后多 Agent 会审</h3>
+          <p>正式导出前必选。内置 Prompt Pack 会审权利要求质量、说明书清污、技术硬度和主席裁决。</p>
+        </div>
+        <ClipboardCheck size={24} />
+      </div>
+      <div className="result-meta">
+        <span className={passed ? "status-badge" : blocked ? "status-badge danger" : "status-badge warn"}>
+          {passed ? "已通过" : blocked ? "阻止正式导出" : "等待会审"}
+        </span>
+        <span>{review?.prompt_pack_version ?? "post-draft-review-v1"}</span>
+        <span>当前 hash：{currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成"}</span>
+      </div>
+      <AgentProviderCards
+        doctor={doctor}
+        role="post_review"
+        selectedProviders={selectedProviders}
+        disabled={busy === "post-draft-review"}
+        onToggleProvider={onToggleProvider}
+      />
+      <button
+        className="primary"
+        disabled={!project?.package || busy === "post-draft-review"}
+        onClick={onStartPostDraftReview}
+        type="button"
+      >
+        {busy === "post-draft-review" ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
+        <span>{review ? "重新成稿会审" : "启动成稿会审"}</span>
+      </button>
+      <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "post-draft-review"} />
+      {review && (
+        <article className={passed ? "guided-choice selected" : "guided-choice"}>
+          <div className="result-meta">
+            <span className={passed ? "status-badge" : "status-badge danger"}>{review.status}</span>
+            <span>{review.providers.join(" / ") || "默认三方"}</span>
+            <span>review hash：{review.draft_package_hash.slice(0, 12)}</span>
+            {project && (
+              <a href={postDraftReviewReportUrl(project.id, review.id)} rel="noreferrer" target="_blank">
+                会审报告
+              </a>
+            )}
+          </div>
+          <h4>{passed ? "主席裁决：允许正式导出" : "主席裁决：需要修订"}</h4>
+          {review.blocking_issues.length > 0 && <p>Blocking：{review.blocking_issues.slice(0, 3).join("；")}</p>}
+          {review.contamination_hits.length > 0 && <p>污染命中：{review.contamination_hits.slice(0, 5).join("；")}</p>}
+        </article>
+      )}
+      {!review && runs.length > 0 && <p className="workflow-hint">已有成稿会审记录，但未匹配当前成稿 hash。</p>}
+    </section>
+  );
+}
+
 function ExportConfirmationPanel({
   project,
   filingReport,
   completionRun,
+  postDraftReview,
+  currentDraftHash,
   onOpenExpertTool,
 }: {
   project: ProjectRecord | null;
   filingReport: FilingReadinessReport | null;
   completionRun: DraftCompletionRun | null;
+  postDraftReview: PostDraftReviewRun | null;
+  currentDraftHash: string;
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   if (!project?.package) {
@@ -747,21 +860,27 @@ function ExportConfirmationPanel({
       </section>
     );
   }
+  const officialAllowed = Boolean(
+    postDraftReview?.status === "completed"
+      && postDraftReview.export_allowed
+      && postDraftReview.draft_package_hash === currentDraftHash,
+  );
 
   return (
     <section className="guided-panel">
       <div className="guided-panel-heading">
         <div>
           <h3>导出前确认</h3>
-          <p>这是默认流程的第二个暂停点。高风险不会阻止导出，但会保留在内部报告中。</p>
+          <p>这是默认流程的第二个暂停点。正式稿只在成稿会审通过且匹配当前成稿 hash 后放行。</p>
         </div>
         <Download size={24} />
       </div>
-      {filingReport?.status === "high_risk" && <p className="workflow-hint">当前为高风险但允许导出。请先查看检查报告。</p>}
+      {filingReport?.status === "high_risk" && <p className="workflow-hint">当前提交成熟度为高风险，请结合成稿会审报告处理。</p>}
+      {!officialAllowed && <p className="workflow-hint">正式稿入口已锁定：需要通过匹配当前成稿 hash 的成稿会审。</p>}
       <div className="export-confirmation">
         <article>
           <strong>正式稿</strong>
-          <span>只包含摘要、权利要求书、说明书和附图说明。</span>
+          <span>{officialAllowed ? "已通过成稿会审，可导出。" : "等待成稿会审通过后解锁。"}</span>
         </article>
         <article>
           <strong>内部稿</strong>
@@ -769,18 +888,26 @@ function ExportConfirmationPanel({
         </article>
         <article>
           <strong>导出原则</strong>
-          <span>高风险会提示，但不会阻止导出。</span>
+          <span>blocking issue 阻止正式稿；内部稿和报告不受阻止。</span>
         </article>
       </div>
       <button className="icon-button" onClick={() => onOpenExpertTool("export")} type="button">
         查看专家导出工具
       </button>
       <div className="export-grid">
-        <a className="export-link" href={officialExportUrl(project.id, "docx")}>
+        <a
+          aria-disabled={!officialAllowed}
+          className={officialAllowed ? "export-link" : "export-link disabled"}
+          href={officialAllowed ? officialExportUrl(project.id, "docx") : undefined}
+        >
           <Download size={18} />
           <span>正式提交稿 DOCX</span>
         </a>
-        <a className="export-link" href={officialExportUrl(project.id, "md")}>
+        <a
+          aria-disabled={!officialAllowed}
+          className={officialAllowed ? "export-link" : "export-link disabled"}
+          href={officialAllowed ? officialExportUrl(project.id, "md") : undefined}
+        >
           <Download size={18} />
           <span>正式提交稿 MD</span>
         </a>

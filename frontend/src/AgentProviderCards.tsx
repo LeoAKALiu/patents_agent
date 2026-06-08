@@ -2,7 +2,7 @@ import { AlertTriangle, CheckCircle2, CircleSlash, LockKeyhole } from "lucide-re
 
 import type { AgentDoctorReport, AgentProviderStatus } from "./api";
 
-export type AgentProviderRole = "deliberation" | "formula";
+export type AgentProviderRole = "deliberation" | "formula" | "post_review";
 
 export const requiredAgentProviderIds = ["codex", "gemini", "claude"];
 
@@ -24,9 +24,10 @@ export function normalizeAgentSelection(
 }
 
 export function providerListForRole(doctor: AgentDoctorReport | null, role: AgentProviderRole): AgentProviderStatus[] {
+  const providerRole = role === "post_review" ? "deliberation" : role;
   const providers = Object.values(doctor?.commands ?? {});
   return providers
-    .filter((provider) => provider.required || provider.roles.includes(role))
+    .filter((provider) => provider.required || provider.roles.includes(providerRole))
     .sort((a, b) => {
       const requiredIndexA = requiredAgentProviderIds.indexOf(a.id);
       const requiredIndexB = requiredAgentProviderIds.indexOf(b.id);

@@ -9,6 +9,7 @@ import type {
   FormulaNeedAssessment,
   FormulaRun,
   PatentPointCandidate,
+  PostDraftReviewRun,
   ProjectMaterial,
   ProjectRecord,
 } from "./api";
@@ -227,6 +228,35 @@ const completionRun: DraftCompletionRun = {
   created_at: "2026-06-02T00:00:00Z",
 };
 
+const passedPostDraftReview: PostDraftReviewRun = {
+  id: "pdr1",
+  project_id: "p1",
+  status: "completed",
+  providers: ["codex", "gemini", "claude"],
+  prompt_pack_version: "post-draft-review-v1",
+  draft_package_hash: "hash",
+  role_results: [],
+  chair_result: {
+    status: "passed",
+    export_allowed: true,
+    blocking_issues: [],
+    contamination_hits: [],
+    claim_1_rewrite: "",
+    system_claim_rewrite: "",
+    abstract_rewrite: "",
+    description_rewrite_tasks: [],
+    official_safe_patches: [],
+    attorney_memo: [],
+    next_actions: [],
+  },
+  export_allowed: true,
+  blocking_issues: [],
+  contamination_hits: [],
+  logs: [],
+  created_at: "2026-06-02T00:00:00Z",
+  updated_at: "2026-06-02T00:00:00Z",
+};
+
 function patentPoint(selected: boolean): PatentPointCandidate {
   return {
     id: selected ? "pp-selected" : "pp-candidate",
@@ -260,7 +290,7 @@ describe("guided flow navigation", () => {
   it("uses three main sections and keeps expert tools grouped", () => {
     expect(mainSections.map((item) => item.label)).toEqual(["专利生成", "项目", "专家工具"]);
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
-    expect(guidedStepLabels).toEqual(["想法与材料", "发明点", "多 Agent 会审", "核心公式", "生成初稿", "质量检查", "导出"]);
+    expect(guidedStepLabels).toEqual(["想法与材料", "发明点", "多 Agent 会审", "核心公式", "生成初稿", "质量检查", "成稿会审", "导出"]);
   });
 });
 
@@ -345,7 +375,7 @@ describe("deriveGuidedFlowState", () => {
     });
 
     expect(state.currentStepId).toBe("idea");
-    expect(state.steps.map((step) => step.status)).toEqual(["current", "locked", "locked", "locked", "locked", "locked", "locked"]);
+    expect(state.steps.map((step) => step.status)).toEqual(["current", "locked", "locked", "locked", "locked", "locked", "locked", "locked"]);
   });
 
   it("moves to invention confirmation after disclosure is completed", () => {
@@ -469,7 +499,54 @@ describe("deriveGuidedFlowState", () => {
     expect(state.hasCompletedDeliberation).toBe(false);
   });
 
-  it("marks export ready after package and quality runs exist", () => {
+  it("requires passed post-draft review after package and quality runs exist", () => {
+    const packageProject = {
+      ...projectWithIdea,
+      package: {
+        title: "一种外立面逆建模方法",
+        abstract: "摘要",
+        claims: "1. 一种方法。",
+        description: "说明书",
+        drawing_description: "附图说明",
+        mermaid: "flowchart TD",
+        image_prompt: "黑白线稿",
+        review_findings: [],
+        citations: [],
+        generation_logs: [],
+      },
+    };
+    const state = deriveGuidedFlowState({
+      project: packageProject,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [filingReport("warning")],
+      worksheets: [worksheet],
+      completionRuns: [completionRun],
+    });
+
+    expect(state.currentStepId).toBe("postReview");
+    expect(state.exportReady).toBe(false);
+
+    const passedState = deriveGuidedFlowState({
+      project: packageProject,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [filingReport("warning")],
+      worksheets: [worksheet],
+      completionRuns: [completionRun],
+      postDraftReviews: [passedPostDraftReview],
+    });
+
+    expect(passedState.currentStepId).toBe("export");
+    expect(passedState.exportReady).toBe(true);
+    expect(passedState.steps.map((step) => step.status)).toEqual(["done", "done", "done", "done", "done", "done", "done", "current"]);
+  });
+
+  it("does not treat blocked post-draft review as export ready", () => {
     const state = deriveGuidedFlowState({
       project: {
         ...projectWithIdea,
@@ -493,11 +570,11 @@ describe("deriveGuidedFlowState", () => {
       filingReports: [filingReport("warning")],
       worksheets: [worksheet],
       completionRuns: [completionRun],
+      postDraftReviews: [{ ...passedPostDraftReview, id: "blocked", export_allowed: false }],
     });
 
-    expect(state.currentStepId).toBe("export");
-    expect(state.exportReady).toBe(true);
-    expect(state.steps.map((step) => step.status)).toEqual(["done", "done", "done", "done", "done", "done", "current"]);
+    expect(state.currentStepId).toBe("postReview");
+    expect(state.exportReady).toBe(false);
   });
 });
 
@@ -509,16 +586,16 @@ describe("qualitySummaryFromRuns", () => {
       completionRun,
     });
 
-    expect(summary.statusLabel).toBe("高风险但可导出");
+    expect(summary.statusLabel).toBe("高风险，等待成稿会审");
     expect(summary.authorizationStability).toBe(70);
     expect(summary.protectionScope).toBe(80);
     expect(summary.filingMaturity).toBe(75);
-    expect(summary.officialExportAllowed).toBe(true);
+    expect(summary.officialExportAllowed).toBe(false);
   });
 });
 
 describe("guidedStepLabels", () => {
   it("uses user-action language instead of internal module names", () => {
-    expect(guidedStepLabels).toEqual(["想法与材料", "发明点", "多 Agent 会审", "核心公式", "生成初稿", "质量检查", "导出"]);
+    expect(guidedStepLabels).toEqual(["想法与材料", "发明点", "多 Agent 会审", "核心公式", "生成初稿", "质量检查", "成稿会审", "导出"]);
   });
 });

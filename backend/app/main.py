@@ -30,6 +30,11 @@ from backend.app.filing_readiness import (
 from backend.app.generator import PatentDraftGenerator
 from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
+from backend.app.post_draft_review import (
+    draft_package_hash,
+    post_draft_review_to_markdown,
+    run_post_draft_review,
+)
 from backend.app.rag import LocalVectorIndex, create_vector_index
 from backend.app.schemas import (
     AgentFailure,
@@ -49,6 +54,7 @@ from backend.app.schemas import (
     PatentPointCandidate,
     PatentPointCreate,
     PatentPointUpdate,
+    PostDraftReviewRunCreate,
     ProposedPatch,
     CorpusImportJobCreate,
     ProjectMaterial,
@@ -773,10 +779,52 @@ def create_app(
         )
         return result.model_dump(mode="json")
 
+    @app.post("/api/projects/{project_id}/post-draft-reviews")
+    def create_post_draft_review(project_id: str, payload: PostDraftReviewRunCreate | None = None) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        if isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
+        providers = list(payload.providers if payload and payload.providers else STRICT_DELIBERATION_PROVIDERS)
+        run = run_post_draft_review(
+            project_id=project_id,
+            package=package,
+            llm=app.state.llm,
+            providers=providers,
+        )
+        stored = store.create_post_draft_review_run(run)
+        return stored.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/post-draft-reviews")
+    def list_post_draft_reviews(project_id: str) -> dict:
+        project = _require_project(store, project_id)
+        current_hash = draft_package_hash(project.package) if project.package else ""
+        return {
+            "runs": [run.model_dump(mode="json") for run in store.list_post_draft_review_runs(project_id)],
+            "current_draft_hash": current_hash,
+        }
+
+    @app.get("/api/projects/{project_id}/post-draft-reviews/{run_id}")
+    def get_post_draft_review(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_post_draft_review_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Post-draft review run not found.")
+        return run.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/post-draft-reviews/{run_id}/report.md")
+    def export_post_draft_review_report(project_id: str, run_id: str) -> PlainTextResponse:
+        _require_project(store, project_id)
+        run = store.get_post_draft_review_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Post-draft review run not found.")
+        return PlainTextResponse(post_draft_review_to_markdown(run), media_type="text/markdown; charset=utf-8")
+
     @app.get("/api/projects/{project_id}/official-export.docx")
     def export_project_official_docx(project_id: str) -> FileResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
+        _require_post_draft_export_gate(store, project_id, package)
         output_path = export_official_docx(package, settings.data_dir / "exports" / f"{project.id}-official.docx")
         return FileResponse(
             output_path,
@@ -788,6 +836,7 @@ def create_app(
     def export_project_official_markdown(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
+        _require_post_draft_export_gate(store, project_id, package)
         return PlainTextResponse(official_package_to_markdown(package), media_type="text/markdown; charset=utf-8")
 
     @app.get("/api/projects/{project_id}/export.docx")
@@ -1008,6 +1057,30 @@ def _require_package(project: ProjectRecord) -> DraftPackage:
     if not project.package:
         raise HTTPException(status_code=409, detail="Generate a draft before export.")
     return project.package
+
+
+def _require_post_draft_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> None:
+    current_hash = draft_package_hash(package)
+    if store.get_latest_export_allowed_post_draft_review(project_id, current_hash):
+        return
+    reviews = store.list_post_draft_review_runs(project_id)
+    current_reviews = [
+        run for run in reviews if run.draft_package_hash == current_hash and run.status == "completed"
+    ]
+    if current_reviews:
+        raise HTTPException(
+            status_code=409,
+            detail="Post-draft multi-agent review blocked official export. See the review report.",
+        )
+    if reviews:
+        raise HTTPException(
+            status_code=409,
+            detail="Post-draft multi-agent review is required for the current draft before official export.",
+        )
+    raise HTTPException(
+        status_code=409,
+        detail="Post-draft multi-agent review is required before official export.",
+    )
 
 
 def _require_disclosure_run(store: SQLiteStore, project_id: str, run_id: str) -> DisclosureRun:

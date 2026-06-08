@@ -417,6 +417,51 @@ class FormulaRun(BaseModel):
     updated_at: str = ""
 
 
+class PostDraftReviewRunCreate(BaseModel):
+    providers: list[str] | None = None
+
+
+class PostDraftReviewRoleResult(BaseModel):
+    role: str = Field(pattern="^(claims_reviewer|spec_cleaner|technical_hardness)$")
+    status: str = Field(pattern="^(passed|needs_revision|blocked)$")
+    blocking_issues: list[str] = Field(default_factory=list)
+    contamination_hits: list[str] = Field(default_factory=list)
+    rewrite_suggestions: list[str] = Field(default_factory=list)
+    official_safe_patches: list[str] = Field(default_factory=list)
+    attorney_memo: list[str] = Field(default_factory=list)
+
+
+class PostDraftReviewChairResult(BaseModel):
+    status: str = Field(pattern="^(passed|needs_revision|blocked)$")
+    export_allowed: bool = False
+    blocking_issues: list[str] = Field(default_factory=list)
+    contamination_hits: list[str] = Field(default_factory=list)
+    claim_1_rewrite: str = ""
+    system_claim_rewrite: str = ""
+    abstract_rewrite: str = ""
+    description_rewrite_tasks: list[str] = Field(default_factory=list)
+    official_safe_patches: list[str] = Field(default_factory=list)
+    attorney_memo: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+
+
+class PostDraftReviewRun(BaseModel):
+    id: str
+    project_id: str
+    status: str = Field(pattern="^(queued|running|completed|failed)$")
+    providers: list[str] = Field(default_factory=list)
+    prompt_pack_version: str = "post-draft-review-v1"
+    draft_package_hash: str = ""
+    role_results: list[PostDraftReviewRoleResult] = Field(default_factory=list)
+    chair_result: PostDraftReviewChairResult | None = None
+    export_allowed: bool = False
+    blocking_issues: list[str] = Field(default_factory=list)
+    contamination_hits: list[str] = Field(default_factory=list)
+    logs: list[DeliberationLogEntry] = Field(default_factory=list)
+    created_at: str = ""
+    updated_at: str = ""
+
+
 class ProjectMaterial(BaseModel):
     id: str
     project_id: str

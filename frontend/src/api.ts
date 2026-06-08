@@ -455,6 +455,47 @@ export interface FormulaRun {
   updated_at: string;
 }
 
+export interface PostDraftReviewRoleResult {
+  role: "claims_reviewer" | "spec_cleaner" | "technical_hardness";
+  status: "passed" | "needs_revision" | "blocked";
+  blocking_issues: string[];
+  contamination_hits: string[];
+  rewrite_suggestions: string[];
+  official_safe_patches: string[];
+  attorney_memo: string[];
+}
+
+export interface PostDraftReviewChairResult {
+  status: "passed" | "needs_revision" | "blocked";
+  export_allowed: boolean;
+  blocking_issues: string[];
+  contamination_hits: string[];
+  claim_1_rewrite: string;
+  system_claim_rewrite: string;
+  abstract_rewrite: string;
+  description_rewrite_tasks: string[];
+  official_safe_patches: string[];
+  attorney_memo: string[];
+  next_actions: string[];
+}
+
+export interface PostDraftReviewRun {
+  id: string;
+  project_id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  providers: string[];
+  prompt_pack_version: string;
+  draft_package_hash: string;
+  role_results: PostDraftReviewRoleResult[];
+  chair_result: PostDraftReviewChairResult | null;
+  export_allowed: boolean;
+  blocking_issues: string[];
+  contamination_hits: string[];
+  logs: DeliberationLogEntry[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CorpusQualityReport {
   total_files: number;
   processed_files: number;
@@ -766,6 +807,22 @@ export async function listFormulaRuns(projectId: string): Promise<FormulaRun[]> 
 
 export function formulaMarkdownUrl(projectId: string, runId: string): string {
   return `/api/projects/${projectId}/formula-runs/${runId}/latex.md`;
+}
+
+export async function startPostDraftReview(projectId: string, providers?: string[]): Promise<PostDraftReviewRun> {
+  return request<PostDraftReviewRun>(`/api/projects/${projectId}/post-draft-reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ providers: providers ?? null }),
+  });
+}
+
+export async function listPostDraftReviews(projectId: string): Promise<{ runs: PostDraftReviewRun[]; current_draft_hash: string }> {
+  return request<{ runs: PostDraftReviewRun[]; current_draft_hash: string }>(`/api/projects/${projectId}/post-draft-reviews`);
+}
+
+export function postDraftReviewReportUrl(projectId: string, runId: string): string {
+  return `/api/projects/${projectId}/post-draft-reviews/${runId}/report.md`;
 }
 
 export async function startProjectDeliberation(projectId: string, trace = false, providers?: string[]): Promise<DeliberationRun> {
