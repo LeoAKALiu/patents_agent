@@ -23,12 +23,15 @@ from backend.app.draft_completion import completion_run_to_markdown, run_draft_c
 from backend.app.exporter import export_docx, package_to_markdown
 from backend.app.filing_readiness import (
     assess_filing_readiness,
-    export_official_docx,
-    official_package_to_markdown,
     readiness_report_to_markdown,
 )
 from backend.app.generator import PatentDraftGenerator
 from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
+from backend.app.official_compile import (
+    OfficialDraftCompiler,
+    export_official_package_docx,
+    official_package_to_markdown,
+)
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
 from backend.app.post_draft_review import (
     draft_package_hash,
@@ -825,7 +828,11 @@ def create_app(
         project = _require_project(store, project_id)
         package = _require_package(project)
         _require_post_draft_export_gate(store, project_id, package)
-        output_path = export_official_docx(package, settings.data_dir / "exports" / f"{project.id}-official.docx")
+        official_package = _require_compiled_official_package(project_id, package)
+        output_path = export_official_package_docx(
+            official_package,
+            settings.data_dir / "exports" / f"{project.id}-official.docx",
+        )
         return FileResponse(
             output_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -837,7 +844,8 @@ def create_app(
         project = _require_project(store, project_id)
         package = _require_package(project)
         _require_post_draft_export_gate(store, project_id, package)
-        return PlainTextResponse(official_package_to_markdown(package), media_type="text/markdown; charset=utf-8")
+        official_package = _require_compiled_official_package(project_id, package)
+        return PlainTextResponse(official_package_to_markdown(official_package), media_type="text/markdown; charset=utf-8")
 
     @app.get("/api/projects/{project_id}/export.docx")
     def export_project_docx(project_id: str) -> FileResponse:
@@ -1080,6 +1088,20 @@ def _require_post_draft_export_gate(store: SQLiteStore, project_id: str, package
     raise HTTPException(
         status_code=409,
         detail="Post-draft multi-agent review is required before official export.",
+    )
+
+
+def _require_compiled_official_package(project_id: str, package: DraftPackage):
+    run = OfficialDraftCompiler().compile(project_id=project_id, package=package)
+    if run.status == "completed" and run.official_package is not None:
+        return run.official_package
+    blocked = "; ".join(
+        f"{item.get('section', 'draft_package')}:{item.get('category', 'blocked')}:{item.get('pattern', '')}"
+        for item in run.blocked_items
+    )
+    raise HTTPException(
+        status_code=409,
+        detail=f"Official draft compile blocked official export. {blocked}".strip(),
     )
 
 

@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from docx import Document
 
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
@@ -7,7 +8,10 @@ from backend.app.schemas import DraftPackage
 
 def test_post_draft_review_pass_unlocks_official_export(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
-    project_id = _create_project_with_package(client, _package())
+    project_id = _create_project_with_package(
+        client,
+        _package(drawing_description="图1为系统流程图。\nimage_prompt: 黑白线稿。"),
+    )
 
     blocked = client.get(f"/api/projects/{project_id}/official-export.md")
     assert blocked.status_code == 409
@@ -28,6 +32,56 @@ def test_post_draft_review_pass_unlocks_official_export(tmp_path):
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
     assert export_response.status_code == 200
     assert "权利要求书" in export_response.text
+    assert "附图计划" in export_response.text
+    assert "image_prompt" not in export_response.text
+    assert "黑白线稿" not in export_response.text
+
+    docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
+    assert docx_response.status_code == 200
+    docx_path = tmp_path / "official.docx"
+    docx_path.write_bytes(docx_response.content)
+    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+    assert "附图计划" in docx_text
+    assert "image_prompt" not in docx_text
+    assert "黑白线稿" not in docx_text
+
+
+def test_official_export_blocks_inline_prompt_after_passing_review(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(drawing_description="图1为方法流程图。prompt: 黑白线稿"),
+    )
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert review["export_allowed"] is True
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+
+    assert export_response.status_code == 409
+    assert "Official draft compile blocked official export" in export_response.json()["detail"]
+
+    docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
+    assert docx_response.status_code == 409
+    assert "Official draft compile blocked official export" in docx_response.json()["detail"]
+
+
+def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(drawing_description='{\n  "drawing_description": ""\n}'),
+    )
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert review["export_allowed"] is True
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+
+    assert export_response.status_code == 409
+    assert "Official draft compile blocked official export" in export_response.json()["detail"]
+
+    docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
+    assert docx_response.status_code == 409
+    assert "Official draft compile blocked official export" in docx_response.json()["detail"]
 
 
 def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_path):
