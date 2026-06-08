@@ -183,6 +183,43 @@ class DeliberationRun(BaseModel):
     logs: list[DeliberationLogEntry] = Field(default_factory=list)
 
 
+class ClaimItem(BaseModel):
+    """One structured claim. Canonical claim text is rendered deterministically from this."""
+
+    number: int
+    kind: str = Field(default="independent", pattern="^(independent|dependent)$")
+    depends_on: int | None = None
+    category: str = Field(default="other", pattern="^(method|system|device|medium|other)$")
+    preamble: str = ""
+    features: list[str] = Field(default_factory=list)
+
+
+class ClaimsOutput(BaseModel):
+    claims: list[ClaimItem] = Field(default_factory=list)
+
+
+class DescriptionOutput(BaseModel):
+    """Specification body sections. 附图说明 is NOT here; it is single-sourced from DrawingsOutput."""
+
+    technical_field: str = ""
+    background: str = ""
+    summary: str = ""
+    embodiments: str = ""
+
+
+class FigureItem(BaseModel):
+    figure_no: str
+    title: str
+
+
+class DrawingsOutput(BaseModel):
+    figures: list[FigureItem] = Field(default_factory=list)
+
+
+class AbstractOutput(BaseModel):
+    abstract: str = ""
+
+
 class DraftPackage(BaseModel):
     title: str
     abstract: str
@@ -202,6 +239,11 @@ class DraftPackage(BaseModel):
     patent_point_summary: str | None = None
     formula_run_id: str | None = None
     core_formula_summary: str | None = None
+    # Structured source-of-truth for canonical text (Component 1). Optional for backward compatibility
+    # with stored drafts; when present, the official compiler assembles from these via allowlist.
+    claims_struct: ClaimsOutput | None = None
+    description_struct: DescriptionOutput | None = None
+    drawings_struct: DrawingsOutput | None = None
 
 
 class OfficialFigurePlanItem(BaseModel):

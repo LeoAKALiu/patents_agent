@@ -5,9 +5,12 @@ import json
 from backend.app.llm import LLMClient
 from backend.app.schemas import (
     Citation,
+    ClaimsOutput,
     CoreFormulaPackage,
+    DescriptionOutput,
     DisclosurePackage,
     DraftPackage,
+    DrawingsOutput,
     InventionBrief,
     PatentChunk,
     PatentStrategyBrief,
@@ -244,3 +247,52 @@ def _image_prompt(brief: InventionBrief, mermaid: str) -> str:
 流程图：
 {mermaid}
 """
+
+
+# --- Deterministic renderers (Component 1) -------------------------------------------------
+# Canonical patent text is rendered from structured output, so AI prefaces / meta / headings
+# cannot leak into claims/description/drawings, and claim formatting (分号/句号) is code-controlled.
+
+
+def render_claims(claims_output: ClaimsOutput) -> str:
+    """Render structured claims into canonical text: features joined by 中文分号, terminated by 句号."""
+    lines: list[str] = []
+    for item in sorted(claims_output.claims, key=lambda claim: claim.number):
+        features = [feature.strip().rstrip("；;。") for feature in item.features if feature and feature.strip()]
+        preamble = item.preamble.strip()
+        if features:
+            body = "；\n".join(features) + "。"
+            text = f"{preamble}\n{body}" if preamble else body
+        elif preamble:
+            text = preamble if preamble.endswith("。") else f"{preamble}。"
+        else:
+            continue
+        lines.append(f"{item.number}. {text}")
+    return "\n".join(lines).strip()
+
+
+def render_drawings(drawings_output: DrawingsOutput) -> str:
+    """Single source of truth for 附图说明: render each figure as 「图X为……。」."""
+    lines: list[str] = []
+    for figure in drawings_output.figures:
+        figure_no = figure.figure_no.strip()
+        title = figure.title.strip().rstrip("。")
+        if figure_no and title:
+            lines.append(f"{figure_no}为{title}。")
+    return "\n".join(lines).strip()
+
+
+def render_description(description_output: DescriptionOutput, drawings_text: str) -> str:
+    """Render the five canonical sections; 附图说明 is injected from the single drawings source."""
+    sections = [
+        ("技术领域", description_output.technical_field),
+        ("背景技术", description_output.background),
+        ("发明内容", description_output.summary),
+        ("附图说明", drawings_text),
+        ("具体实施方式", description_output.embodiments),
+    ]
+    blocks: list[str] = []
+    for heading, body in sections:
+        body = (body or "").strip()
+        blocks.append(f"{heading}\n{body}" if body else heading)
+    return "\n\n".join(blocks).strip()
