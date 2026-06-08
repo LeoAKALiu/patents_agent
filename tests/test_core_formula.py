@@ -121,11 +121,16 @@ def test_required_formula_blocks_generation_until_formula_package_completed(tmp_
     assert blocked.status_code == 409
     assert "Core formula package" in blocked.json()["detail"]
 
-    formula_response = client.post(f"/api/projects/{project_id}/formula-runs", json={})
+    formula_response = client.post(
+        f"/api/projects/{project_id}/formula-runs",
+        json={"providers": ["codex", "gemini", "claude", "kimicode"]},
+    )
     assert formula_response.status_code == 200
     formula_run = formula_response.json()
     assert formula_run["status"] == "completed"
+    assert formula_run["providers"] == ["codex", "gemini", "claude", "kimicode"]
     assert formula_run["package"]["formula_blocks"][0]["id"] == "F01"
+    assert any("selected providers" in log for log in formula_run["package"]["generation_logs"])
 
     latex_response = client.get(f"/api/projects/{project_id}/formula-runs/{formula_run['id']}/latex.md")
     assert latex_response.status_code == 200

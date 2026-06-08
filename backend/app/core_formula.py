@@ -63,6 +63,7 @@ def generate_formula_run(
     disclosure: DisclosurePackage | None,
     strategy_brief: PatentStrategyBrief | None,
     llm: LLMClient,
+    providers: list[str] | None = None,
 ) -> FormulaRun:
     requirement = assess_formula_need(
         project=project,
@@ -72,6 +73,7 @@ def generate_formula_run(
     )
     run_id = uuid.uuid4().hex
     if not requirement.required:
+        selected_providers = providers or []
         package = CoreFormulaPackage(
             summary="系统未检测到必须凝练为核心公式的计算型技术特征。",
             formula_blocks=[],
@@ -80,12 +82,16 @@ def generate_formula_run(
             claim_hooks=[],
             description_insert="",
             latex_markdown="# 核心公式\n\n本项目当前无需公式型凝练。",
-            generation_logs=["formula: requirement not detected; skipped formula condensation"],
+            generation_logs=[
+                "formula: requirement not detected; skipped formula condensation",
+                f"formula: selected providers {', '.join(selected_providers) or 'default'}",
+            ],
         )
         return FormulaRun(
             id=run_id,
             project_id=project_id,
             status="completed",
+            providers=selected_providers,
             requirement=requirement,
             package=package,
             events=["formula package skipped: not required"],
@@ -94,13 +100,16 @@ def generate_formula_run(
     prompt = _formula_prompt(project, patent_points, disclosure, strategy_brief, requirement)
     raw = llm.complete_stage("core_formula", SYSTEM_PROMPT, prompt)
     package = _parse_formula_package(raw, requirement)
+    selected_providers = providers or []
+    package.generation_logs.append(f"formula: selected providers {', '.join(selected_providers) or 'default'}")
     return FormulaRun(
         id=run_id,
         project_id=project_id,
         status="completed",
+        providers=selected_providers,
         requirement=requirement,
         package=package,
-        events=["formula package generated"],
+        events=[f"formula package generated with providers: {', '.join(providers or []) or 'default'}"],
     )
 
 

@@ -155,6 +155,7 @@ const completedFormulaRun: FormulaRun = {
   id: "fr1",
   project_id: "p1",
   status: "completed",
+  providers: ["codex", "gemini", "claude"],
   requirement: formulaRequired,
   package: {
     summary: "以指标置信度增益作为核心公式。",

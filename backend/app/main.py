@@ -42,6 +42,7 @@ from backend.app.schemas import (
     DraftCompletionRun,
     DraftPackage,
     FormulaRun,
+    FormulaRunCreate,
     GenerateRequest,
     InventionBrief,
     PatentChunk,
@@ -475,11 +476,12 @@ def create_app(
         return assessment.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/formula-runs")
-    def create_formula_run(project_id: str) -> dict:
+    def create_formula_run(project_id: str, payload: FormulaRunCreate | None = None) -> dict:
         project = _require_project(store, project_id)
         disclosure = store.get_latest_completed_disclosure_run(project_id)
         deliberation = _resolve_deliberation(store, project_id, None)
         patent_points = store.list_project_patent_points(project_id)
+        providers = payload.providers if payload and payload.providers else list(STRICT_DELIBERATION_PROVIDERS)
         assessment = assess_formula_need(
             project=project,
             patent_points=patent_points,
@@ -495,6 +497,7 @@ def create_app(
             disclosure=disclosure.package if disclosure else None,
             strategy_brief=deliberation.strategy_brief if deliberation else None,
             llm=app.state.llm,
+            providers=providers,
         )
         return store.create_formula_run(run).model_dump(mode="json")
 
@@ -1038,7 +1041,7 @@ def _is_strict_completed_deliberation(run: DeliberationRun) -> bool:
     if run.status != "completed" or run.strategy_brief is None or run.failures:
         return False
     required = set(STRICT_DELIBERATION_PROVIDERS)
-    if set(run.providers) != required:
+    if not required.issubset(set(run.providers)):
         return False
     completed = {(stage.phase, stage.provider_id, stage.label) for stage in run.stage_results if stage.status == "completed"}
     if not all(("opening", provider, f"opening {provider}") in completed for provider in required):

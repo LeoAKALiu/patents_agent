@@ -359,6 +359,8 @@ export interface AgentProviderStatus {
   available: boolean;
   path: string;
   required: boolean;
+  model_version: string;
+  roles: string[];
 }
 
 export interface AgentDoctorReport {
@@ -444,6 +446,7 @@ export interface FormulaRun {
   id: string;
   project_id: string;
   status: "queued" | "running" | "completed" | "failed";
+  providers: string[];
   requirement: FormulaNeedAssessment;
   package: CoreFormulaPackage | null;
   failures: string[];
@@ -748,8 +751,12 @@ export async function getFormulaRequirement(projectId: string): Promise<FormulaN
   return request<FormulaNeedAssessment>(`/api/projects/${projectId}/formula-requirement`);
 }
 
-export async function startFormulaRun(projectId: string): Promise<FormulaRun> {
-  return request<FormulaRun>(`/api/projects/${projectId}/formula-runs`, { method: "POST" });
+export async function startFormulaRun(projectId: string, providers?: string[]): Promise<FormulaRun> {
+  return request<FormulaRun>(`/api/projects/${projectId}/formula-runs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ providers: providers ?? null }),
+  });
 }
 
 export async function listFormulaRuns(projectId: string): Promise<FormulaRun[]> {
@@ -761,11 +768,11 @@ export function formulaMarkdownUrl(projectId: string, runId: string): string {
   return `/api/projects/${projectId}/formula-runs/${runId}/latex.md`;
 }
 
-export async function startProjectDeliberation(projectId: string, trace = false): Promise<DeliberationRun> {
+export async function startProjectDeliberation(projectId: string, trace = false, providers?: string[]): Promise<DeliberationRun> {
   return request<DeliberationRun>(`/api/projects/${projectId}/deliberations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ trace, round_depth: "converged_two_round" }),
+    body: JSON.stringify({ trace, round_depth: "converged_two_round", providers: providers ?? null }),
   });
 }
 

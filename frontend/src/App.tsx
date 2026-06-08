@@ -18,6 +18,7 @@ import {
   Wand2,
 } from "lucide-react";
 
+import { AgentProviderCards, normalizeAgentSelection, requiredAgentProviderIds } from "./AgentProviderCards";
 import {
   AgentDoctorReport,
   ClaimDefenseWorksheet,
@@ -157,6 +158,8 @@ function App() {
   const [patentPoints, setPatentPoints] = useState<PatentPointCandidate[]>([]);
   const [formulaRequirement, setFormulaRequirement] = useState<FormulaNeedAssessment | null>(null);
   const [formulaRuns, setFormulaRuns] = useState<FormulaRun[]>([]);
+  const [selectedDeliberationProviders, setSelectedDeliberationProviders] = useState<string[]>(requiredAgentProviderIds);
+  const [selectedFormulaProviders, setSelectedFormulaProviders] = useState<string[]>(requiredAgentProviderIds);
   const [filingReports, setFilingReports] = useState<FilingReadinessReport[]>([]);
   const [worksheets, setWorksheets] = useState<ClaimDefenseWorksheet[]>([]);
   const [completionRuns, setCompletionRuns] = useState<DraftCompletionRun[]>([]);
@@ -194,6 +197,11 @@ function App() {
   useEffect(() => {
     void refreshAll();
   }, []);
+
+  useEffect(() => {
+    setSelectedDeliberationProviders((providers) => normalizeAgentSelection(agentDoctor, providers, "deliberation"));
+    setSelectedFormulaProviders((providers) => normalizeAgentSelection(agentDoctor, providers, "formula"));
+  }, [agentDoctor]);
 
   useEffect(() => {
     if (selectedProject?.id) {
@@ -526,7 +534,7 @@ function App() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     await withStatus("deliberate", async () => {
-      const run = await startProjectDeliberation(projectId, trace);
+      const run = await startProjectDeliberation(projectId, trace, selectedDeliberationProviders);
       const stillSelected = await loadDeliberations(projectId);
       if (!stillSelected) return;
       await loadFormulaState(projectId);
@@ -538,10 +546,24 @@ function App() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     await withStatus("formula", async () => {
-      const run = await startFormulaRun(projectId);
+      const run = await startFormulaRun(projectId, selectedFormulaProviders);
       const stillSelected = await loadFormulaState(projectId);
       if (!stillSelected) return;
       setMessage(`核心公式已${run.status === "completed" ? "完成" : "启动"}：${run.status}`);
+    });
+  }
+
+  function handleToggleDeliberationProvider(providerId: string, enabled: boolean) {
+    setSelectedDeliberationProviders((providers) => {
+      const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
+      return normalizeAgentSelection(agentDoctor, next, "deliberation");
+    });
+  }
+
+  function handleToggleFormulaProvider(providerId: string, enabled: boolean) {
+    setSelectedFormulaProviders((providers) => {
+      const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
+      return normalizeAgentSelection(agentDoctor, next, "formula");
     });
   }
 
@@ -783,8 +805,10 @@ function App() {
             doctor={agentDoctor}
             runs={deliberationRuns}
             disclosure={currentDisclosure}
+            selectedProviders={selectedDeliberationProviders}
             busy={busy}
             onStart={handleStartDeliberation}
+            onToggleProvider={handleToggleDeliberationProvider}
             onRefresh={() => selectedProject && loadDeliberations(selectedProject.id)}
           />
         );
@@ -918,6 +942,9 @@ function App() {
             patentPoints={visiblePatentPoints}
             formulaRequirement={formulaRequirement}
             formulaRuns={formulaRuns}
+            agentDoctor={agentDoctor}
+            selectedDeliberationProviders={selectedDeliberationProviders}
+            selectedFormulaProviders={selectedFormulaProviders}
             filingReports={filingReports}
             worksheets={worksheets}
             completionRuns={completionRuns}
@@ -929,6 +956,8 @@ function App() {
             onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
             onStartDeliberation={() => void handleStartDeliberation(false)}
             onStartFormula={() => void handleStartFormula()}
+            onToggleDeliberationProvider={handleToggleDeliberationProvider}
+            onToggleFormulaProvider={handleToggleFormulaProvider}
             onGenerateDraft={() => void handleGenerate()}
             onRunQualityChecks={() => void handleRunGuidedQualityChecks()}
             onImproveScore={() => void handleImproveScore()}
@@ -1484,16 +1513,20 @@ function DeliberationView({
   doctor,
   runs,
   disclosure,
+  selectedProviders,
   busy,
   onStart,
+  onToggleProvider,
   onRefresh,
 }: {
   project: ProjectRecord | null;
   doctor: AgentDoctorReport | null;
   runs: DeliberationRun[];
   disclosure: DisclosureRun | null;
+  selectedProviders: string[];
   busy: string;
   onStart: (trace?: boolean) => void;
+  onToggleProvider: (providerId: string, enabled: boolean) => void;
   onRefresh: () => void;
 }) {
   const latest = runs[0] ?? null;
@@ -1516,7 +1549,7 @@ function DeliberationView({
           </button>
           <button
             className="primary"
-            disabled={!project || doctor?.status === "blocked" || busy === "deliberate"}
+            disabled={!project || busy === "deliberate"}
             onClick={() => onStart(false)}
             type="button"
           >
@@ -1533,17 +1566,13 @@ function DeliberationView({
             <StatusPill label="状态" value={doctor?.status ?? "unknown"} />
             <StatusPill label="运行级别" value={doctor?.run_mode ?? "unknown"} />
           </div>
-          <div className="list">
-            {Object.values(doctor?.commands ?? {}).map((provider) => (
-              <article className="row-item" key={provider.id}>
-                {provider.available ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
-                <div>
-                  <strong>{provider.label}</strong>
-                  <span>{provider.available ? provider.path : "missing"}</span>
-                </div>
-              </article>
-            ))}
-          </div>
+          <AgentProviderCards
+            doctor={doctor}
+            role="deliberation"
+            selectedProviders={selectedProviders}
+            disabled={busy === "deliberate"}
+            onToggleProvider={onToggleProvider}
+          />
         </div>
 
         <div className="panel">

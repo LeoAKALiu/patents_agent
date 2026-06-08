@@ -99,6 +99,8 @@ class AgentProviderStatus(BaseModel):
     available: bool
     path: str = ""
     required: bool = False
+    model_version: str = ""
+    roles: list[str] = Field(default_factory=list)
 
 
 class AgentDoctorReport(BaseModel):
@@ -159,6 +161,10 @@ class DeliberationRunCreate(BaseModel):
     trace: bool = False
     task_timeout_ms: int | None = None
     run_timeout_ms: int | None = None
+
+
+class FormulaRunCreate(BaseModel):
+    providers: list[str] | None = None
 
 
 class DeliberationRun(BaseModel):
@@ -402,6 +408,7 @@ class FormulaRun(BaseModel):
     id: str
     project_id: str
     status: str = Field(pattern="^(queued|running|completed|failed)$")
+    providers: list[str] = Field(default_factory=list)
     requirement: FormulaNeedAssessment
     package: CoreFormulaPackage | None = None
     failures: list[str] = Field(default_factory=list)

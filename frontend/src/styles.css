@@ -1170,6 +1170,83 @@ textarea {
   font-weight: 700;
 }
 
+.agent-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.agent-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.agent-card.enabled {
+  border-color: rgba(38, 122, 120, 0.42);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.agent-card.required {
+  background: rgba(232, 236, 232, 0.82);
+  color: #5b6662;
+}
+
+.agent-card.missing {
+  background: rgba(255, 247, 237, 0.62);
+}
+
+.agent-card-main,
+.agent-card-meta,
+.agent-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.agent-card-main strong {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.agent-card-main span,
+.agent-card p,
+.agent-toggle {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.agent-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-card-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.agent-toggle {
+  justify-content: flex-start;
+  font-weight: 700;
+}
+
+.agent-toggle input {
+  width: 16px;
+  height: 16px;
+}
+
+.agent-toggle.disabled {
+  opacity: 0.66;
+}
+
 @media (max-width: 920px) {
   .app-shell {
     grid-template-columns: 1fr;

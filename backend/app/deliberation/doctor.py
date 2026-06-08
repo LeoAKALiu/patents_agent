@@ -7,9 +7,41 @@ from backend.app.schemas import AgentDoctorReport, AgentProviderStatus
 
 
 PROVIDERS = {
-    "codex": {"label": "Codex", "command": "codex", "required": True},
-    "gemini": {"label": "Gemini", "command": "gemini", "required": False},
-    "claude": {"label": "Claude", "command": "claude", "required": False},
+    "codex": {
+        "label": "Codex",
+        "command": "codex",
+        "required": True,
+        "model_version": "codex-cli default",
+        "roles": ["deliberation", "formula", "chair"],
+    },
+    "gemini": {
+        "label": "Gemini",
+        "command": "gemini",
+        "required": True,
+        "model_version": "gemini-cli default",
+        "roles": ["deliberation", "formula", "critic"],
+    },
+    "claude": {
+        "label": "Claude",
+        "command": "claude",
+        "required": True,
+        "model_version": "claude-code default",
+        "roles": ["deliberation", "formula", "critic"],
+    },
+    "kimicode": {
+        "label": "KimiCode",
+        "command": "kimicode",
+        "required": False,
+        "model_version": "kimi-code local",
+        "roles": ["deliberation", "formula", "critic"],
+    },
+    "deepseek_pi": {
+        "label": "DeepSeek + PI",
+        "command": "deepseek-pi",
+        "required": False,
+        "model_version": "deepseek-pi route",
+        "roles": ["formula", "critic"],
+    },
 }
 
 
@@ -33,6 +65,8 @@ def inspect_agent_environment(
             required=bool(definition["required"]),
             available=available,
             path=path,
+            model_version=str(definition.get("model_version", "")),
+            roles=[str(role) for role in definition.get("roles", [])],
         )
         if available:
             active_provider_ids.append(provider_id)

@@ -13,12 +13,14 @@ import {
   Wand2,
 } from "lucide-react";
 
+import { AgentProviderCards } from "./AgentProviderCards";
 import {
   draftCompletionReportUrl,
   exportUrl,
   filingReadinessReportUrl,
   formulaMarkdownUrl,
   officialExportUrl,
+  type AgentDoctorReport,
   type ClaimDefenseWorksheet,
   type DeliberationRun,
   type DisclosureRun,
@@ -48,6 +50,9 @@ export type GuidedPatentFlowProps = {
   patentPoints: PatentPointCandidate[];
   formulaRequirement: FormulaNeedAssessment | null;
   formulaRuns: FormulaRun[];
+  agentDoctor: AgentDoctorReport | null;
+  selectedDeliberationProviders: string[];
+  selectedFormulaProviders: string[];
   filingReports: FilingReadinessReport[];
   worksheets: ClaimDefenseWorksheet[];
   completionRuns: DraftCompletionRun[];
@@ -59,6 +64,8 @@ export type GuidedPatentFlowProps = {
   onSelectPatentPoint: (point: PatentPointCandidate, candidates: PatentPointCandidate[]) => void;
   onStartDeliberation: () => void;
   onStartFormula: () => void;
+  onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
+  onToggleFormulaProvider: (providerId: string, enabled: boolean) => void;
   onGenerateDraft: () => void;
   onRunQualityChecks: () => void;
   onImproveScore: () => void;
@@ -145,9 +152,12 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         <DeliberationPanel
           deliberation={latestDeliberation}
           runs={props.deliberations}
+          doctor={props.agentDoctor}
+          selectedProviders={props.selectedDeliberationProviders}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartDeliberation={props.onStartDeliberation}
+          onToggleProvider={props.onToggleDeliberationProvider}
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
@@ -157,9 +167,12 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           requirement={props.formulaRequirement}
           formulaRun={latestFormulaRun}
           runs={props.formulaRuns}
+          doctor={props.agentDoctor}
+          selectedProviders={props.selectedFormulaProviders}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartFormula={props.onStartFormula}
+          onToggleProvider={props.onToggleFormulaProvider}
         />
       )}
       {state.currentStepId === "quality" && (
@@ -435,16 +448,22 @@ function evidenceStatusText(status: PatentPointCandidate["evidence_status"]): st
 function DeliberationPanel({
   deliberation,
   runs,
+  doctor,
+  selectedProviders,
   busy,
   busyElapsedSeconds,
   onStartDeliberation,
+  onToggleProvider,
   onOpenExpertTool,
 }: {
   deliberation: DeliberationRun | null;
   runs: DeliberationRun[];
+  doctor: AgentDoctorReport | null;
+  selectedProviders: string[];
   busy: string;
   busyElapsedSeconds: number;
   onStartDeliberation: () => void;
+  onToggleProvider: (providerId: string, enabled: boolean) => void;
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   return (
@@ -461,6 +480,13 @@ function DeliberationPanel({
           查看会审详情
         </button>
       </div>
+      <AgentProviderCards
+        doctor={doctor}
+        role="deliberation"
+        selectedProviders={selectedProviders}
+        disabled={busy === "deliberate"}
+        onToggleProvider={onToggleProvider}
+      />
       <button className="primary" disabled={busy === "deliberate"} onClick={onStartDeliberation} type="button">
         {busy === "deliberate" ? <Loader2 className="spin" size={17} /> : <UsersRound size={17} />}
         <span>{deliberation ? "重新会审" : "启动多 Agent 会审"}</span>
@@ -532,17 +558,23 @@ function FormulaPanel({
   requirement,
   formulaRun,
   runs,
+  doctor,
+  selectedProviders,
   busy,
   busyElapsedSeconds,
   onStartFormula,
+  onToggleProvider,
 }: {
   project: ProjectRecord | null;
   requirement: FormulaNeedAssessment | null;
   formulaRun: FormulaRun | null;
   runs: FormulaRun[];
+  doctor: AgentDoctorReport | null;
+  selectedProviders: string[];
   busy: string;
   busyElapsedSeconds: number;
   onStartFormula: () => void;
+  onToggleProvider: (providerId: string, enabled: boolean) => void;
 }) {
   const required = Boolean(requirement?.required);
   return (
@@ -560,6 +592,13 @@ function FormulaPanel({
           <span>{requirement.signals.join(" / ") || "无公式信号"}</span>
         </div>
       )}
+      <AgentProviderCards
+        doctor={doctor}
+        role="formula"
+        selectedProviders={selectedProviders}
+        disabled={busy === "formula"}
+        onToggleProvider={onToggleProvider}
+      />
       {required && (
         <button className="primary" disabled={!project || busy === "formula"} onClick={onStartFormula} type="button">
           {busy === "formula" ? <Loader2 className="spin" size={17} /> : <Sigma size={17} />}
@@ -572,6 +611,7 @@ function FormulaPanel({
           <div className="result-meta">
             <span className="status-badge">{formulaRun.status}</span>
             <span>{formulaRun.package.formula_blocks.length} 个公式</span>
+            {formulaRun.providers.length > 0 && <span>{formulaRun.providers.join(" / ")}</span>}
             {project && (
               <a href={formulaMarkdownUrl(project.id, formulaRun.id)} rel="noreferrer" target="_blank">
                 LaTeX

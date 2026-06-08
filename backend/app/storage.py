@@ -403,8 +403,8 @@ class SQLiteStore:
         with self.connection:
             self.connection.execute(
                 """
-                insert into formula_runs(id, project_id, status, requirement_json, package_json, failures_json, events_json)
-                values (?, ?, ?, ?, ?, ?, ?)
+                insert into formula_runs(id, project_id, status, providers_json, requirement_json, package_json, failures_json, events_json)
+                values (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._formula_run_values(run),
             )
@@ -836,6 +836,7 @@ class SQLiteStore:
                     id text primary key,
                     project_id text not null,
                     status text not null,
+                    providers_json text not null default '[]',
                     requirement_json text not null,
                     package_json text,
                     failures_json text not null,
@@ -875,6 +876,7 @@ class SQLiteStore:
             )
             self._migrate_project_patent_points_primary_key()
             self._ensure_column("deliberation_runs", "logs_json", "text not null default '[]'")
+            self._ensure_column("formula_runs", "providers_json", "text not null default '[]'")
 
     def _migrate_project_patent_points_primary_key(self) -> None:
         columns = self.connection.execute("pragma table_info(project_patent_points)").fetchall()
@@ -974,6 +976,7 @@ class SQLiteStore:
             run.id,
             run.project_id,
             run.status,
+            json.dumps(run.providers, ensure_ascii=False),
             json.dumps(run.requirement.model_dump(mode="json"), ensure_ascii=False),
             json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False) if run.package else None,
             json.dumps(run.failures, ensure_ascii=False),
@@ -986,6 +989,7 @@ class SQLiteStore:
             id=row["id"],
             project_id=row["project_id"],
             status=row["status"],
+            providers=json.loads(row["providers_json"] if "providers_json" in row.keys() else "[]"),
             requirement=json.loads(row["requirement_json"]),
             package=json.loads(package_json) if package_json else None,
             failures=json.loads(row["failures_json"]),

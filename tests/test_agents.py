@@ -10,26 +10,30 @@ from backend.app.deliberation.providers import AgentProviderRunner, ProviderFail
 from backend.app.schemas import DeliberationLogEntry, InventionBrief, PatentChunk, SectionType
 
 
-def test_doctor_reports_full_partial_minimal_and_blocked_modes():
+def test_doctor_reports_core_required_and_optional_provider_metadata():
     full = inspect_agent_environment(lambda command: f"/bin/{command}")
     assert full.status == "ready"
     assert full.run_mode == "full"
     assert full.missing_required == []
 
-    partial = inspect_agent_environment(lambda command: f"/bin/{command}" if command in {"codex", "gemini"} else "")
-    assert partial.status == "degraded"
-    assert partial.run_mode == "partial"
-    assert partial.missing_optional == ["claude"]
+    core_only = inspect_agent_environment(lambda command: f"/bin/{command}" if command in {"codex", "gemini", "claude"} else "")
+    assert core_only.status == "ready"
+    assert core_only.run_mode == "full"
+    assert core_only.missing_optional == ["kimicode", "deepseek_pi"]
+    assert core_only.commands["codex"].model_version
+    assert "deliberation" in core_only.commands["codex"].roles
+    assert core_only.commands["gemini"].required is True
+    assert core_only.commands["claude"].required is True
 
-    minimal = inspect_agent_environment(lambda command: "/bin/codex" if command == "codex" else "")
-    assert minimal.status == "degraded"
-    assert minimal.run_mode == "minimal"
-    assert minimal.active_provider_ids == ["codex"]
+    missing_claude = inspect_agent_environment(lambda command: f"/bin/{command}" if command in {"codex", "gemini"} else "")
+    assert missing_claude.status == "blocked"
+    assert missing_claude.run_mode == "blocked"
+    assert missing_claude.missing_required == ["claude"]
 
     blocked = inspect_agent_environment(lambda command: "")
     assert blocked.status == "blocked"
     assert blocked.run_mode == "blocked"
-    assert blocked.missing_required == ["codex"]
+    assert blocked.missing_required == ["codex", "gemini", "claude"]
 
 
 def test_provider_runner_retries_invalid_json_and_preserves_trace_outputs(tmp_path: Path):
