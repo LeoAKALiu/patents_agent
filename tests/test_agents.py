@@ -216,14 +216,6 @@ def test_doctor_probe_truncates_long_diagnostics():
 # ---------------------------------------------------------------------------
 
 
-def test_doctor_reports_core_required_and_optional_provider_metadata():
-    # With the real auth probes, codex+claude can report ready but gemini
-    # has no auth subcommand → unknown. The old PATH-only lookup would
-    # report all three as ready, but the new logic separates unknown
-    # required providers into unknown_required with degraded status.
-    pass  # replaced by new auth-probe-aware tests below
-
-
 def test_provider_runner_retries_invalid_json_and_preserves_trace_outputs(tmp_path: Path):
     attempts = 0
 

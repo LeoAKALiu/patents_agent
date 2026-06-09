@@ -254,6 +254,7 @@ def inspect_agent_environment(
     active_provider_ids: list[str] = []
     missing_required: list[str] = []
     missing_optional: list[str] = []
+    unknown_required: list[str] = []
 
     for provider_id, definition in PROVIDERS.items():
         command = str(definition["command"])
@@ -286,7 +287,10 @@ def inspect_agent_environment(
         if available:
             active_provider_ids.append(provider_id)
         elif definition["required"]:
-            missing_required.append(provider_id)
+            if installed and auth_status == "unknown":
+                unknown_required.append(provider_id)
+            else:
+                missing_required.append(provider_id)
         else:
             missing_optional.append(provider_id)
 
@@ -296,7 +300,7 @@ def inspect_agent_environment(
     elif len(active_provider_ids) >= 3:
         status = "ready"
         run_mode = "full"
-    elif len(active_provider_ids) == 2:
+    elif len(active_provider_ids) == 2 or (len(active_provider_ids) + len(unknown_required) >= 3):
         status = "degraded"
         run_mode = "partial"
     else:
@@ -310,4 +314,5 @@ def inspect_agent_environment(
         active_provider_ids=active_provider_ids,
         missing_required=missing_required,
         missing_optional=missing_optional,
+        unknown_required=unknown_required,
     )
