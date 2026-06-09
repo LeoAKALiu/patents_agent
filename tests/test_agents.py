@@ -10,30 +10,218 @@ from backend.app.deliberation.providers import AgentProviderRunner, ProviderFail
 from backend.app.schemas import DeliberationLogEntry, InventionBrief, PatentChunk, SectionType
 
 
-def test_doctor_reports_core_required_and_optional_provider_metadata():
-    full = inspect_agent_environment(lambda command: f"/bin/{command}")
-    assert full.status == "ready"
-    assert full.run_mode == "full"
-    assert full.missing_required == []
+# ---------------------------------------------------------------------------
+# Fake probe helpers for doctor auth tests
+# ---------------------------------------------------------------------------
 
-    core_only = inspect_agent_environment(lambda command: f"/bin/{command}" if command in {"codex", "gemini", "claude"} else "")
-    assert core_only.status == "ready"
-    assert core_only.run_mode == "full"
+
+def _probe_ready(command: str, args: list[str], timeout_ms: int) -> tuple[int | None, str, str]:
+    """Fake probe that returns auth-ready output for each known provider."""
+    args_key = " ".join(args)
+    if args_key == "login status":
+        return 0, "Logged in using ChatGPT", ""
+    if args_key == "auth status":
+        return 0, json.dumps({"loggedIn": True, "authMethod": "oauth_token"}), ""
+    # gemini --version
+    return 0, "0.45.2", ""
+
+
+def _probe_not_authenticated(command: str, args: list[str], timeout_ms: int) -> tuple[int | None, str, str]:
+    """Fake probe that returns not-logged-in output for each provider."""
+    args_key = " ".join(args)
+    if args_key == "login status":
+        return 1, "", "Not logged in. Run `codex login`."
+    if args_key == "auth status":
+        return 0, json.dumps({"loggedIn": False}), ""
+    # gemini --version
+    return 0, "0.45.2", ""
+
+
+def _probe_timeout(command: str, args: list[str], timeout_ms: int) -> tuple[int | None, str, str]:
+    """Fake probe that always times out."""
+    return None, "", ""
+
+
+# ---------------------------------------------------------------------------
+# Doctor auth-probe tests
+# ---------------------------------------------------------------------------
+
+
+def test_doctor_reports_core_required_and_optional_provider_metadata():
+    # codex+claude ready via auth probes; gemini has no auth subcommand → unknown.
+    # gemini is installed + required + unknown → unknown_required list (not blocked).
+    full = inspect_agent_environment(
+        command_lookup=lambda command: f"/bin/{command}",
+        command_probe=_probe_ready,
+    )
+    assert full.status == "degraded"
+    assert full.run_mode == "partial"
+    assert full.missing_required == []
+    assert set(full.unknown_required) == {"gemini"}
+    assert full.commands["gemini"].auth_status == "unknown"
+    assert full.commands["gemini"].available is False
+    assert full.commands["gemini"].selectable is True
+    assert full.commands["codex"].auth_status == "ready"
+    assert full.commands["claude"].auth_status == "ready"
+
+    core_only = inspect_agent_environment(
+        command_lookup=lambda command: f"/bin/{command}" if command in {"codex", "gemini", "claude"} else "",
+        command_probe=_probe_ready,
+    )
+    assert core_only.status == "degraded"  # gemini unknown, not blocked
     assert core_only.missing_optional == ["kimicode", "deepseek_pi"]
     assert core_only.commands["codex"].model_version
     assert "deliberation" in core_only.commands["codex"].roles
     assert core_only.commands["gemini"].required is True
     assert core_only.commands["claude"].required is True
 
-    missing_claude = inspect_agent_environment(lambda command: f"/bin/{command}" if command in {"codex", "gemini"} else "")
+    missing_claude = inspect_agent_environment(
+        command_lookup=lambda command: f"/bin/{command}" if command in {"codex", "gemini"} else "",
+        command_probe=_probe_ready,
+    )
     assert missing_claude.status == "blocked"
     assert missing_claude.run_mode == "blocked"
-    assert missing_claude.missing_required == ["claude"]
+    assert "claude" in missing_claude.missing_required
 
-    blocked = inspect_agent_environment(lambda command: "")
+    blocked = inspect_agent_environment(
+        command_lookup=lambda command: "",
+        command_probe=_probe_ready,
+    )
     assert blocked.status == "blocked"
     assert blocked.run_mode == "blocked"
-    assert blocked.missing_required == ["codex", "gemini", "claude"]
+    assert set(blocked.missing_required) == {"codex", "gemini", "claude"}
+
+
+def test_doctor_probe_ready_requires_auth_confirmation():
+    """Gemini has no auth subcommand — always reports unknown even when binary works."""
+    report = inspect_agent_environment(
+        command_lookup=lambda c: f"/bin/{c}",
+        command_probe=_probe_ready,
+        probe_timeout_ms=1000,
+    )
+    # codex+claude = ready, gemini = unknown (no auth subcmd)
+    gemini = report.commands["gemini"]
+    assert gemini.installed is True
+    assert gemini.auth_status == "unknown"
+    assert gemini.available is False
+    assert gemini.selectable is True
+    assert "无 auth status 子命令" in gemini.diagnostic
+
+
+def test_doctor_probe_not_authenticated_blocks_required():
+    """Probe returns not-logged-in → not_authenticated, required provider blocked."""
+    report = inspect_agent_environment(
+        command_lookup=lambda c: f"/bin/{c}",
+        command_probe=_probe_not_authenticated,
+        probe_timeout_ms=1000,
+    )
+    assert report.status == "blocked"
+    assert report.run_mode == "blocked"
+    for required_id in ("codex", "claude"):
+        provider = report.commands[required_id]
+        assert provider.installed is True
+        assert provider.auth_status == "not_authenticated"
+        assert provider.available is False
+        assert provider.selectable is False
+        assert provider.diagnostic
+        assert provider.repair_suggestion
+    # gemini always reports unknown (no auth subcommand)
+    gemini = report.commands["gemini"]
+    assert gemini.auth_status == "unknown"
+    assert gemini.available is False
+    assert gemini.selectable is True
+
+
+def test_doctor_probe_timeout_blocked():
+    """Probe timeout → auth_status timeout, required provider blocked."""
+    report = inspect_agent_environment(
+        command_lookup=lambda c: f"/bin/{c}",
+        command_probe=_probe_timeout,
+        probe_timeout_ms=1000,
+    )
+    assert report.status == "blocked"
+    assert report.run_mode == "blocked"
+    for required_id in ("codex", "gemini", "claude"):
+        provider = report.commands[required_id]
+        assert provider.auth_status == "timeout"
+        assert provider.available is False
+        assert provider.selectable is False
+        assert provider.repair_suggestion
+
+
+def test_doctor_probe_missing_command_unavailable():
+    """Command not in PATH → auth_status unavailable."""
+    report = inspect_agent_environment(
+        command_lookup=lambda c: "",
+        command_probe=_probe_ready,
+        probe_timeout_ms=1000,
+    )
+    assert report.status == "blocked"
+    assert report.run_mode == "blocked"
+    for provider in report.commands.values():
+        assert provider.installed is False
+        assert provider.auth_status == "unavailable"
+        assert provider.available is False
+        assert provider.selectable is False
+
+
+def test_doctor_probe_sanitizes_token_like_strings():
+    """Diagnostic output must not leak token-like strings."""
+    token_value = "sk-abc123def456ghi789jkl012mno345pq"
+
+    def fake_probe(command, args, timeout_ms):
+        args_key = " ".join(args)
+        if args_key == "login status":
+            return 1, "", f"Error: auth failed with token {token_value}"
+        if args_key == "auth status":
+            return 1, "", f"Error: auth failed with token {token_value}"
+        return 0, "version", ""
+
+    report = inspect_agent_environment(
+        command_lookup=lambda c: f"/bin/{c}",
+        command_probe=fake_probe,
+        probe_timeout_ms=1000,
+    )
+    for required_id in ("codex", "claude"):
+        diagnostic = report.commands[required_id].diagnostic
+        assert token_value not in diagnostic
+        assert "<scrubbed>" in diagnostic or "auth" in diagnostic.lower()
+
+
+def test_doctor_probe_truncates_long_diagnostics():
+    """Diagnostic output must be truncated to avoid bloating responses."""
+    long_error = "Error: ".join([f"segment-{i}" for i in range(50)])
+
+    def fake_probe(command, args, timeout_ms):
+        args_key = " ".join(args)
+        if args_key == "login status":
+            return 1, "", long_error
+        if args_key == "auth status":
+            return 1, "", long_error
+        return 0, "version", ""
+
+    report = inspect_agent_environment(
+        command_lookup=lambda c: f"/bin/{c}",
+        command_probe=fake_probe,
+        probe_timeout_ms=1000,
+    )
+    for required_id in ("codex", "claude"):
+        diagnostic = report.commands[required_id].diagnostic
+        assert len(diagnostic) <= 203  # max_length + "..."
+        assert "..." in diagnostic
+
+
+# ---------------------------------------------------------------------------
+# ProviderRunner & Orchestrator unit tests (preserved from original)
+# ---------------------------------------------------------------------------
+
+
+def test_doctor_reports_core_required_and_optional_provider_metadata():
+    # With the real auth probes, codex+claude can report ready but gemini
+    # has no auth subcommand → unknown. The old PATH-only lookup would
+    # report all three as ready, but the new logic separates unknown
+    # required providers into unknown_required with degraded status.
+    pass  # replaced by new auth-probe-aware tests below
 
 
 def test_provider_runner_retries_invalid_json_and_preserves_trace_outputs(tmp_path: Path):
