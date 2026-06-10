@@ -96,11 +96,16 @@ class AgentProviderStatus(BaseModel):
     id: str
     label: str
     command: str
-    available: bool
+    available: bool  # strict gate: installed AND auth_status=="ready" — required for deliberation
     path: str = ""
     required: bool = False
     model_version: str = ""
     roles: list[str] = Field(default_factory=list)
+    installed: bool = False
+    auth_status: str = Field(default="unknown", pattern="^(ready|not_authenticated|unavailable|timeout|unknown)$")
+    diagnostic: str = ""
+    repair_suggestion: str = ""
+    selectable: bool = False  # user toggle: installed AND auth_status in (ready, unknown)
 
 
 class AgentDoctorReport(BaseModel):
@@ -110,6 +115,7 @@ class AgentDoctorReport(BaseModel):
     active_provider_ids: list[str] = Field(default_factory=list)
     missing_required: list[str] = Field(default_factory=list)
     missing_optional: list[str] = Field(default_factory=list)
+    unknown_required: list[str] = Field(default_factory=list)
 
 
 class AgentFailure(BaseModel):

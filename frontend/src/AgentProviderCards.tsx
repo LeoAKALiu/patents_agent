@@ -1,10 +1,29 @@
-import { AlertTriangle, CheckCircle2, CircleSlash, LockKeyhole } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleSlash, Clock, HelpCircle, LockKeyhole, XCircle } from "lucide-react";
 
 import type { AgentDoctorReport, AgentProviderStatus } from "./api";
 
 export type AgentProviderRole = "deliberation" | "formula" | "post_review";
 
 export const requiredAgentProviderIds = ["codex", "gemini", "claude"];
+
+function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: string } {
+  if (!provider.installed) {
+    return { label: "未安装", icon: <XCircle size={14} />, variant: "warn" };
+  }
+  switch (provider.auth_status) {
+    case "ready":
+      return { label: "可用", icon: <CheckCircle2 size={14} />, variant: "ok" };
+    case "not_authenticated":
+      return { label: "未登录/需认证", icon: <AlertTriangle size={14} />, variant: "warn" };
+    case "timeout":
+      return { label: "探测超时", icon: <Clock size={14} />, variant: "warn" };
+    case "unavailable":
+      return { label: "不可用", icon: <XCircle size={14} />, variant: "warn" };
+    case "unknown":
+    default:
+      return { label: "状态未知", icon: <HelpCircle size={14} />, variant: "muted" };
+  }
+}
 
 export function normalizeAgentSelection(
   doctor: AgentDoctorReport | null,
@@ -16,7 +35,7 @@ export function normalizeAgentSelection(
   const requiredProviderIds = providers.filter((provider) => provider.required).map((provider) => provider.id);
   const selected = new Set([...requiredProviderIds, ...selectedProviders.filter((providerId) => validProviderIds.has(providerId))]);
   for (const provider of providers) {
-    if (!provider.required && !provider.available) {
+    if (!provider.required && !provider.selectable) {
       selected.delete(provider.id);
     }
   }
@@ -61,7 +80,8 @@ export function AgentProviderCards({
     <div className="agent-card-grid">
       {providers.map((provider) => {
         const enabled = provider.required || selectedProviders.includes(provider.id);
-        const canToggle = !provider.required && provider.available && !disabled;
+        const canToggle = !provider.required && provider.selectable && !disabled;
+        const authDisplay = getAuthStatusDisplay(provider);
         return (
           <article
             className={[
@@ -86,14 +106,23 @@ export function AgentProviderCards({
               )}
             </div>
             <div className="agent-card-meta">
-              <span className={provider.available ? "status-badge" : "status-badge warn"}>
-                {provider.available ? "可用" : "不可用"}
+              <span className={`status-badge ${authDisplay.variant}`}>
+                {authDisplay.icon}
+                {authDisplay.label}
               </span>
               <span className={enabled ? "status-badge" : "status-badge muted"}>
                 {provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}
               </span>
             </div>
-            <p>{provider.available ? provider.path : `未找到命令：${provider.command}`}</p>
+            <p className="agent-card-path">
+              {provider.installed ? provider.path : `未找到命令：${provider.command}`}
+            </p>
+            {provider.diagnostic && (
+              <p className="agent-card-diagnostic">{provider.diagnostic}</p>
+            )}
+            {provider.repair_suggestion && !provider.selectable && (
+              <p className="agent-card-repair">{provider.repair_suggestion}</p>
+            )}
             <label className={canToggle ? "agent-toggle" : "agent-toggle disabled"}>
               <input
                 checked={enabled}
@@ -101,8 +130,8 @@ export function AgentProviderCards({
                 onChange={(event) => onToggleProvider(provider.id, event.currentTarget.checked)}
                 type="checkbox"
               />
-              <span>{provider.required ? "必选席不可关闭" : provider.available ? "加入本轮" : "不可用"}</span>
-              {!provider.available && <CircleSlash size={15} />}
+              <span>{provider.required ? "必选席不可关闭" : provider.selectable ? "加入本轮" : "不可用"}</span>
+              {!provider.selectable && <CircleSlash size={15} />}
             </label>
           </article>
         );

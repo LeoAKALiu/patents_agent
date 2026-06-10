@@ -371,12 +371,12 @@ export interface DisclosureRun {
   status: "queued" | "running" | "completed" | "failed" | "interrupted";
   trace: boolean;
   max_prior_art_results: number;
-  research_mode?: "standard" | "free_deep_research";
   run_dir: string;
   stage_results: Array<{ phase: string; payload: Record<string, unknown> | unknown[] }>;
   package: DisclosurePackage | null;
   failures: string[];
   events: string[];
+  research_mode?: "standard" | "free_deep_research";
 }
 
 export interface Health {
@@ -396,6 +396,11 @@ export interface AgentProviderStatus {
   required: boolean;
   model_version: string;
   roles: string[];
+  installed: boolean;
+  auth_status: "ready" | "not_authenticated" | "unavailable" | "timeout" | "unknown";
+  diagnostic: string;
+  repair_suggestion: string;
+  selectable: boolean;
 }
 
 export interface AgentDoctorReport {
@@ -405,6 +410,7 @@ export interface AgentDoctorReport {
   active_provider_ids: string[];
   missing_required: string[];
   missing_optional: string[];
+  unknown_required: string[];
 }
 
 export interface DeliberationRun {
@@ -733,11 +739,7 @@ export async function startProjectDisclosure(
   return request<DisclosureRun>(`/api/projects/${projectId}/disclosures`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      trace,
-      max_prior_art_results: 8,
-      research_mode: researchMode,
-    }),
+    body: JSON.stringify({ trace, max_prior_art_results: 8, research_mode: researchMode }),
   });
 }
 
