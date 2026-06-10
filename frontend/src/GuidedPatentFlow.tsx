@@ -567,7 +567,7 @@ function InventionPointConfirmation({
           </select>
           <p className="guided-research-mode-hint">
             {researchMode === "free_deep_research"
-              ? "免费 Deep Research 将在系统内执行公开专利、arXiv/OpenAlex 论文检索与多轮 LLM 分析；配置 Tavily、Exa、Semantic Scholar 等 API key 时会自动扩展检索源，未配置也会用免费公开源降级运行。它仅生成内部补充材料，不替代多 Agent 会审，不解锁正式稿导出。"
+              ? "免费 Deep Research 将在系统内执行公开专利、arXiv/OpenAlex 论文检索与多轮 LLM 分析；配置 Tavily、Exa、Semantic Scholar 等 API key 时会自动扩展检索源，未配置也会用免费公开源降级运行。它仅生成内部补充材料，不替代多智能体会审，不解锁正式稿导出。"
               : "标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。"}
           </p>
         </div>

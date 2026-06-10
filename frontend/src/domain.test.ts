@@ -3,14 +3,21 @@ import { describe, expect, it } from "vitest";
 import {
   canExportPackage,
   completionCategoryLabel,
+  completionPatchKindLabel,
+  completionPatchStatusLabel,
   completionScoreAverage,
   completionTargetLabel,
+  completionTaskStatusLabel,
+  draftSectionLabel,
   evidenceStatusLabel,
   featureClassificationLabel,
   moatScoreTotal,
+  pipelineRunStatusLabel,
   readinessStatusLabel,
   sourceTypeLabel,
   splitLines,
+  worksheetSourceLabel,
+  worksheetStatusLabel,
   workspaceTabs,
 } from "./domain";
 import { expertToolGroups, mainSections } from "./guidedFlow";
@@ -146,5 +153,22 @@ describe("draft completion helpers", () => {
         overall: 75,
       }),
     ).toBe(75);
+  });
+
+  it("labels completion tasks, patches, and draft sections", () => {
+    expect(completionTaskStatusLabel("open")).toBe("待处理");
+    expect(completionPatchStatusLabel("proposed")).toBe("待确认");
+    expect(completionPatchKindLabel("rewrite")).toBe("改写");
+    expect(draftSectionLabel("claims")).toBe("权利要求书");
+    expect(draftSectionLabel("drawing_description")).toBe("附图说明");
+  });
+});
+
+describe("expert tool status labels", () => {
+  it("labels pipeline, worksheet, and source values", () => {
+    expect(pipelineRunStatusLabel("queued")).toBe("排队中");
+    expect(pipelineRunStatusLabel("interrupted")).toBe("已中断");
+    expect(worksheetStatusLabel("reviewed")).toBe("已审阅");
+    expect(worksheetSourceLabel("generated_package")).toBe("生成稿");
   });
 });

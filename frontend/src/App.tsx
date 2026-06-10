@@ -103,12 +103,18 @@ import {
   moatScoreTotal,
   agentDoctorStatusLabel,
   agentRunModeLabel,
+  completionPatchKindLabel,
+  completionPatchStatusLabel,
+  completionTaskStatusLabel,
   deliberationRunModeLabel,
+  draftSectionLabel,
   logLevelLabel,
   pipelineRunStatusLabel,
   readinessStatusLabel,
   severityLabel,
   sourceTypeLabel,
+  worksheetSourceLabel,
+  worksheetStatusLabel,
 } from "./domain";
 import {
   defaultExpertToolId,
@@ -1288,7 +1294,7 @@ function CorpusBuildView({
             <>
               <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">{jobHint}</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <StatusPill label="状态" value={job.status} />
+                <StatusPill label="状态" value={pipelineRunStatusLabel(job.status)} />
                 <StatusPill label="版本" value={job.version_name} />
                 <StatusPill label="输入批次" value={String(job.input_paths.length)} />
                 <StatusPill label="已处理" value={String(job.processed_files)} />
@@ -2453,8 +2459,8 @@ function ClaimDefenseView({
             {worksheets.map((item) => (
               <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={item.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
-                  <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{item.status}</span>
-                  <span>{item.source}</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{worksheetStatusLabel(item.status)}</span>
+                  <span>{worksheetSourceLabel(item.source)}</span>
                   <span>{item.feature_records.length} 个特征</span>
                 </div>
                 <p>{item.created_at}</p>
@@ -2576,14 +2582,6 @@ function DraftCompletionView({
   const displayedIssues = priorityIssues.length > 0 ? priorityIssues : run?.issues.slice(0, 5) ?? [];
   const patchBusy = busy === "completion" || busy.startsWith("completion-");
 
-  function taskStatusLabel(status: string): string {
-    if (status === "open") return "待处理";
-    if (status === "proposed") return "已提议";
-    if (status === "accepted") return "已接受";
-    if (status === "rejected") return "已拒绝";
-    return "已替换";
-  }
-
   function patchStatusClass(status: string): string {
     if (status === "accepted") return "";
     if (status === "rejected" || status === "superseded") return "muted";
@@ -2680,9 +2678,9 @@ function DraftCompletionView({
             {run?.tasks.map((task) => (
               <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={task.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
-                  <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{taskStatusLabel(task.status)}</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{completionTaskStatusLabel(task.status)}</span>
                   <span>优先级 {task.priority}</span>
-                  <span>{task.draft_section_target}</span>
+                  <span>{draftSectionLabel(task.draft_section_target)}</span>
                 </div>
                 <p><strong>{task.task_type}</strong></p>
                 <p>{task.expected_output}</p>
@@ -2752,9 +2750,9 @@ function DraftCompletionView({
           {run?.patches.map((patch) => (
             <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={patch.id}>
               <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
-                <span className={`px-2.5 py-0.5 rounded-md border ${ patchStatusClass(patch.status) === "danger" ? "bg-red-100 border-red-200 text-red-700" : patchStatusClass(patch.status) === "warn" ? "bg-amber-100 border-amber-200 text-amber-700" : "bg-[#1e293b] border-[#334155] text-[#e2e8f0]" }`}>{patch.status}</span>
-                <span>{patch.patch_kind}</span>
-                <span>{patch.target_section}</span>
+                <span className={`px-2.5 py-0.5 rounded-md border ${ patchStatusClass(patch.status) === "danger" ? "bg-red-100 border-red-200 text-red-700" : patchStatusClass(patch.status) === "warn" ? "bg-amber-100 border-amber-200 text-amber-700" : "bg-[#1e293b] border-[#334155] text-[#e2e8f0]" }`}>{completionPatchStatusLabel(patch.status)}</span>
+                <span>{completionPatchKindLabel(patch.patch_kind)}</span>
+                <span>{draftSectionLabel(patch.target_section)}</span>
                 <span>{patch.can_enter_official_draft ? "可进入官方稿" : "仅内部侧车"}</span>
               </div>
               <p><strong>{patch.rationale}</strong></p>

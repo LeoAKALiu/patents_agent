@@ -79,8 +79,60 @@ export function pipelineRunStatusLabel(status: string): string {
   if (status === "blocked") return "已阻断";
   if (status === "failed") return "失败";
   if (status === "running" || status === "in_progress") return "运行中";
+  if (status === "queued") return "排队中";
+  if (status === "interrupted") return "已中断";
   if (status === "pending") return "等待中";
   return status || "未知";
+}
+
+export function worksheetStatusLabel(status: string): string {
+  if (status === "draft") return "草稿";
+  if (status === "reviewed") return "已审阅";
+  if (status === "superseded") return "已替代";
+  return status || "未知";
+}
+
+export function worksheetSourceLabel(source: string): string {
+  if (source === "generated_package") return "生成稿";
+  if (source === "manual") return "手工编辑";
+  if (source === "imported") return "外部导入";
+  return source || "未知";
+}
+
+export function completionPatchStatusLabel(status: string): string {
+  if (status === "proposed") return "待确认";
+  if (status === "accepted") return "已接受";
+  if (status === "rejected") return "已拒绝";
+  if (status === "superseded") return "已替代";
+  return status || "未知";
+}
+
+export function completionTaskStatusLabel(status: string): string {
+  if (status === "open") return "待处理";
+  if (status === "proposed") return "已提议";
+  if (status === "accepted") return "已接受";
+  if (status === "rejected") return "已拒绝";
+  if (status === "superseded") return "已替代";
+  return status || "未知";
+}
+
+export function completionPatchKindLabel(kind: string): string {
+  if (kind === "insert") return "插入";
+  if (kind === "replace") return "替换";
+  if (kind === "delete") return "删除";
+  if (kind === "rewrite") return "改写";
+  if (kind === "sidecar_only") return "仅侧车记录";
+  return kind || "未知";
+}
+
+export function draftSectionLabel(section: string): string {
+  if (section === "claims") return "权利要求书";
+  if (section === "abstract") return "摘要";
+  if (section === "summary") return "发明内容";
+  if (section === "description") return "说明书";
+  if (section === "drawing_description" || section === "drawings") return "附图说明";
+  if (section === "embodiments") return "具体实施方式";
+  return section || "未知";
 }
 
 export function agentDoctorStatusLabel(status: string): string {
