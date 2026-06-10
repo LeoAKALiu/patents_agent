@@ -98,3 +98,79 @@ def test_external_draft_review_bundle_scores_are_bounded_when_present():
 
     with pytest.raises(ValidationError):
         ExternalDraftReviewBundle(project_id="project-1", latest_score=999)
+
+
+from backend.app.external_drafts import (
+    create_external_draft_source,
+    external_draft_review_bundle_to_markdown,
+    parse_external_draft_source,
+    working_draft_hash,
+)
+
+
+def test_markdown_external_draft_parses_into_working_package():
+    source = create_external_draft_source(
+        project_id="project-1",
+        source_type="markdown_file",
+        text=(
+            "# 一种指标缺口驱动的无人机采集方法\n\n"
+            "## 摘要\n"
+            "本发明公开一种按指标缺口生成无人机采集任务的方法。\n\n"
+            "## 权利要求书\n"
+            "1. 一种无人机采集方法，其特征在于，计算指标证据缺失度并生成采集任务包。\n"
+            "2. 根据权利要求1所述的方法，其特征在于，按置信度增益排序任务。\n\n"
+            "## 说明书\n"
+            "技术领域\n"
+            "本发明涉及城市体检数据采集。\n"
+            "具体实施方式\n"
+            "系统计算指标证据缺失度、传感器可达性和采集窗口。\n\n"
+            "## 附图说明\n"
+            "图1为方法流程图。\n"
+        ),
+        file_name="draft.md",
+    )
+
+    run = parse_external_draft_source(project_id="project-1", source=source)
+
+    assert run.status == "completed"
+    assert run.parsed_package is not None
+    assert run.parsed_package.title == "一种指标缺口驱动的无人机采集方法"
+    assert "指标证据缺失度" in run.parsed_package.claims
+    assert run.section_confidence is not None
+    assert run.section_confidence.claims.score >= 0.9
+    assert run.working_draft_hash == working_draft_hash(run.parsed_package)
+
+
+def test_external_draft_needs_review_when_claims_are_missing():
+    source = create_external_draft_source(
+        project_id="project-1",
+        source_type="pasted_text",
+        text="发明名称\n一种数据处理方法\n说明书\n本发明涉及数据处理。",
+        file_name="pasted.txt",
+    )
+
+    run = parse_external_draft_source(project_id="project-1", source=source)
+
+    assert run.status == "needs_review"
+    assert any(issue.category == "missing_section" and issue.section == "claims" for issue in run.intake_issues)
+    assert any(issue.blocks_quality_run for issue in run.intake_issues)
+
+
+def test_external_draft_flags_duplicate_sections_and_malformed_claim_numbering():
+    source = create_external_draft_source(
+        project_id="project-1",
+        source_type="pasted_text",
+        text=(
+            "发明名称\n一种处理方法\n"
+            "摘要\n摘要一。\n"
+            "摘要\n摘要二。\n"
+            "权利要求书\n一、一种处理方法。\n"
+            "说明书\n本发明涉及数据处理。\n"
+        ),
+        file_name="pasted.txt",
+    )
+
+    run = parse_external_draft_source(project_id="project-1", source=source)
+
+    assert any(issue.category == "duplicate_section" and issue.section == "abstract" for issue in run.intake_issues)
+    assert any(issue.category == "malformed_claim_numbering" for issue in run.intake_issues)
