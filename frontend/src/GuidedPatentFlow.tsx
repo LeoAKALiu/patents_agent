@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -40,14 +40,26 @@ import {
 import {
   deriveGuidedFlowState,
   guidedOperationLog,
+  guidedStepStatusLabel,
+  officialCompileActionGate,
   patentGoalModes,
+  postDraftReviewActionGate,
+  qualityActionGate,
   qualitySummaryFromRuns,
+  resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
   selectLatestMatchingPostDraftReview,
+  type GuidedActionGate,
   type GuidedFlowState,
+  type GuidedStepId,
+  type GuidedStepState,
   type PatentGoalMode,
 } from "./guidedFlow";
-import { latestCompletedDeliberation } from "./domain";
+import {
+  deliberationRunModeLabel,
+  latestCompletedDeliberation,
+  pipelineRunStatusLabel,
+} from "./domain";
 
 export type GuidedPatentFlowProps = {
   project: ProjectRecord | null;
@@ -138,11 +150,22 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
     props.postDraftReviews,
     latestOfficialCompileRun,
   );
+  const [manualViewStepId, setManualViewStepId] = useState<GuidedStepId | null>(null);
+
+  useEffect(() => {
+    setManualViewStepId(null);
+  }, [state.currentStepId]);
+
+  const displayedStepId = resolveGuidedViewStep(state.currentStepId, manualViewStepId, state.steps);
 
   return (
     <div className="guided-flow">
-      <WorkflowStepper state={state} />
-      {state.currentStepId === "idea" && (
+      <WorkflowStepper
+        displayedStepId={displayedStepId}
+        onSelectStep={setManualViewStepId}
+        state={state}
+      />
+      {displayedStepId === "idea" && (
         <IdeaIntakePanel
           project={props.project}
           materials={props.materials}
@@ -152,7 +175,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onUploadMaterial={props.onUploadMaterial}
         />
       )}
-      {state.currentStepId === "invention" && (
+      {displayedStepId === "invention" && (
         <InventionPointConfirmation
           disclosure={latestDisclosure}
           materials={props.materials}
@@ -167,7 +190,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
-      {state.currentStepId === "draft" && (
+      {displayedStepId === "draft" && (
         <DraftGenerationPanel
           project={props.project}
           disclosure={latestDisclosure}
@@ -179,7 +202,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onGenerateDraft={props.onGenerateDraft}
         />
       )}
-      {state.currentStepId === "deliberation" && (
+      {displayedStepId === "deliberation" && (
         <DeliberationPanel
           deliberation={latestDeliberation}
           runs={props.deliberations}
@@ -192,7 +215,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
-      {state.currentStepId === "formula" && (
+      {displayedStepId === "formula" && (
         <FormulaPanel
           project={props.project}
           requirement={props.formulaRequirement}
@@ -206,8 +229,9 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onToggleProvider={props.onToggleFormulaProvider}
         />
       )}
-      {state.currentStepId === "quality" && (
+      {displayedStepId === "quality" && (
         <QualityPanel
+          actionGate={qualityActionGate(state, state.currentStepId, displayedStepId)}
           filingReport={latestFilingReport}
           worksheet={latestWorksheet}
           completionRun={latestCompletionRun}
@@ -219,8 +243,9 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
-      {state.currentStepId === "officialCompile" && (
+      {displayedStepId === "officialCompile" && (
         <OfficialCompilePanel
+          actionGate={officialCompileActionGate(state, state.currentStepId, displayedStepId)}
           project={props.project}
           run={latestOfficialCompileRun}
           runs={props.officialCompileRuns}
@@ -230,8 +255,9 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onStartOfficialCompile={props.onStartOfficialCompile}
         />
       )}
-      {state.currentStepId === "postReview" && (
+      {displayedStepId === "postReview" && (
         <PostDraftReviewPanel
+          actionGate={postDraftReviewActionGate(state, state.currentStepId, displayedStepId)}
           project={props.project}
           review={latestMatchingPostDraftReview}
           runs={props.postDraftReviews}
@@ -245,7 +271,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onToggleProvider={props.onToggleDeliberationProvider}
         />
       )}
-      {state.currentStepId === "export" && (
+      {displayedStepId === "export" && (
         <ExportConfirmationPanel
           project={props.project}
           filingReport={latestFilingReport}
@@ -260,19 +286,69 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
   );
 }
 
-function WorkflowStepper({ state }: { state: GuidedFlowState }) {
+function WorkflowStepper({
+  state,
+  displayedStepId,
+  onSelectStep,
+}: {
+  state: GuidedFlowState;
+  displayedStepId: GuidedStepId;
+  onSelectStep: (stepId: GuidedStepId) => void;
+}) {
   return (
-    <section className="guided-stepper">
+    <nav aria-label="专利生成流程" className="guided-stepper">
       {state.steps.map((step, index) => (
-        <article className={`guided-step ${step.status}`} key={step.id}>
-          <span>{index + 1}</span>
-          <div>
-            <strong>{step.label}</strong>
-            <p>{step.description}</p>
-          </div>
-        </article>
+        <StepNavButton
+          displayedStepId={displayedStepId}
+          index={index}
+          key={step.id}
+          onSelectStep={onSelectStep}
+          step={step}
+        />
       ))}
-    </section>
+    </nav>
+  );
+}
+
+function StepNavButton({
+  step,
+  index,
+  displayedStepId,
+  onSelectStep,
+}: {
+  step: GuidedStepState;
+  index: number;
+  displayedStepId: GuidedStepId;
+  onSelectStep: (stepId: GuidedStepId) => void;
+}) {
+  const locked = step.status === "locked";
+  const isDisplayed = displayedStepId === step.id;
+  const className = [
+    "guided-step",
+    step.status,
+    isDisplayed ? "viewing" : "",
+    step.status === "current" ? "workflow-current" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <button
+      aria-current={isDisplayed ? "step" : undefined}
+      aria-disabled={locked || undefined}
+      className={className}
+      disabled={locked}
+      onClick={() => onSelectStep(step.id)}
+      title={locked ? "请先完成前置步骤" : step.description}
+      type="button"
+    >
+      <span aria-hidden="true">{index + 1}</span>
+      <div>
+        <strong>{step.label}</strong>
+        <p>{step.description}</p>
+        <span className="guided-step-status">{guidedStepStatusLabel(step.status)}</span>
+      </div>
+    </button>
   );
 }
 
@@ -491,7 +567,7 @@ function InventionPointConfirmation({
           </select>
           <p className="guided-research-mode-hint">
             {researchMode === "free_deep_research"
-              ? "免费 Deep Research 将在系统内执行公开专利、arXiv/OpenAlex 论文检索与多轮 LLM 分析；配置 Tavily、Exa、Semantic Scholar 等 API key 时会自动扩展检索源，未配置也会用免费公开源降级运行。它仅生成内部补充材料，不替代多 Agent 会审，不解锁正式稿导出。"
+              ? "免费 Deep Research 将在系统内执行公开专利、arXiv/OpenAlex 论文检索与多轮 LLM 分析；配置 Tavily、Exa、Semantic Scholar 等 API key 时会自动扩展检索源，未配置也会用免费公开源降级运行。它仅生成内部补充材料，不替代多智能体会审，不解锁正式稿导出。"
               : "标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。"}
           </p>
         </div>
@@ -556,7 +632,7 @@ function DeliberationPanel({
     <section className="guided-panel">
       <div className="guided-panel-heading">
         <div>
-          <h3>多 Agent 会审</h3>
+          <h3>多智能体会审</h3>
           <p>专利生成前必须完成会审，用于收敛权利要求边界、说明书支撑和规避风险。</p>
         </div>
         <UsersRound size={24} />
@@ -575,20 +651,20 @@ function DeliberationPanel({
       />
       <button className="primary" disabled={busy === "deliberate"} onClick={onStartDeliberation} type="button">
         {busy === "deliberate" ? <Loader2 className="spin" size={17} /> : <UsersRound size={17} />}
-        <span>{deliberation ? "重新会审" : "启动多 Agent 会审"}</span>
+        <span>{deliberation ? "重新会审" : "启动多智能体会审"}</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "deliberate"} />
       {deliberation?.strategy_brief && (
         <article className="guided-choice selected">
           <div className="result-meta">
-            <span className="status-badge">{deliberation.run_mode}</span>
+            <span className="status-badge">{deliberationRunModeLabel(deliberation.run_mode)}</span>
             <span>{deliberation.providers.join(" / ")}</span>
           </div>
           <h4>会审共识</h4>
           <p>{deliberation.strategy_brief.agent_consensus || deliberation.strategy_brief.summary}</p>
         </article>
       )}
-      {!deliberation && runs.length > 0 && <p className="workflow-hint">已有会审运行，但尚无 completed 策略结果。</p>}
+      {!deliberation && runs.length > 0 && <p className="workflow-hint">已有会审记录，但尚无已完成的策略结果。</p>}
     </section>
   );
 }
@@ -695,12 +771,12 @@ function FormulaPanel({
       {formulaRun?.package && (
         <article className="guided-choice selected">
           <div className="result-meta">
-            <span className="status-badge">{formulaRun.status}</span>
+            <span className="status-badge">{pipelineRunStatusLabel(formulaRun.status)}</span>
             <span>{formulaRun.package.formula_blocks.length} 个公式</span>
             {formulaRun.providers.length > 0 && <span>{formulaRun.providers.join(" / ")}</span>}
             {project && (
               <a href={formulaMarkdownUrl(project.id, formulaRun.id)} rel="noreferrer" target="_blank">
-                LaTeX
+                公式 LaTeX
               </a>
             )}
           </div>
@@ -708,12 +784,20 @@ function FormulaPanel({
           <p>{formulaRun.package.formula_blocks.map((block) => `${block.id} ${block.name}`).join("；")}</p>
         </article>
       )}
-      {!formulaRun && runs.length > 0 && <p className="workflow-hint">已有公式运行，但尚无 completed 公式包。</p>}
+      {!formulaRun && runs.length > 0 && <p className="workflow-hint">已有公式运行记录，但尚无已完成的公式包。</p>}
     </section>
   );
 }
 
+function ActionGateHint({ gate }: { gate: GuidedActionGate }) {
+  if (gate.allowed || !gate.reason) {
+    return null;
+  }
+  return <p className="workflow-hint">{gate.reason}</p>;
+}
+
 function QualityPanel({
+  actionGate,
   filingReport,
   worksheet,
   completionRun,
@@ -724,6 +808,7 @@ function QualityPanel({
   onAcceptPatch,
   onOpenExpertTool,
 }: {
+  actionGate: GuidedActionGate;
   filingReport: FilingReadinessReport | null;
   worksheet: ClaimDefenseWorksheet | null;
   completionRun: DraftCompletionRun | null;
@@ -735,6 +820,7 @@ function QualityPanel({
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   const summary = qualitySummaryFromRuns({ filingReport, worksheet, completionRun });
+  const actionsDisabled = !actionGate.allowed || Boolean(busy);
   return (
     <section className="guided-panel">
       <div className="guided-panel-heading">
@@ -758,12 +844,25 @@ function QualityPanel({
           查看初稿完善
         </button>
       </div>
+      <ActionGateHint gate={actionGate} />
       <div className="button-row">
-        <button className="primary" disabled={Boolean(busy)} onClick={onRunQualityChecks} type="button">
+        <button
+          className="primary"
+          disabled={actionsDisabled}
+          onClick={onRunQualityChecks}
+          title={actionGate.reason || undefined}
+          type="button"
+        >
           {busy === "guided-quality" ? <Loader2 className="spin" size={17} /> : <Gauge size={17} />}
           <span>运行质量检查</span>
         </button>
-        <button className="primary" disabled={Boolean(busy)} onClick={onImproveScore} type="button">
+        <button
+          className="primary"
+          disabled={actionsDisabled}
+          onClick={onImproveScore}
+          title={actionGate.reason || undefined}
+          type="button"
+        >
           {busy === "score-improve" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
           <span>一键提升分数</span>
         </button>
@@ -816,6 +915,7 @@ function ScoreTile({ label, value }: { label: string; value: string }) {
 }
 
 function OfficialCompilePanel({
+  actionGate,
   project,
   run,
   runs,
@@ -824,6 +924,7 @@ function OfficialCompilePanel({
   busyElapsedSeconds,
   onStartOfficialCompile,
 }: {
+  actionGate: GuidedActionGate;
   project: ProjectRecord | null;
   run: OfficialCompileRun | null;
   runs: OfficialCompileRun[];
@@ -842,19 +943,26 @@ function OfficialCompilePanel({
       <div className="guided-panel-heading">
         <div>
           <h3>正式稿编译</h3>
-          <p>隔离内部痕迹、support gaps、绘图提示和会审过程文本，生成正式申请文本专用包。</p>
+          <p>隔离内部痕迹、支撑缺口、绘图提示和会审过程文本，生成正式申请文本专用包。</p>
         </div>
         <FileText size={24} />
       </div>
       <div className="result-meta">
         <span className={statusClass}>{statusText}</span>
-        <span>source hash：{currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成"}</span>
-        {run?.official_package_hash && <span>official hash：{run.official_package_hash.slice(0, 12)}</span>}
+        <span>源稿哈希：{currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成"}</span>
+        {run?.official_package_hash && <span>正式稿哈希：{run.official_package_hash.slice(0, 12)}</span>}
       </div>
+      {blocked && (
+        <p className="workflow-hint workflow-hint-danger">
+          当前正式稿编译已阻断，请查看编译报告并处理阻断项。
+        </p>
+      )}
+      <ActionGateHint gate={actionGate} />
       <button
         className="primary"
-        disabled={!project?.package || busy === "official-compile"}
+        disabled={!actionGate.allowed || busy === "official-compile"}
         onClick={onStartOfficialCompile}
+        title={actionGate.reason || undefined}
         type="button"
       >
         {busy === "official-compile" ? <Loader2 className="spin" size={17} /> : <FileText size={17} />}
@@ -864,7 +972,7 @@ function OfficialCompilePanel({
       {run && (
         <article className={completed ? "guided-choice selected" : "guided-choice"}>
           <div className="result-meta">
-            <span className={statusClass}>{run.status}</span>
+            <span className={statusClass}>{pipelineRunStatusLabel(run.status)}</span>
             <span>移除污染 {run.contamination_removed.length} 项</span>
             <span>阻断 {run.blocked_items.length} 项</span>
             {project && (
@@ -874,19 +982,22 @@ function OfficialCompilePanel({
             )}
           </div>
           <h4>{completed ? "正式稿包已生成" : "正式稿未放行"}</h4>
-          <p>source hash：{run.source_draft_hash.slice(0, 12)}</p>
-          <p>official hash：{run.official_package_hash ? run.official_package_hash.slice(0, 12) : "未生成"}</p>
+          <p>源稿哈希：{run.source_draft_hash.slice(0, 12)}</p>
+          <p>正式稿哈希：{run.official_package_hash ? run.official_package_hash.slice(0, 12) : "未生成"}</p>
           {run.blocked_items.length > 0 && (
             <p>阻断项：{run.blocked_items.map((item) => item.message || item.category || "未命名阻断项").slice(0, 3).join("；")}</p>
           )}
         </article>
       )}
-      {!run && runs.length > 0 && <p className="workflow-hint">已有正式稿编译记录，但未匹配当前 source hash。</p>}
+      {!run && runs.length > 0 && (
+        <p className="workflow-hint">已有正式稿编译记录，但不属于当前源稿。请重新编译正式稿。</p>
+      )}
     </section>
   );
 }
 
 function PostDraftReviewPanel({
+  actionGate,
   project,
   review,
   runs,
@@ -899,6 +1010,7 @@ function PostDraftReviewPanel({
   onStartPostDraftReview,
   onToggleProvider,
 }: {
+  actionGate: GuidedActionGate;
   project: ProjectRecord | null;
   review: PostDraftReviewRun | null;
   runs: PostDraftReviewRun[];
@@ -917,7 +1029,7 @@ function PostDraftReviewPanel({
     <section className="guided-panel">
       <div className="guided-panel-heading">
         <div>
-          <h3>成稿后多 Agent 会审</h3>
+          <h3>成稿后多智能体会审</h3>
           <p>正式导出前必选。内置 Prompt Pack 会审权利要求质量、说明书清污、技术硬度和主席裁决。</p>
         </div>
         <ClipboardCheck size={24} />
@@ -927,20 +1039,22 @@ function PostDraftReviewPanel({
           {passed ? "已通过" : blocked ? "阻止正式导出" : "等待会审"}
         </span>
         <span>{review?.prompt_pack_version ?? "post-draft-review-v1"}</span>
-        <span>当前 hash：{currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成"}</span>
-        <span>official hash：{officialCompileRun?.official_package_hash.slice(0, 12) ?? "未编译"}</span>
+        <span>当前成稿哈希：{currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成"}</span>
+        <span>正式稿哈希：{officialCompileRun?.official_package_hash.slice(0, 12) ?? "未编译"}</span>
       </div>
       <AgentProviderCards
         doctor={doctor}
         role="post_review"
         selectedProviders={selectedProviders}
-        disabled={busy === "post-draft-review"}
+        disabled={!actionGate.allowed || busy === "post-draft-review"}
         onToggleProvider={onToggleProvider}
       />
+      <ActionGateHint gate={actionGate} />
       <button
         className="primary"
-        disabled={!project?.package || busy === "post-draft-review"}
+        disabled={!actionGate.allowed || busy === "post-draft-review"}
         onClick={onStartPostDraftReview}
+        title={actionGate.reason || undefined}
         type="button"
       >
         {busy === "post-draft-review" ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
@@ -950,10 +1064,10 @@ function PostDraftReviewPanel({
       {review && (
         <article className={passed ? "guided-choice selected" : "guided-choice"}>
           <div className="result-meta">
-            <span className={passed ? "status-badge" : "status-badge danger"}>{review.status}</span>
+            <span className={passed ? "status-badge" : "status-badge danger"}>{pipelineRunStatusLabel(review.status)}</span>
             <span>{review.providers.join(" / ") || "默认三方"}</span>
-            <span>review hash：{review.draft_package_hash.slice(0, 12)}</span>
-            {review.official_package_hash && <span>official hash：{review.official_package_hash.slice(0, 12)}</span>}
+            <span>会审哈希：{review.draft_package_hash.slice(0, 12)}</span>
+            {review.official_package_hash && <span>正式稿哈希：{review.official_package_hash.slice(0, 12)}</span>}
             {project && (
               <a href={postDraftReviewReportUrl(project.id, review.id)} rel="noreferrer" target="_blank">
                 会审报告
@@ -961,11 +1075,13 @@ function PostDraftReviewPanel({
             )}
           </div>
           <h4>{passed ? "主席裁决：允许正式导出" : "主席裁决：需要修订"}</h4>
-          {review.blocking_issues.length > 0 && <p>Blocking：{review.blocking_issues.slice(0, 3).join("；")}</p>}
+          {review.blocking_issues.length > 0 && <p>阻断项：{review.blocking_issues.slice(0, 3).join("；")}</p>}
           {review.contamination_hits.length > 0 && <p>污染命中：{review.contamination_hits.slice(0, 5).join("；")}</p>}
         </article>
       )}
-      {!review && runs.length > 0 && <p className="workflow-hint">已有成稿会审记录，但未匹配当前成稿 hash。</p>}
+      {!review && runs.length > 0 && (
+        <p className="workflow-hint">已有成稿会审记录，但不属于当前成稿。请重新运行成稿会审。</p>
+      )}
     </section>
   );
 }
@@ -1005,12 +1121,14 @@ function ExportConfirmationPanel({
       <div className="guided-panel-heading">
         <div>
           <h3>导出前确认</h3>
-          <p>这是默认流程的第二个暂停点。正式稿只在成稿会审通过且匹配当前成稿 hash 后放行。</p>
+          <p>这是默认流程的第二个暂停点。正式稿只在成稿会审通过且匹配当前成稿哈希后放行。</p>
         </div>
         <Download size={24} />
       </div>
       {filingReport?.status === "high_risk" && <p className="workflow-hint">当前提交成熟度为高风险，请结合成稿会审报告处理。</p>}
-      {!officialAllowed && <p className="workflow-hint">正式稿入口已锁定：需要通过匹配当前正式稿编译 hash 的成稿会审。</p>}
+      {!officialAllowed && (
+        <p className="workflow-hint">正式稿入口已锁定：需先完成正式稿编译，并通过匹配当前正式稿哈希的成稿会审。</p>
+      )}
       <div className="export-confirmation">
         <article>
           <strong>正式稿</strong>
@@ -1022,7 +1140,7 @@ function ExportConfirmationPanel({
         </article>
         <article>
           <strong>导出原则</strong>
-          <span>blocking issue 阻止正式稿；内部稿和报告不受阻止。</span>
+          <span>存在阻断项时将阻止正式稿导出；内部稿和报告不受此限制。</span>
         </article>
       </div>
       <button className="icon-button" onClick={() => onOpenExpertTool("export")} type="button">
