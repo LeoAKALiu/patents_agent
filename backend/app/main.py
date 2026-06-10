@@ -398,12 +398,11 @@ def create_app(
         doctor = inspect_agent_environment()
         requested = payload.providers or list(STRICT_DELIBERATION_PROVIDERS)
         available = set(doctor.active_provider_ids)
-        selectable = set(doctor.active_provider_ids) | set(doctor.unknown_required)
         active_requested_count = len(requested) if app.state.provider_runner is not None else len([provider for provider in requested if provider in available])
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
         if app.state.provider_runner is None:
-            missing_providers = [provider for provider in requested if provider not in selectable]
+            missing_providers = [provider for provider in requested if provider not in available]
             if missing_providers:
                 failures = [
                     AgentFailure(
