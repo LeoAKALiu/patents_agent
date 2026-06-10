@@ -16,12 +16,12 @@ const variantStyles: Record<StatusBadgeProps["variant"], string> = {
 };
 
 const variantLabels: Record<StatusBadgeProps["variant"], string> = {
-  done: "Done",
-  current: "Active",
-  ready: "Ready",
-  locked: "Locked",
-  warning: "Warning",
-  error: "Error",
+  done: "已完成",
+  current: "进行中",
+  ready: "可查看",
+  locked: "未解锁",
+  warning: "警告",
+  error: "错误",
 };
 
 export function StatusBadge({ variant, label, className }: StatusBadgeProps) {

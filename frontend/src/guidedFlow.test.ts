@@ -18,15 +18,19 @@ import {
   defaultExpertToolId,
   defaultMainSectionId,
   buildPatentPointSelectionPayloads,
+  canNavigateToGuidedStep,
   deriveGuidedFlowState,
   expertToolGroups,
   guidedBusyLabel,
   guidedOperationLog,
   guidedStepLabels,
+  guidedStepStatusLabel,
   mainSections,
   patentGoalModes,
   qualitySummaryFromRuns,
+  resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
+  type GuidedStepId,
 } from "./guidedFlow";
 
 const projectWithIdea: ProjectRecord = {
@@ -331,7 +335,7 @@ describe("guided flow navigation", () => {
     expect(guidedStepLabels).toEqual([
       "想法与材料",
       "发明点",
-      "多 Agent 会审",
+      "多智能体会审",
       "核心公式",
       "生成初稿",
       "质量检查",
@@ -339,6 +343,48 @@ describe("guided flow navigation", () => {
       "成稿会审",
       "导出",
     ]);
+  });
+});
+
+describe("guided step navigation helpers", () => {
+  it("blocks locked steps and allows done, current, and ready steps", () => {
+    expect(canNavigateToGuidedStep({ status: "locked" })).toBe(false);
+    expect(canNavigateToGuidedStep({ status: "done" })).toBe(true);
+    expect(canNavigateToGuidedStep({ status: "current" })).toBe(true);
+    expect(canNavigateToGuidedStep({ status: "ready" })).toBe(true);
+  });
+
+  it("resolves manual view for ready steps and rejects locked steps", () => {
+    const lockedState = deriveGuidedFlowState({
+      project: null,
+      materials: [],
+      disclosures: [],
+      deliberations: [],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+    expect(resolveGuidedViewStep(lockedState.currentStepId, "invention", lockedState.steps)).toBe("idea");
+
+    const state = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(resolveGuidedViewStep(state.currentStepId, "invention", state.steps)).toBe("invention");
+    expect(resolveGuidedViewStep(state.currentStepId, "export", state.steps)).toBe("export");
+  });
+
+  it("labels step statuses for the navigator", () => {
+    expect(guidedStepStatusLabel("done")).toBe("已完成");
+    expect(guidedStepStatusLabel("locked")).toBe("未解锁");
   });
 });
 
@@ -896,7 +942,7 @@ describe("guidedStepLabels", () => {
     expect(guidedStepLabels).toEqual([
       "想法与材料",
       "发明点",
-      "多 Agent 会审",
+      "多智能体会审",
       "核心公式",
       "生成初稿",
       "质量检查",

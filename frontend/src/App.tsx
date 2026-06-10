@@ -101,6 +101,11 @@ import {
   featureClassificationLabel,
   latestCompletedDeliberation,
   moatScoreTotal,
+  agentDoctorStatusLabel,
+  agentRunModeLabel,
+  deliberationRunModeLabel,
+  logLevelLabel,
+  pipelineRunStatusLabel,
   readinessStatusLabel,
   severityLabel,
   sourceTypeLabel,
@@ -590,7 +595,7 @@ function App() {
       const modeLabel =
         disclosureResearchMode === "free_deep_research" ? "（免费 Deep Research 补充）" : "";
       setMessage(
-        `前置材料生成已${run.status === "completed" ? "完成" : "启动"}${modeLabel}：${run.status}`,
+        `前置材料生成已${run.status === "completed" ? "完成" : "启动"}${modeLabel}：${pipelineRunStatusLabel(run.status)}`,
       );
     });
   }
@@ -603,7 +608,7 @@ function App() {
       const stillSelected = await loadDeliberations(projectId);
       if (!stillSelected) return;
       await loadFormulaState(projectId);
-      setMessage(`会审已${run.status === "completed" ? "完成" : "启动"}：${run.run_mode}`);
+      setMessage(`会审已${run.status === "completed" ? "完成" : "启动"}：${deliberationRunModeLabel(run.run_mode)}`);
     });
   }
 
@@ -614,7 +619,7 @@ function App() {
       const run = await startFormulaRun(projectId, selectedFormulaProviders);
       const stillSelected = await loadFormulaState(projectId);
       if (!stillSelected) return;
-      setMessage(`核心公式已${run.status === "completed" ? "完成" : "启动"}：${run.status}`);
+      setMessage(`核心公式已${run.status === "completed" ? "完成" : "启动"}：${pipelineRunStatusLabel(run.status)}`);
     });
   }
 
@@ -625,7 +630,11 @@ function App() {
       const run = await startPostDraftReview(projectId, selectedDeliberationProviders);
       const stillSelected = await loadPostDraftReviews(projectId);
       if (!stillSelected) return;
-      setMessage(`成稿会审已${run.status === "completed" ? "完成" : "启动"}：${run.export_allowed ? "允许正式导出" : run.status}`);
+      setMessage(
+        `成稿会审已${run.status === "completed" ? "完成" : "启动"}：${
+          run.export_allowed ? "允许正式导出" : pipelineRunStatusLabel(run.status)
+        }`,
+      );
     });
   }
 
@@ -636,7 +645,9 @@ function App() {
       const run = await startOfficialCompileRun(projectId);
       const stillSelected = await loadOfficialCompileRuns(projectId);
       if (!stillSelected) return;
-      setMessage(run.status === "completed" ? "正式稿编译完成" : `正式稿编译${run.status}`);
+      setMessage(
+        run.status === "completed" ? "正式稿编译完成" : `正式稿编译${pipelineRunStatusLabel(run.status)}`,
+      );
     });
   }
 
@@ -1011,7 +1022,7 @@ function App() {
           </div>
           <div className={agentDoctor?.status === "blocked" ? "flex items-center gap-2 text-amber-400" : "flex items-center gap-2 text-emerald-400"}>
             {agentDoctor?.status === "blocked" ? <AlertTriangle size={16} /> : <UsersRound size={16} />}
-            <span>Agent {agentDoctor?.run_mode ?? "unknown"}</span>
+            <span>智能体 {agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}</span>
           </div>
           <p>生成时会向云端模型服务发送 draft 与检索片段。</p>
           <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-transparent hover:bg-[#0f172a] text-white transition-colors disabled:opacity-50 px-3 py-2 text-sm" onClick={refreshAll} type="button" title="刷新">
@@ -1048,7 +1059,7 @@ function App() {
 
         <header className="flex flex-col md:flex-row items-start md:items-end gap-4 px-4 md:px-8 py-4 md:py-5 border-b border-[#334155] bg-[#162032] sticky top-0 z-10">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold tracking-wider uppercase text-[#2dd4bf]/80">Guided Patent Workbench</p>
+            <p className="text-xs font-semibold tracking-wider uppercase text-[#2dd4bf]/80">专利生成工作台</p>
             <h2 className="text-base md:text-lg font-semibold text-[#e2e8f0]">{activeSection === "expert" ? activeExpertToolEntry?.label ?? "专家工具" : activeMainSection.label}</h2>
             <p className="text-xs text-[#e2e8f0]/60 mt-1">
               {activeSection === "expert"
@@ -1072,6 +1083,7 @@ function App() {
         )}
 
         {activeSection === "generate" && (
+          <div className="px-4 md:px-8 py-4 md:py-6">
           <GuidedPatentFlowView
             project={selectedProject}
             materials={projectMaterials}
@@ -1110,6 +1122,7 @@ function App() {
             onAcceptPatch={(runId, patchId) => void handleCompletionPatch(runId, patchId, "accept")}
             onOpenExpertTool={openExpertTool}
           />
+          </div>
         )}
         {activeSection === "projects" && (
           <ProjectsOverview
@@ -1681,7 +1694,7 @@ function DeliberationView({
     <div className="flex flex-col gap-4">
       <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
-          <h3>多 Agent 会审</h3>
+          <h3>多智能体会审</h3>
           <p>
             {project
               ? "会审会调用本机 Codex、Gemini、Claude，先讨论保护范围和写作策略，再注入生成流程。"
@@ -1707,10 +1720,10 @@ function DeliberationView({
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
-          <h3>Provider Doctor</h3>
+          <h3>智能体诊断</h3>
           <div className="doctor-grid">
-            <StatusPill label="状态" value={doctor?.status ?? "unknown"} />
-            <StatusPill label="运行级别" value={doctor?.run_mode ?? "unknown"} />
+            <StatusPill label="状态" value={agentDoctorStatusLabel(doctor?.status ?? "unknown")} />
+            <StatusPill label="运行级别" value={agentRunModeLabel(doctor?.run_mode ?? "unknown")} />
           </div>
           <AgentProviderCards
             doctor={doctor}
@@ -1727,8 +1740,8 @@ function DeliberationView({
             {runs.map((run) => (
               <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={run.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
-                  <span>{run.status}</span>
-                  <span>{run.run_mode}</span>
+                  <span>{pipelineRunStatusLabel(run.status)}</span>
+                  <span>{deliberationRunModeLabel(run.run_mode)}</span>
                 </div>
                 <p>{run.providers.join(" / ")}</p>
                 <p>{run.events.at(-1) ?? "暂无事件"}</p>
@@ -1755,10 +1768,10 @@ function DeliberationView({
                     {run.logs.slice(-6).map((log, index) => (
                       <article className={`log-row ${log.level}`} key={`${run.id}-log-${index}`}>
                         <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
-                          <span>{log.level}</span>
-                          <span>{log.phase || "phase"}</span>
-                          <span>{log.provider_id || "system"}</span>
-                          {log.attempt != null && <span>attempt {log.attempt}</span>}
+                          <span>{logLevelLabel(log.level)}</span>
+                          <span>{log.phase || "阶段"}</span>
+                          <span>{log.provider_id || "系统"}</span>
+                          {log.attempt != null && <span>第 {log.attempt} 次尝试</span>}
                         </div>
                         <p>{log.message}</p>
                         {log.detail && <p>{log.detail}</p>}
@@ -1775,7 +1788,7 @@ function DeliberationView({
       </section>
 
       <StrategyBriefView
-        title={completed ? "可注入策略 Brief" : latest ? "最近会审尚未完成" : "策略 Brief"}
+        title={completed ? "可注入会审策略" : latest ? "最近会审尚未完成" : "会审策略"}
         strategy={completed?.strategy_brief ?? null}
       />
     </div>
@@ -1859,7 +1872,7 @@ function DisclosureView({
             {runs.map((run) => (
               <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={run.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
-                  <span>{run.status}</span>
+                  <span>{pipelineRunStatusLabel(run.status)}</span>
                   <span>{run.package?.prior_art_hits.length ?? 0} 条现有技术</span>
                 </div>
                 <p>{run.package?.title ?? run.events.at(-1) ?? "等待生成"}</p>
@@ -2138,7 +2151,7 @@ function WriteView({
           <p>
             {deliberation
               ? `将注入会审 run：${deliberation.id}`
-              : "未完成多 Agent 会审，仍可直接生成。"}
+              : "未完成多智能体会审，仍可直接生成。"}
           </p>
           <p>{disclosure ? `将注入前置交底书 run：${disclosure.id}` : "未完成前置交底书，仍可直接生成。"}</p>
           <p>{formulaRun ? `将注入核心公式 run：${formulaRun.id}` : formulaRequirement?.required ? "核心公式包未完成，暂不能生成。" : "无需核心公式包。"}</p>
@@ -2295,9 +2308,9 @@ function FilingReadinessView({
             {report?.status === "high_risk" && (
               <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">高风险：请结合成稿会审报告处理命中项。</p>
             )}
-            {!officialAllowed && <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">正式稿入口已锁定：需先完成正式稿编译，并通过匹配 official hash 的成稿会审。</p>}
+            {!officialAllowed && <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">正式稿入口已锁定：需先完成正式稿编译，并通过匹配正式稿哈希的成稿会审。</p>}
             {officialCompileRun?.official_package_hash && (
-              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">当前 official hash：{officialCompileRun.official_package_hash.slice(0, 12)}</p>
+              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">当前正式稿哈希：{officialCompileRun.official_package_hash.slice(0, 12)}</p>
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <a
@@ -2616,7 +2629,7 @@ function DraftCompletionView({
           <h3>评分</h3>
           {run && (
             <>
-              <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{run.status}</span>
+              <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{pipelineRunStatusLabel(run.status)}</span>
               <span>{run.created_at}</span>
               <span>{runs.length} 次运行</span>
             </>
@@ -2743,7 +2756,7 @@ function DraftCompletionView({
               </div>
               <p><strong>{patch.rationale}</strong></p>
               <p>{patch.risk_delta}</p>
-              <pre className="p-4 bg-[#162032] rounded-xl border border-[#334155] font-mono text-sm whitespace-pre-wrap">{patch.after_text || "无 after_text"}</pre>
+              <pre className="p-4 bg-[#162032] rounded-xl border border-[#334155] font-mono text-sm whitespace-pre-wrap">{patch.after_text || "无修改后文本"}</pre>
               <div className="flex items-center gap-3">
                 <button
                   className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
@@ -2804,7 +2817,7 @@ function ExportView({
       <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">
         {officialAllowed
           ? `正式稿已由成稿会审解锁：${officialCompileRun?.official_package_hash.slice(0, 12)}`
-          : "正式稿需完成编译，并通过匹配当前 official hash 的成稿会审；内部稿和报告可继续导出。"}
+          : "正式稿需完成编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和报告可继续导出。"}
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <a
@@ -2861,7 +2874,7 @@ function StrategyBriefView({
           <PreviewBlock title="权利要求策略" text={strategy.claim_strategy.join("\n")} />
           <PreviewBlock title="说明书策略" text={strategy.description_strategy.join("\n")} />
           <PreviewBlock title="风险控制" text={strategy.risk_controls.join("\n")} />
-          <PreviewBlock title="Agent 共识" text={strategy.agent_consensus} />
+          <PreviewBlock title="智能体共识" text={strategy.agent_consensus} />
         </div>
       ) : (
         <p className="text-sm text-[#e2e8f0]/50 italic py-4">暂无可注入策略</p>

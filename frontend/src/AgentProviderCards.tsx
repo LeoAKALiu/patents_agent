@@ -74,7 +74,7 @@ export function AgentProviderCards({
 }) {
   const providers = providerListForRole(doctor, role);
   if (!doctor) {
-    return <p className="workflow-hint">Agent doctor 尚未刷新。</p>;
+    return <p className="workflow-hint">智能体诊断尚未刷新，请稍候或点击刷新。</p>;
   }
   return (
     <div className="agent-card-grid">
@@ -136,7 +136,7 @@ export function AgentProviderCards({
           </article>
         );
       })}
-      {providers.length === 0 && <p className="workflow-hint">暂无可用于该环节的 agent。</p>}
+      {providers.length === 0 && <p className="workflow-hint">暂无可用于该环节的智能体。</p>}
     </div>
   );
 }
