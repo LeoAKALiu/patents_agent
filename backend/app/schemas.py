@@ -189,43 +189,6 @@ class DeliberationRun(BaseModel):
     logs: list[DeliberationLogEntry] = Field(default_factory=list)
 
 
-class ClaimItem(BaseModel):
-    """One structured claim. Canonical claim text is rendered deterministically from this."""
-
-    number: int
-    kind: str = Field(default="independent", pattern="^(independent|dependent)$")
-    depends_on: int | None = None
-    category: str = Field(default="other", pattern="^(method|system|device|medium|other)$")
-    preamble: str = ""
-    features: list[str] = Field(default_factory=list)
-
-
-class ClaimsOutput(BaseModel):
-    claims: list[ClaimItem] = Field(default_factory=list)
-
-
-class DescriptionOutput(BaseModel):
-    """Specification body sections. 附图说明 is NOT here; it is single-sourced from DrawingsOutput."""
-
-    technical_field: str = ""
-    background: str = ""
-    summary: str = ""
-    embodiments: str = ""
-
-
-class FigureItem(BaseModel):
-    figure_no: str
-    title: str
-
-
-class DrawingsOutput(BaseModel):
-    figures: list[FigureItem] = Field(default_factory=list)
-
-
-class AbstractOutput(BaseModel):
-    abstract: str = ""
-
-
 class DraftPackage(BaseModel):
     title: str
     abstract: str
@@ -245,12 +208,6 @@ class DraftPackage(BaseModel):
     patent_point_summary: str | None = None
     formula_run_id: str | None = None
     core_formula_summary: str | None = None
-    # Structured source-of-truth for canonical text (Component 1). Optional for backward compatibility
-    # with stored drafts; when present, the official compiler assembles from these via allowlist.
-    claims_struct: ClaimsOutput | None = None
-    description_struct: DescriptionOutput | None = None
-    drawings_struct: DrawingsOutput | None = None
-    abstract_struct: AbstractOutput | None = None
 
 
 class OfficialFigurePlanItem(BaseModel):
@@ -699,6 +656,76 @@ class DisclosureSelfCheckFinding(BaseModel):
     suggestion: str
 
 
+# --- Free Deep Research (internal-only research packet) ----------------------
+# These models back the optional `free_deep_research` mode on
+# DisclosureRunCreate. The packet they assemble is INTERNAL ONLY: it augments
+# the disclosure stage_results and the supporting (non-canonical) parts of the
+# disclosure package; it is never read by OfficialDraftCompiler nor exported.
+
+DEEP_RESEARCH_CATEGORIES = (
+    "prior_art_cluster",
+    "novelty_opportunity",
+    "differentiator",
+    "claim_constraint",
+    "evidence_gap",
+    "warning",
+    "completion_task",
+)
+
+
+class DeepResearchEvidenceRef(BaseModel):
+    """Pointer to a single supporting source used in a deep-research finding."""
+
+    source: str = ""
+    query: str = ""
+    title: str = ""
+    publication_number: str | None = None
+    url: str = ""
+    relevance: str = ""
+
+
+class DeepResearchFinding(BaseModel):
+    """One structured finding produced by a deep-research cycle."""
+
+    id: str
+    category: str = Field(
+        pattern="^(prior_art_cluster|novelty_opportunity|differentiator|claim_constraint|evidence_gap|warning|completion_task)$"
+    )
+    title: str
+    summary: str = ""
+    severity: str = Field(default="medium", pattern="^(low|medium|high)$")
+    suggested_action: str = ""
+    evidence: list[DeepResearchEvidenceRef] = Field(default_factory=list)
+
+
+class DeepResearchPacket(BaseModel):
+    """Internal supporting research packet for `free_deep_research` mode.
+
+    This packet MUST NOT be consumed by OfficialDraftCompiler or any
+    official-export path. It is persisted into the disclosure run's
+    ``stage_results`` and surfaced to the user as supporting analysis.
+    """
+
+    status: str = Field(default="completed", pattern="^(completed|partial|failed)$")
+    cycles: int = 0
+    project_id: str = ""
+    query_plan: list[str] = Field(default_factory=list)
+    queries_run: list[str] = Field(default_factory=list)
+    prior_art_clusters: list[dict[str, list[str]]] = Field(default_factory=list)
+    novelty_opportunities: list[str] = Field(default_factory=list)
+    differentiators: list[str] = Field(default_factory=list)
+    claim_drafting_constraints: list[str] = Field(default_factory=list)
+    obviousness_risks: list[str] = Field(default_factory=list)
+    evidence_map: dict[str, list[str]] = Field(default_factory=dict)
+    evidence_ledger: list[dict] = Field(default_factory=list)
+    provider_chain: list[str] = Field(default_factory=list)
+    suggested_completion_tasks: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    findings: list[DeepResearchFinding] = Field(default_factory=list)
+    generation_logs: list[str] = Field(default_factory=list)
+    internal_only: bool = True
+
+
 class DisclosurePackage(BaseModel):
     title: str
     summary: str
@@ -725,6 +752,15 @@ class DisclosurePackage(BaseModel):
 class DisclosureRunCreate(BaseModel):
     trace: bool = False
     max_prior_art_results: int = Field(default=8, ge=0, le=20)
+    # research_mode toggles the internal-only "free deep research" supplement.
+    # standard            -> existing disclosure pipeline, unchanged.
+    # free_deep_research  -> run patent deep researcher AFTER the standard
+    #                       generator, append findings to stage_results, and
+    #                       surface internal analysis hints in the package.
+    research_mode: str = Field(
+        default="standard",
+        pattern="^(standard|free_deep_research)$",
+    )
 
 
 class DisclosureRun(BaseModel):
@@ -733,6 +769,10 @@ class DisclosureRun(BaseModel):
     status: str = Field(pattern="^(queued|running|completed|failed|interrupted)$")
     trace: bool = False
     max_prior_art_results: int = 8
+    research_mode: str = Field(
+        default="standard",
+        pattern="^(standard|free_deep_research)$",
+    )
     run_dir: str = ""
     stage_results: list[dict[str, Any]] = Field(default_factory=list)
     package: DisclosurePackage | None = None
@@ -803,45 +843,3 @@ class CorpusImportJob(BaseModel):
     failed_documents: int = 0
     errors: list[str] = Field(default_factory=list)
     quality_report: CorpusQualityReport | None = None
-
-
-# --- Golden-set evaluation models -------------------------------------------------
-
-
-class EvalPatentResult(BaseModel):
-    """Single patent evaluation result within a golden-set run."""
-
-    patent_id: str
-    title: str
-    technical_field: str
-    gate_pass: bool
-    gate_warnings: list[str] = Field(default_factory=list)
-    sas: float  # 0-1
-    sas_detail: dict[str, float] = Field(default_factory=dict)
-    ccs: float  # 0-1
-    ccs_detail: dict[str, float] = Field(default_factory=dict)
-    llm_judge: dict[str, float | None] | None = None
-
-
-class GoldenEvalSummary(BaseModel):
-    """Aggregated summary across all patents in a golden-set run."""
-
-    sas_avg: float
-    ccs_avg: float
-    gate_pass_rate: float
-    llm_judge_avg: dict[str, float] | None = None
-    pass_: bool
-    warnings: int
-    load_errors: int = 0
-
-
-class GoldenEvalReport(BaseModel):
-    """Full evaluation report for a golden-set run."""
-
-    run_id: str
-    commit: str
-    golden_set_version: str
-    timestamp: datetime = Field(default_factory=_utc_now_iso)
-    summary: GoldenEvalSummary
-    per_patent: list[EvalPatentResult] = Field(default_factory=list)
-    diff_from_previous: dict[str, Any] | None = None
