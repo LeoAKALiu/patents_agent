@@ -397,6 +397,92 @@ class DraftCompletionRun(BaseModel):
     created_at: str = ""
 
 
+class ExternalDraftSourceCreate(BaseModel):
+    source_type: str = Field(pattern="^(pasted_text|markdown_file|docx_file)$")
+    text: str = ""
+    file_name: str = ""
+    file_content: str = ""
+
+
+class ExternalDraftSource(BaseModel):
+    id: str
+    project_id: str
+    source_type: str = Field(pattern="^(pasted_text|markdown_file|docx_file)$")
+    file_name: str = ""
+    content_hash: str
+    raw_text: str
+    raw_path: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: str = ""
+
+
+class SectionConfidenceItem(BaseModel):
+    score: float = Field(ge=0.0, le=1.0)
+    source_markers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class SectionConfidence(BaseModel):
+    title: SectionConfidenceItem
+    abstract: SectionConfidenceItem
+    claims: SectionConfidenceItem
+    description: SectionConfidenceItem
+    drawing_description: SectionConfidenceItem
+
+
+class IntakeIssue(BaseModel):
+    id: str
+    category: str = Field(
+        pattern=(
+            "^(missing_section|duplicate_section|low_confidence_section|format_noise|"
+            "unsupported_attachment|suspected_internal_text|malformed_claim_numbering)$"
+        )
+    )
+    severity: str = Field(pattern="^(low|medium|high)$")
+    section: str = Field(pattern="^(title|abstract|claims|description|drawing_description|raw_text)$")
+    message: str
+    suggested_action: str
+    blocks_quality_run: bool = False
+
+
+class ExternalDraftIntakeRun(BaseModel):
+    id: str
+    project_id: str
+    source_id: str
+    status: str = Field(pattern="^(completed|needs_review|failed)$")
+    parser_version: str = "external-draft-parser-v1"
+    source_hash: str = ""
+    parsed_package: DraftPackage | None = None
+    section_confidence: SectionConfidence | None = None
+    intake_issues: list[IntakeIssue] = Field(default_factory=list)
+    unassigned_fragments: list[str] = Field(default_factory=list)
+    working_draft_hash: str = ""
+    logs: list[DeliberationLogEntry] = Field(default_factory=list)
+    created_at: str = ""
+
+
+class ExternalDraftIntakeConfirmRequest(BaseModel):
+    title: str
+    abstract: str
+    claims: str
+    description: str
+    drawing_description: str
+
+
+class ExternalDraftReviewBundle(BaseModel):
+    project_id: str
+    source_id: str = ""
+    intake_run_id: str = ""
+    initial_score: int | None = None
+    latest_score: int | None = None
+    accepted_patch_ids: list[str] = Field(default_factory=list)
+    completion_run_ids: list[str] = Field(default_factory=list)
+    official_compile_run_id: str = ""
+    post_draft_review_run_id: str = ""
+    export_allowed: bool = False
+    report_hash: str = ""
+
+
 class ScoreImprovementRequest(BaseModel):
     max_rounds: int = Field(default=1, ge=1, le=3)
     target_score: int = Field(default=85, ge=0, le=100)
