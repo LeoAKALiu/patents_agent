@@ -699,59 +699,6 @@ class DisclosureSelfCheckFinding(BaseModel):
     suggestion: str
 
 
-# --- Deep Research (free_deep_research) models --------------------------------------
-
-
-class DeepResearchEvidenceRef(BaseModel):
-    """Pointer to a source used in a deep-research finding."""
-
-    source: str = Field(description="Provider label, e.g. Google Patents / CNIPA EPUB / SearXNG")
-    query: str = ""
-    title: str = ""
-    publication_number: str | None = None
-    url: str = ""
-    relevance: str = ""
-
-
-class DeepResearchFinding(BaseModel):
-    """One structured finding from a deep-research cycle."""
-
-    id: str
-    category: str = Field(pattern="^(prior_art_cluster|novelty_opportunity|differentiator|claim_constraint|evidence_gap|warning|completion_task)$")
-    title: str
-    summary: str
-    evidence: list[DeepResearchEvidenceRef] = Field(default_factory=list)
-    severity: str = Field(default="medium", pattern="^(low|medium|high)$")
-    suggested_action: str = ""
-
-
-class DeepResearchPacket(BaseModel):
-    """Internal-only research package produced by free_deep_research mode.
-
-    This packet MUST NOT be read by OfficialDraftCompiler or any official-export path.
-    It is stored in disclosure stage_results_json for internal review and to augment the
-    DisclosurePackage with richer prior-art analysis, claim charts, and completion hints.
-    """
-
-    status: str = Field(pattern="^(completed|partial|failed)$")
-    cycles: int = 0
-    queries_run: list[str] = Field(default_factory=list)
-    prior_art_clusters: list[dict[str, list[str]]] = Field(
-        default_factory=list, description="Grouped prior-art references by technical sub-area."
-    )
-    novelty_opportunities: list[str] = Field(default_factory=list)
-    differentiators: list[str] = Field(default_factory=list)
-    claim_drafting_constraints: list[str] = Field(default_factory=list)
-    evidence_map: dict[str, list[str]] = Field(
-        default_factory=dict, description="claim feature -> evidence/source ids"
-    )
-    warnings: list[str] = Field(default_factory=list)
-    suggested_completion_tasks: list[str] = Field(default_factory=list)
-    findings: list[DeepResearchFinding] = Field(default_factory=list)
-    generation_logs: list[str] = Field(default_factory=list)
-    internal_notes: list[str] = Field(default_factory=list, description="Not for official export.")
-
-
 class DisclosurePackage(BaseModel):
     title: str
     summary: str
@@ -778,7 +725,6 @@ class DisclosurePackage(BaseModel):
 class DisclosureRunCreate(BaseModel):
     trace: bool = False
     max_prior_art_results: int = Field(default=8, ge=0, le=20)
-    research_mode: str = Field(default="standard", pattern="^(standard|free_deep_research)$")
 
 
 class DisclosureRun(BaseModel):

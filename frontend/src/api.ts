@@ -728,11 +728,11 @@ export async function deleteProjectPatentPoint(projectId: string, pointId: strin
   return request<{ ok: boolean }>(`/api/projects/${projectId}/patent-points/${pointId}`, { method: "DELETE" });
 }
 
-export async function startProjectDisclosure(projectId: string, trace = false, researchMode: "standard" | "free_deep_research" = "standard"): Promise<DisclosureRun> {
+export async function startProjectDisclosure(projectId: string, trace = false): Promise<DisclosureRun> {
   return request<DisclosureRun>(`/api/projects/${projectId}/disclosures`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ trace, max_prior_art_results: 8, research_mode: researchMode }),
+    body: JSON.stringify({ trace, max_prior_art_results: 8 }),
   });
 }
 
