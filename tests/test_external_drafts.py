@@ -214,6 +214,32 @@ def test_spaced_chinese_headings_are_recognized():
     assert run.parsed_package.description == "本发明涉及数据处理。"
 
 
+def test_inline_heading_content_is_parsed_into_sections():
+    source = create_external_draft_source(
+        project_id="project-1",
+        source_type="pasted_text",
+        text=(
+            "发明名称：一种数据处理方法\n"
+            "摘要：本发明公开一种数据处理方法。\n"
+            "权利要求书：1. 一种数据处理方法，其特征在于，执行数据清洗。\n"
+            "说明书：本发明涉及数据处理。\n"
+            "附图说明：图1为方法流程图。\n"
+        ),
+        file_name="pasted.txt",
+    )
+
+    run = parse_external_draft_source(project_id="project-1", source=source)
+
+    assert run.status == "completed"
+    assert run.parsed_package is not None
+    assert run.parsed_package.title == "一种数据处理方法"
+    assert run.parsed_package.abstract == "本发明公开一种数据处理方法。"
+    assert run.parsed_package.claims == "1. 一种数据处理方法，其特征在于，执行数据清洗。"
+    assert run.parsed_package.description == "本发明涉及数据处理。"
+    assert run.parsed_package.drawing_description == "图1为方法流程图。"
+    assert run.unassigned_fragments == []
+
+
 def test_external_draft_parser_programmer_errors_surface(monkeypatch):
     source = create_external_draft_source(
         project_id="project-1",

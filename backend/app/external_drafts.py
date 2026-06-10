@@ -141,6 +141,16 @@ def parse_sections(text: str) -> tuple[dict[str, str], set[str], list[str]]:
                 sections["title"].append(heading_text)
             continue
 
+        inline_heading = _inline_heading_content(line)
+        if inline_heading:
+            heading, inline_content = inline_heading
+            current = heading
+            if heading in seen:
+                duplicate_sections.add(heading)
+            seen.add(heading)
+            sections[current].append(inline_content)
+            continue
+
         markdown_title = _markdown_title(line)
         if markdown_title and not sections["title"]:
             sections["title"].append(markdown_title)
@@ -181,6 +191,21 @@ def _canonical_aliases(section: str) -> set[str]:
 
 def _is_description_subheading(heading_text: str) -> bool:
     return _canonical_heading_text(heading_text) in {_canonical_heading_text(text) for text in DESCRIPTION_SUBHEADINGS}
+
+
+def _inline_heading_content(line: str) -> tuple[str, str] | None:
+    stripped = strip_heading_marker(line)
+    for delimiter in ("：", ":"):
+        heading_text, separator, inline_content = stripped.partition(delimiter)
+        if not separator:
+            continue
+        heading_key = _canonical_heading_text(heading_text)
+        for section in SECTION_ALIASES:
+            if heading_key in _canonical_aliases(section):
+                content = inline_content.strip()
+                if content:
+                    return section, content
+    return None
 
 
 def package_from_sections(sections: dict[str, str]) -> DraftPackage:
