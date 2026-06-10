@@ -141,6 +141,28 @@ def test_markdown_external_draft_parses_into_working_package():
     assert run.working_draft_hash == working_draft_hash(run.parsed_package)
 
 
+def test_markdown_h1_title_heading_uses_following_line_as_title():
+    source = create_external_draft_source(
+        project_id="project-1",
+        source_type="markdown_file",
+        text=(
+            "# 发明名称\n"
+            "一种数据处理方法\n\n"
+            "## 权利要求书\n"
+            "1. 一种数据处理方法，其特征在于，执行数据清洗和结果输出。\n\n"
+            "## 说明书\n"
+            "本发明涉及数据处理。\n"
+        ),
+        file_name="draft.md",
+    )
+
+    run = parse_external_draft_source(project_id="project-1", source=source)
+
+    assert run.parsed_package is not None
+    assert run.parsed_package.title == "一种数据处理方法"
+    assert "一种数据处理方法" not in run.unassigned_fragments
+
+
 def test_external_draft_needs_review_when_claims_are_missing():
     source = create_external_draft_source(
         project_id="project-1",

@@ -148,11 +148,6 @@ def parse_sections(text: str) -> tuple[dict[str, str], set[str], list[str]]:
                 sections[current].append("")
             continue
 
-        markdown_title = _markdown_title(line)
-        if markdown_title and not sections["title"]:
-            sections["title"].append(markdown_title)
-            continue
-
         heading = detect_heading(line)
         if heading:
             heading_text = strip_heading_marker(line).rstrip("：:")
@@ -166,6 +161,11 @@ def parse_sections(text: str) -> tuple[dict[str, str], set[str], list[str]]:
             seen.add(heading)
             if heading == "title" and heading_text not in SECTION_ALIASES["title"]:
                 sections["title"].append(heading_text)
+            continue
+
+        markdown_title = _markdown_title(line)
+        if markdown_title and not sections["title"]:
+            sections["title"].append(markdown_title)
             continue
 
         if current:
