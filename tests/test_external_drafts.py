@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+import backend.app.external_drafts as external_drafts
 from backend.app.schemas import (
     DraftPackage,
     ExternalDraftIntakeRun,
@@ -161,6 +162,73 @@ def test_markdown_h1_title_heading_uses_following_line_as_title():
     assert run.parsed_package is not None
     assert run.parsed_package.title == "一种数据处理方法"
     assert "一种数据处理方法" not in run.unassigned_fragments
+
+
+def test_bare_name_inside_description_does_not_reset_title_section():
+    source = create_external_draft_source(
+        project_id="project-1",
+        source_type="pasted_text",
+        text=(
+            "发明名称\n"
+            "一种数据处理方法\n"
+            "权利要求书\n"
+            "1. 一种数据处理方法，其特征在于，处理字段名称。\n"
+            "说明书\n"
+            "本发明涉及数据处理。\n"
+            "名称\n"
+            "该字段名称用于标识数据列。\n"
+        ),
+        file_name="pasted.txt",
+    )
+
+    run = parse_external_draft_source(project_id="project-1", source=source)
+
+    assert run.parsed_package is not None
+    assert run.parsed_package.title == "一种数据处理方法"
+    assert "名称\n该字段名称用于标识数据列。" in run.parsed_package.description
+
+
+def test_spaced_chinese_headings_are_recognized():
+    source = create_external_draft_source(
+        project_id="project-1",
+        source_type="pasted_text",
+        text=(
+            "发明名称\n"
+            "一种数据处理方法\n"
+            "【摘 要】\n"
+            "本发明公开一种数据处理方法。\n"
+            "**权 利 要 求 书：**\n"
+            "1. 一种数据处理方法，其特征在于，执行数据清洗。\n"
+            "（说 明 书）\n"
+            "本发明涉及数据处理。\n"
+        ),
+        file_name="pasted.txt",
+    )
+
+    run = parse_external_draft_source(project_id="project-1", source=source)
+
+    assert run.status == "completed"
+    assert run.parsed_package is not None
+    assert run.parsed_package.abstract == "本发明公开一种数据处理方法。"
+    assert "执行数据清洗" in run.parsed_package.claims
+    assert run.parsed_package.description == "本发明涉及数据处理。"
+
+
+def test_external_draft_parser_programmer_errors_surface(monkeypatch):
+    source = create_external_draft_source(
+        project_id="project-1",
+        source_type="pasted_text",
+        text="发明名称\n一种数据处理方法\n权利要求书\n1. 一种方法。\n说明书\n本发明涉及数据处理。",
+        file_name="pasted.txt",
+    )
+
+    def raise_runtime_error(raw_text):
+        raise RuntimeError(f"boom: {raw_text[:4]}")
+
+    monkeypatch.setattr(external_drafts, "parse_sections", raise_runtime_error)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        parse_external_draft_source(project_id="project-1", source=source)
 
 
 def test_external_draft_needs_review_when_claims_are_missing():

@@ -21,7 +21,7 @@ from backend.app.schemas import (
 PARSER_VERSION = "external-draft-parser-v1"
 
 SECTION_ALIASES: dict[str, tuple[str, ...]] = {
-    "title": ("发明名称", "名称", "题名"),
+    "title": ("发明名称", "题名"),
     "abstract": ("摘要", "摘要附图"),
     "claims": ("权利要求书", "权利要求", "权利要求书正文"),
     "description": ("说明书", "技术领域", "背景技术", "发明内容", "具体实施方式", "实施例"),
@@ -84,47 +84,25 @@ def parse_external_draft_source(*, project_id: str, source: ExternalDraftSource)
             detail=f"source_id={source.id}; source_type={source.source_type}",
         )
     ]
-    try:
-        sections, duplicate_sections, unassigned = parse_sections(source.raw_text)
-        issues = intake_issues_from_sections(sections, duplicate_sections, source.raw_text)
-        package = package_from_sections(sections)
-        status = "needs_review" if any(issue.blocks_quality_run for issue in issues) else "completed"
-        return ExternalDraftIntakeRun(
-            id=uuid.uuid4().hex,
-            project_id=project_id,
-            source_id=source.id,
-            status=status,
-            parser_version=PARSER_VERSION,
-            source_hash=source.content_hash,
-            parsed_package=package,
-            section_confidence=section_confidence_from_sections(sections),
-            intake_issues=issues,
-            unassigned_fragments=unassigned,
-            working_draft_hash=working_draft_hash(package),
-            logs=logs,
-            created_at=utc_now_iso(),
-        )
-    except Exception as exc:
-        logs.append(
-            DeliberationLogEntry(
-                level="error",
-                phase="external_draft_intake",
-                provider_id="system",
-                message="external draft intake failed",
-                detail=f"{type(exc).__name__}: {exc}",
-                repair_suggestion="改用纯文本粘贴或 Markdown 文件重新导入。",
-            )
-        )
-        return ExternalDraftIntakeRun(
-            id=uuid.uuid4().hex,
-            project_id=project_id,
-            source_id=source.id,
-            status="failed",
-            parser_version=PARSER_VERSION,
-            source_hash=source.content_hash,
-            logs=logs,
-            created_at=utc_now_iso(),
-        )
+    sections, duplicate_sections, unassigned = parse_sections(source.raw_text)
+    issues = intake_issues_from_sections(sections, duplicate_sections, source.raw_text)
+    package = package_from_sections(sections)
+    status = "needs_review" if any(issue.blocks_quality_run for issue in issues) else "completed"
+    return ExternalDraftIntakeRun(
+        id=uuid.uuid4().hex,
+        project_id=project_id,
+        source_id=source.id,
+        status=status,
+        parser_version=PARSER_VERSION,
+        source_hash=source.content_hash,
+        parsed_package=package,
+        section_confidence=section_confidence_from_sections(sections),
+        intake_issues=issues,
+        unassigned_fragments=unassigned,
+        working_draft_hash=working_draft_hash(package),
+        logs=logs,
+        created_at=utc_now_iso(),
+    )
 
 
 def normalize_text(text: str) -> str:
@@ -151,7 +129,7 @@ def parse_sections(text: str) -> tuple[dict[str, str], set[str], list[str]]:
         heading = detect_heading(line)
         if heading:
             heading_text = strip_heading_marker(line).rstrip("：:")
-            if current == "description" and heading == "description" and heading_text in DESCRIPTION_SUBHEADINGS:
+            if current == "description" and heading == "description" and _is_description_subheading(heading_text):
                 sections[current].append(raw_line)
                 continue
 
@@ -159,7 +137,7 @@ def parse_sections(text: str) -> tuple[dict[str, str], set[str], list[str]]:
             if heading in seen:
                 duplicate_sections.add(heading)
             seen.add(heading)
-            if heading == "title" and heading_text not in SECTION_ALIASES["title"]:
+            if heading == "title" and _canonical_heading_text(heading_text) not in _canonical_aliases("title"):
                 sections["title"].append(heading_text)
             continue
 
@@ -178,9 +156,9 @@ def parse_sections(text: str) -> tuple[dict[str, str], set[str], list[str]]:
 
 
 def detect_heading(line: str) -> str:
-    cleaned = strip_heading_marker(line).rstrip("：:")
-    for section, aliases in SECTION_ALIASES.items():
-        if cleaned in aliases:
+    cleaned = _canonical_heading_text(line)
+    for section in SECTION_ALIASES:
+        if cleaned in _canonical_aliases(section):
             return section
     return ""
 
@@ -189,6 +167,20 @@ def strip_heading_marker(line: str) -> str:
     stripped = re.sub(r"^#{1,6}\s*", "", line.strip())
     stripped = re.sub(r"^\*\*(.+)\*\*$", r"\1", stripped)
     return stripped.strip()
+
+
+def _canonical_heading_text(line: str) -> str:
+    stripped = strip_heading_marker(line)
+    stripped = stripped.strip(" \t\r\n:：;；。．.、-—_[]【】()（）<>《》「」『』“”\"'")
+    return re.sub(r"\s+", "", stripped)
+
+
+def _canonical_aliases(section: str) -> set[str]:
+    return {_canonical_heading_text(alias) for alias in SECTION_ALIASES[section]}
+
+
+def _is_description_subheading(heading_text: str) -> bool:
+    return _canonical_heading_text(heading_text) in {_canonical_heading_text(text) for text in DESCRIPTION_SUBHEADINGS}
 
 
 def package_from_sections(sections: dict[str, str]) -> DraftPackage:
