@@ -1,6 +1,10 @@
+import pytest
+from pydantic import ValidationError
+
 from backend.app.schemas import (
     DraftPackage,
     ExternalDraftIntakeRun,
+    ExternalDraftReviewBundle,
     ExternalDraftSource,
     ExternalDraftSourceCreate,
     IntakeIssue,
@@ -68,3 +72,29 @@ def test_external_draft_models_capture_source_intake_and_confidence():
     assert run.status == "needs_review"
     assert run.section_confidence.claims.score == 0.95
     assert run.intake_issues[0].category == "missing_section"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"source_type": "pasted_text", "text": ""},
+        {"source_type": "pasted_text", "text": "   "},
+        {"source_type": "markdown_file", "text": "", "file_content": ""},
+        {"source_type": "markdown_file", "text": "  ", "file_content": "\n\t"},
+        {"source_type": "docx_file", "text": "", "file_content": ""},
+        {"source_type": "docx_file", "text": "  ", "file_content": "\n\t"},
+    ],
+)
+def test_external_draft_source_create_rejects_empty_content_for_source_type(payload):
+    with pytest.raises(ValidationError):
+        ExternalDraftSourceCreate(**payload)
+
+
+def test_external_draft_review_bundle_scores_are_bounded_when_present():
+    assert ExternalDraftReviewBundle(project_id="project-1", initial_score=0, latest_score=100).latest_score == 100
+
+    with pytest.raises(ValidationError):
+        ExternalDraftReviewBundle(project_id="project-1", initial_score=-1)
+
+    with pytest.raises(ValidationError):
+        ExternalDraftReviewBundle(project_id="project-1", latest_score=999)

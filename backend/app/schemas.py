@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class SectionType(str, Enum):
@@ -403,6 +403,16 @@ class ExternalDraftSourceCreate(BaseModel):
     file_name: str = ""
     file_content: str = ""
 
+    @model_validator(mode="after")
+    def validate_source_content(self) -> ExternalDraftSourceCreate:
+        text = self.text.strip()
+        file_content = self.file_content.strip()
+        if self.source_type == "pasted_text" and not text:
+            raise ValueError("pasted_text requires non-empty text")
+        if self.source_type in {"markdown_file", "docx_file"} and not (text or file_content):
+            raise ValueError(f"{self.source_type} requires non-empty text or file_content")
+        return self
+
 
 class ExternalDraftSource(BaseModel):
     id: str
@@ -473,8 +483,8 @@ class ExternalDraftReviewBundle(BaseModel):
     project_id: str
     source_id: str = ""
     intake_run_id: str = ""
-    initial_score: int | None = None
-    latest_score: int | None = None
+    initial_score: int | None = Field(default=None, ge=0, le=100)
+    latest_score: int | None = Field(default=None, ge=0, le=100)
     accepted_patch_ids: list[str] = Field(default_factory=list)
     completion_run_ids: list[str] = Field(default_factory=list)
     official_compile_run_id: str = ""
