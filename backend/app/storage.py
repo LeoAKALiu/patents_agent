@@ -673,10 +673,10 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 insert into disclosure_runs(
-                    id, project_id, status, trace, max_prior_art_results, run_dir,
+                    id, project_id, status, trace, max_prior_art_results, research_mode, run_dir,
                     stage_results_json, package_json, failures_json, events_json
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._disclosure_run_values(run),
             )
@@ -687,8 +687,8 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 update disclosure_runs
-                set status = ?, trace = ?, max_prior_art_results = ?, run_dir = ?,
-                    stage_results_json = ?, package_json = ?, failures_json = ?,
+                set status = ?, trace = ?, max_prior_art_results = ?, research_mode = ?,
+                    run_dir = ?, stage_results_json = ?, package_json = ?, failures_json = ?,
                     events_json = ?, updated_at = current_timestamp
                 where id = ? and project_id = ?
                 """,
@@ -696,6 +696,7 @@ class SQLiteStore:
                     run.status,
                     1 if run.trace else 0,
                     run.max_prior_art_results,
+                    run.research_mode,
                     run.run_dir,
                     json.dumps(run.stage_results, ensure_ascii=False),
                     json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False) if run.package else None,
@@ -1008,6 +1009,7 @@ class SQLiteStore:
                     status text not null,
                     trace integer not null default 0,
                     max_prior_art_results integer not null default 8,
+                    research_mode text not null default 'standard',
                     run_dir text not null,
                     stage_results_json text not null,
                     package_json text,
@@ -1024,6 +1026,7 @@ class SQLiteStore:
             self._ensure_column("formula_runs", "providers_json", "text not null default '[]'")
             self._ensure_column("post_draft_review_runs", "official_compile_run_id", "text not null default ''")
             self._ensure_column("post_draft_review_runs", "official_package_hash", "text not null default ''")
+            self._ensure_column("disclosure_runs", "research_mode", "text not null default 'standard'")
 
     def _migrate_project_patent_points_primary_key(self) -> None:
         columns = self.connection.execute("pragma table_info(project_patent_points)").fetchall()
@@ -1270,6 +1273,7 @@ class SQLiteStore:
             run.status,
             1 if run.trace else 0,
             run.max_prior_art_results,
+            run.research_mode,
             run.run_dir,
             json.dumps(run.stage_results, ensure_ascii=False),
             json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False) if run.package else None,
@@ -1279,12 +1283,20 @@ class SQLiteStore:
 
     def _disclosure_run_from_row(self, row: sqlite3.Row) -> DisclosureRun:
         package_json: str | None = row["package_json"]
+        # research_mode column was introduced after the initial schema; the
+        # ALTER TABLE in _post_init backfills "standard" for legacy rows, but
+        # fall back defensively in case a row was written before the migration.
+        try:
+            research_mode = row["research_mode"] or "standard"
+        except (IndexError, KeyError):
+            research_mode = "standard"
         return DisclosureRun(
             id=row["id"],
             project_id=row["project_id"],
             status=row["status"],
             trace=bool(row["trace"]),
             max_prior_art_results=row["max_prior_art_results"],
+            research_mode=research_mode,
             run_dir=row["run_dir"],
             stage_results=json.loads(row["stage_results_json"]),
             package=json.loads(package_json) if package_json else None,

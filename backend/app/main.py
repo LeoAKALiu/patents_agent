@@ -40,8 +40,15 @@ from backend.app.post_draft_review import (
     run_post_draft_review,
 )
 from backend.app.rag import LocalVectorIndex, create_vector_index
+from backend.app.research.deep_researcher import (
+    DeepResearchSearchProvider,
+    PatentDeepResearcher,
+    PriorArtProviderAdapter,
+)
+from backend.app.research.providers import ChainedResearchProvider, build_provider_chain
 from backend.app.schemas import (
     AgentFailure,
+    DeepResearchPacket,
     DeliberationRun,
     DeliberationLogEntry,
     DeliberationRunCreate,
@@ -82,6 +89,7 @@ def create_app(
     llm_client: LLMClient | None = None,
     provider_runner: object | None = None,
     prior_art_provider: object | None = None,
+    research_search_provider: DeepResearchSearchProvider | None = None,
     load_env_file: bool = True,
 ) -> FastAPI:
     settings = build_settings(load_env_file=load_env_file)
@@ -110,6 +118,7 @@ def create_app(
     app.state.llm = llm
     app.state.provider_runner = provider_runner
     app.state.prior_art_provider = prior_art_provider or PublicPriorArtProvider()
+    app.state.research_search_provider = research_search_provider
     app.state.disclosure_inline = prior_art_provider is not None
     app.state.corpus_service = CorpusImportService(store=store, index=index, data_dir=settings.data_dir)
 
@@ -339,6 +348,7 @@ def create_app(
             status="queued",
             trace=payload.trace,
             max_prior_art_results=payload.max_prior_art_results,
+            research_mode=payload.research_mode,
             run_dir=str(run_dir),
         )
         store.create_disclosure_run(run)
@@ -348,6 +358,7 @@ def create_app(
                 index=index,
                 llm=app.state.llm,
                 prior_art_provider=app.state.prior_art_provider,
+                research_search_provider=app.state.research_search_provider,
                 project=project,
                 run=run,
             )
@@ -358,6 +369,7 @@ def create_app(
             index,
             app.state.llm,
             app.state.prior_art_provider,
+            app.state.research_search_provider,
             project,
             run,
         )
@@ -955,6 +967,7 @@ def _execute_disclosure(
     index: LocalVectorIndex,
     llm: LLMClient,
     prior_art_provider: object,
+    research_search_provider: DeepResearchSearchProvider | None,
     project: ProjectRecord,
     run: DisclosureRun,
 ) -> DisclosureRun:
@@ -973,6 +986,27 @@ def _execute_disclosure(
             max_prior_art_results=run.max_prior_art_results,
             user_candidates=user_candidates,
         )
+        events: list[str] = [
+            *running.events,
+            "project scan completed",
+            "patent points generated",
+            "prior art search completed",
+            "disclosure package generated",
+        ]
+        # Optional supplement: free deep research mode runs AFTER the standard
+        # disclosure pipeline, appends its stages, and decorates the package
+        # supporting fields (never the canonical/official draft surface).
+        if run.research_mode == "free_deep_research":
+            package, deep_stages, deep_warnings = _apply_free_deep_research(
+                llm=llm,
+                prior_art_provider=prior_art_provider,
+                research_search_provider=research_search_provider,
+                project=project,
+                package=package,
+            )
+            stage_results.extend(deep_stages)
+            warnings.extend(deep_warnings)
+            events.append("free deep research supplement completed")
         run_dir = Path(run.run_dir)
         write_disclosure_artifacts(package, run_dir)
         completed = running.model_copy(
@@ -981,11 +1015,7 @@ def _execute_disclosure(
                 "stage_results": stage_results,
                 "package": package,
                 "events": [
-                    *running.events,
-                    "project scan completed",
-                    "patent points generated",
-                    "prior art search completed",
-                    "disclosure package generated",
+                    *events,
                     *[f"warning: {warning}" for warning in warnings],
                 ],
             }
@@ -998,6 +1028,130 @@ def _execute_disclosure(
         failed = running.model_copy(update={"status": "failed", "failures": [str(exc)], "events": [*running.events, f"run failed: {exc}"]})
         store.update_disclosure_run(failed)
         return failed
+
+
+def _apply_free_deep_research(
+    *,
+    llm: LLMClient,
+    prior_art_provider: object,
+    research_search_provider: DeepResearchSearchProvider | None = None,
+    project: ProjectRecord,
+    package: DisclosurePackage,
+) -> tuple[DisclosurePackage, list[dict[str, object]], list[str]]:
+    """Run the patent deep researcher and merge supporting outputs into the
+    disclosure package.
+
+    Boundaries (enforced here):
+      * Never mutates ``body_markdown`` (the canonical disclosure body).
+      * Never touches OfficialDraftCompiler or any export-gate state.
+      * Web content / prompts / wrapper JSON stay INSIDE ``stage_results``;
+        only short, human-readable summaries are surfaced on the package.
+    """
+
+    provider_names: list[str] = []
+    provider_warnings: list[str] = []
+    if research_search_provider is not None:
+        search_provider = research_search_provider
+        provider_names = list(getattr(research_search_provider, "provider_names", []))
+    else:
+        try:
+            providers, provider_warnings = build_provider_chain(
+                patent_provider=prior_art_provider,
+            )
+            search_provider = ChainedResearchProvider(providers, provider_warnings)
+            provider_names = list(search_provider.provider_names)
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            provider_warnings = [f"research provider chain failed; fell back to patent provider: {exc}"]
+            search_provider = PriorArtProviderAdapter(prior_art_provider)  # type: ignore[arg-type]
+            provider_names = ["patent"]
+
+    researcher = PatentDeepResearcher(
+        llm=llm,
+        search_provider=search_provider,
+        provider_names=provider_names,
+    )
+    try:
+        packet, deep_stages = researcher.research(
+            project=project,
+            candidates=list(package.candidates),
+            selected_candidate_id=package.selected_candidate_id,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        warning = f"free_deep_research failed: {exc}"
+        deep_stages = [
+            {
+                "phase": "deep_research_failed",
+                "payload": {"error": str(exc)},
+            }
+        ]
+        packet = DeepResearchPacket(
+            status="failed",
+            project_id=project.id,
+            warnings=[warning],
+            generation_logs=[warning],
+        )
+
+    augmented_logs = list(package.generation_logs)
+    augmented_logs.append(
+        "free_deep_research: internal supporting research packet generated; "
+        "does not replace deliberation or official export gate."
+    )
+    augmented_logs.extend(
+        f"deep_research: {line}" for line in packet.generation_logs
+    )
+
+    augmented_diffs = package.prior_art_differences or ""
+    summary_parts: list[str] = []
+    if packet.differentiators:
+        summary_parts.append("差异要点：" + "；".join(packet.differentiators[:5]))
+    if packet.novelty_opportunities:
+        summary_parts.append("新颖性方向：" + "；".join(packet.novelty_opportunities[:5]))
+    if packet.claim_drafting_constraints:
+        summary_parts.append("撰写约束：" + "；".join(packet.claim_drafting_constraints[:5]))
+    if summary_parts:
+        # prior_art_differences is later used as draft-generation context, so
+        # keep it to neutral technical distinctions only. Internal process
+        # labels stay in generation_logs and stage_results.
+        suffix = "\n\n补充现有技术差异分析：\n" + "\n".join(summary_parts)
+        augmented_diffs = (augmented_diffs + suffix).strip()
+
+    candidate_completion_tasks = packet.suggested_completion_tasks[:5]
+    updated_candidates = []
+    for candidate in package.candidates:
+        if candidate.id == package.selected_candidate_id and candidate_completion_tasks:
+            merged_experiments = list(candidate.experiment_needed) + [
+                task for task in candidate_completion_tasks if task not in candidate.experiment_needed
+            ]
+            merged_gaps = list(candidate.support_gaps)
+            for diff in packet.claim_drafting_constraints[:3]:
+                if diff and diff not in merged_gaps:
+                    merged_gaps.append(diff)
+            updated_candidates.append(
+                candidate.model_copy(
+                    update={
+                        "experiment_needed": merged_experiments,
+                        "support_gaps": merged_gaps,
+                    }
+                )
+            )
+        else:
+            updated_candidates.append(candidate)
+
+    augmented_package = package.model_copy(
+        update={
+            "candidates": updated_candidates,
+            "prior_art_differences": augmented_diffs,
+            "generation_logs": augmented_logs,
+        }
+    )
+    warnings_out = list(packet.warnings)
+    if packet.status == "failed":
+        warnings_out.append("free_deep_research: packet status=failed; standard disclosure preserved.")
+    elif packet.status == "partial":
+        warnings_out.append(
+            "free_deep_research: packet status=partial; consider expanding materials or search terms."
+        )
+    return augmented_package, deep_stages, warnings_out
 
 
 def _execute_deliberation(

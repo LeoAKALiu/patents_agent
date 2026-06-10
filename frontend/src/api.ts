@@ -371,6 +371,7 @@ export interface DisclosureRun {
   status: "queued" | "running" | "completed" | "failed" | "interrupted";
   trace: boolean;
   max_prior_art_results: number;
+  research_mode?: "standard" | "free_deep_research";
   run_dir: string;
   stage_results: Array<{ phase: string; payload: Record<string, unknown> | unknown[] }>;
   package: DisclosurePackage | null;
@@ -722,11 +723,21 @@ export async function deleteProjectPatentPoint(projectId: string, pointId: strin
   return request<{ ok: boolean }>(`/api/projects/${projectId}/patent-points/${pointId}`, { method: "DELETE" });
 }
 
-export async function startProjectDisclosure(projectId: string, trace = false): Promise<DisclosureRun> {
+export type DisclosureResearchMode = "standard" | "free_deep_research";
+
+export async function startProjectDisclosure(
+  projectId: string,
+  trace = false,
+  researchMode: DisclosureResearchMode = "standard",
+): Promise<DisclosureRun> {
   return request<DisclosureRun>(`/api/projects/${projectId}/disclosures`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ trace, max_prior_art_results: 8 }),
+    body: JSON.stringify({
+      trace,
+      max_prior_art_results: 8,
+      research_mode: researchMode,
+    }),
   });
 }
 
