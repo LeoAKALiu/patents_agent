@@ -172,6 +172,8 @@ function App() {
   const [currentDraftHash, setCurrentDraftHash] = useState("");
   const [selectedDeliberationProviders, setSelectedDeliberationProviders] = useState<string[]>(requiredAgentProviderIds);
   const [selectedFormulaProviders, setSelectedFormulaProviders] = useState<string[]>(requiredAgentProviderIds);
+  const [disclosureResearchMode, setDisclosureResearchMode] =
+    useState<"standard" | "free_deep_research">("standard");
   const [filingReports, setFilingReports] = useState<FilingReadinessReport[]>([]);
   const [worksheets, setWorksheets] = useState<ClaimDefenseWorksheet[]>([]);
   const [completionRuns, setCompletionRuns] = useState<DraftCompletionRun[]>([]);
@@ -582,10 +584,14 @@ function App() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     await withStatus("disclosure", async () => {
-      const run = await startProjectDisclosure(projectId, trace);
+      const run = await startProjectDisclosure(projectId, trace, disclosureResearchMode);
       const stillSelected = await loadDisclosures(projectId);
       if (!stillSelected) return;
-      setMessage(`前置材料生成已${run.status === "completed" ? "完成" : "启动"}：${run.status}`);
+      const modeLabel =
+        disclosureResearchMode === "free_deep_research" ? "（免费 Deep Research 补充）" : "";
+      setMessage(
+        `前置材料生成已${run.status === "completed" ? "完成" : "启动"}${modeLabel}：${run.status}`,
+      );
     });
   }
 
@@ -1088,6 +1094,8 @@ function App() {
             busyElapsedSeconds={busyTimer.elapsedSeconds}
             onCreateIdeaProject={handleCreateIdeaProject}
             onUploadMaterial={handleUploadMaterial}
+            disclosureResearchMode={disclosureResearchMode}
+            onChangeDisclosureResearchMode={setDisclosureResearchMode}
             onStartDisclosure={() => void handleStartDisclosure(false)}
             onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
             onStartDeliberation={() => void handleStartDeliberation(false)}

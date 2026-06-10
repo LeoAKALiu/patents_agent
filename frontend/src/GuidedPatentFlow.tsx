@@ -71,6 +71,8 @@ export type GuidedPatentFlowProps = {
   busyElapsedSeconds?: number;
   onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode }) => Promise<void>;
   onUploadMaterial: (event: FormEvent<HTMLFormElement>) => void;
+  disclosureResearchMode: "standard" | "free_deep_research";
+  onChangeDisclosureResearchMode: (mode: "standard" | "free_deep_research") => void;
   onStartDisclosure: () => void;
   onSelectPatentPoint: (point: PatentPointCandidate, candidates: PatentPointCandidate[]) => void;
   onStartDeliberation: () => void;
@@ -157,6 +159,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           patentPoints={props.patentPoints}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
+          researchMode={props.disclosureResearchMode}
+          onChangeResearchMode={props.onChangeDisclosureResearchMode}
           onUploadMaterial={props.onUploadMaterial}
           onStartDisclosure={props.onStartDisclosure}
           onSelectPatentPoint={props.onSelectPatentPoint}
@@ -416,6 +420,8 @@ function InventionPointConfirmation({
   patentPoints,
   busy,
   busyElapsedSeconds,
+  researchMode,
+  onChangeResearchMode,
   onUploadMaterial,
   onStartDisclosure,
   onSelectPatentPoint,
@@ -426,6 +432,8 @@ function InventionPointConfirmation({
   patentPoints: PatentPointCandidate[];
   busy: string;
   busyElapsedSeconds: number;
+  researchMode: "standard" | "free_deep_research";
+  onChangeResearchMode: (mode: "standard" | "free_deep_research") => void;
   onUploadMaterial: GuidedPatentFlowProps["onUploadMaterial"];
   onStartDisclosure: () => void;
   onSelectPatentPoint: GuidedPatentFlowProps["onSelectPatentPoint"];
@@ -467,9 +475,31 @@ function InventionPointConfirmation({
       </form>
       <MaterialSummary materials={materials} />
       {needsGeneration && (
+        <div className="guided-research-mode" data-testid="disclosure-research-mode">
+          <label htmlFor="disclosure-research-mode-select" className="guided-research-mode-label">
+            研究模式
+          </label>
+          <select
+            id="disclosure-research-mode-select"
+            value={researchMode}
+            onChange={(event) =>
+              onChangeResearchMode(event.target.value as "standard" | "free_deep_research")
+            }
+          >
+            <option value="standard">标准（默认）</option>
+            <option value="free_deep_research">免费 Deep Research（公开检索 + 多轮分析）</option>
+          </select>
+          <p className="guided-research-mode-hint">
+            {researchMode === "free_deep_research"
+              ? "免费 Deep Research 将在系统内执行公开专利、arXiv/OpenAlex 论文检索与多轮 LLM 分析；配置 Tavily、Exa、Semantic Scholar 等 API key 时会自动扩展检索源，未配置也会用免费公开源降级运行。它仅生成内部补充材料，不替代多 Agent 会审，不解锁正式稿导出。"
+              : "标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。"}
+          </p>
+        </div>
+      )}
+      {needsGeneration && (
         <button className="primary" disabled={busy === "disclosure"} onClick={onStartDisclosure} type="button">
           {busy === "disclosure" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
-          <span>提炼发明点</span>
+          <span>{researchMode === "free_deep_research" ? "提炼发明点（免费 Deep Research）" : "提炼发明点"}</span>
         </button>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "disclosure"} />

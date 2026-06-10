@@ -650,6 +650,76 @@ class DisclosureSelfCheckFinding(BaseModel):
     suggestion: str
 
 
+# --- Free Deep Research (internal-only research packet) ----------------------
+# These models back the optional `free_deep_research` mode on
+# DisclosureRunCreate. The packet they assemble is INTERNAL ONLY: it augments
+# the disclosure stage_results and the supporting (non-canonical) parts of the
+# disclosure package; it is never read by OfficialDraftCompiler nor exported.
+
+DEEP_RESEARCH_CATEGORIES = (
+    "prior_art_cluster",
+    "novelty_opportunity",
+    "differentiator",
+    "claim_constraint",
+    "evidence_gap",
+    "warning",
+    "completion_task",
+)
+
+
+class DeepResearchEvidenceRef(BaseModel):
+    """Pointer to a single supporting source used in a deep-research finding."""
+
+    source: str = ""
+    query: str = ""
+    title: str = ""
+    publication_number: str | None = None
+    url: str = ""
+    relevance: str = ""
+
+
+class DeepResearchFinding(BaseModel):
+    """One structured finding produced by a deep-research cycle."""
+
+    id: str
+    category: str = Field(
+        pattern="^(prior_art_cluster|novelty_opportunity|differentiator|claim_constraint|evidence_gap|warning|completion_task)$"
+    )
+    title: str
+    summary: str = ""
+    severity: str = Field(default="medium", pattern="^(low|medium|high)$")
+    suggested_action: str = ""
+    evidence: list[DeepResearchEvidenceRef] = Field(default_factory=list)
+
+
+class DeepResearchPacket(BaseModel):
+    """Internal supporting research packet for `free_deep_research` mode.
+
+    This packet MUST NOT be consumed by OfficialDraftCompiler or any
+    official-export path. It is persisted into the disclosure run's
+    ``stage_results`` and surfaced to the user as supporting analysis.
+    """
+
+    status: str = Field(default="completed", pattern="^(completed|partial|failed)$")
+    cycles: int = 0
+    project_id: str = ""
+    query_plan: list[str] = Field(default_factory=list)
+    queries_run: list[str] = Field(default_factory=list)
+    prior_art_clusters: list[dict[str, list[str]]] = Field(default_factory=list)
+    novelty_opportunities: list[str] = Field(default_factory=list)
+    differentiators: list[str] = Field(default_factory=list)
+    claim_drafting_constraints: list[str] = Field(default_factory=list)
+    obviousness_risks: list[str] = Field(default_factory=list)
+    evidence_map: dict[str, list[str]] = Field(default_factory=dict)
+    evidence_ledger: list[dict] = Field(default_factory=list)
+    provider_chain: list[str] = Field(default_factory=list)
+    suggested_completion_tasks: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    findings: list[DeepResearchFinding] = Field(default_factory=list)
+    generation_logs: list[str] = Field(default_factory=list)
+    internal_only: bool = True
+
+
 class DisclosurePackage(BaseModel):
     title: str
     summary: str
@@ -676,6 +746,15 @@ class DisclosurePackage(BaseModel):
 class DisclosureRunCreate(BaseModel):
     trace: bool = False
     max_prior_art_results: int = Field(default=8, ge=0, le=20)
+    # research_mode toggles the internal-only "free deep research" supplement.
+    # standard            -> existing disclosure pipeline, unchanged.
+    # free_deep_research  -> run patent deep researcher AFTER the standard
+    #                       generator, append findings to stage_results, and
+    #                       surface internal analysis hints in the package.
+    research_mode: str = Field(
+        default="standard",
+        pattern="^(standard|free_deep_research)$",
+    )
 
 
 class DisclosureRun(BaseModel):
@@ -684,6 +763,10 @@ class DisclosureRun(BaseModel):
     status: str = Field(pattern="^(queued|running|completed|failed|interrupted)$")
     trace: bool = False
     max_prior_art_results: int = 8
+    research_mode: str = Field(
+        default="standard",
+        pattern="^(standard|free_deep_research)$",
+    )
     run_dir: str = ""
     stage_results: list[dict[str, Any]] = Field(default_factory=list)
     package: DisclosurePackage | None = None
