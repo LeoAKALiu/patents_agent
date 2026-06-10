@@ -87,12 +87,15 @@ export function agentDoctorStatusLabel(status: string): string {
   if (status === "ready") return "就绪";
   if (status === "blocked") return "已阻断";
   if (status === "degraded") return "降级可用";
+  if (status === "partial") return "部分可用";
   return status === "unknown" || !status ? "未知" : status;
 }
 
 export function agentRunModeLabel(mode: string): string {
   if (mode === "full") return "完整会审";
   if (mode === "fast") return "快速会审";
+  if (mode === "minimal") return "精简会审";
+  if (mode === "partial") return "部分可用";
   if (mode === "blocked") return "已阻断";
   if (mode === "ready") return "就绪";
   return mode === "unknown" || !mode ? "未知" : mode;
@@ -101,6 +104,9 @@ export function agentRunModeLabel(mode: string): string {
 export function deliberationRunModeLabel(mode: string): string {
   if (mode === "full") return "完整会审";
   if (mode === "fast") return "快速会审";
+  if (mode === "minimal") return "精简会审";
+  if (mode === "partial") return "部分会审";
+  if (mode === "blocked") return "已阻断";
   return mode || "未知";
 }
 

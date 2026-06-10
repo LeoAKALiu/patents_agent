@@ -26,7 +26,10 @@ import {
   guidedStepLabels,
   guidedStepStatusLabel,
   mainSections,
+  officialCompileActionGate,
   patentGoalModes,
+  postDraftReviewActionGate,
+  qualityActionGate,
   qualitySummaryFromRuns,
   resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
@@ -347,14 +350,14 @@ describe("guided flow navigation", () => {
 });
 
 describe("guided step navigation helpers", () => {
-  it("blocks locked steps and allows done, current, and ready steps", () => {
+  it("only allows navigating to completed or current steps", () => {
     expect(canNavigateToGuidedStep({ status: "locked" })).toBe(false);
+    expect(canNavigateToGuidedStep({ status: "ready" })).toBe(false);
     expect(canNavigateToGuidedStep({ status: "done" })).toBe(true);
     expect(canNavigateToGuidedStep({ status: "current" })).toBe(true);
-    expect(canNavigateToGuidedStep({ status: "ready" })).toBe(true);
   });
 
-  it("resolves manual view for ready steps and rejects locked steps", () => {
+  it("rejects navigation to future locked steps", () => {
     const lockedState = deriveGuidedFlowState({
       project: null,
       materials: [],
@@ -379,12 +382,84 @@ describe("guided step navigation helpers", () => {
     });
 
     expect(resolveGuidedViewStep(state.currentStepId, "invention", state.steps)).toBe("invention");
-    expect(resolveGuidedViewStep(state.currentStepId, "export", state.steps)).toBe("export");
+    expect(resolveGuidedViewStep(state.currentStepId, "export", state.steps)).toBe(state.currentStepId);
+    expect(state.steps.find((step) => step.id === "export")?.status).toBe("locked");
   });
 
   it("labels step statuses for the navigator", () => {
     expect(guidedStepStatusLabel("done")).toBe("已完成");
     expect(guidedStepStatusLabel("locked")).toBe("未解锁");
+  });
+});
+
+describe("guided action gates", () => {
+  const packageProject = {
+    ...projectWithIdea,
+    package: {
+      title: "一种外立面逆建模方法",
+      abstract: "摘要",
+      claims: "1. 一种方法。",
+      description: "说明书",
+      drawing_description: "附图说明",
+      mermaid: "flowchart TD",
+      image_prompt: "黑白线稿",
+      review_findings: [],
+      citations: [],
+      generation_logs: [],
+    },
+  };
+
+  it("blocks official compile until quality checks complete", () => {
+    const state = deriveGuidedFlowState({
+      project: packageProject,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(state.currentStepId).toBe("quality");
+    const gate = officialCompileActionGate(state, "quality", "quality");
+    expect(gate.allowed).toBe(false);
+    expect(gate.reason).toContain("质量检查");
+  });
+
+  it("blocks post-draft review until official compile completes", () => {
+    const state = deriveGuidedFlowState({
+      project: packageProject,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [filingReport("warning")],
+      worksheets: [worksheet],
+      completionRuns: [completionRun],
+    });
+
+    expect(state.currentStepId).toBe("officialCompile");
+    const gate = postDraftReviewActionGate(state, "postReview", "postReview");
+    expect(gate.allowed).toBe(false);
+    expect(gate.reason).toContain("正式稿编译");
+  });
+
+  it("blocks quality actions without a draft package", () => {
+    const state = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [patentPoint(true)],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    const gate = qualityActionGate(state, "draft", "draft");
+    expect(gate.allowed).toBe(false);
+    expect(gate.reason).toContain("初稿");
   });
 });
 

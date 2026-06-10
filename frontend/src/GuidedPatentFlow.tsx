@@ -41,11 +41,15 @@ import {
   deriveGuidedFlowState,
   guidedOperationLog,
   guidedStepStatusLabel,
+  officialCompileActionGate,
   patentGoalModes,
+  postDraftReviewActionGate,
+  qualityActionGate,
   qualitySummaryFromRuns,
   resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
   selectLatestMatchingPostDraftReview,
+  type GuidedActionGate,
   type GuidedFlowState,
   type GuidedStepId,
   type GuidedStepState,
@@ -227,6 +231,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       )}
       {displayedStepId === "quality" && (
         <QualityPanel
+          actionGate={qualityActionGate(state, state.currentStepId, displayedStepId)}
           filingReport={latestFilingReport}
           worksheet={latestWorksheet}
           completionRun={latestCompletionRun}
@@ -240,6 +245,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       )}
       {displayedStepId === "officialCompile" && (
         <OfficialCompilePanel
+          actionGate={officialCompileActionGate(state, state.currentStepId, displayedStepId)}
           project={props.project}
           run={latestOfficialCompileRun}
           runs={props.officialCompileRuns}
@@ -251,6 +257,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       )}
       {displayedStepId === "postReview" && (
         <PostDraftReviewPanel
+          actionGate={postDraftReviewActionGate(state, state.currentStepId, displayedStepId)}
           project={props.project}
           review={latestMatchingPostDraftReview}
           runs={props.postDraftReviews}
@@ -782,7 +789,15 @@ function FormulaPanel({
   );
 }
 
+function ActionGateHint({ gate }: { gate: GuidedActionGate }) {
+  if (gate.allowed || !gate.reason) {
+    return null;
+  }
+  return <p className="workflow-hint">{gate.reason}</p>;
+}
+
 function QualityPanel({
+  actionGate,
   filingReport,
   worksheet,
   completionRun,
@@ -793,6 +808,7 @@ function QualityPanel({
   onAcceptPatch,
   onOpenExpertTool,
 }: {
+  actionGate: GuidedActionGate;
   filingReport: FilingReadinessReport | null;
   worksheet: ClaimDefenseWorksheet | null;
   completionRun: DraftCompletionRun | null;
@@ -804,6 +820,7 @@ function QualityPanel({
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   const summary = qualitySummaryFromRuns({ filingReport, worksheet, completionRun });
+  const actionsDisabled = !actionGate.allowed || Boolean(busy);
   return (
     <section className="guided-panel">
       <div className="guided-panel-heading">
@@ -827,12 +844,25 @@ function QualityPanel({
           查看初稿完善
         </button>
       </div>
+      <ActionGateHint gate={actionGate} />
       <div className="button-row">
-        <button className="primary" disabled={Boolean(busy)} onClick={onRunQualityChecks} type="button">
+        <button
+          className="primary"
+          disabled={actionsDisabled}
+          onClick={onRunQualityChecks}
+          title={actionGate.reason || undefined}
+          type="button"
+        >
           {busy === "guided-quality" ? <Loader2 className="spin" size={17} /> : <Gauge size={17} />}
           <span>运行质量检查</span>
         </button>
-        <button className="primary" disabled={Boolean(busy)} onClick={onImproveScore} type="button">
+        <button
+          className="primary"
+          disabled={actionsDisabled}
+          onClick={onImproveScore}
+          title={actionGate.reason || undefined}
+          type="button"
+        >
           {busy === "score-improve" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
           <span>一键提升分数</span>
         </button>
@@ -885,6 +915,7 @@ function ScoreTile({ label, value }: { label: string; value: string }) {
 }
 
 function OfficialCompilePanel({
+  actionGate,
   project,
   run,
   runs,
@@ -893,6 +924,7 @@ function OfficialCompilePanel({
   busyElapsedSeconds,
   onStartOfficialCompile,
 }: {
+  actionGate: GuidedActionGate;
   project: ProjectRecord | null;
   run: OfficialCompileRun | null;
   runs: OfficialCompileRun[];
@@ -925,10 +957,12 @@ function OfficialCompilePanel({
           当前正式稿编译已阻断，请查看编译报告并处理阻断项。
         </p>
       )}
+      <ActionGateHint gate={actionGate} />
       <button
         className="primary"
-        disabled={!project?.package || busy === "official-compile"}
+        disabled={!actionGate.allowed || busy === "official-compile"}
         onClick={onStartOfficialCompile}
+        title={actionGate.reason || undefined}
         type="button"
       >
         {busy === "official-compile" ? <Loader2 className="spin" size={17} /> : <FileText size={17} />}
@@ -963,6 +997,7 @@ function OfficialCompilePanel({
 }
 
 function PostDraftReviewPanel({
+  actionGate,
   project,
   review,
   runs,
@@ -975,6 +1010,7 @@ function PostDraftReviewPanel({
   onStartPostDraftReview,
   onToggleProvider,
 }: {
+  actionGate: GuidedActionGate;
   project: ProjectRecord | null;
   review: PostDraftReviewRun | null;
   runs: PostDraftReviewRun[];
@@ -1010,13 +1046,15 @@ function PostDraftReviewPanel({
         doctor={doctor}
         role="post_review"
         selectedProviders={selectedProviders}
-        disabled={busy === "post-draft-review"}
+        disabled={!actionGate.allowed || busy === "post-draft-review"}
         onToggleProvider={onToggleProvider}
       />
+      <ActionGateHint gate={actionGate} />
       <button
         className="primary"
-        disabled={!project?.package || busy === "post-draft-review"}
+        disabled={!actionGate.allowed || busy === "post-draft-review"}
         onClick={onStartPostDraftReview}
+        title={actionGate.reason || undefined}
         type="button"
       >
         {busy === "post-draft-review" ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}

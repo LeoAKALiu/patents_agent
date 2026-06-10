@@ -206,9 +206,76 @@ export const guidedStepDefinitions: Array<Omit<GuidedStepState, "status">> = [
 
 export const guidedStepLabels = guidedStepDefinitions.map((step) => step.label);
 
+export type GuidedActionGate = {
+  allowed: boolean;
+  reason: string;
+};
+
 /** Whether the user may open this step in the guided navigator (view-only; does not advance workflow). */
 export function canNavigateToGuidedStep(step: Pick<GuidedStepState, "status">): boolean {
-  return step.status !== "locked";
+  return step.status === "done" || step.status === "current";
+}
+
+/** Block panel actions when the user is browsing a non-current step. */
+export function currentStepActionGate(
+  workflowStepId: GuidedStepId,
+  displayedStepId: GuidedStepId,
+): GuidedActionGate {
+  if (displayedStepId !== workflowStepId) {
+    return { allowed: false, reason: "请先在流程导航中回到当前步骤再继续操作。" };
+  }
+  return { allowed: true, reason: "" };
+}
+
+export function qualityActionGate(
+  state: GuidedFlowState,
+  workflowStepId: GuidedStepId,
+  displayedStepId: GuidedStepId,
+): GuidedActionGate {
+  const stepGate = currentStepActionGate(workflowStepId, displayedStepId);
+  if (!stepGate.allowed) {
+    return stepGate;
+  }
+  if (!state.draftReady) {
+    return { allowed: false, reason: "请先生成专利初稿后再运行质量检查。" };
+  }
+  return { allowed: true, reason: "" };
+}
+
+export function officialCompileActionGate(
+  state: GuidedFlowState,
+  workflowStepId: GuidedStepId,
+  displayedStepId: GuidedStepId,
+): GuidedActionGate {
+  const stepGate = currentStepActionGate(workflowStepId, displayedStepId);
+  if (!stepGate.allowed) {
+    return stepGate;
+  }
+  if (!state.draftReady) {
+    return { allowed: false, reason: "请先生成专利初稿。" };
+  }
+  if (!state.qualityChecked) {
+    return { allowed: false, reason: "请先完成质量检查后再编译正式稿。" };
+  }
+  return { allowed: true, reason: "" };
+}
+
+export function postDraftReviewActionGate(
+  state: GuidedFlowState,
+  workflowStepId: GuidedStepId,
+  displayedStepId: GuidedStepId,
+): GuidedActionGate {
+  const stepGate = currentStepActionGate(workflowStepId, displayedStepId);
+  if (!stepGate.allowed) {
+    return stepGate;
+  }
+  if (!state.draftReady) {
+    return { allowed: false, reason: "请先生成专利初稿。" };
+  }
+  if (!state.hasCompletedOfficialCompile) {
+    return { allowed: false, reason: "请先完成正式稿编译后再启动成稿会审。" };
+  }
+  return { allowed: true, reason: "" };
 }
 
 /** Resolve which step panel to show while preserving workflow gates. */
@@ -358,7 +425,7 @@ function stepStatusForIndex(index: number, currentIndex: number, hasIdea: boolea
   if (!hasIdea && index > 0) return "locked";
   if (index < currentIndex) return "done";
   if (index === currentIndex) return "current";
-  return "ready";
+  return "locked";
 }
 
 export function qualitySummaryFromRuns(input: {

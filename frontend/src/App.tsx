@@ -1125,13 +1125,15 @@ function App() {
           </div>
         )}
         {activeSection === "projects" && (
-          <ProjectsOverview
-            projects={projects}
-            selectedProjectId={selectedProject?.id ?? ""}
-            onSelect={setSelectedProjectId}
-            onDelete={(project) => void handleDeleteProject(project)}
-            busy={busy}
-          />
+          <div className="px-4 md:px-8 py-4 md:py-6">
+            <ProjectsOverview
+              projects={projects}
+              selectedProjectId={selectedProject?.id ?? ""}
+              onSelect={setSelectedProjectId}
+              onDelete={(project) => void handleDeleteProject(project)}
+              busy={busy}
+            />
+          </div>
         )}
         {activeSection === "expert" && (
           <div className="flex flex-col gap-4">
@@ -1964,17 +1966,18 @@ function ProjectsOverview({
                   <dd>{formatProjectDate(metadata.updated_at)}</dd>
                 </div>
               </dl>
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[#334155]">
+              <div className="project-actions mt-4 pt-4 border-t border-[#334155]">
                 <button
-                  className={isSelected ? "inline-flex items-center justify-center px-4 py-2 rounded-xl bg-[#0c1929] hover:bg-emerald-100 text-emerald-700 font-medium shadow-sm border border-emerald-200 disabled:opacity-50" : "inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"}
+                  className={isSelected ? "project-action-btn project-action-btn-current" : "project-action-btn project-action-btn-primary"}
                   disabled={isSelected}
                   onClick={() => onSelect(project.id)}
                   type="button"
                 >
-                  {isSelected ? "当前项目" : "选择项目"}
+                  <CheckCircle2 size={17} />
+                  <span>{isSelected ? "当前项目" : "选择项目"}</span>
                 </button>
                 <button
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#162032] hover:bg-[#0c1929] hover:text-white text-red-500 shadow-sm border border-[#334155] disabled:opacity-50 transition-colors text-sm"
+                  className="project-action-btn project-action-btn-danger"
                   disabled={busy === "project-delete"}
                   onClick={() => onDelete(project)}
                   type="button"
@@ -2597,9 +2600,9 @@ function DraftCompletionView({
     <div className="flex flex-col gap-4">
       <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
-          <h3>Draft Completion Harness / 初稿完善循环</h3>
+          <h3>初稿完善循环</h3>
           <p>
-            Warning mode：发现缺口、生成任务和候选补丁，但不把风险判断包装成已验证事实；补丁需人工接受后才进入完善结果。
+            警告模式：发现缺口、生成任务和候选补丁，但不把风险判断包装成已验证事实；补丁需人工接受后才进入完善结果。
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -2692,7 +2695,7 @@ function DraftCompletionView({
       </section>
 
       <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
-        <h3>Claim Support Matrix</h3>
+        <h3>权利要求支撑矩阵</h3>
         {run && run.support_matrix.length > 0 ? (
           <div className="w-full text-sm text-left border-collapse">
             <table>
@@ -2901,7 +2904,7 @@ function PackagePreview({
       {!compact && <PreviewBlock title="附图说明" text={packageValue.drawing_description} />}
       <PreviewBlock title="Mermaid流程图" text={packageValue.mermaid} />
       <PreviewBlock title="绘图提示词" text={packageValue.image_prompt} />
-      {packageValue.strategy_brief && <PreviewBlock title="多Agent会审策略" text={packageValue.strategy_brief.summary} />}
+      {packageValue.strategy_brief && <PreviewBlock title="多智能体会审策略" text={packageValue.strategy_brief.summary} />}
     </section>
   );
 }
