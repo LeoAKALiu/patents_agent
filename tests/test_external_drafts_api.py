@@ -95,6 +95,18 @@ def test_external_draft_api_creates_source_runs_intake_and_confirms_package(tmp_
     assert intake["status"] == "needs_review"
     assert intake["parsed_package"]["title"] == "一种外部稿处理方法"
 
+    blank_confirm_response = client.post(
+        f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}/confirm",
+        json={
+            "title": "一种外部稿处理方法",
+            "abstract": "本发明公开一种外部稿处理方法。",
+            "claims": "   ",
+            "description": "本发明涉及专利初稿处理。",
+            "drawing_description": "图1为外部稿处理流程图。",
+        },
+    )
+    assert blank_confirm_response.status_code == 422
+
     confirm_response = client.post(
         f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}/confirm",
         json={

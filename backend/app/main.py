@@ -360,12 +360,16 @@ def create_app(
         run = store.get_external_draft_intake_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="External draft intake run not found.")
+        claims = payload.claims.strip()
+        description = payload.description.strip()
+        if not claims or not description:
+            raise HTTPException(status_code=422, detail="Confirmed external draft requires non-empty claims and description.")
         package = DraftPackage(
-            title=payload.title,
-            abstract=payload.abstract,
-            claims=payload.claims,
-            description=payload.description,
-            drawing_description=payload.drawing_description,
+            title=payload.title.strip(),
+            abstract=payload.abstract.strip(),
+            claims=claims,
+            description=description,
+            drawing_description=payload.drawing_description.strip(),
             mermaid="",
             image_prompt="",
             review_findings=[],
