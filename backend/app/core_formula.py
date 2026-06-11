@@ -5,6 +5,7 @@ import uuid
 from typing import Iterable
 
 from backend.app.llm import LLMClient
+from backend.app.patent_mode import is_utility_model_project
 from backend.app.schemas import (
     CoreFormulaPackage,
     DisclosurePackage,
@@ -45,6 +46,12 @@ def assess_formula_need(
     disclosure: DisclosurePackage | None = None,
     strategy_brief: PatentStrategyBrief | None = None,
 ) -> FormulaNeedAssessment:
+    if is_utility_model_project(project):
+        return FormulaNeedAssessment(
+            required=False,
+            signals=[],
+            reasons=["实用新型轻量版以结构、部件和连接关系为主，不强制凝练算法公式。"],
+        )
     text = _formula_context_text(project, patent_points, disclosure, strategy_brief)
     signals = [signal for signal in FORMULA_SIGNALS if signal in text]
     reasons: list[str] = []

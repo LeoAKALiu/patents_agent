@@ -6,6 +6,7 @@ from typing import Any
 
 from backend.app.disclosure.prior_art import PriorArtProvider
 from backend.app.llm import LLMClient
+from backend.app.patent_mode import is_utility_model_project
 from backend.app.schemas import (
     ClaimChartItem,
     DisclosurePackage,
@@ -38,18 +39,23 @@ class DisclosureGenerator:
         strategic_context = _format_user_candidates(user_candidates)
         material_context = _format_materials(project, materials)
         rag_context = _format_context(context_chunks)
+        system_prompt = _system_prompt(project)
 
-        scan_raw = self.llm.complete_stage("disclosure_scan", SYSTEM_PROMPT, _scan_prompt(project, material_context))
+        scan_raw = self.llm.complete_stage("disclosure_scan", system_prompt, _scan_prompt(project, material_context))
         scan = _json_object(scan_raw, _fallback_scan(project, materials))
         stage_results.append({"phase": "project_scan", "payload": scan})
         logs.append("project_scan: summarized draft and uploaded materials")
 
         points_raw = self.llm.complete_stage(
             "patent_points",
-            SYSTEM_PROMPT,
+            system_prompt,
             _points_prompt(project, material_context, scan, rag_context, strategic_context),
         )
-        generated_candidates, generated_selected_id = _parse_candidates(points_raw, project)
+        generated_candidates, generated_selected_id = _parse_candidates(
+            points_raw,
+            project,
+            utility_model=is_utility_model_project(project),
+        )
         candidates, selected_id = _merge_candidates(user_candidates, generated_candidates, generated_selected_id)
         stage_results.append(
             {
@@ -64,7 +70,7 @@ class DisclosureGenerator:
 
         terms_raw = self.llm.complete_stage(
             "prior_art_terms",
-            SYSTEM_PROMPT,
+            system_prompt,
             _terms_prompt(project, candidates, selected_id, scan, strategic_context),
         )
         terms = _parse_terms(terms_raw, project)
@@ -106,7 +112,7 @@ class DisclosureGenerator:
 
         body = self.llm.complete_stage(
             "disclosure_body",
-            SYSTEM_PROMPT,
+            system_prompt,
             _body_prompt(project, material_context, scan, candidates, selected_id, prior_art_hits, prior_art_differences),
         ).strip()
         stage_results.append({"phase": "disclosure_body", "payload": {"chars": len(body)}})
@@ -114,7 +120,7 @@ class DisclosureGenerator:
 
         mermaid = self.llm.complete_stage(
             "disclosure_mermaid",
-            SYSTEM_PROMPT,
+            system_prompt,
             _mermaid_prompt(project, candidates, selected_id, body),
         ).strip()
         stage_results.append({"phase": "disclosure_mermaid", "payload": {"chars": len(mermaid)}})
@@ -122,7 +128,7 @@ class DisclosureGenerator:
 
         image_prompt = self.llm.complete_stage(
             "disclosure_image_prompt",
-            SYSTEM_PROMPT,
+            system_prompt,
             _image_prompt(project, mermaid),
         ).strip()
         stage_results.append({"phase": "disclosure_image_prompt", "payload": {"chars": len(image_prompt)}})
@@ -130,7 +136,7 @@ class DisclosureGenerator:
 
         self_check_raw = self.llm.complete_stage(
             "disclosure_self_check",
-            SYSTEM_PROMPT,
+            system_prompt,
             _self_check_prompt(project, body, mermaid, prior_art_hits),
         )
         findings = _parse_self_check(self_check_raw)
@@ -166,7 +172,7 @@ class DisclosureGenerator:
             return hits, "未获得可用公开现有技术结果；交底书仅基于本地材料和授权专利语料生成。", {}
         raw = self.llm.complete_stage(
             "prior_art_relevance",
-            SYSTEM_PROMPT,
+            _system_prompt(project),
             _relevance_prompt(project, candidates, selected_id, hits),
         )
         data = _json_object(raw, {})
@@ -204,11 +210,22 @@ class DisclosureGenerator:
         return enriched, str(data.get("prior_art_differences") or "与公开文献的区别已在交底书正文中进一步展开。"), charts_by_candidate
 
 
-SYSTEM_PROMPT = (
+INVENTION_SYSTEM_PROMPT = (
     "你是中国发明专利技术交底书撰写助手，面向AI/软件方法类中国发明专利。"
     "输出用于代理人/律师进一步审查，不替代正式法律意见。"
     "必须使用技术特征、步骤、模块、数据流和技术效果表达，避免商业宣传。"
 )
+
+UTILITY_MODEL_SYSTEM_PROMPT = (
+    "你是中国实用新型专利技术交底书撰写助手，面向产品结构、装置构造、部件连接关系和空间布局。"
+    "输出用于代理人/律师进一步审查，不替代正式法律意见。"
+    "必须使用结构件、连接/安装/配合关系、附图标号和结构效果表达，避免商业宣传。"
+    "不得把纯方法步骤、算法流程、软件介质或商业规则作为独立保护主题。"
+)
+
+
+def _system_prompt(project: ProjectRecord) -> str:
+    return UTILITY_MODEL_SYSTEM_PROMPT if is_utility_model_project(project) else INVENTION_SYSTEM_PROMPT
 
 
 def _scan_prompt(project: ProjectRecord, materials: str) -> str:
@@ -230,6 +247,35 @@ Draft：
 
 
 def _points_prompt(project: ProjectRecord, materials: str, scan: dict, context: str, strategic_context: str) -> str:
+    if is_utility_model_project(project):
+        return f"""请生成 3-5 个可申请中国实用新型专利的候选结构点，并推荐一个最适合作为交底书主线的方案。
+候选必须落在产品/装置/组件结构、部件连接关系、安装位置、空间布局或结构改进上；不得把纯算法、纯方法流程或业务规则作为独立保护主题。
+如果存在用户指定专利点，必须保留这些专利点，但应把可保护主线提炼为结构件及连接/配合关系，并补充 support_gaps、drawing_needed 和 rationale。
+严格输出 JSON object：
+{{
+  "candidates": [
+    {{
+      "id": "p1",
+      "title": "候选结构名称",
+      "technical_problem": "结构类技术问题",
+      "innovation": "结构改进点",
+      "technical_solution": "部件组成、连接关系、安装位置和配合方式",
+      "beneficial_effects": ["结构效果"],
+      "protection_focus": ["结构", "部件", "连接关系", "附图"],
+      "grantability_score": 0.8,
+      "rationale": "推荐理由"
+    }}
+  ],
+  "selected_candidate_id": "p1"
+}}
+
+项目：{project.name}
+扫描摘要：{json.dumps(scan, ensure_ascii=False)}
+用户指定专利点：
+{strategic_context}
+材料：{materials}
+相似授权专利片段：{context}
+"""
     return f"""请生成 3-5 个可申请中国发明专利的候选专利点，并推荐一个最适合作为交底书主线的方案。
 如果存在用户指定专利点，必须保留这些专利点，不得因为证据状态为 feasible_unverified 而删除；可以补充 support_gaps、experiment_needed 和 rationale。
 严格输出 JSON object：
@@ -267,6 +313,16 @@ def _terms_prompt(
     strategic_context: str,
 ) -> str:
     selected = _selected_candidate(candidates, selected_id)
+    if is_utility_model_project(project):
+        return f"""请把推荐结构点拆成 2-8 个用于公开专利检索的语义检索词，优先包含产品名称、结构件、连接关系和安装方式，避免整段长句。
+只输出 JSON array，例如 ["外立面 挂接 连接结构", "传感器 模块 安装支架"]。
+
+项目：{project.name}
+推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
+用户指定专利点：
+{strategic_context}
+扫描摘要：{json.dumps(scan, ensure_ascii=False)}
+"""
     return f"""请把推荐专利点拆成 2-8 个用于公开专利检索的语义检索词，优先短语，避免整段长句。
 只输出 JSON array，例如 ["神经网络 缺陷 检测", "图像 质量 评估"]。
 
@@ -321,6 +377,26 @@ def _body_prompt(
     differences: str,
 ) -> str:
     selected = _selected_candidate(candidates, selected_id)
+    if is_utility_model_project(project):
+        return f"""请生成完整中文实用新型技术交底书 Markdown。
+必须包含：
+1. 注意事项
+2. 一、相关技术背景，包括 1.1 最接近现有结构和公开 URL、1.2 现有结构缺点
+3. 二、要解决的结构类技术问题
+4. 三、详细结构方案，包括部件组成、各部件连接/安装/配合关系、空间布局、可选材料或尺寸范围
+5. 四、相对于现有技术的结构效果
+6. 五、附图方案和建议标号，至少列出整体结构图、局部放大图或剖视/爆炸图
+7. 六、建议保护点、可选实施例、变形结构和补充材料需求
+
+正文应以装置/结构为主线，不得把方法流程、算法公式或软件介质写成独立保护主题。
+
+项目：{project.name}
+推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
+扫描摘要：{json.dumps(scan, ensure_ascii=False)}
+材料：{materials}
+公开现有技术：{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False, indent=2)}
+总体区别：{differences}
+"""
     return f"""请生成完整中文技术交底书 Markdown。
 必须包含：
 1. 注意事项
@@ -342,6 +418,14 @@ def _body_prompt(
 
 def _mermaid_prompt(project: ProjectRecord, candidates: list[PatentPointCandidate], selected_id: str | None, body: str) -> str:
     selected = _selected_candidate(candidates, selected_id)
+    if is_utility_model_project(project):
+        return f"""请输出可渲染 Mermaid 代码，包含一个 flowchart TD，展示推荐结构点的部件组成、连接关系和安装位置。只输出 Mermaid 代码，不输出方法流程。
+
+项目：{project.name}
+推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
+交底书正文摘录：
+{body[:3000]}
+"""
     return f"""请输出可渲染 Mermaid 代码，包含一个 flowchart TD，展示推荐专利点的方法流程或系统结构。只输出 Mermaid 代码。
 
 项目：{project.name}
@@ -352,6 +436,13 @@ def _mermaid_prompt(project: ProjectRecord, candidates: list[PatentPointCandidat
 
 
 def _image_prompt(project: ProjectRecord, mermaid: str) -> str:
+    if is_utility_model_project(project):
+        return f"""请为实用新型专利附图生成绘图提示词，要求黑白线稿、无装饰，突出产品整体结构、局部连接关系、安装位置和必要标号，适合摘要附图或说明书附图。
+
+项目：{project.name}
+Mermaid：
+{mermaid}
+"""
     return f"""请为专利摘要图/流程图生成绘图提示词，要求黑白线稿、无装饰、模块和箭头清晰、适合专利附图。
 
 项目：{project.name}
@@ -361,6 +452,21 @@ Mermaid：
 
 
 def _self_check_prompt(project: ProjectRecord, body: str, mermaid: str, hits: list[PriorArtHit]) -> str:
+    if is_utility_model_project(project):
+        return f"""请对以下实用新型技术交底书做内部自检，仅输出 JSON array。
+每项包含 category、severity(low|medium|high)、message、suggestion。
+重点检查：是否以结构/装置为主线、部件连接关系是否清楚、附图标号是否可补、术语一致、现有结构 URL、结构效果、可选实施例缺口、Mermaid 是否表达结构关系。
+
+项目：{project.name}
+交底书：
+{body[:8000]}
+
+Mermaid：
+{mermaid}
+
+公开现有技术：
+{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False)}
+"""
     return f"""请对以下技术交底书做内部自检，仅输出 JSON array。
 每项包含 category、severity(low|medium|high)、message、suggestion。
 重点检查：逻辑闭环、术语一致、现有技术 URL、摘要使用、技术效果、实施例缺口、Mermaid 可渲染性。
@@ -418,7 +524,7 @@ def _materials_summary(materials: list[ProjectMaterial]) -> str:
     return f"已上传 {len(materials)} 份材料，其中 {ok} 份可解析。"
 
 
-def _parse_candidates(raw: str, project: ProjectRecord) -> tuple[list[PatentPointCandidate], str | None]:
+def _parse_candidates(raw: str, project: ProjectRecord, *, utility_model: bool = False) -> tuple[list[PatentPointCandidate], str | None]:
     data = _json_object(raw, {})
     items = data.get("candidates") if isinstance(data, dict) else None
     candidates: list[PatentPointCandidate] = []
@@ -435,25 +541,42 @@ def _parse_candidates(raw: str, project: ProjectRecord) -> tuple[list[PatentPoin
                     innovation=str(item.get("innovation") or item.get("technical_solution") or project.draft_text[:200]),
                     technical_solution=str(item.get("technical_solution") or project.draft_text[:400]),
                     beneficial_effects=_string_list(item.get("beneficial_effects")),
-                    protection_focus=_string_list(item.get("protection_focus")),
+                    protection_focus=_string_list(item.get("protection_focus")) or (
+                        ["结构", "部件", "连接关系"] if utility_model else []
+                    ),
                     grantability_score=_float(item.get("grantability_score")),
                     rationale=str(item.get("rationale") or ""),
                 )
             )
     if not candidates:
-        candidates = [
-            PatentPointCandidate(
-                id="p1",
-                title=f"{project.name}方法及系统",
-                technical_problem="现有技术中相关处理流程自动化和专利表达支撑不足。",
-                innovation=project.draft_text[:200],
-                technical_solution=project.draft_text[:500],
-                beneficial_effects=["提升处理流程完整性", "降低人工整理遗漏风险"],
-                protection_focus=["方法", "系统"],
-                grantability_score=0.5,
-                rationale="基于项目 draft 自动生成的保守候选。",
-            )
-        ]
+        if utility_model:
+            candidates = [
+                PatentPointCandidate(
+                    id="p1",
+                    title=f"{project.name}结构",
+                    technical_problem="现有结构中部件连接、安装或维护便利性不足。",
+                    innovation=project.draft_text[:200],
+                    technical_solution=project.draft_text[:500],
+                    beneficial_effects=["提高结构稳定性", "降低装配和维护难度"],
+                    protection_focus=["结构", "部件", "连接关系", "附图"],
+                    grantability_score=0.5,
+                    rationale="基于项目 draft 自动生成的保守实用新型候选。",
+                )
+            ]
+        else:
+            candidates = [
+                PatentPointCandidate(
+                    id="p1",
+                    title=f"{project.name}方法及系统",
+                    technical_problem="现有技术中相关处理流程自动化和专利表达支撑不足。",
+                    innovation=project.draft_text[:200],
+                    technical_solution=project.draft_text[:500],
+                    beneficial_effects=["提升处理流程完整性", "降低人工整理遗漏风险"],
+                    protection_focus=["方法", "系统"],
+                    grantability_score=0.5,
+                    rationale="基于项目 draft 自动生成的保守候选。",
+                )
+            ]
     selected_id = str(data.get("selected_candidate_id") or candidates[0].id)
     if selected_id not in {candidate.id for candidate in candidates}:
         selected_id = candidates[0].id

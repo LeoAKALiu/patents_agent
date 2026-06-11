@@ -13,6 +13,7 @@ from backend.app.disclosure.material_parser import read_project_material_text
 from backend.app.disclosure.prior_art import StaticPriorArtProvider, parse_cnipa_epub_html
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
+from backend.app.patent_mode import UTILITY_MODEL_MODE_PREFIX
 from backend.app.schemas import (
     ClaimChartItem,
     DeliberationRun,
@@ -149,6 +150,34 @@ def test_disclosure_generator_injects_user_candidate_context_into_prompts():
     prompts_by_stage = {call.stage: call.user_prompt for call in llm.calls}
     assert "遮挡洞口语义补全" in prompts_by_stage["patent_points"]
     assert "遮挡洞口语义补全" in prompts_by_stage["prior_art_terms"]
+
+
+def test_disclosure_generator_utility_model_prompts_prioritize_structure():
+    llm = _disclosure_llm(
+        extra={
+            "patent_points": '{"candidates":[{"id":"p1","title":"可调安装支架结构","technical_problem":"支架角度调节不便","innovation":"限位件与支撑臂配合","technical_solution":"底座、支撑臂和限位件形成可调连接"}],"selected_candidate_id":"p1"}',
+        }
+    )
+    generator = DisclosureGenerator(llm, StaticPriorArtProvider())
+    project = ProjectRecord(
+        id="p1",
+        name="可调安装支架",
+        draft_text=f"{UTILITY_MODEL_MODE_PREFIX}专利类型：实用新型。\n一种可调安装支架，包括底座、支撑臂和限位件。",
+    )
+
+    package, _, _ = generator.generate(
+        project=project,
+        materials=[],
+        context_chunks=[],
+        max_prior_art_results=0,
+        user_candidates=[],
+    )
+
+    prompts_by_stage = {call.stage: call.user_prompt for call in llm.calls}
+    assert "中国实用新型专利" in llm.calls[0].system_prompt
+    assert "候选结构点" in prompts_by_stage["patent_points"]
+    assert "各部件连接/安装/配合关系" in prompts_by_stage["disclosure_body"]
+    assert package.candidates[0].protection_focus == ["结构", "部件", "连接关系"]
 
 
 def test_disclosure_api_lifecycle_and_generation_injection(tmp_path: Path):

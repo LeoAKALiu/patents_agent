@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
+from backend.app.patent_mode import UTILITY_MODEL_MODE_PREFIX
 from backend.app.schemas import DeliberationRun, DeliberationStageResult, PatentStrategyBrief
 
 
@@ -83,6 +84,116 @@ def test_generate_fails_closed_without_llm_configuration(tmp_path, monkeypatch):
 
     assert generate_response.status_code == 503
     assert "DEEPSEEK_API_KEY" in generate_response.json()["detail"]
+
+
+def test_utility_model_lite_skips_deliberation_and_formula_gate(tmp_path):
+    llm = FakeLLMClient(
+        {
+            "claims": "1. 一种可调安装支架，其特征在于，包括底座、支撑臂和限位件。",
+            "description": "技术领域\n本实用新型涉及安装支架结构。\n具体实施方式\n底座与支撑臂转动连接，限位件限制支撑臂角度。",
+            "abstract": "本实用新型公开了一种可调安装支架。",
+            "drawings": "图1为整体结构示意图。\n图2为限位件局部放大图。",
+            "diagram": "flowchart TD\nA[底座] --> B[支撑臂]\nB --> C[限位件]",
+            "image_prompt": "黑白线稿，展示底座、支撑臂和限位件连接关系。",
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": ["权利要求1保持结构闭环。"],
+  "official_safe_patches": [],
+  "attorney_memo": ["代理人复核结构限定。"]
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": ["说明书保持附图标号一致。"],
+  "official_safe_patches": [],
+  "attorney_memo": ["确认无内部提示词。"]
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": ["补充限位件替代结构。"],
+  "official_safe_patches": [],
+  "attorney_memo": ["结构效果可继续增强。"]
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "passed",
+  "export_allowed": true,
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "claim_1_rewrite": "1. 一种可调安装支架，包括底座、支撑臂和限位件。",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": ["保持结构连接关系清楚。"],
+  "official_safe_patches": [],
+  "attorney_memo": ["主席综合意见：可进入正式导出。"],
+  "next_actions": ["提交前代理人复核。"]
+}
+""",
+        }
+    )
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm))
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "可调安装支架",
+            "draft_text": (
+                f"{UTILITY_MODEL_MODE_PREFIX}专利类型：实用新型。\n"
+                "一种可调安装支架，包括底座、支撑臂和限位件，可根据角度矩阵调节安装位置。"
+            ),
+        },
+    ).json()["id"]
+
+    requirement = client.get(f"/api/projects/{project_id}/formula-requirement").json()
+    generate_response = client.post(f"/api/projects/{project_id}/generate", json={})
+
+    assert requirement["required"] is False
+    assert "结构、部件和连接关系" in requirement["reasons"][0]
+    assert generate_response.status_code == 200
+    package = generate_response.json()
+    assert package["deliberation_run_id"] is None
+    assert "deliberation: no completed multi-agent deliberation injected" in package["generation_logs"]
+    claims_call = next(call for call in llm.calls if call.stage == "claims")
+    assert "中国实用新型专利权利要求书" in claims_call.user_prompt
+    assert "不得写成方法步骤" in claims_call.user_prompt
+    assert "中国实用新型专利撰写助手" in claims_call.system_prompt
+
+    blocked_export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert blocked_export.status_code == 409
+    assert "Official draft compile is required" in blocked_export.json()["detail"]
+
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+    compile_run = compile_response.json()
+    assert compile_run["status"] == "completed"
+
+    blocked_after_compile = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert blocked_after_compile.status_code == 409
+    assert "Post-draft multi-agent review is required" in blocked_after_compile.json()["detail"]
+
+    review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+    assert review_response.status_code == 200
+    review = review_response.json()
+    assert review["status"] == "completed"
+    assert review["export_allowed"] is True
+    assert review["official_compile_run_id"] == compile_run["id"]
+
+    official_export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert official_export.status_code == 200
+    assert "权利要求书" in official_export.text
 
 
 def test_project_records_include_timestamps_and_can_be_deleted(tmp_path):
