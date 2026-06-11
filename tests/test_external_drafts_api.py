@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 from docx import Document
 
 from backend.app.external_drafts import create_external_draft_source, parse_external_draft_source
+from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.schemas import DraftPackage, ProjectRecord
 from backend.app.storage import SQLiteStore
@@ -249,6 +250,63 @@ def test_external_draft_confirmed_package_runs_quality_and_bundle_report(tmp_pat
     assert "official_compile_run_id" in report_response.text
 
 
+def test_confirmed_external_draft_still_requires_official_export_gate(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_passing_post_draft_review_llm(), load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "外部稿正式门禁", "draft_text": "外部稿导入后仍需正式门禁。"},
+    ).json()
+    source = client.post(
+        f"/api/projects/{project['id']}/external-drafts",
+        json={
+            "source_type": "pasted_text",
+            "file_name": "needs-confirm.txt",
+            "text": (
+                "发明名称\n一种外部稿正式门禁验证方法\n"
+                "说明书\n本发明涉及专利初稿处理，保存原始外部稿并生成内部工作稿。\n"
+            ),
+        },
+    ).json()
+    intake = client.post(f"/api/projects/{project['id']}/external-drafts/{source['id']}/intake-runs").json()
+    assert intake["status"] == "needs_review"
+
+    confirm_response = client.post(
+        f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}/confirm",
+        json={
+            "title": "一种外部稿正式门禁验证方法",
+            "abstract": "本发明公开一种外部稿正式门禁验证方法。",
+            "claims": "1. 一种外部稿正式门禁验证方法，其特征在于，保存外部稿并生成内部工作稿。",
+            "description": "本发明涉及专利初稿处理，保存原始外部稿并生成内部工作稿。",
+            "drawing_description": "图1为外部稿正式门禁验证流程图。",
+        },
+    )
+    assert confirm_response.status_code == 200
+
+    blocked_without_compile = client.get(f"/api/projects/{project['id']}/official-export.md")
+    assert blocked_without_compile.status_code == 409
+    assert "Official draft compile is required" in blocked_without_compile.json()["detail"]
+
+    compile_response = client.post(f"/api/projects/{project['id']}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+    assert compile_response.json()["status"] == "completed"
+
+    blocked_without_review = client.get(f"/api/projects/{project['id']}/official-export.md")
+    assert blocked_without_review.status_code == 409
+    assert "Post-draft multi-agent review is required" in blocked_without_review.json()["detail"]
+
+    review_response = client.post(f"/api/projects/{project['id']}/post-draft-reviews", json={})
+    assert review_response.status_code == 200
+    assert review_response.json()["export_allowed"] is True
+
+    export_response = client.get(f"/api/projects/{project['id']}/official-export.md")
+    assert export_response.status_code == 200
+    assert "一种外部稿正式门禁验证方法" in export_response.text
+    assert "权利要求书" in export_response.text
+    assert "external_draft_intake" not in export_response.text
+    assert "EXTERNAL_DRAFT_REVIEW_BUNDLE" not in export_response.text
+    assert "attorney_memo" not in export_response.text
+
+
 def test_external_draft_review_bundle_pairs_intake_run_with_its_source(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
     project = client.post(
@@ -286,3 +344,58 @@ def test_external_draft_review_bundle_pairs_intake_run_with_its_source(tmp_path)
     assert f"- source_id: {source_with_run['id']}" in report_response.text
     assert f"- intake_run_id: {intake['id']}" in report_response.text
     assert f"- source_id: {newer_source['id']}" not in report_response.text
+
+
+def _passing_post_draft_review_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": ["代理人可继续复核权利要求。"]
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": ["清污检查通过。"]
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": ["技术硬度可继续增强。"]
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "passed",
+  "export_allowed": true,
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [],
+  "attorney_memo": ["主席综合意见仅保留在内部报告。"],
+  "next_actions": []
+}
+""",
+        }
+    )
