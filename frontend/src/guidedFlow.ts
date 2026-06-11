@@ -178,7 +178,7 @@ export const expertToolGroups: ExpertToolGroup[] = [
     label: "交底与策略",
     tools: [
       { id: "materials", label: "前置材料", description: "生成交底书和候选发明点", icon: ClipboardList },
-      { id: "deliberate", label: "多 Agent 会审", description: "生成撰写策略", icon: UsersRound },
+      { id: "deliberate", label: "多智能体会审", description: "生成撰写策略", icon: UsersRound },
       { id: "write", label: "分步撰写", description: "手动生成申请文本", icon: PenLine },
     ],
   },
@@ -202,7 +202,7 @@ export const expertToolGroups: ExpertToolGroup[] = [
 export const guidedStepDefinitions: Array<Omit<GuidedStepState, "status">> = [
   { id: "idea", label: "想法与材料", description: "输入一句想法，上传可选材料。" },
   { id: "invention", label: "发明点", description: "确认主发明点、证据状态和护城河方向。" },
-  { id: "deliberation", label: "多 Agent 会审", description: "会审权利要求边界、说明书支撑和规避风险。" },
+  { id: "deliberation", label: "多智能体会审", description: "会审权利要求边界、说明书支撑和规避风险。" },
   { id: "formula", label: "核心公式", description: "凝练算法公式、变量定义和权利要求落点。" },
   { id: "draft", label: "生成初稿", description: "生成摘要、权利要求书和说明书。" },
   { id: "quality", label: "质量检查", description: "运行提交成熟度、权利要求防线和初稿完善。" },
@@ -212,6 +212,101 @@ export const guidedStepDefinitions: Array<Omit<GuidedStepState, "status">> = [
 ];
 
 export const guidedStepLabels = guidedStepDefinitions.map((step) => step.label);
+
+export type GuidedActionGate = {
+  allowed: boolean;
+  reason: string;
+};
+
+/** Whether the user may open this step in the guided navigator (view-only; does not advance workflow). */
+export function canNavigateToGuidedStep(step: Pick<GuidedStepState, "status">): boolean {
+  return step.status === "done" || step.status === "current";
+}
+
+/** Block panel actions when the user is browsing a non-current step. */
+export function currentStepActionGate(
+  workflowStepId: GuidedStepId,
+  displayedStepId: GuidedStepId,
+): GuidedActionGate {
+  if (displayedStepId !== workflowStepId) {
+    return { allowed: false, reason: "请先在流程导航中回到当前步骤再继续操作。" };
+  }
+  return { allowed: true, reason: "" };
+}
+
+export function qualityActionGate(
+  state: GuidedFlowState,
+  workflowStepId: GuidedStepId,
+  displayedStepId: GuidedStepId,
+): GuidedActionGate {
+  const stepGate = currentStepActionGate(workflowStepId, displayedStepId);
+  if (!stepGate.allowed) {
+    return stepGate;
+  }
+  if (!state.draftReady) {
+    return { allowed: false, reason: "请先生成专利初稿后再运行质量检查。" };
+  }
+  return { allowed: true, reason: "" };
+}
+
+export function officialCompileActionGate(
+  state: GuidedFlowState,
+  workflowStepId: GuidedStepId,
+  displayedStepId: GuidedStepId,
+): GuidedActionGate {
+  const stepGate = currentStepActionGate(workflowStepId, displayedStepId);
+  if (!stepGate.allowed) {
+    return stepGate;
+  }
+  if (!state.draftReady) {
+    return { allowed: false, reason: "请先生成专利初稿。" };
+  }
+  if (!state.qualityChecked) {
+    return { allowed: false, reason: "请先完成质量检查后再编译正式稿。" };
+  }
+  return { allowed: true, reason: "" };
+}
+
+export function postDraftReviewActionGate(
+  state: GuidedFlowState,
+  workflowStepId: GuidedStepId,
+  displayedStepId: GuidedStepId,
+): GuidedActionGate {
+  const stepGate = currentStepActionGate(workflowStepId, displayedStepId);
+  if (!stepGate.allowed) {
+    return stepGate;
+  }
+  if (!state.draftReady) {
+    return { allowed: false, reason: "请先生成专利初稿。" };
+  }
+  if (!state.hasCompletedOfficialCompile) {
+    return { allowed: false, reason: "请先完成正式稿编译后再启动成稿会审。" };
+  }
+  return { allowed: true, reason: "" };
+}
+
+/** Resolve which step panel to show while preserving workflow gates. */
+export function resolveGuidedViewStep(
+  workflowStepId: GuidedStepId,
+  manualViewStepId: GuidedStepId | null,
+  steps: GuidedStepState[],
+): GuidedStepId {
+  if (!manualViewStepId) {
+    return workflowStepId;
+  }
+  const manualStep = steps.find((step) => step.id === manualViewStepId);
+  if (!manualStep || !canNavigateToGuidedStep(manualStep)) {
+    return workflowStepId;
+  }
+  return manualViewStepId;
+}
+
+export function guidedStepStatusLabel(status: GuidedStepStatus): string {
+  if (status === "done") return "已完成";
+  if (status === "current") return "当前步骤";
+  if (status === "ready") return "可查看";
+  return "未解锁";
+}
 
 export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   const processedMaterialCount = input.materials.filter((material) => material.status === "processed").length;
@@ -345,7 +440,7 @@ function stepStatusForIndex(index: number, currentIndex: number, hasIdea: boolea
   if (!hasIdea && index > 0) return "locked";
   if (index < currentIndex) return "done";
   if (index === currentIndex) return "current";
-  return "ready";
+  return "locked";
 }
 
 export function qualitySummaryFromRuns(input: {
@@ -394,7 +489,7 @@ export function guidedBusyLabel(value: string): string {
   if (value === "filing-readiness") return "正在检查提交成熟度";
   if (value === "completion") return "正在运行初稿完善";
   if (value === "review") return "正在生成审查意见";
-  if (value === "deliberate") return "正在启动多 Agent 会审";
+  if (value === "deliberate") return "正在启动多智能体会审";
   if (value === "corpus-run") return "正在运行语料导入";
   if (value === "corpus-upload") return "正在上传语料文件";
   if (value === "corpus-job") return "正在创建语料任务";
@@ -462,7 +557,7 @@ function operationLogSteps(value: string): Array<{ at: number; text: string }> {
   ];
   if (value === "deliberate") {
     return [
-      { at: 0, text: "启动多 Agent 会审，锁定项目和发明点" },
+      { at: 0, text: "启动多智能体会审，锁定项目和发明点" },
       { at: 4, text: "分发会审任务到可用 agent" },
       { at: 12, text: "收集权利要求边界、说明书支撑和风险控制意见" },
       { at: 25, text: "等待模型或服务返回" },
@@ -480,9 +575,9 @@ function operationLogSteps(value: string): Array<{ at: number; text: string }> {
   }
   if (value === "post-draft-review") {
     return [
-      { at: 0, text: "启动成稿后多 Agent 会审，锁定当前成稿 hash" },
+      { at: 0, text: "启动成稿后多智能体会审，锁定当前成稿哈希" },
       { at: 4, text: "分发权利要求、清污和技术硬度审查角色" },
-      { at: 12, text: "收集 blocking issue、污染命中和可提交补丁建议" },
+      { at: 12, text: "收集阻断项、污染命中和可提交补丁建议" },
       { at: 25, text: "等待模型或服务返回" },
       { at: 45, text: "主席综合裁决并写入导出门禁" },
     ];

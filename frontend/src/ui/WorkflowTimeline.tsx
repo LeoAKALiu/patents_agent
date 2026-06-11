@@ -16,7 +16,7 @@ export function WorkflowTimeline({ steps, currentStepId, onStepClick }: Workflow
     <nav className="flex flex-col gap-1 px-3 py-4">
       <div className="px-3 mb-3">
         <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
-          Workflow
+          流程导航
         </span>
       </div>
       {steps.map((step, idx) => {
