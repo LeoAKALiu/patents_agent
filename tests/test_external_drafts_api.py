@@ -1,4 +1,7 @@
+from fastapi.testclient import TestClient
+
 from backend.app.external_drafts import create_external_draft_source, parse_external_draft_source
+from backend.app.main import create_app
 from backend.app.schemas import ProjectRecord
 from backend.app.storage import SQLiteStore
 
@@ -62,3 +65,61 @@ def test_delete_project_removes_external_draft_intake_records(tmp_path):
     assert store.delete_project(project.id) is True
     assert store.get_external_draft_source(project.id, source.id) is None
     assert store.get_external_draft_intake_run(project.id, run.id) is None
+
+
+def test_external_draft_api_creates_source_runs_intake_and_confirms_package(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "外部稿项目", "draft_text": "外部初稿导入项目。"},
+    ).json()
+
+    source_response = client.post(
+        f"/api/projects/{project['id']}/external-drafts",
+        json={
+            "source_type": "pasted_text",
+            "file_name": "draft.txt",
+            "text": (
+                "发明名称\n一种外部稿处理方法\n"
+                "说明书\n本发明涉及专利初稿处理。\n"
+            ),
+        },
+    )
+    assert source_response.status_code == 200
+    source = source_response.json()
+    assert source["content_hash"]
+
+    intake_response = client.post(f"/api/projects/{project['id']}/external-drafts/{source['id']}/intake-runs")
+    assert intake_response.status_code == 200
+    intake = intake_response.json()
+    assert intake["status"] == "needs_review"
+    assert intake["parsed_package"]["title"] == "一种外部稿处理方法"
+
+    confirm_response = client.post(
+        f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}/confirm",
+        json={
+            "title": "一种外部稿处理方法",
+            "abstract": "本发明公开一种外部稿处理方法。",
+            "claims": "1. 一种外部稿处理方法，其特征在于，解析外部专利初稿并生成工作稿。",
+            "description": "本发明涉及专利初稿处理。系统保存原始稿并生成内部工作稿。",
+            "drawing_description": "图1为外部稿处理流程图。",
+        },
+    )
+    assert confirm_response.status_code == 200
+    confirmed = confirm_response.json()
+    assert confirmed["status"] == "completed"
+    assert confirmed["working_draft_hash"]
+
+    project_after = client.get(f"/api/projects/{project['id']}").json()
+    assert project_after["package"]["title"] == "一种外部稿处理方法"
+    assert "保存原始稿" in project_after["package"]["description"]
+
+    list_sources = client.get(f"/api/projects/{project['id']}/external-drafts").json()
+    assert list_sources["sources"][0]["id"] == source["id"]
+
+    list_runs = client.get(f"/api/projects/{project['id']}/external-drafts/{source['id']}/intake-runs").json()
+    assert list_runs["runs"][0]["id"] == intake["id"]
+
+    get_run_response = client.get(f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}")
+    assert get_run_response.status_code == 200
+    assert get_run_response.json()["id"] == intake["id"]
