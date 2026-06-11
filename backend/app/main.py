@@ -23,6 +23,7 @@ from backend.app.draft_completion import completion_run_to_markdown, run_draft_c
 from backend.app.external_drafts import (
     create_external_draft_source,
     external_draft_review_bundle_to_markdown,
+    extract_docx_text,
     parse_external_draft_source,
     review_bundle_hash,
     working_draft_hash,
@@ -319,6 +320,32 @@ def create_app(
     def list_external_drafts(project_id: str) -> dict:
         _require_project(store, project_id)
         return {"sources": [source.model_dump(mode="json") for source in store.list_external_draft_sources(project_id)]}
+
+    @app.post("/api/projects/{project_id}/external-drafts/upload")
+    async def upload_external_draft(project_id: str, file: UploadFile = File(...)) -> dict:
+        _require_project(store, project_id)
+        suffix = Path(file.filename or "external-draft").suffix.lower()
+        raw_bytes = await file.read()
+        source_type = "docx_file" if suffix == ".docx" else "markdown_file"
+        raw_path = settings.data_dir / "external-drafts" / project_id / f"{uuid.uuid4().hex}{suffix or '.txt'}"
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+        raw_path.write_bytes(raw_bytes)
+        if suffix == ".docx":
+            text = extract_docx_text(raw_path)
+        else:
+            text = raw_bytes.decode("utf-8", errors="replace")
+        if not text.strip():
+            raise HTTPException(status_code=422, detail="External draft text is required.")
+        source = create_external_draft_source(
+            project_id=project_id,
+            source_type=source_type,
+            text=text,
+            file_name=file.filename or raw_path.name,
+            raw_path=str(raw_path),
+            metadata={"uploaded": True, "content_type": file.content_type or ""},
+        )
+        stored = store.create_external_draft_source(source)
+        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
     def create_external_draft_intake_run(project_id: str, source_id: str) -> dict:

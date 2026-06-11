@@ -4,7 +4,10 @@ import hashlib
 import re
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Iterable
+
+from docx import Document
 
 from backend.app.schemas import (
     DeliberationLogEntry,
@@ -54,6 +57,21 @@ def working_draft_hash(package: DraftPackage) -> str:
 def review_bundle_hash(bundle: ExternalDraftReviewBundle) -> str:
     canonical = bundle.model_copy(update={"report_hash": ""})
     return hashlib.sha256(canonical.model_dump_json().encode("utf-8")).hexdigest()
+
+
+def extract_docx_text(path: Path) -> str:
+    document = Document(path)
+    parts: list[str] = []
+    for paragraph in document.paragraphs:
+        text = paragraph.text.strip()
+        if text:
+            parts.append(text)
+    for table in document.tables:
+        for row in table.rows:
+            cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+            if cells:
+                parts.append(" | ".join(cells))
+    return normalize_text("\n".join(parts))
 
 
 def create_external_draft_source(

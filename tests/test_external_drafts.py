@@ -1,4 +1,5 @@
 import pytest
+from docx import Document
 from pydantic import ValidationError
 
 import backend.app.external_drafts as external_drafts
@@ -103,10 +104,30 @@ def test_external_draft_review_bundle_scores_are_bounded_when_present():
 
 from backend.app.external_drafts import (
     create_external_draft_source,
+    extract_docx_text,
     external_draft_review_bundle_to_markdown,
     parse_external_draft_source,
     working_draft_hash,
 )
+
+
+def test_docx_external_draft_text_extraction(tmp_path):
+    docx_path = tmp_path / "external-draft.docx"
+    document = Document()
+    document.add_heading("一种DOCX外部稿处理方法", level=1)
+    document.add_paragraph("摘要")
+    document.add_paragraph("本发明公开一种DOCX外部稿处理方法。")
+    document.add_paragraph("权利要求书")
+    document.add_paragraph("1. 一种方法，其特征在于，读取DOCX段落并生成工作稿。")
+    document.add_paragraph("说明书")
+    document.add_paragraph("本发明涉及文档解析。")
+    document.save(docx_path)
+
+    text = extract_docx_text(docx_path)
+
+    assert "一种DOCX外部稿处理方法" in text
+    assert "权利要求书" in text
+    assert "读取DOCX段落" in text
 
 
 def test_markdown_external_draft_parses_into_working_package():

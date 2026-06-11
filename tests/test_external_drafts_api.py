@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from docx import Document
 
 from backend.app.external_drafts import create_external_draft_source, parse_external_draft_source
 from backend.app.main import create_app
@@ -135,6 +136,36 @@ def test_external_draft_api_creates_source_runs_intake_and_confirms_package(tmp_
     get_run_response = client.get(f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}")
     assert get_run_response.status_code == 200
     assert get_run_response.json()["id"] == intake["id"]
+
+
+def test_external_draft_docx_upload_creates_source(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "DOCX外部稿", "draft_text": "DOCX外部稿导入。"},
+    ).json()
+    docx_path = tmp_path / "external.docx"
+    document = Document()
+    document.add_paragraph("权利要求书")
+    document.add_paragraph("1. 一种DOCX导入方法。")
+    document.add_paragraph("说明书")
+    document.add_paragraph("本发明涉及DOCX解析。")
+    document.save(docx_path)
+
+    response = client.post(
+        f"/api/projects/{project['id']}/external-drafts/upload",
+        files={
+            "file": (
+                "external.docx",
+                docx_path.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source_type"] == "docx_file"
+    assert "DOCX导入方法" in response.json()["raw_text"]
 
 
 def test_external_draft_confirmed_package_runs_quality_and_bundle_report(tmp_path):
