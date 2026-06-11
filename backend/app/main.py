@@ -24,8 +24,10 @@ from backend.app.external_drafts import (
     create_external_draft_source,
     external_draft_review_bundle_to_markdown,
     extract_docx_text,
+    file_content_hash,
     parse_external_draft_source,
     review_bundle_hash,
+    seal_external_draft_file,
     working_draft_hash,
 )
 from backend.app.exporter import export_docx, package_to_markdown
@@ -344,14 +346,24 @@ def create_app(
             text = raw_path.read_text(encoding="utf-8", errors="replace")
         if not text.strip():
             raise HTTPException(status_code=422, detail="External draft text is required.")
-        source = create_external_draft_source(
-            project_id=project_id,
-            source_type=source_type,
-            text=text,
-            file_name=safe_name,
-            raw_path=str(raw_path),
-            metadata={"uploaded": True, "content_type": file.content_type or ""},
-        )
+        raw_content_hash = file_content_hash(raw_path) if raw_path.exists() else ""
+        try:
+            source = create_external_draft_source(
+                project_id=project_id,
+                source_type=source_type,
+                text=text,
+                file_name=safe_name,
+                raw_path=str(raw_path),
+                raw_content_hash=raw_content_hash,
+                metadata={"uploaded": True, "content_type": file.content_type or ""},
+            )
+        except Exception:
+            # Make sure the on-disk raw file is cleaned up if the in-memory model
+            # cannot be built; nothing should leak onto disk for a failed import.
+            raw_path.unlink(missing_ok=True)
+            raise
+        if raw_path.exists():
+            seal_external_draft_file(raw_path)
         stored = store.create_external_draft_source(source)
         return stored.model_dump(mode="json")
 

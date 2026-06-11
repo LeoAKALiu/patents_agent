@@ -1,9 +1,16 @@
+from __future__ import annotations
+
+import hashlib
+import os
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 from docx import Document
 
 from backend.app.external_drafts import create_external_draft_source, parse_external_draft_source
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
+from backend.app.official_compile import source_draft_hash
 from backend.app.schemas import DraftPackage, ProjectRecord
 from backend.app.storage import SQLiteStore
 
@@ -399,3 +406,175 @@ def _passing_post_draft_review_llm() -> FakeLLMClient:
 """,
         }
     )
+
+
+def test_docx_upload_stores_original_sealed_and_hashes_match(tmp_path):
+    """DOCX import writes the original to disk read-only and records a hash
+    that can be cross-checked against the file on disk for tampering."""
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "DOCX密封验证", "draft_text": "DOCX导入并密封原始文件。"},
+    ).json()
+
+    docx_path = tmp_path / "sealed.docx"
+    document = Document()
+    document.add_paragraph("权利要求书")
+    document.add_paragraph("1. 一种DOCX密封方法，其特征在于，导入外部稿并锁定原始文件。")
+    document.add_paragraph("说明书")
+    document.add_paragraph("本发明涉及DOCX外部稿的密封保存。")
+    document.save(docx_path)
+    original_bytes = docx_path.read_bytes()
+
+    response = client.post(
+        f"/api/projects/{project['id']}/external-drafts/upload",
+        files={
+            "file": (
+                "sealed.docx",
+                original_bytes,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source_type"] == "docx_file"
+    assert payload["raw_path"], "raw_path should be persisted for sealed DOCX imports"
+    assert payload["metadata"]["raw_content_hash"], "raw_content_hash should be recorded"
+
+    sealed_path = Path(payload["raw_path"])
+    assert sealed_path.exists()
+    sealed_bytes = sealed_path.read_bytes()
+    assert sealed_bytes == original_bytes
+
+    # The raw bytes hash recorded in the source must match the on-disk file
+    # verbatim — this is the integrity check that backs the read-only seal.
+    assert payload["metadata"]["raw_content_hash"] == hashlib.sha256(sealed_bytes).hexdigest()
+
+    # The seal is best-effort: on POSIX, the file should drop its write bits.
+    if os.name != "nt":
+        mode = sealed_path.stat().st_mode & 0o777
+        assert mode & 0o222 == 0, f"Expected read-only mode, got {oct(mode)}"
+
+    # The normalized text hash (the one tied to the parsed working draft) is
+    # derived from the docx text content, not the raw bytes.
+    assert payload["content_hash"] != payload["metadata"]["raw_content_hash"]
+
+
+def test_official_compile_is_idempotent_on_imported_external_drafts(tmp_path):
+    """Running the official compile twice on the same imported draft must
+    produce identical contamination_removed, blocked_items, and the same
+    official_package_hash — guaranteeing the contamination check is stable
+    and doesn't accumulate cruft across re-runs."""
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "外部稿正式稿幂等", "draft_text": "外部稿导入。"},
+    ).json()
+
+    # Import a draft via the API and confirm it through the normal pipeline.
+    source = client.post(
+        f"/api/projects/{project['id']}/external-drafts",
+        json={
+            "source_type": "pasted_text",
+            "file_name": "idempotent.txt",
+            "text": (
+                "发明名称\n一种外部稿正式稿幂等测试方法\n"
+                "权利要求书\n1. 一种外部稿正式稿幂等测试方法，其特征在于，"
+                "重新运行正式编译不引入新污染。\n"
+                "说明书\n本发明涉及对外部稿的正式稿编译做幂等性检查。"
+            ),
+        },
+    ).json()
+    intake = client.post(
+        f"/api/projects/{project['id']}/external-drafts/{source['id']}/intake-runs"
+    ).json()
+    client.post(
+        f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}/confirm",
+        json={
+            "title": "一种外部稿正式稿幂等测试方法",
+            "abstract": "本发明公开一种外部稿正式稿幂等测试方法。",
+            "claims": (
+                "1. 一种外部稿正式稿幂等测试方法，其特征在于，"
+                "重新运行正式编译不引入新污染。"
+            ),
+            "description": "本发明涉及对外部稿的正式稿编译做幂等性检查。",
+            "drawing_description": "图1为正式稿编译幂等测试流程图。",
+        },
+    )
+
+    # First run establishes the baseline.
+    first = client.post(
+        f"/api/projects/{project['id']}/official-compile-runs", json={}
+    ).json()
+    assert first["status"] == "completed"
+
+    # Second run must agree on the contamination and hash story.
+    second = client.post(
+        f"/api/projects/{project['id']}/official-compile-runs", json={}
+    ).json()
+    assert second["status"] == "completed"
+
+    assert first["source_draft_hash"] == second["source_draft_hash"]
+    assert first["official_package_hash"] == second["official_package_hash"]
+    assert first["contamination_removed"] == second["contamination_removed"]
+    assert first["blocked_items"] == second["blocked_items"]
+
+    # The working draft on the project side must match the source_draft_hash
+    # the official compile computed, proving the import + compile pair is closed.
+    project_state = client.get(f"/api/projects/{project['id']}").json()
+    draft_hash = source_draft_hash(DraftPackage.model_validate(project_state["package"]))
+    assert draft_hash == first["source_draft_hash"]
+
+
+def test_official_compile_blocks_contaminated_imported_draft(tmp_path):
+    """If a confirmation smuggles internal drafting text into the imported
+    draft, the official compile must still flag it via the contamination
+    check — proving the import path does not weaken the export gate."""
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "外部稿污染门禁", "draft_text": "外部稿污染门禁验证。"},
+    ).json()
+
+    source = client.post(
+        f"/api/projects/{project['id']}/external-drafts",
+        json={
+            "source_type": "pasted_text",
+            "file_name": "smuggled.txt",
+            "text": (
+                "发明名称\n一种外部稿污染门禁验证方法\n"
+                "权利要求书\n1. 一种方法。\n说明书\n本发明涉及外部稿污染门禁。"
+            ),
+        },
+    ).json()
+    intake = client.post(
+        f"/api/projects/{project['id']}/external-drafts/{source['id']}/intake-runs"
+    ).json()
+    # Confirm with claims that have been seeded with internal drafting noise
+    # the same way the generator sometimes leaks it.
+    client.post(
+        f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}/confirm",
+        json={
+            "title": "一种外部稿污染门禁验证方法",
+            "abstract": "本发明公开一种外部稿污染门禁验证方法。",
+            "claims": "好的，下面撰写权利要求书。\n1. 一种外部稿污染门禁验证方法。",
+            "description": "本发明涉及外部稿污染门禁。support_gap: 仍需补实验。",
+            "drawing_description": "图1为流程图。",
+        },
+    )
+
+    blocked = client.post(
+        f"/api/projects/{project['id']}/official-compile-runs", json={}
+    ).json()
+    assert blocked["status"] == "blocked"
+    assert any(
+        item.get("category") in {"residual_internal_text", "empty_required_section"}
+        for item in blocked["blocked_items"]
+    )
+    assert blocked["official_package"] is None
+    # The official export gate must not let the contaminated imported draft
+    # through, even though it cleared the intake.
+    blocked_export = client.get(f"/api/projects/{project['id']}/official-export.md")
+    assert blocked_export.status_code == 409
