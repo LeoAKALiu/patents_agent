@@ -60,7 +60,7 @@ export type GuidedStepId =
   | "postReview"
   | "export";
 export type GuidedStepStatus = "done" | "current" | "ready" | "locked";
-export type PatentGoalMode = "stable" | "broad" | "fast" | "moat";
+export type PatentGoalMode = "stable" | "broad" | "fast" | "utility" | "moat";
 
 export type NavEntry<T extends string> = {
   id: T;
@@ -119,6 +119,7 @@ export type GuidedFlowState = {
   hasCompletedOfficialCompile: boolean;
   hasPassedPostDraftReview: boolean;
   exportReady: boolean;
+  utilityModelLite: boolean;
 };
 
 export type QualitySummary = {
@@ -145,13 +146,30 @@ export type PatentPointSelectionPayload = {
 
 export const defaultMainSectionId: MainSectionId = "generate";
 export const defaultExpertToolId: ExpertToolId = "build";
+export const utilityModelModePrefix = "目标模式：实用新型轻量版。";
 
 export const patentGoalModes: Array<{ id: PatentGoalMode; label: string; description: string }> = [
   { id: "stable", label: "授权稳健", description: "收紧独权，强调组合闭环和说明书支撑。" },
   { id: "broad", label: "保护范围优先", description: "先上位覆盖，再用从权兜底替代实现。" },
   { id: "fast", label: "快速初稿", description: "优先生成可审阅的完整初稿。" },
+  { id: "utility", label: "实用新型轻量版", description: "结构与附图优先，跳过会审和公式重步骤。" },
   { id: "moat", label: "专利护城河", description: "允许可行未验证方案进入内部策略和分案布局。" },
 ];
+
+export function projectGoalPrefix(mode: PatentGoalMode): string {
+  if (mode === "stable") return "目标模式：授权稳健。";
+  if (mode === "broad") return "目标模式：保护范围优先。";
+  if (mode === "fast") return "目标模式：快速初稿。";
+  if (mode === "utility") {
+    return `${utilityModelModePrefix}专利类型：实用新型；请优先提炼产品结构、部件连接关系、安装位置、附图编号和结构效果，避免把纯方法、算法或业务规则作为独立保护主题。`;
+  }
+  return "目标模式：专利护城河，允许可行未验证方案进入内部策略。";
+}
+
+export function isUtilityModelProject(project: ProjectRecord | null | undefined): boolean {
+  const draftText = project?.draft_text ?? "";
+  return draftText.includes(utilityModelModePrefix) || draftText.includes("专利类型：实用新型");
+}
 
 export const mainSections: Array<NavEntry<MainSectionId>> = [
   { id: "generate", label: "专利生成", description: "从一句想法到可导出文件", icon: Wand2 },
@@ -311,6 +329,7 @@ export function guidedStepStatusLabel(status: GuidedStepStatus): string {
 export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   const processedMaterialCount = input.materials.filter((material) => material.status === "processed").length;
   const hasIdea = Boolean(input.project?.draft_text.trim());
+  const utilityModelLite = isUtilityModelProject(input.project);
   const hasCompletedDisclosure = input.disclosures.some((run) => run.status === "completed" && run.package);
   const draftReady = canExportPackage(input.project?.package);
   const externalDraftSources = input.externalDraftSources ?? [];
@@ -320,8 +339,8 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   const hasExternalDraftIntakeNeedsReview = externalDraftIntakeRuns.some((run) => run.status === "needs_review");
   const hasInventionCandidates = hasCompletedDisclosure || input.patentPoints.length > 0;
   const hasConfirmedInventionPoint = draftReady || input.patentPoints.some((point) => point.selected);
-  const hasCompletedDeliberation = draftReady || Boolean(latestCompletedDeliberation(input.deliberations));
-  const formulaRequired = Boolean(input.formulaRequirement?.required);
+  const hasCompletedDeliberation = draftReady || utilityModelLite || Boolean(latestCompletedDeliberation(input.deliberations));
+  const formulaRequired = !utilityModelLite && Boolean(input.formulaRequirement?.required);
   const hasCompletedFormula = draftReady || !formulaRequired || Boolean(input.formulaRuns?.some((run) => run.status === "completed" && run.package));
   const qualityChecked = Boolean(
     input.filingReports.length
@@ -388,6 +407,7 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     hasCompletedOfficialCompile,
     hasPassedPostDraftReview,
     exportReady,
+    utilityModelLite,
   };
 }
 

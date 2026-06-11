@@ -42,6 +42,7 @@ from backend.app.official_compile import (
     official_package_to_markdown,
     source_draft_hash,
 )
+from backend.app.patent_mode import is_utility_model_project
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
 from backend.app.post_draft_review import (
     post_draft_review_to_markdown,
@@ -723,7 +724,7 @@ def create_app(
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating drafts.")
         deliberation = _resolve_deliberation(store, project_id, payload.deliberation_run_id if payload else None)
-        if deliberation is None:
+        if deliberation is None and not is_utility_model_project(project):
             raise HTTPException(status_code=409, detail="Multi-agent deliberation is required before generating a patent draft.")
         disclosure = store.get_latest_completed_disclosure_run(project_id)
         disclosure_package = disclosure.package if disclosure else None
@@ -740,8 +741,16 @@ def create_app(
                 prior_art_hits=[],
                 prior_art_differences="尚未完成公开现有技术差异分析。",
                 body_markdown=selected_candidate.technical_solution,
-                mermaid="flowchart TD\nA[用户指定技术方案] --> B[待补充验证]",
-                image_prompt="黑白线稿，展示用户指定技术方案的数据流和模块关系。",
+                mermaid=(
+                    "flowchart TD\nA[用户指定结构方案] --> B[部件连接关系待补充]"
+                    if is_utility_model_project(project)
+                    else "flowchart TD\nA[用户指定技术方案] --> B[待补充验证]"
+                ),
+                image_prompt=(
+                    "黑白线稿，展示用户指定结构方案的部件组成、连接关系和安装位置。"
+                    if is_utility_model_project(project)
+                    else "黑白线稿，展示用户指定技术方案的数据流和模块关系。"
+                ),
                 self_check_findings=[],
                 generation_logs=["disclosure: synthesized from selected user patent point"],
             )
@@ -1554,13 +1563,21 @@ def _brief_from_draft(project: ProjectRecord, disclosure: DisclosurePackage | No
     first_sentence = draft.split("。", 1)[0]
     title = project.name if project.name else first_sentence[:40]
     selected = disclosure.selected_candidate if disclosure else None
+    utility_model = is_utility_model_project(project)
+    normalized_title = title if title.startswith("一种") else f"一种{title}{'结构' if utility_model else '方法'}"
     return InventionBrief(
-        title=f"一种{title}方法" if not title.startswith("一种") else title,
-        technical_field="人工智能软件方法",
+        title=normalized_title,
+        technical_field="实用新型产品结构" if utility_model else "人工智能软件方法",
         technical_problem=selected.technical_problem if selected else _infer_problem(draft),
         technical_solution=selected.technical_solution if selected else draft,
-        beneficial_effects=selected.beneficial_effects if selected else ["提升申请文本结构完整性", "降低专利初稿撰写遗漏风险"],
-        key_steps=selected.protection_focus if selected and selected.protection_focus else _infer_steps(draft),
+        beneficial_effects=selected.beneficial_effects if selected else (
+            ["提高结构稳定性", "降低装配和维护难度"]
+            if utility_model
+            else ["提升申请文本结构完整性", "降低专利初稿撰写遗漏风险"]
+        ),
+        key_steps=selected.protection_focus if selected and selected.protection_focus else (
+            _infer_structure_features(draft) if utility_model else _infer_steps(draft)
+        ),
         raw_draft=draft,
         disclosure_summary=disclosure.summary if disclosure else None,
         patent_point_summary=selected.title if selected else None,
@@ -1582,6 +1599,14 @@ def _infer_steps(draft: str) -> list[str]:
         if keyword in draft:
             candidates.append(keyword)
     return candidates or ["获取输入数据", "生成专利文本", "输出审查建议"]
+
+
+def _infer_structure_features(draft: str) -> list[str]:
+    candidates = []
+    for keyword in ["支架", "壳体", "连接", "固定", "安装", "限位", "导向", "密封", "传感器", "模块", "组件", "结构"]:
+        if keyword in draft:
+            candidates.append(keyword)
+    return candidates or ["部件组成", "连接关系", "安装位置"]
 
 
 def _retrieve_generation_context(index: LocalVectorIndex, brief: InventionBrief) -> list[PatentChunk]:

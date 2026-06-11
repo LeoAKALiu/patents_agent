@@ -1045,10 +1045,15 @@ async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let detail = response.statusText;
     try {
-      const data = await response.json();
-      detail = data.detail ?? detail;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const data = await response.json();
+        detail = data.detail ?? detail;
+      } else {
+        detail = await response.text();
+      }
     } catch {
-      detail = await response.text();
+      detail = response.statusText;
     }
     throw new Error(detail);
   }

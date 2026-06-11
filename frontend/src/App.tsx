@@ -131,6 +131,7 @@ import {
   guidedBusyLabel,
   guidedOperationLog,
   mainSections,
+  projectGoalPrefix,
   selectCurrentOfficialCompileRun,
   selectLatestMatchingPostDraftReview,
   type ExpertToolId,
@@ -612,14 +613,7 @@ function App() {
 
   async function handleCreateIdeaProject(payload: { name: string; idea: string; mode: PatentGoalMode }) {
     await withStatus("guided-create", async () => {
-      const prefix =
-        payload.mode === "stable"
-          ? "目标模式：授权稳健。"
-          : payload.mode === "broad"
-            ? "目标模式：保护范围优先。"
-            : payload.mode === "fast"
-              ? "目标模式：快速初稿。"
-              : "目标模式：专利护城河，允许可行未验证方案进入内部策略。";
+      const prefix = projectGoalPrefix(payload.mode);
       const project = await createProject(payload.name, `${prefix}\n${payload.idea}`);
       const nextProjects = await listProjects();
       setProjects(nextProjects);

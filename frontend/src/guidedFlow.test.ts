@@ -31,10 +31,12 @@ import {
   officialCompileActionGate,
   patentGoalModes,
   postDraftReviewActionGate,
+  projectGoalPrefix,
   qualityActionGate,
   qualitySummaryFromRuns,
   resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
+  utilityModelModePrefix,
   type GuidedStepId,
 } from "./guidedFlow";
 
@@ -518,8 +520,14 @@ describe("patent goal modes", () => {
       "授权稳健",
       "保护范围优先",
       "快速初稿",
+      "实用新型轻量版",
       "专利护城河",
     ]);
+  });
+
+  it("marks utility model projects with an explicit draft prefix", () => {
+    expect(projectGoalPrefix("utility")).toContain(utilityModelModePrefix);
+    expect(projectGoalPrefix("utility")).toContain("专利类型：实用新型");
   });
 });
 
@@ -673,6 +681,30 @@ describe("deriveGuidedFlowState", () => {
 
     expect(readyForDraft.currentStepId).toBe("draft");
     expect(readyForDraft.hasCompletedDeliberation).toBe(true);
+  });
+
+  it("skips deliberation and formula gates for utility model lite projects", () => {
+    const selectedPoint = patentPoint(true);
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        draft_text: `${utilityModelModePrefix}\n一种可调安装支架，包括底座、支撑臂和限位件。`,
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [],
+      patentPoints: [selectedPoint],
+      formulaRequirement: formulaRequired,
+      formulaRuns: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(state.utilityModelLite).toBe(true);
+    expect(state.hasCompletedDeliberation).toBe(true);
+    expect(state.formulaRequired).toBe(false);
+    expect(state.currentStepId).toBe("draft");
   });
 
   it("requires a completed formula package when formula assessment is required", () => {
