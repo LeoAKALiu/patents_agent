@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   UsersRound,
   Wand2,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,7 +35,7 @@ import type {
 } from "./api";
 import { canExportPackage, latestCompletedDeliberation } from "./domain";
 
-export type MainSectionId = "generate" | "projects" | "expert";
+export type MainSectionId = "generate" | "utility" | "projects" | "expert";
 
 export type ExpertToolId =
   | "build"
@@ -156,6 +157,8 @@ export const patentGoalModes: Array<{ id: PatentGoalMode; label: string; descrip
   { id: "moat", label: "专利护城河", description: "允许可行未验证方案进入内部策略和分案布局。" },
 ];
 
+export const ideaPatentGoalModes = patentGoalModes.filter((mode) => mode.id !== "utility");
+
 export function projectGoalPrefix(mode: PatentGoalMode): string {
   if (mode === "stable") return "目标模式：授权稳健。";
   if (mode === "broad") return "目标模式：保护范围优先。";
@@ -173,6 +176,7 @@ export function isUtilityModelProject(project: ProjectRecord | null | undefined)
 
 export const mainSections: Array<NavEntry<MainSectionId>> = [
   { id: "generate", label: "专利生成", description: "从一句想法到可导出文件", icon: Wand2 },
+  { id: "utility", label: "实用新型轻量版", description: "结构与附图优先的轻量流程", icon: Wrench },
   { id: "projects", label: "项目", description: "查看历史项目和运行记录", icon: FolderKanban },
   { id: "expert", label: "专家工具", description: "进入旧工作台和高级检查", icon: Gauge },
 ];
