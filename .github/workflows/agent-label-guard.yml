@@ -1,0 +1,60 @@
+name: Agent Label Guard
+
+"on":
+  pull_request:
+    types: [opened, edited, synchronize, ready_for_review, labeled, unlabeled]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate labels and PR size
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          LABELS_JSON: ${{ toJson(github.event.pull_request.labels) }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          ADDITIONS: ${{ github.event.pull_request.additions }}
+          DELETIONS: ${{ github.event.pull_request.deletions }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          labels = {item["name"] for item in json.loads(os.environ.get("LABELS_JSON", "[]"))}
+          pr = os.environ["PR_NUMBER"]
+          title = os.environ.get("PR_TITLE", "")
+          additions = int(os.environ.get("ADDITIONS", "0") or 0)
+          deletions = int(os.environ.get("DELETIONS", "0") or 0)
+          total = additions + deletions
+
+          def gh(*args: str) -> None:
+              subprocess.run(["gh", *args], check=False)
+
+          if "skip-agent" in labels or "[skip agent]" in title.lower():
+              print("Agent automation skipped by label/title.")
+              sys.exit(0)
+
+          if "agent-managed" not in labels:
+              print("Non-agent PR: no action required.")
+              sys.exit(0)
+
+          if total > 1200 and "needs-human" not in labels:
+              gh("pr", "edit", pr, "--add-label", "needs-human")
+              gh(
+                  "pr",
+                  "comment",
+                  pr,
+                  "--body",
+                  "Agent label guard: large PR (>1200 changed lines) flagged for human review.",
+              )
+
+          print(f"Agent PR guard passed/flagged. labels={sorted(labels)} total_changed_lines={total}")
+          PY
