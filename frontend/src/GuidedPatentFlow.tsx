@@ -87,7 +87,7 @@ export type GuidedPatentFlowProps = {
   busyElapsedSeconds?: number;
   onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode }) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
-  onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => void;
+  onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
   onConfirmExternalDraftIntake: (
     runId: string,
@@ -566,6 +566,7 @@ function ExternalDraftIntakePanel({
 }) {
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState("external-draft.txt");
+  const [selectedUploadFileName, setSelectedUploadFileName] = useState("");
   const latestRun = runs[0] ?? null;
   const draft = latestRun?.parsed_package ?? null;
   const confirmable = Boolean(draft?.claims.trim() && draft?.description.trim());
@@ -575,6 +576,13 @@ function ExternalDraftIntakePanel({
     if (!project || !text.trim()) return;
     await onCreateExternalDraft({ text: text.trim(), fileName: fileName.trim() || "external-draft.txt" });
     setText("");
+  }
+
+  async function handleUpload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!project || !selectedUploadFileName) return;
+    await onUploadExternalDraft(event);
+    setSelectedUploadFileName("");
   }
 
   async function handleConfirm() {
@@ -591,7 +599,7 @@ function ExternalDraftIntakePanel({
   return (
     <section className="external-draft-panel">
       {!project && <p className="workflow-hint">请先创建或选择一个项目，再导入外部初稿。</p>}
-      <form className="guided-upload" onSubmit={onUploadExternalDraft}>
+      <form className="guided-upload" onSubmit={handleUpload}>
         <label>
           <span>文件名</span>
           <input
@@ -599,9 +607,10 @@ function ExternalDraftIntakePanel({
             name="external-draft-file"
             type="file"
             accept=".docx,.txt,.md,.markdown"
+            onChange={(event) => setSelectedUploadFileName(event.target.files?.[0]?.name ?? "")}
           />
         </label>
-        <button className="primary" disabled={!project || busy === "external-draft-upload"} type="submit">
+        <button className="primary" disabled={!project || !selectedUploadFileName || busy === "external-draft-upload"} type="submit">
           <Upload size={17} />
           <span>上传外部初稿</span>
         </button>
