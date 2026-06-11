@@ -398,9 +398,9 @@ class SQLiteStore:
         ).fetchone()
         return self._external_draft_intake_run_from_row(row) if row else None
 
-    def update_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> ExternalDraftIntakeRun:
+    def update_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> ExternalDraftIntakeRun | None:
         with self.connection:
-            self.connection.execute(
+            cursor = self.connection.execute(
                 """
                 update external_draft_intake_runs
                 set status = ?, parser_version = ?, source_hash = ?, parsed_package_json = ?,
@@ -426,7 +426,9 @@ class SQLiteStore:
                     run.id,
                 ),
             )
-        return self.get_external_draft_intake_run(run.project_id, run.id) or run
+            if cursor.rowcount == 0:
+                return None
+        return self.get_external_draft_intake_run(run.project_id, run.id)
 
     def create_filing_readiness_report(self, report: FilingReadinessReport) -> FilingReadinessReport:
         with self.connection:
