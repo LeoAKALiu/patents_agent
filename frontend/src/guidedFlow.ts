@@ -503,6 +503,7 @@ export function guidedBusyLabel(value: string): string {
   if (value === "formula") return "正在凝练核心公式";
   if (value === "guided-create") return "正在创建专利项目";
   if (value === "material-upload") return "正在上传材料";
+  if (value === "external-draft-upload") return "正在上传外部初稿";
   if (value === "patent-point-select") return "正在保存主路线和后备路线";
   if (value === "project-delete") return "正在删除项目";
   if (value === "claim-defense") return "正在生成权利要求防线";

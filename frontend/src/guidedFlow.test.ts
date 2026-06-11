@@ -537,6 +537,7 @@ describe("guidedBusyLabel", () => {
     expect(guidedBusyLabel("official-compile")).toBe("正在编译正式稿");
     expect(guidedBusyLabel("disclosure")).toBe("正在提炼发明点");
     expect(guidedBusyLabel("generate")).toBe("正在生成专利初稿");
+    expect(guidedBusyLabel("external-draft-upload")).toBe("正在上传外部初稿");
     expect(guidedBusyLabel("")).toBe("");
   });
 });

@@ -87,6 +87,7 @@ export type GuidedPatentFlowProps = {
   busyElapsedSeconds?: number;
   onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode }) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
+  onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
   onConfirmExternalDraftIntake: (
     runId: string,
@@ -201,6 +202,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
             busy={props.busy}
             busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
             onCreateExternalDraft={props.onCreateExternalDraft}
+            onUploadExternalDraft={props.onUploadExternalDraft}
             onStartExternalDraftIntake={props.onStartExternalDraftIntake}
             onConfirmExternalDraftIntake={props.onConfirmExternalDraftIntake}
           />
@@ -216,6 +218,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onCreateIdeaProject={props.onCreateIdeaProject}
           onCreateExternalDraft={props.onCreateExternalDraft}
+          onUploadExternalDraft={props.onUploadExternalDraft}
           onStartExternalDraftIntake={props.onStartExternalDraftIntake}
           onConfirmExternalDraftIntake={props.onConfirmExternalDraftIntake}
           onUploadMaterial={props.onUploadMaterial}
@@ -407,6 +410,7 @@ function IdeaIntakePanel({
   busyElapsedSeconds,
   onCreateIdeaProject,
   onCreateExternalDraft,
+  onUploadExternalDraft,
   onStartExternalDraftIntake,
   onConfirmExternalDraftIntake,
   onUploadMaterial,
@@ -419,6 +423,7 @@ function IdeaIntakePanel({
   busyElapsedSeconds: number;
   onCreateIdeaProject: GuidedPatentFlowProps["onCreateIdeaProject"];
   onCreateExternalDraft: GuidedPatentFlowProps["onCreateExternalDraft"];
+  onUploadExternalDraft: GuidedPatentFlowProps["onUploadExternalDraft"];
   onStartExternalDraftIntake: GuidedPatentFlowProps["onStartExternalDraftIntake"];
   onConfirmExternalDraftIntake: GuidedPatentFlowProps["onConfirmExternalDraftIntake"];
   onUploadMaterial: GuidedPatentFlowProps["onUploadMaterial"];
@@ -529,6 +534,7 @@ function IdeaIntakePanel({
           busy={busy}
           busyElapsedSeconds={busyElapsedSeconds}
           onCreateExternalDraft={onCreateExternalDraft}
+          onUploadExternalDraft={onUploadExternalDraft}
           onStartExternalDraftIntake={onStartExternalDraftIntake}
           onConfirmExternalDraftIntake={onConfirmExternalDraftIntake}
         />
@@ -544,6 +550,7 @@ function ExternalDraftIntakePanel({
   busy,
   busyElapsedSeconds,
   onCreateExternalDraft,
+  onUploadExternalDraft,
   onStartExternalDraftIntake,
   onConfirmExternalDraftIntake,
 }: {
@@ -553,11 +560,13 @@ function ExternalDraftIntakePanel({
   busy: string;
   busyElapsedSeconds: number;
   onCreateExternalDraft: GuidedPatentFlowProps["onCreateExternalDraft"];
+  onUploadExternalDraft: GuidedPatentFlowProps["onUploadExternalDraft"];
   onStartExternalDraftIntake: GuidedPatentFlowProps["onStartExternalDraftIntake"];
   onConfirmExternalDraftIntake: GuidedPatentFlowProps["onConfirmExternalDraftIntake"];
 }) {
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState("external-draft.txt");
+  const [selectedUploadFileName, setSelectedUploadFileName] = useState("");
   const latestRun = runs[0] ?? null;
   const draft = latestRun?.parsed_package ?? null;
   const confirmable = Boolean(draft?.claims.trim() && draft?.description.trim());
@@ -567,6 +576,13 @@ function ExternalDraftIntakePanel({
     if (!project || !text.trim()) return;
     await onCreateExternalDraft({ text: text.trim(), fileName: fileName.trim() || "external-draft.txt" });
     setText("");
+  }
+
+  async function handleUpload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!project || !selectedUploadFileName) return;
+    await onUploadExternalDraft(event);
+    setSelectedUploadFileName("");
   }
 
   async function handleConfirm() {
@@ -583,9 +599,25 @@ function ExternalDraftIntakePanel({
   return (
     <section className="external-draft-panel">
       {!project && <p className="workflow-hint">请先创建或选择一个项目，再导入外部初稿。</p>}
-      <form className="guided-intake" onSubmit={handleCreate}>
+      <form className="guided-upload" onSubmit={handleUpload}>
         <label>
           <span>文件名</span>
+          <input
+            id="external-draft-file"
+            name="external-draft-file"
+            type="file"
+            accept=".docx,.txt,.md,.markdown"
+            onChange={(event) => setSelectedUploadFileName(event.target.files?.[0]?.name ?? "")}
+          />
+        </label>
+        <button className="primary" disabled={!project || !selectedUploadFileName || busy === "external-draft-upload"} type="submit">
+          <Upload size={17} />
+          <span>上传外部初稿</span>
+        </button>
+      </form>
+      <form className="guided-intake" onSubmit={handleCreate}>
+        <label>
+          <span>粘贴稿文件名</span>
           <input value={fileName} onChange={(event) => setFileName(event.target.value)} disabled={!project} />
         </label>
         <label>
@@ -594,7 +626,6 @@ function ExternalDraftIntakePanel({
             className="idea-input"
             value={text}
             onChange={(event) => setText(event.target.value)}
-            disabled={!project}
             placeholder="粘贴发明名称、摘要、权利要求书、说明书和附图说明。"
           />
         </label>
