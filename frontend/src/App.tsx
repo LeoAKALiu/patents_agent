@@ -1128,7 +1128,7 @@ function App() {
     <main className="grid min-h-screen md:grid-cols-[minmax(220px,260px)_minmax(0,1fr)] grid-cols-1">
       <aside className="hidden md:flex bg-[#0c1929] text-white p-6 flex-col gap-6 border-r border-[#334155]/20">
         <div className="flex gap-3 items-center">
-          <img className="w-10 h-10 block rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_12px_26px_rgba(0,0,0,0.16)]" src="/logo.svg" alt="" aria-hidden="true" />
+          <img className="w-10 h-10 block rounded-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_12px_26px_rgba(0,0,0,0.16)]" src="/logo.svg" alt="" aria-hidden="true" />
           <div>
             <h1>PatentAgent</h1>
             <p>专利护城河工程系统</p>
@@ -1139,7 +1139,7 @@ function App() {
             const Icon = section.icon;
             return (
               <button
-                className={activeSection === section.id ? "flex items-center gap-3 px-4 py-3 rounded-xl bg-[#1e293b] text-white font-medium" : "flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-[#0f172a] hover:text-white transition-colors"}
+                className={activeSection === section.id ? "flex items-center gap-3 px-4 py-3 rounded-lg bg-[#1e293b] text-white font-medium" : "flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-[#0f172a] hover:text-white transition-colors"}
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
                 type="button"
@@ -1151,7 +1151,7 @@ function App() {
             );
           })}
         </nav>
-        <div className="mt-auto flex flex-col gap-3 p-4 bg-[#0f172a] rounded-2xl text-sm text-white/80">
+        <div className="mt-auto flex flex-col gap-3 p-4 bg-[#0f172a] rounded-lg text-sm text-white/80">
           <div className={health?.llm_configured ? "flex items-center gap-2 text-emerald-400" : "flex items-center gap-2 text-amber-400"}>
             {health?.llm_configured ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
             <span>{health?.llm_configured ? "模型已配置" : "未配置 DEEPSEEK_API_KEY"}</span>
@@ -1161,7 +1161,7 @@ function App() {
             <span>智能体 {agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}</span>
           </div>
           <p>生成时会向云端模型服务发送 draft 与检索片段。</p>
-          <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-transparent hover:bg-[#0f172a] text-white transition-colors disabled:opacity-50 px-3 py-2 text-sm" onClick={refreshAll} type="button" title="刷新">
+          <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-transparent hover:bg-[#0f172a] text-white transition-colors disabled:opacity-50 px-3 py-2 text-sm" onClick={refreshAll} type="button" title="刷新">
             <RefreshCw size={16} />
             <span>刷新</span>
           </button>
@@ -1314,7 +1314,7 @@ function useBusyTimer(busy: string): BusyTimer {
 function BusyOperationConsole({ log }: { log: ReturnType<typeof guidedOperationLog> }) {
   if (!log) return null;
   return (
-    <div className="bg-[#0c1929] text-white/90 p-4 rounded-xl font-mono text-xs overflow-auto max-h-32 mt-2 w-full" role="status" aria-label={log.label}>
+    <div className="bg-[#0c1929] text-white/90 p-4 rounded-lg font-mono text-xs overflow-auto max-h-32 mt-2 w-full" role="status" aria-label={log.label}>
       <pre>{log.lines.join("\n")}</pre>
     </div>
   );
@@ -1355,13 +1355,13 @@ function CorpusBuildView({
             : "导入失败，请查看失败数量和质量报告。";
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>官方导出物批量建库</h3>
           <p>支持 ZIP、CSV/XLSX 元数据表和 PDF/XML/TXT/DOCX 全文配对导入；扫描版 PDF 会进入失败清单。</p>
         </div>
         <button
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
           disabled={!job || job.input_paths.length === 0 || busy === "corpus-run"}
           onClick={onRunJob}
           type="button"
@@ -1372,7 +1372,7 @@ function CorpusBuildView({
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>导入任务</h3>
           <form className="flex flex-col gap-4" onSubmit={onCreateJob}>
             <label>
@@ -1391,7 +1391,7 @@ function CorpusBuildView({
             <label>
               <span>检索式 / 批次说明</span>
               <textarea
-                className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
+                className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
                 value={form.query}
                 onChange={(event) => onFormChange({ query: event.target.value })}
               />
@@ -1403,14 +1403,14 @@ function CorpusBuildView({
                 onChange={(event) => onFormChange({ version_name: event.target.value })}
               />
             </label>
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "corpus-job"} type="submit">
+            <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "corpus-job"} type="submit">
               <FileText size={17} />
               <span>创建任务</span>
             </button>
           </form>
 
-          <form className="flex flex-col gap-4 p-4 border-2 border-dashed border-[#334155] rounded-2xl bg-[#0c1929]" onSubmit={onUploadFile}>
-            {job && <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">{jobHint}</p>}
+          <form className="flex flex-col gap-4 p-4 border-2 border-dashed border-[#334155] rounded-lg bg-[#0c1929]" onSubmit={onUploadFile}>
+            {job && <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">{jobHint}</p>}
             <input
               id="corpus-batch-file"
               name="corpus-batch-file"
@@ -1418,18 +1418,18 @@ function CorpusBuildView({
               accept=".zip,.csv,.xlsx,.xlsm,.pdf,.docx,.txt,.md,.markdown,.xml"
               disabled={!job}
             />
-            <button className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors text-sm" disabled={!job || busy === "corpus-upload"} type="submit">
+            <button className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors text-sm" disabled={!job || busy === "corpus-upload"} type="submit">
               <Upload size={16} />
               <span>上传</span>
             </button>
           </form>
         </div>
 
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>任务进度</h3>
           {job ? (
             <>
-              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">{jobHint}</p>
+              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">{jobHint}</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <StatusPill label="状态" value={pipelineRunStatusLabel(job.status)} />
                 <StatusPill label="版本" value={job.version_name} />
@@ -1449,7 +1449,7 @@ function CorpusBuildView({
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>语料统计</h3>
           {stats ? (
             <div className="flex flex-col gap-4">
@@ -1468,11 +1468,11 @@ function CorpusBuildView({
           )}
         </div>
 
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>语料版本</h3>
           <div className="flex flex-col gap-3">
             {versions.map((version) => (
-              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={version.id}>
+              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={version.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                   <span>{version.domain}</span>
                   <span>{version.document_count} 件 / {version.chunk_count} 片段</span>
@@ -1492,7 +1492,7 @@ function CorpusBuildView({
 function QualityReportView({ report }: { report: CorpusImportJob["quality_report"] }) {
   if (!report) return null;
   return (
-    <div className="flex flex-col gap-4 mt-6 p-6 rounded-2xl bg-[#0c1929]/50 border border-red-100">
+    <div className="flex flex-col gap-4 mt-6 p-6 rounded-lg bg-[#0c1929]/50 border border-red-100">
       <h4>质量报告</h4>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatusPill label="可抽取率" value={percent(report.fulltext_extractable_rate)} />
@@ -1503,7 +1503,7 @@ function QualityReportView({ report }: { report: CorpusImportJob["quality_report
       {report.failures.length > 0 && (
         <div className="flex flex-col gap-3">
           {report.failures.slice(0, 6).map((failure) => (
-            <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={`${failure.file}-${failure.reason}`}>
+            <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={`${failure.file}-${failure.reason}`}>
               <AlertTriangle size={18} />
               <div>
                 <strong>{failure.file}</strong>
@@ -1520,7 +1520,7 @@ function QualityReportView({ report }: { report: CorpusImportJob["quality_report
 function Distribution({ title, values }: { title: string; values: Record<string, number> }) {
   const entries = Object.entries(values).slice(0, 8);
   return (
-    <div className="flex flex-col gap-3 mt-4 p-5 rounded-2xl bg-[#162032] border border-[#334155]">
+    <div className="flex flex-col gap-3 mt-4 p-5 rounded-lg bg-[#162032] border border-[#334155]">
       <div className="flex items-center gap-2 text-sm font-semibold text-[#e2e8f0]">
         <BarChart3 size={16} />
         <strong>{title}</strong>
@@ -1565,7 +1565,7 @@ function ExpertToolChooser({
                 const Icon = tool.icon;
                 return (
                   <button
-                    className={activeToolId === tool.id ? "flex items-center gap-3 px-4 py-3 rounded-xl bg-[#267a78]/10 border border-[#267a78]/30 text-[#2dd4bf] font-semibold shadow-sm" : "flex items-center gap-3 px-4 py-3 rounded-xl bg-[#0f172a] border border-[#334155] text-sm font-medium hover:bg-[#1e293b] transition-colors"}
+                    className={activeToolId === tool.id ? "flex items-center gap-3 px-4 py-3 rounded-lg bg-[#267a78]/10 border border-[#267a78]/30 text-[#2dd4bf] font-semibold shadow-sm" : "flex items-center gap-3 px-4 py-3 rounded-lg bg-[#0f172a] border border-[#334155] text-sm font-medium hover:bg-[#1e293b] transition-colors"}
                     key={tool.id}
                     onClick={() => onSelect(tool.id)}
                     type="button"
@@ -1665,7 +1665,7 @@ function MoatView({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>{project ? `${project.name} / 护城河专利点` : "护城河专利点"}</h3>
           <p>{project ? "把用户明确指定的可保护技术点登记成后续交底书、会审和撰写的输入。" : "先创建项目后再登记专利点。"}</p>
@@ -1674,7 +1674,7 @@ function MoatView({
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>新增专利点</h3>
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <label>
@@ -1689,7 +1689,7 @@ function MoatView({
             <label>
               <span>技术问题</span>
               <textarea
-                className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
+                className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
                 value={form.technical_problem}
                 onChange={(event) => setForm((current) => ({ ...current, technical_problem: event.target.value }))}
                 disabled={!project}
@@ -1699,7 +1699,7 @@ function MoatView({
             <label>
               <span>创新点</span>
               <textarea
-                className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
+                className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
                 value={form.innovation}
                 onChange={(event) => setForm((current) => ({ ...current, innovation: event.target.value }))}
                 disabled={!project}
@@ -1709,7 +1709,7 @@ function MoatView({
             <label>
               <span>技术方案</span>
               <textarea
-                className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
+                className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
                 value={form.technical_solution}
                 onChange={(event) => setForm((current) => ({ ...current, technical_solution: event.target.value }))}
                 disabled={!project}
@@ -1719,7 +1719,7 @@ function MoatView({
             <label>
               <span>可行性依据</span>
               <textarea
-                className="w-full rounded-xl border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
+                className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[80px]"
                 value={form.feasibility_basis}
                 onChange={(event) => setForm((current) => ({ ...current, feasibility_basis: event.target.value }))}
                 disabled={!project}
@@ -1738,20 +1738,20 @@ function MoatView({
                 <option value="model_generated">模型生成</option>
               </select>
             </label>
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!canSubmit || busy === "patent-point-create"} type="submit">
+            <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!canSubmit || busy === "patent-point-create"} type="submit">
               <ShieldCheck size={17} />
               <span>加入护城河</span>
             </button>
           </form>
         </div>
 
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>专利点列表</h3>
           <div className="flex flex-col gap-3">
             {points.map((point) => {
               const total = moatScoreTotal(point.moat_scores);
               return (
-                <article className={point.selected ? "flex flex-col gap-2 p-4 bg-[#267a78]/5 border border-[#267a78]/30 rounded-2xl shadow-sm ring-1 ring-[#267a78]/20" : "flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm"} key={point.id}>
+                <article className={point.selected ? "flex flex-col gap-2 p-4 bg-[#267a78]/5 border border-[#267a78]/30 rounded-lg shadow-sm ring-1 ring-[#267a78]/20" : "flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm"} key={point.id}>
                   <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                     <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{evidenceStatusLabel(point.evidence_status)}</span>
                     <span className="px-2.5 py-0.5 rounded-md bg-[#162032] border border-[#334155] text-[#e2e8f0]/60">{sourceTypeLabel(point.source_type)}</span>
@@ -1759,7 +1759,7 @@ function MoatView({
                   </div>
                   <p><strong>{point.title}</strong></p>
                   <p>{point.innovation || point.technical_solution}</p>
-                  <p className={point.support_gaps.length > 0 ? "text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2" : "text-sm text-[#e2e8f0]/50 italic py-4"}>
+                  <p className={point.support_gaps.length > 0 ? "text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2" : "text-sm text-[#e2e8f0]/50 italic py-4"}>
                     {point.support_gaps.length > 0 ? `支撑缺口：${point.support_gaps.join("；")}` : "支撑材料暂未标记缺口。"}
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -1771,7 +1771,7 @@ function MoatView({
                     <StatusPill label="战略价值" value={percent(point.moat_scores.strategic_value)} />
                   </div>
                   {point.claim_chart.length > 0 && (
-                    <div className="flex flex-col gap-2 mt-2 p-3 bg-[#0f172a] rounded-xl text-sm border border-[#334155]">
+                    <div className="flex flex-col gap-2 mt-2 p-3 bg-[#0f172a] rounded-lg text-sm border border-[#334155]">
                       {point.claim_chart.slice(0, 2).map((item) => (
                         <p key={item.prior_art_id}>
                           <strong>{item.prior_art_title}</strong>：{item.claim_drafting_advice}
@@ -1781,7 +1781,7 @@ function MoatView({
                   )}
                   <div className="flex items-center gap-3">
                     <button
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors text-sm"
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors text-sm"
                       disabled={!project || busy === "patent-point-select" || point.selected}
                       onClick={() => void onSelect(point)}
                       type="button"
@@ -1791,7 +1791,7 @@ function MoatView({
                       <span>{point.selected ? "已选中" : "选中"}</span>
                     </button>
                     <button
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors text-sm"
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors text-sm"
                       disabled={!project || busy === "patent-point-delete"}
                       onClick={() => void onDelete(point)}
                       type="button"
@@ -1837,7 +1837,7 @@ function DeliberationView({
   const completed = latestCompletedDeliberation(runs);
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>多智能体会审</h3>
           <p>
@@ -1848,11 +1848,11 @@ function DeliberationView({
           <p>{disclosure ? `将默认注入交底书 run：${disclosure.id}` : "暂无已完成交底书，会审仅使用 draft 与 RAG 片段。"}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors" onClick={onRefresh} type="button" title="刷新会审">
+          <button className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors" onClick={onRefresh} type="button" title="刷新会审">
             <RefreshCw size={17} />
           </button>
           <button
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
             disabled={!project || busy === "deliberate"}
             onClick={() => onStart(false)}
             type="button"
@@ -1864,7 +1864,7 @@ function DeliberationView({
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>智能体诊断</h3>
           <div className="doctor-grid">
             <StatusPill label="状态" value={agentDoctorStatusLabel(doctor?.status ?? "unknown")} />
@@ -1879,11 +1879,11 @@ function DeliberationView({
           />
         </div>
 
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>会审记录</h3>
           <div className="flex flex-col gap-3">
             {runs.map((run) => (
-              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={run.id}>
+              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={run.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                   <span>{pipelineRunStatusLabel(run.status)}</span>
                   <span>{deliberationRunModeLabel(run.run_mode)}</span>
@@ -1898,7 +1898,7 @@ function DeliberationView({
                 {run.failures.length > 0 && (
                   <div className="flex flex-col gap-2">
                     {run.failures.map((failure) => (
-                      <article className="flex items-start gap-3 p-4 bg-[#0c1929] border border-red-100 rounded-2xl" key={`${run.id}-${failure.phase}-${failure.provider_id}`}>
+                      <article className="flex items-start gap-3 p-4 bg-[#0c1929] border border-red-100 rounded-lg" key={`${run.id}-${failure.phase}-${failure.provider_id}`}>
                         <span>{failure.phase}</span>
                         <div>
                           <strong>{failure.provider_id} / {failure.reason}</strong>
@@ -1909,7 +1909,7 @@ function DeliberationView({
                   </div>
                 )}
                 {run.logs.length > 0 && (
-                  <div className="flex flex-col gap-2 font-mono text-xs mt-3 bg-[#162032] p-4 rounded-xl border border-[#334155]">
+                  <div className="flex flex-col gap-2 font-mono text-xs mt-3 bg-[#162032] p-4 rounded-lg border border-[#334155]">
                     {run.logs.slice(-6).map((log, index) => (
                       <article className={`log-row ${log.level}`} key={`${run.id}-log-${index}`}>
                         <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
@@ -1961,7 +1961,7 @@ function DisclosureView({
   const completed = latestCompletedDisclosure(runs);
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>前置材料生成</h3>
           <p>
@@ -1971,10 +1971,10 @@ function DisclosureView({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors" onClick={onRefresh} type="button" title="刷新前置材料">
+          <button className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors" onClick={onRefresh} type="button" title="刷新前置材料">
             <RefreshCw size={17} />
           </button>
-          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || busy === "disclosure"} onClick={() => onStart(false)} type="button">
+          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || busy === "disclosure"} onClick={() => onStart(false)} type="button">
             <ClipboardList size={18} />
             <span>生成交底书</span>
           </button>
@@ -1982,9 +1982,9 @@ function DisclosureView({
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>补充材料</h3>
-          <form className="flex flex-col gap-4 p-4 border-2 border-dashed border-[#334155] rounded-2xl bg-[#0c1929]" onSubmit={onUpload}>
+          <form className="flex flex-col gap-4 p-4 border-2 border-dashed border-[#334155] rounded-lg bg-[#0c1929]" onSubmit={onUpload}>
             <input
               id="project-material-file"
               name="project-material-file"
@@ -1992,14 +1992,14 @@ function DisclosureView({
               accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
               disabled={!project}
             />
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || busy === "material-upload"} type="submit">
+            <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || busy === "material-upload"} type="submit">
               <Upload size={17} />
               <span>上传材料</span>
             </button>
           </form>
           <div className="flex flex-col gap-3">
             {materials.map((material) => (
-              <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={material.id}>
+              <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={material.id}>
                 {material.status === "processed" ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
                 <div>
                   <strong>{material.file_name}</strong>
@@ -2011,11 +2011,11 @@ function DisclosureView({
           </div>
         </div>
 
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>生成记录</h3>
           <div className="flex flex-col gap-3">
             {runs.map((run) => (
-              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={run.id}>
+              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={run.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                   <span>{pipelineRunStatusLabel(run.status)}</span>
                   <span>{run.package?.prior_art_hits.length ?? 0} 条现有技术</span>
@@ -2036,7 +2036,7 @@ function DisclosureView({
 
 function StatusPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-1 p-3 bg-[#0f172a] border border-[#334155] rounded-xl text-sm">
+    <div className="flex flex-col gap-1 p-3 bg-[#0f172a] border border-[#334155] rounded-lg text-sm">
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
@@ -2086,7 +2086,7 @@ function ProjectsOverview({
   busy: string;
 }) {
   return (
-    <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl col-span-full">
+    <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl col-span-full">
       <h3>项目</h3>
       <p className="section-copy">选择历史项目后，可以继续生成、质检或导出。</p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2094,7 +2094,7 @@ function ProjectsOverview({
           const metadata = project as ProjectRecord & ProjectMetadata;
           const isSelected = project.id === selectedProjectId;
           return (
-            <article className={isSelected ? "flex flex-col gap-4 p-5 bg-[#1e293b] border border-[#267a78]/30 rounded-3xl shadow-[0_8px_30px_rgba(38,122,120,0.12)] ring-1 ring-[#267a78]/20" : "flex flex-col gap-4 p-5 bg-[#0f172a] border border-[#334155] rounded-3xl shadow-sm hover:shadow-md transition-shadow"} key={project.id}>
+            <article className={isSelected ? "flex flex-col gap-4 p-5 bg-[#1e293b] border border-[#267a78]/30 rounded-lg shadow-[0_8px_30px_rgba(38,122,120,0.12)] ring-1 ring-[#267a78]/20" : "flex flex-col gap-4 p-5 bg-[#0f172a] border border-[#334155] rounded-lg shadow-sm hover:shadow-md transition-shadow"} key={project.id}>
               <div>
                 <strong>{project.name}</strong>
                 <span>{project.package ? "已有初稿" : "仅有想法"}</span>
@@ -2175,18 +2175,18 @@ function CorpusView({
 }) {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <h3>语料导入</h3>
         <form className="flex flex-col gap-4" onSubmit={onImport}>
           <input id="patent-file" name="patent-file" type="file" accept=".pdf,.docx,.txt,.md,.markdown" />
-          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "import"} type="submit" title="导入专利文件">
+          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "import"} type="submit" title="导入专利文件">
             <Upload size={17} />
             <span>导入</span>
           </button>
         </form>
         <div className="flex flex-col gap-3">
           {documents.map((document) => (
-            <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={document.id}>
+            <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={document.id}>
               <FileText size={18} />
               <div>
                 <strong>{document.title}</strong>
@@ -2198,7 +2198,7 @@ function CorpusView({
         </div>
       </section>
 
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <h3>片段检索</h3>
         <form className="flex items-center gap-3" onSubmit={onSearch}>
           <input value={searchText} onChange={(event) => onSearchText(event.target.value)} />
@@ -2209,13 +2209,13 @@ function CorpusView({
               </option>
             ))}
           </select>
-          <button className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors" disabled={busy === "search"} type="submit" title="检索">
+          <button className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors" disabled={busy === "search"} type="submit" title="检索">
             <Search size={17} />
           </button>
         </form>
         <div className="results">
           {searchResults.map((result) => (
-            <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={result.chunk.id}>
+            <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={result.chunk.id}>
               <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                 <span>{result.chunk.section_type}</span>
                 <span>{result.score.toFixed(3)}</span>
@@ -2246,7 +2246,7 @@ function CreateProjectView({
   onSubmit: (event: FormEvent) => void;
 }) {
   return (
-    <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl col-span-full">
+    <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl col-span-full">
       <h3>技术交底</h3>
       <form className="flex flex-col gap-4" onSubmit={onSubmit}>
         <label>
@@ -2256,12 +2256,12 @@ function CreateProjectView({
         <label>
           <span>Draft</span>
           <textarea
-            className="w-full rounded-2xl border border-[#334155] bg-[#0f172a] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[200px]"
+            className="w-full rounded-lg border border-[#334155] bg-[#0f172a] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[#2dd4bf]/40 min-h-[200px]"
             value={draftText}
             onChange={(event) => onDraftText(event.target.value)}
           />
         </label>
-        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "create"} type="submit" title="创建项目">
+        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={busy === "create"} type="submit" title="创建项目">
           <FileText size={17} />
           <span>创建</span>
         </button>
@@ -2290,7 +2290,7 @@ function WriteView({
   const formulaReady = !formulaRequirement?.required || Boolean(formulaRun?.package);
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>{project?.name ?? "未选择项目"}</h3>
           <p>{project?.draft_text ?? "先创建项目后再生成申请文本。"}</p>
@@ -2302,7 +2302,7 @@ function WriteView({
           <p>{disclosure ? `将注入前置交底书 run：${disclosure.id}` : "未完成前置交底书，仍可直接生成。"}</p>
           <p>{formulaRun ? `将注入核心公式 run：${formulaRun.id}` : formulaRequirement?.required ? "核心公式包未完成，暂不能生成。" : "无需核心公式包。"}</p>
         </div>
-        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || !deliberation || !formulaReady || busy === "generate"} onClick={onGenerate} type="button">
+        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || !deliberation || !formulaReady || busy === "generate"} onClick={onGenerate} type="button">
           <Wand2 size={18} />
           <span>生成</span>
         </button>
@@ -2323,11 +2323,11 @@ function DisclosurePreview({
 }) {
   const packageValue = run?.package ?? null;
   if (!run) {
-    return <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl"><p className="text-sm text-[#e2e8f0]/50 italic py-4">暂无前置材料结果。</p></section>;
+    return <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl"><p className="text-sm text-[#e2e8f0]/50 italic py-4">暂无前置材料结果。</p></section>;
   }
   if (!packageValue) {
     return (
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <h3>{run.status === "completed" ? "交底书" : "生成中"}</h3>
         <p className="text-sm text-[#e2e8f0]/50 italic py-4">{run.events.at(-1) ?? "等待后台任务更新。"}</p>
       </section>
@@ -2338,7 +2338,7 @@ function DisclosurePreview({
     ?? null;
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>{packageValue.title}</h3>
           <p>{packageValue.summary}</p>
@@ -2379,7 +2379,7 @@ function DisclosurePreview({
 
 function DisclosureSummaryView({ packageValue }: { packageValue: DisclosurePackage | null }) {
   return (
-    <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+    <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
       <h3>当前前置交底书</h3>
       {packageValue ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -2431,13 +2431,13 @@ function FilingReadinessView({
   const reportStatusClass = report?.status === "high_risk" ? "danger" : report?.status === "warning" ? "warn" : "";
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>提交成熟度</h3>
           <p>{project?.package ? "检查官方提交导出、内部策略稿和申请文本中的占位符、敏感表述与高风险命中项。" : "生成申请文本后可运行提交成熟度检查。"}</p>
         </div>
         <button
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
           disabled={!project?.package || busy === "filing-readiness"}
           onClick={onRun}
           type="button"
@@ -2447,21 +2447,21 @@ function FilingReadinessView({
         </button>
       </section>
 
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <h3>导出</h3>
         {project && canExport ? (
           <div className="flex flex-col gap-4">
             {report?.status === "high_risk" && (
-              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">高风险：请结合成稿会审报告处理命中项。</p>
+              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">高风险：请结合成稿会审报告处理命中项。</p>
             )}
-            {!officialAllowed && <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">正式稿入口已锁定：需先完成正式稿编译，并通过匹配正式稿哈希的成稿会审。</p>}
+            {!officialAllowed && <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">正式稿入口已锁定：需先完成正式稿编译，并通过匹配正式稿哈希的成稿会审。</p>}
             {officialCompileRun?.official_package_hash && (
-              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">当前正式稿哈希：{officialCompileRun.official_package_hash.slice(0, 12)}</p>
+              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">当前正式稿哈希：{officialCompileRun.official_package_hash.slice(0, 12)}</p>
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <a
                 aria-disabled={!officialAllowed}
-                className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
+                className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
                 href={officialAllowed ? officialExportUrl(project.id, "docx") : undefined}
               >
                 <Download size={18} />
@@ -2469,18 +2469,18 @@ function FilingReadinessView({
               </a>
               <a
                 aria-disabled={!officialAllowed}
-                className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
+                className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
                 href={officialAllowed ? officialExportUrl(project.id, "md") : undefined}
               >
                 <Download size={18} />
                 <span>官方 MD</span>
               </a>
-              <a className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" href={exportUrl(project.id, "md")}>
+              <a className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" href={exportUrl(project.id, "md")}>
                 <Download size={18} />
                 <span>内部策略稿</span>
               </a>
               {report && (
-                <a className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" href={filingReadinessReportUrl(project.id, report.id)}>
+                <a className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" href={filingReadinessReportUrl(project.id, report.id)}>
                   <Download size={18} />
                   <span>检查报告</span>
                 </a>
@@ -2493,11 +2493,11 @@ function FilingReadinessView({
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>历史检查</h3>
           <div className="flex flex-col gap-3">
             {reports.map((item) => (
-              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={item.id}>
+              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={item.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                   <span className={`px-2.5 py-0.5 rounded-md border ${ item.status === "high_risk" ? "bg-red-100 border-red-200 text-red-700" : item.status === "warning" ? "bg-amber-100 border-amber-200 text-amber-700" : "bg-emerald-100 border-emerald-200 text-emerald-700" }`}>
                     {readinessStatusLabel(item.status)}
@@ -2512,7 +2512,7 @@ function FilingReadinessView({
           </div>
         </div>
 
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>命中项</h3>
           {report && (
             <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
@@ -2522,7 +2522,7 @@ function FilingReadinessView({
           )}
           <div className="flex flex-col gap-3">
             {report?.issues.map((issue, index) => (
-              <article className={`flex items-start gap-3 p-4 border rounded-2xl ${ issue.severity === "high" ? "bg-[#0c1929] border-red-100" : issue.severity === "medium" ? "bg-[#0c1929] border-amber-100" : "bg-blue-50 border-blue-100" }`} key={`${issue.category}-${issue.target}-${index}`}>
+              <article className={`flex items-start gap-3 p-4 border rounded-lg ${ issue.severity === "high" ? "bg-[#0c1929] border-red-100" : issue.severity === "medium" ? "bg-[#0c1929] border-amber-100" : "bg-blue-50 border-blue-100" }`} key={`${issue.category}-${issue.target}-${index}`}>
                 <span>{severityLabel(issue.severity)}</span>
                 <div>
                   <strong>{issue.category} / {issue.target}</strong>
@@ -2556,13 +2556,13 @@ function ClaimDefenseView({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>权利要求防线</h3>
           <p>{project ? "从当前草稿、交底书和已生成文本提取特征记录，标记区别特征、支撑缺口与从属兜底建议。" : "先创建项目后再生成防线工作表。"}</p>
         </div>
         <button
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
           disabled={!project || busy === "claim-defense"}
           onClick={onGenerate}
           type="button"
@@ -2573,11 +2573,11 @@ function ClaimDefenseView({
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>防线建议</h3>
           <div className="flex flex-col gap-3">
             {worksheet?.defense_recommendations.map((item, index) => (
-              <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={`${item}-${index}`}>
+              <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={`${item}-${index}`}>
                 <ShieldCheck size={18} />
                 <div>
                   <strong>建议 {index + 1}</strong>
@@ -2590,11 +2590,11 @@ function ClaimDefenseView({
           </div>
         </div>
 
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>历史版本</h3>
           <div className="flex flex-col gap-3">
             {worksheets.map((item) => (
-              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={item.id}>
+              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={item.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                   <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{worksheetStatusLabel(item.status)}</span>
                   <span>{worksheetSourceLabel(item.source)}</span>
@@ -2608,11 +2608,11 @@ function ClaimDefenseView({
         </div>
       </section>
 
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <h3>特征记录</h3>
         <div className="flex flex-col gap-3">
           {worksheet?.feature_records.map((record) => (
-            <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={record.feature_id}>
+            <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={record.feature_id}>
               <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                 <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{featureClassificationLabel(record.classification)}</span>
                 <span>{record.claim_refs.length > 0 ? record.claim_refs.join(" / ") : "未映射权利要求"}</span>
@@ -2626,11 +2626,11 @@ function ClaimDefenseView({
         </div>
       </section>
 
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <h3>支撑缺口</h3>
         <div className="flex flex-col gap-3">
           {worksheet?.support_gaps.map((gap, index) => (
-            <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={`${gap}-${index}`}>
+            <article className="flex gap-3 items-start p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={`${gap}-${index}`}>
               <AlertTriangle size={18} />
               <div>
                 <strong>缺口 {index + 1}</strong>
@@ -2658,20 +2658,20 @@ function ReviewView({
   const findings = project?.package?.review_findings ?? [];
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>审查意见</h3>
           <p>{project?.package ? project.name : "生成申请文本后可审查。"}</p>
         </div>
-        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project?.package || busy === "review"} onClick={onReview} type="button">
+        <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project?.package || busy === "review"} onClick={onReview} type="button">
           <Search size={18} />
           <span>审查</span>
         </button>
       </section>
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div className="flex flex-col gap-3">
           {findings.map((finding, index) => (
-            <article className={`flex items-start gap-3 p-4 border rounded-2xl ${ finding.severity === "high" ? "bg-[#0c1929] border-red-100" : finding.severity === "medium" ? "bg-[#0c1929] border-amber-100" : "bg-blue-50 border-blue-100" }`} key={`${finding.category}-${index}`}>
+            <article className={`flex items-start gap-3 p-4 border rounded-lg ${ finding.severity === "high" ? "bg-[#0c1929] border-red-100" : finding.severity === "medium" ? "bg-[#0c1929] border-amber-100" : "bg-blue-50 border-blue-100" }`} key={`${finding.category}-${index}`}>
               <span>{severityLabel(finding.severity)}</span>
               <div>
                 <strong>{finding.category}</strong>
@@ -2733,7 +2733,7 @@ function DraftCompletionView({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div>
           <h3>初稿完善循环</h3>
           <p>
@@ -2742,7 +2742,7 @@ function DraftCompletionView({
         </div>
         <div className="flex items-center gap-3">
           <button
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
             disabled={!project?.package || Boolean(busy)}
             onClick={onRun}
             type="button"
@@ -2751,7 +2751,7 @@ function DraftCompletionView({
             <span>运行完善</span>
           </button>
           <button
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
             disabled={!project?.package || Boolean(busy)}
             onClick={onImprove}
             type="button"
@@ -2762,7 +2762,7 @@ function DraftCompletionView({
         </div>
       </section>
 
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
           <h3>评分</h3>
           {run && (
@@ -2776,7 +2776,7 @@ function DraftCompletionView({
         {run ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {scoreItems.map(([label, value]) => (
-              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl" key={label}>
+              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg" key={label}>
                 <span>{label}</span>
                 <strong>{value}/100</strong>
               </article>
@@ -2788,11 +2788,11 @@ function DraftCompletionView({
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>高优先级问题</h3>
           <div className="flex flex-col gap-3">
             {displayedIssues.map((issue) => (
-              <article className={`flex items-start gap-3 p-4 border rounded-2xl ${ issue.severity === "high" ? "bg-[#0c1929] border-red-100" : issue.severity === "medium" ? "bg-[#0c1929] border-amber-100" : "bg-blue-50 border-blue-100" }`} key={issue.id}>
+              <article className={`flex items-start gap-3 p-4 border rounded-lg ${ issue.severity === "high" ? "bg-[#0c1929] border-red-100" : issue.severity === "medium" ? "bg-[#0c1929] border-amber-100" : "bg-blue-50 border-blue-100" }`} key={issue.id}>
                 <span>{severityLabel(issue.severity)}</span>
                 <div>
                   <strong>
@@ -2809,11 +2809,11 @@ function DraftCompletionView({
           </div>
         </div>
 
-        <div className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+        <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
           <h3>完善任务</h3>
           <div className="flex flex-col gap-3">
             {run?.tasks.map((task) => (
-              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={task.id}>
+              <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={task.id}>
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                   <span className="px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-[#334155] text-[#e2e8f0]">{completionTaskStatusLabel(task.status)}</span>
                   <span>优先级 {task.priority}</span>
@@ -2829,7 +2829,7 @@ function DraftCompletionView({
         </div>
       </section>
 
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <h3>权利要求支撑矩阵</h3>
         {run && run.support_matrix.length > 0 ? (
           <div className="w-full text-sm text-left border-collapse">
@@ -2873,7 +2873,7 @@ function DraftCompletionView({
         )}
       </section>
 
-      <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+      <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
         <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
           <h3>候选补丁</h3>
           {project && run && (
@@ -2885,7 +2885,7 @@ function DraftCompletionView({
         </div>
         <div className="flex flex-col gap-3">
           {run?.patches.map((patch) => (
-            <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-2xl shadow-sm" key={patch.id}>
+            <article className="flex flex-col gap-2 p-4 bg-[#162032] border border-[#334155] rounded-lg shadow-sm" key={patch.id}>
               <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                 <span className={`px-2.5 py-0.5 rounded-md border ${ patchStatusClass(patch.status) === "danger" ? "bg-red-100 border-red-200 text-red-700" : patchStatusClass(patch.status) === "warn" ? "bg-amber-100 border-amber-200 text-amber-700" : "bg-[#1e293b] border-[#334155] text-[#e2e8f0]" }`}>{completionPatchStatusLabel(patch.status)}</span>
                 <span>{completionPatchKindLabel(patch.patch_kind)}</span>
@@ -2894,10 +2894,10 @@ function DraftCompletionView({
               </div>
               <p><strong>{patch.rationale}</strong></p>
               <p>{patch.risk_delta}</p>
-              <pre className="p-4 bg-[#162032] rounded-xl border border-[#334155] font-mono text-sm whitespace-pre-wrap">{patch.after_text || "无修改后文本"}</pre>
+              <pre className="p-4 bg-[#162032] rounded-lg border border-[#334155] font-mono text-sm whitespace-pre-wrap">{patch.after_text || "无修改后文本"}</pre>
               <div className="flex items-center gap-3">
                 <button
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
                   disabled={patch.status !== "proposed" || patchBusy}
                   onClick={() => onPatch(run.id, patch.id, "accept")}
                   type="button"
@@ -2905,7 +2905,7 @@ function DraftCompletionView({
                   接受
                 </button>
                 <button
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors text-sm"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors text-sm"
                   disabled={patch.status !== "proposed" || patchBusy}
                   onClick={() => onPatch(run.id, patch.id, "reject")}
                   type="button"
@@ -2950,9 +2950,9 @@ function ExportView({
       && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
   return (
-    <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl col-span-full">
+    <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl col-span-full">
       <h3>导出文件</h3>
-      <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-xl border border-[#334155] flex items-center gap-2">
+      <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">
         {officialAllowed
           ? `正式稿已由成稿会审解锁：${officialCompileRun?.official_package_hash.slice(0, 12)}`
           : "正式稿需完成编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和报告可继续导出。"}
@@ -2960,7 +2960,7 @@ function ExportView({
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <a
           aria-disabled={!officialAllowed}
-          className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
+          className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
           href={officialAllowed && project ? officialExportUrl(project.id, "docx") : undefined}
         >
           <Download size={18} />
@@ -2968,7 +2968,7 @@ function ExportView({
         </a>
         <a
           aria-disabled={!officialAllowed}
-          className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
+          className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
           href={officialAllowed && project ? officialExportUrl(project.id, "md") : undefined}
         >
           <Download size={18} />
@@ -2982,7 +2982,7 @@ function ExportView({
         ].map(([kind, label]) => (
           <a
             aria-disabled={!enabled}
-            className={enabled ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
+            className={enabled ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
             href={enabled && project ? exportUrl(project.id, kind as "docx" | "md" | "mmd" | "prompt") : undefined}
             key={kind}
           >
@@ -3004,7 +3004,7 @@ function StrategyBriefView({
   strategy: PatentStrategyBrief | null;
 }) {
   return (
-    <section className="grid gap-4 border border-[#334155] rounded-[34px] bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
+    <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
       <h3>{title}</h3>
       {strategy ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -3046,7 +3046,7 @@ function PackagePreview({
 
 function PreviewBlock({ title, text }: { title: string; text: string }) {
   return (
-    <article className="p-6 bg-[#1e293b] border border-[#334155] rounded-3xl shadow-sm">
+    <article className="p-6 bg-[#1e293b] border border-[#334155] rounded-lg shadow-sm">
       <h4>{title}</h4>
       <pre>{text}</pre>
     </article>
