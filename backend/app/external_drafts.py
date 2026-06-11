@@ -51,6 +51,11 @@ def working_draft_hash(package: DraftPackage) -> str:
     return hashlib.sha256(package.model_dump_json().encode("utf-8")).hexdigest()
 
 
+def review_bundle_hash(bundle: ExternalDraftReviewBundle) -> str:
+    canonical = bundle.model_copy(update={"report_hash": ""})
+    return hashlib.sha256(canonical.model_dump_json().encode("utf-8")).hexdigest()
+
+
 def create_external_draft_source(
     *,
     project_id: str,

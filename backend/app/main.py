@@ -22,7 +22,9 @@ from backend.app.disclosure.prior_art import PublicPriorArtProvider
 from backend.app.draft_completion import completion_run_to_markdown, run_draft_completion
 from backend.app.external_drafts import (
     create_external_draft_source,
+    external_draft_review_bundle_to_markdown,
     parse_external_draft_source,
+    review_bundle_hash,
     working_draft_hash,
 )
 from backend.app.exporter import export_docx, package_to_markdown
@@ -62,6 +64,7 @@ from backend.app.schemas import (
     DisclosureRunCreate,
     DraftCompletionRun,
     ExternalDraftIntakeConfirmRequest,
+    ExternalDraftReviewBundle,
     ExternalDraftSourceCreate,
     DraftPackage,
     FormulaRun,
@@ -388,6 +391,42 @@ def create_app(
             raise HTTPException(status_code=409, detail="External draft intake run update conflicted.")
         store.update_project_package(project_id, package)
         return persisted.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/external-draft-review-bundle/report.md")
+    def export_external_draft_review_bundle(project_id: str) -> PlainTextResponse:
+        _require_project(store, project_id)
+        sources = store.list_external_draft_sources(project_id)
+        intake_runs = store.list_external_draft_intake_runs(project_id)
+        completion_runs = store.list_draft_completion_runs(project_id)
+        official_runs = store.list_official_compile_runs(project_id)
+        review_runs = store.list_post_draft_review_runs(project_id)
+        initial_score = completion_runs[-1].scorecard.overall if completion_runs else None
+        latest_score = completion_runs[0].scorecard.overall if completion_runs else None
+        latest_official = official_runs[0] if official_runs else None
+        latest_review = review_runs[0] if review_runs else None
+        accepted_patch_ids = [
+            patch.id
+            for run in completion_runs
+            for patch in run.patches
+            if patch.status == "accepted"
+        ]
+        bundle = ExternalDraftReviewBundle(
+            project_id=project_id,
+            source_id=sources[0].id if sources else "",
+            intake_run_id=intake_runs[0].id if intake_runs else "",
+            initial_score=initial_score,
+            latest_score=latest_score,
+            accepted_patch_ids=accepted_patch_ids,
+            completion_run_ids=[run.id for run in completion_runs],
+            official_compile_run_id=latest_official.id if latest_official else "",
+            post_draft_review_run_id=latest_review.id if latest_review else "",
+            export_allowed=bool(latest_review and latest_review.export_allowed),
+        )
+        bundle = bundle.model_copy(update={"report_hash": review_bundle_hash(bundle)})
+        return PlainTextResponse(
+            external_draft_review_bundle_to_markdown(bundle),
+            media_type="text/markdown; charset=utf-8",
+        )
 
     @app.get("/api/projects/{project_id}/patent-points")
     def list_project_patent_points(project_id: str) -> dict:

@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.external_drafts import create_external_draft_source, parse_external_draft_source
 from backend.app.main import create_app
-from backend.app.schemas import ProjectRecord
+from backend.app.schemas import DraftPackage, ProjectRecord
 from backend.app.storage import SQLiteStore
 
 
@@ -135,3 +135,42 @@ def test_external_draft_api_creates_source_runs_intake_and_confirms_package(tmp_
     get_run_response = client.get(f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}")
     assert get_run_response.status_code == 200
     assert get_run_response.json()["id"] == intake["id"]
+
+
+def test_external_draft_confirmed_package_runs_quality_and_bundle_report(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "外部稿提质", "draft_text": "外部初稿导入项目。"},
+    ).json()
+    client.app.state.store.update_project_package(
+        project["id"],
+        DraftPackage(
+            title="一种外部稿提质方法",
+            abstract="本发明公开一种外部稿提质方法。",
+            claims="1. 一种方法，其特征在于，接收外部初稿并生成修改建议。",
+            description="本实施例接收外部初稿。",
+            drawing_description="图1为流程图。",
+            mermaid="",
+            image_prompt="",
+            review_findings=[],
+            citations=[],
+            generation_logs=["external_draft_intake: confirmed from run run-1"],
+        ),
+    )
+
+    completion_response = client.post(f"/api/projects/{project['id']}/completion-runs")
+    assert completion_response.status_code == 200
+
+    score_response = client.post(f"/api/projects/{project['id']}/score-improvement", json={"max_rounds": 1})
+    assert score_response.status_code == 200
+
+    compile_response = client.post(f"/api/projects/{project['id']}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+    assert compile_response.json()["status"] in {"completed", "blocked"}
+
+    report_response = client.get(f"/api/projects/{project['id']}/external-draft-review-bundle/report.md")
+    assert report_response.status_code == 200
+    assert "EXTERNAL_DRAFT_REVIEW_BUNDLE" in report_response.text
+    assert "initial_score" in report_response.text
+    assert "official_compile_run_id" in report_response.text
