@@ -15,6 +15,8 @@ from backend.app.schemas import (
     DisclosureRun,
     DraftCompletionRun,
     DraftPackage,
+    ExternalDraftIntakeRun,
+    ExternalDraftSource,
     FilingReadinessReport,
     FormulaRun,
     OfficialCompileRun,
@@ -296,6 +298,8 @@ class SQLiteStore:
                 "disclosure_runs",
                 "deliberation_runs",
                 "formula_runs",
+                "external_draft_intake_runs",
+                "external_draft_sources",
                 "official_compile_runs",
                 "post_draft_review_runs",
                 "filing_readiness_reports",
@@ -316,6 +320,115 @@ class SQLiteStore:
                 """,
                 (json.dumps(package.model_dump(mode="json"), ensure_ascii=False), project_id),
             )
+
+    def create_external_draft_source(self, source: ExternalDraftSource) -> ExternalDraftSource:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into external_draft_sources(
+                    id, project_id, source_type, file_name, content_hash, raw_text, raw_path, metadata_json
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    source.id,
+                    source.project_id,
+                    source.source_type,
+                    source.file_name,
+                    source.content_hash,
+                    source.raw_text,
+                    source.raw_path,
+                    json.dumps(source.metadata, ensure_ascii=False),
+                ),
+            )
+        return self.get_external_draft_source(source.project_id, source.id) or source
+
+    def list_external_draft_sources(self, project_id: str) -> list[ExternalDraftSource]:
+        rows = self.connection.execute(
+            "select * from external_draft_sources where project_id = ? order by created_at desc, rowid desc",
+            (project_id,),
+        ).fetchall()
+        return [self._external_draft_source_from_row(row) for row in rows]
+
+    def get_external_draft_source(self, project_id: str, source_id: str) -> ExternalDraftSource | None:
+        row = self.connection.execute(
+            "select * from external_draft_sources where project_id = ? and id = ?",
+            (project_id, source_id),
+        ).fetchone()
+        return self._external_draft_source_from_row(row) if row else None
+
+    def create_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> ExternalDraftIntakeRun:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into external_draft_intake_runs(
+                    id, project_id, source_id, status, parser_version, source_hash,
+                    parsed_package_json, section_confidence_json, intake_issues_json,
+                    unassigned_fragments_json, working_draft_hash, logs_json
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                self._external_draft_intake_run_values(run),
+            )
+        return self.get_external_draft_intake_run(run.project_id, run.id) or run
+
+    def list_external_draft_intake_runs(
+        self, project_id: str, source_id: str | None = None
+    ) -> list[ExternalDraftIntakeRun]:
+        if source_id:
+            rows = self.connection.execute(
+                """
+                select * from external_draft_intake_runs
+                where project_id = ? and source_id = ?
+                order by created_at desc, rowid desc
+                """,
+                (project_id, source_id),
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                "select * from external_draft_intake_runs where project_id = ? order by created_at desc, rowid desc",
+                (project_id,),
+            ).fetchall()
+        return [self._external_draft_intake_run_from_row(row) for row in rows]
+
+    def get_external_draft_intake_run(self, project_id: str, run_id: str) -> ExternalDraftIntakeRun | None:
+        row = self.connection.execute(
+            "select * from external_draft_intake_runs where project_id = ? and id = ?",
+            (project_id, run_id),
+        ).fetchone()
+        return self._external_draft_intake_run_from_row(row) if row else None
+
+    def update_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> ExternalDraftIntakeRun | None:
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                update external_draft_intake_runs
+                set status = ?, parser_version = ?, source_hash = ?, parsed_package_json = ?,
+                    section_confidence_json = ?, intake_issues_json = ?, unassigned_fragments_json = ?,
+                    working_draft_hash = ?, logs_json = ?
+                where project_id = ? and id = ?
+                """,
+                (
+                    run.status,
+                    run.parser_version,
+                    run.source_hash,
+                    json.dumps(run.parsed_package.model_dump(mode="json"), ensure_ascii=False)
+                    if run.parsed_package
+                    else None,
+                    json.dumps(run.section_confidence.model_dump(mode="json"), ensure_ascii=False)
+                    if run.section_confidence
+                    else None,
+                    json.dumps([issue.model_dump(mode="json") for issue in run.intake_issues], ensure_ascii=False),
+                    json.dumps(run.unassigned_fragments, ensure_ascii=False),
+                    run.working_draft_hash,
+                    json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+                    run.project_id,
+                    run.id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                return None
+        return self.get_external_draft_intake_run(run.project_id, run.id)
 
     def create_filing_readiness_report(self, report: FilingReadinessReport) -> FilingReadinessReport:
         with self.connection:
@@ -918,6 +1031,37 @@ class SQLiteStore:
                     foreign key(project_id) references projects(id)
                 );
 
+                create table if not exists external_draft_sources (
+                    id text primary key,
+                    project_id text not null,
+                    source_type text not null,
+                    file_name text not null,
+                    content_hash text not null,
+                    raw_text text not null,
+                    raw_path text not null,
+                    metadata_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists external_draft_intake_runs (
+                    id text primary key,
+                    project_id text not null,
+                    source_id text not null,
+                    status text not null,
+                    parser_version text not null,
+                    source_hash text not null,
+                    parsed_package_json text,
+                    section_confidence_json text,
+                    intake_issues_json text not null,
+                    unassigned_fragments_json text not null,
+                    working_draft_hash text not null,
+                    logs_json text not null default '[]',
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id),
+                    foreign key(source_id) references external_draft_sources(id)
+                );
+
                 create table if not exists filing_readiness_reports (
                     id text primary key,
                     project_id text not null,
@@ -1102,6 +1246,57 @@ class SQLiteStore:
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
+
+    def _external_draft_source_from_row(self, row: sqlite3.Row) -> ExternalDraftSource:
+        return ExternalDraftSource(
+            id=row["id"],
+            project_id=row["project_id"],
+            source_type=row["source_type"],
+            file_name=row["file_name"],
+            content_hash=row["content_hash"],
+            raw_text=row["raw_text"],
+            raw_path=row["raw_path"],
+            metadata=json.loads(row["metadata_json"]),
+            created_at=row["created_at"],
+        )
+
+    def _external_draft_intake_run_values(self, run: ExternalDraftIntakeRun) -> tuple:
+        return (
+            run.id,
+            run.project_id,
+            run.source_id,
+            run.status,
+            run.parser_version,
+            run.source_hash,
+            json.dumps(run.parsed_package.model_dump(mode="json"), ensure_ascii=False)
+            if run.parsed_package
+            else None,
+            json.dumps(run.section_confidence.model_dump(mode="json"), ensure_ascii=False)
+            if run.section_confidence
+            else None,
+            json.dumps([issue.model_dump(mode="json") for issue in run.intake_issues], ensure_ascii=False),
+            json.dumps(run.unassigned_fragments, ensure_ascii=False),
+            run.working_draft_hash,
+            json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+        )
+
+    def _external_draft_intake_run_from_row(self, row: sqlite3.Row) -> ExternalDraftIntakeRun:
+        payload = {
+            "id": row["id"],
+            "project_id": row["project_id"],
+            "source_id": row["source_id"],
+            "status": row["status"],
+            "parser_version": row["parser_version"],
+            "source_hash": row["source_hash"],
+            "parsed_package": json.loads(row["parsed_package_json"]) if row["parsed_package_json"] else None,
+            "section_confidence": json.loads(row["section_confidence_json"]) if row["section_confidence_json"] else None,
+            "intake_issues": json.loads(row["intake_issues_json"]),
+            "unassigned_fragments": json.loads(row["unassigned_fragments_json"]),
+            "working_draft_hash": row["working_draft_hash"],
+            "logs": json.loads(row["logs_json"]),
+            "created_at": row["created_at"],
+        }
+        return ExternalDraftIntakeRun.model_validate(payload)
 
     def _filing_readiness_report_from_row(self, row: sqlite3.Row) -> FilingReadinessReport:
         report = FilingReadinessReport.model_validate(json.loads(row["report_json"]))

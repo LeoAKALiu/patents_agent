@@ -4,6 +4,8 @@ import type {
   ClaimDefenseWorksheet,
   DisclosureRun,
   DraftCompletionRun,
+  ExternalDraftIntakeRun,
+  ExternalDraftSource,
   FilingReadinessReport,
   DeliberationRun,
   FormulaNeedAssessment,
@@ -237,6 +239,41 @@ const completionRun: DraftCompletionRun = {
   created_at: "2026-06-02T00:00:00Z",
 };
 
+const externalDraftSource: ExternalDraftSource = {
+  id: "src1",
+  project_id: "p1",
+  source_type: "pasted_text",
+  file_name: "draft.txt",
+  content_hash: "source-hash",
+  raw_text: "权利要求书\n1. 一种方法。",
+  raw_path: "",
+  metadata: {},
+  created_at: "2026-06-10T00:00:00Z",
+};
+
+const completedExternalDraftIntakeRun: ExternalDraftIntakeRun = {
+  id: "intake1",
+  project_id: "p1",
+  source_id: "src1",
+  status: "completed",
+  parser_version: "external-draft-parser-v1",
+  source_hash: "source-hash",
+  parsed_package: null,
+  section_confidence: null,
+  intake_issues: [],
+  unassigned_fragments: [],
+  working_draft_hash: "working-hash",
+  logs: [],
+  created_at: "2026-06-10T00:00:00Z",
+};
+
+const needsReviewExternalDraftIntakeRun: ExternalDraftIntakeRun = {
+  ...completedExternalDraftIntakeRun,
+  id: "intake-needs-review",
+  status: "needs_review",
+  working_draft_hash: "",
+};
+
 const completedOfficialCompileRun: OfficialCompileRun = {
   id: "ocr1",
   project_id: "p1",
@@ -468,6 +505,11 @@ describe("guided flow defaults", () => {
     expect(defaultMainSectionId).toBe("generate");
     expect(defaultExpertToolId).toBe("build");
   });
+
+  it("keeps idea mode as the default main generation entry", () => {
+    expect(guidedStepLabels[0]).toBe("想法与材料");
+    expect(defaultMainSectionId).toBe("generate");
+  });
 });
 
 describe("patent goal modes", () => {
@@ -685,6 +727,48 @@ describe("deriveGuidedFlowState", () => {
 
     expect(state.currentStepId).toBe("deliberation");
     expect(state.hasCompletedDeliberation).toBe(false);
+  });
+
+  it("tracks external draft intake state without bypassing quality gates", () => {
+    const state = deriveGuidedFlowState({
+      project: { ...projectWithIdea, package: null },
+      materials: [],
+      disclosures: [],
+      deliberations: [],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+      externalDraftSources: [externalDraftSource],
+      externalDraftIntakeRuns: [completedExternalDraftIntakeRun],
+    });
+
+    expect(state.hasExternalDraftSource).toBe(true);
+    expect(state.hasCompletedExternalDraftIntake).toBe(true);
+    expect(state.hasExternalDraftIntakeNeedsReview).toBe(false);
+    expect(state.draftReady).toBe(false);
+    expect(state.qualityChecked).toBe(false);
+  });
+
+  it("tracks external draft intake runs that still need review", () => {
+    const state = deriveGuidedFlowState({
+      project: { ...projectWithIdea, package: null },
+      materials: [],
+      disclosures: [],
+      deliberations: [],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+      externalDraftSources: [externalDraftSource],
+      externalDraftIntakeRuns: [needsReviewExternalDraftIntakeRun],
+    });
+
+    expect(state.hasExternalDraftSource).toBe(true);
+    expect(state.hasCompletedExternalDraftIntake).toBe(false);
+    expect(state.hasExternalDraftIntakeNeedsReview).toBe(true);
+    expect(state.draftReady).toBe(false);
+    expect(state.qualityChecked).toBe(false);
   });
 
   it("requires official compile before post-draft review", () => {

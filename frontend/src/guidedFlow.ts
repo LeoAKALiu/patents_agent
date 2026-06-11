@@ -20,6 +20,8 @@ import type {
   DeliberationRun,
   DisclosureRun,
   DraftCompletionRun,
+  ExternalDraftIntakeRun,
+  ExternalDraftSource,
   FilingReadinessReport,
   FormulaNeedAssessment,
   FormulaRun,
@@ -91,6 +93,8 @@ export type GuidedFlowInput = {
   filingReports: FilingReadinessReport[];
   worksheets: ClaimDefenseWorksheet[];
   completionRuns: DraftCompletionRun[];
+  externalDraftSources?: ExternalDraftSource[];
+  externalDraftIntakeRuns?: ExternalDraftIntakeRun[];
   officialCompileRuns?: OfficialCompileRun[];
   currentSourceDraftHash?: string;
   postDraftReviews?: PostDraftReviewRun[];
@@ -107,6 +111,9 @@ export type GuidedFlowState = {
   hasCompletedDeliberation: boolean;
   formulaRequired: boolean;
   hasCompletedFormula: boolean;
+  hasExternalDraftSource: boolean;
+  hasCompletedExternalDraftIntake: boolean;
+  hasExternalDraftIntakeNeedsReview: boolean;
   draftReady: boolean;
   qualityChecked: boolean;
   hasCompletedOfficialCompile: boolean;
@@ -306,6 +313,11 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   const hasIdea = Boolean(input.project?.draft_text.trim());
   const hasCompletedDisclosure = input.disclosures.some((run) => run.status === "completed" && run.package);
   const draftReady = canExportPackage(input.project?.package);
+  const externalDraftSources = input.externalDraftSources ?? [];
+  const externalDraftIntakeRuns = input.externalDraftIntakeRuns ?? [];
+  const hasExternalDraftSource = externalDraftSources.length > 0;
+  const hasCompletedExternalDraftIntake = externalDraftIntakeRuns.some((run) => run.status === "completed");
+  const hasExternalDraftIntakeNeedsReview = externalDraftIntakeRuns.some((run) => run.status === "needs_review");
   const hasInventionCandidates = hasCompletedDisclosure || input.patentPoints.length > 0;
   const hasConfirmedInventionPoint = draftReady || input.patentPoints.some((point) => point.selected);
   const hasCompletedDeliberation = draftReady || Boolean(latestCompletedDeliberation(input.deliberations));
@@ -368,6 +380,9 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     hasCompletedDeliberation,
     formulaRequired,
     hasCompletedFormula,
+    hasExternalDraftSource,
+    hasCompletedExternalDraftIntake,
+    hasExternalDraftIntakeNeedsReview,
     draftReady,
     qualityChecked,
     hasCompletedOfficialCompile,

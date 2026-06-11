@@ -260,6 +260,67 @@ export interface DraftCompletionRun {
   created_at: string;
 }
 
+export type ExternalDraftSourceType = "pasted_text" | "markdown_file" | "docx_file";
+
+export interface ExternalDraftSource {
+  id: string;
+  project_id: string;
+  source_type: ExternalDraftSourceType;
+  file_name: string;
+  content_hash: string;
+  raw_text: string;
+  raw_path: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SectionConfidenceItem {
+  score: number;
+  source_markers: string[];
+  warnings: string[];
+}
+
+export interface SectionConfidence {
+  title: SectionConfidenceItem;
+  abstract: SectionConfidenceItem;
+  claims: SectionConfidenceItem;
+  description: SectionConfidenceItem;
+  drawing_description: SectionConfidenceItem;
+}
+
+export interface IntakeIssue {
+  id: string;
+  category:
+    | "missing_section"
+    | "duplicate_section"
+    | "low_confidence_section"
+    | "format_noise"
+    | "unsupported_attachment"
+    | "suspected_internal_text"
+    | "malformed_claim_numbering";
+  severity: FilingIssueSeverity;
+  section: "title" | "abstract" | "claims" | "description" | "drawing_description" | "raw_text";
+  message: string;
+  suggested_action: string;
+  blocks_quality_run: boolean;
+}
+
+export interface ExternalDraftIntakeRun {
+  id: string;
+  project_id: string;
+  source_id: string;
+  status: "completed" | "needs_review" | "failed";
+  parser_version: string;
+  source_hash: string;
+  parsed_package: DraftPackage | null;
+  section_confidence: SectionConfidence | null;
+  intake_issues: IntakeIssue[];
+  unassigned_fragments: string[];
+  working_draft_hash: string;
+  logs: DeliberationLogEntry[];
+  created_at: string;
+}
+
 export interface ScoreImprovementResult {
   project_id: string;
   before_score: number;
@@ -695,6 +756,57 @@ export async function uploadProjectMaterial(projectId: string, file: File): Prom
 export async function listProjectMaterials(projectId: string): Promise<ProjectMaterial[]> {
   const data = await request<{ materials: ProjectMaterial[] }>(`/api/projects/${projectId}/materials`);
   return data.materials;
+}
+
+export async function createExternalDraftSource(
+  projectId: string,
+  payload: { source_type: ExternalDraftSourceType; text: string; file_name?: string; file_content?: string },
+): Promise<ExternalDraftSource> {
+  return request<ExternalDraftSource>(`/api/projects/${projectId}/external-drafts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listExternalDraftSources(projectId: string): Promise<ExternalDraftSource[]> {
+  const data = await request<{ sources: ExternalDraftSource[] }>(`/api/projects/${projectId}/external-drafts`);
+  return data.sources;
+}
+
+export async function startExternalDraftIntakeRun(
+  projectId: string,
+  sourceId: string,
+): Promise<ExternalDraftIntakeRun> {
+  return request<ExternalDraftIntakeRun>(`/api/projects/${projectId}/external-drafts/${sourceId}/intake-runs`, {
+    method: "POST",
+  });
+}
+
+export async function listExternalDraftIntakeRuns(
+  projectId: string,
+  sourceId: string,
+): Promise<ExternalDraftIntakeRun[]> {
+  const data = await request<{ runs: ExternalDraftIntakeRun[] }>(
+    `/api/projects/${projectId}/external-drafts/${sourceId}/intake-runs`,
+  );
+  return data.runs;
+}
+
+export async function confirmExternalDraftIntakeRun(
+  projectId: string,
+  runId: string,
+  payload: Pick<DraftPackage, "title" | "abstract" | "claims" | "description" | "drawing_description">,
+): Promise<ExternalDraftIntakeRun> {
+  return request<ExternalDraftIntakeRun>(`/api/projects/${projectId}/external-draft-intake-runs/${runId}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function externalDraftReviewBundleReportUrl(projectId: string): string {
+  return `/api/projects/${projectId}/external-draft-review-bundle/report.md`;
 }
 
 export async function listProjectPatentPoints(projectId: string): Promise<PatentPointCandidate[]> {

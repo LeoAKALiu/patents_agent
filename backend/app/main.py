@@ -20,6 +20,14 @@ from backend.app.disclosure.generator import DisclosureGenerator
 from backend.app.disclosure.material_parser import read_project_material_text
 from backend.app.disclosure.prior_art import PublicPriorArtProvider
 from backend.app.draft_completion import completion_run_to_markdown, run_draft_completion
+from backend.app.external_drafts import (
+    create_external_draft_source,
+    external_draft_review_bundle_to_markdown,
+    extract_docx_text,
+    parse_external_draft_source,
+    review_bundle_hash,
+    working_draft_hash,
+)
 from backend.app.exporter import export_docx, package_to_markdown
 from backend.app.filing_readiness import (
     assess_filing_readiness,
@@ -56,6 +64,9 @@ from backend.app.schemas import (
     DisclosureRun,
     DisclosureRunCreate,
     DraftCompletionRun,
+    ExternalDraftIntakeConfirmRequest,
+    ExternalDraftReviewBundle,
+    ExternalDraftSourceCreate,
     DraftPackage,
     FormulaRun,
     FormulaRunCreate,
@@ -286,6 +297,171 @@ def create_app(
     def list_project_materials(project_id: str) -> dict:
         _require_project(store, project_id)
         return {"materials": [material.model_dump(mode="json") for material in store.list_project_materials(project_id)]}
+
+    @app.post("/api/projects/{project_id}/external-drafts")
+    def create_external_draft(project_id: str, payload: ExternalDraftSourceCreate) -> dict:
+        _require_project(store, project_id)
+        text = payload.text
+        if payload.source_type in {"markdown_file", "docx_file"} and payload.file_content.strip():
+            text = payload.file_content
+        if not text.strip():
+            raise HTTPException(status_code=422, detail="External draft text is required.")
+        source = create_external_draft_source(
+            project_id=project_id,
+            source_type=payload.source_type,
+            text=text,
+            file_name=payload.file_name or "external-draft.txt",
+            metadata={"source_type": payload.source_type},
+        )
+        stored = store.create_external_draft_source(source)
+        return stored.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/external-drafts")
+    def list_external_drafts(project_id: str) -> dict:
+        _require_project(store, project_id)
+        return {"sources": [source.model_dump(mode="json") for source in store.list_external_draft_sources(project_id)]}
+
+    @app.post("/api/projects/{project_id}/external-drafts/upload")
+    async def upload_external_draft(project_id: str, file: UploadFile = File(...)) -> dict:
+        _require_project(store, project_id)
+        safe_name = Path(file.filename or "external-draft.txt").name
+        suffix = Path(safe_name).suffix.lower()
+        if suffix not in {".docx", ".markdown", ".md", ".txt"}:
+            raise HTTPException(status_code=415, detail="Unsupported external draft file type.")
+        source_type = "docx_file" if suffix == ".docx" else "markdown_file"
+        raw_path = settings.data_dir / "external-drafts" / project_id / f"{uuid.uuid4().hex}{suffix or '.txt'}"
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+        with raw_path.open("wb") as handle:
+            shutil.copyfileobj(file.file, handle)
+        if suffix == ".docx":
+            try:
+                text = extract_docx_text(raw_path)
+            except ValueError as exc:
+                raw_path.unlink(missing_ok=True)
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        else:
+            text = raw_path.read_text(encoding="utf-8", errors="replace")
+        if not text.strip():
+            raise HTTPException(status_code=422, detail="External draft text is required.")
+        source = create_external_draft_source(
+            project_id=project_id,
+            source_type=source_type,
+            text=text,
+            file_name=safe_name,
+            raw_path=str(raw_path),
+            metadata={"uploaded": True, "content_type": file.content_type or ""},
+        )
+        stored = store.create_external_draft_source(source)
+        return stored.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
+    def create_external_draft_intake_run(project_id: str, source_id: str) -> dict:
+        _require_project(store, project_id)
+        source = store.get_external_draft_source(project_id, source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail="External draft source not found.")
+        run = parse_external_draft_source(project_id=project_id, source=source)
+        stored = store.create_external_draft_intake_run(run)
+        if stored.status == "completed" and stored.parsed_package:
+            store.update_project_package(project_id, stored.parsed_package)
+        return stored.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
+    def list_external_draft_intake_runs(project_id: str, source_id: str) -> dict:
+        _require_project(store, project_id)
+        source = store.get_external_draft_source(project_id, source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail="External draft source not found.")
+        return {
+            "runs": [
+                run.model_dump(mode="json")
+                for run in store.list_external_draft_intake_runs(project_id, source_id)
+            ]
+        }
+
+    @app.get("/api/projects/{project_id}/external-draft-intake-runs/{run_id}")
+    def get_external_draft_intake_run(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_external_draft_intake_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="External draft intake run not found.")
+        return run.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/external-draft-intake-runs/{run_id}/confirm")
+    def confirm_external_draft_intake_run(
+        project_id: str,
+        run_id: str,
+        payload: ExternalDraftIntakeConfirmRequest,
+    ) -> dict:
+        _require_project(store, project_id)
+        run = store.get_external_draft_intake_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="External draft intake run not found.")
+        claims = payload.claims.strip()
+        description = payload.description.strip()
+        if not claims or not description:
+            raise HTTPException(status_code=422, detail="Confirmed external draft requires non-empty claims and description.")
+        package = DraftPackage(
+            title=payload.title.strip(),
+            abstract=payload.abstract.strip(),
+            claims=claims,
+            description=description,
+            drawing_description=payload.drawing_description.strip(),
+            mermaid="",
+            image_prompt="",
+            review_findings=[],
+            citations=[],
+            generation_logs=[f"external_draft_intake: confirmed from run {run.id}"],
+        )
+        updated = run.model_copy(
+            update={
+                "status": "completed",
+                "parsed_package": package,
+                "working_draft_hash": working_draft_hash(package),
+            }
+        )
+        persisted = store.update_external_draft_intake_run(updated)
+        if not persisted:
+            raise HTTPException(status_code=409, detail="External draft intake run update conflicted.")
+        store.update_project_package(project_id, package)
+        return persisted.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/external-draft-review-bundle/report.md")
+    def export_external_draft_review_bundle(project_id: str) -> PlainTextResponse:
+        _require_project(store, project_id)
+        sources = store.list_external_draft_sources(project_id)
+        intake_runs = store.list_external_draft_intake_runs(project_id)
+        completion_runs = store.list_draft_completion_runs(project_id)
+        official_runs = store.list_official_compile_runs(project_id)
+        review_runs = store.list_post_draft_review_runs(project_id)
+        latest_intake = intake_runs[0] if intake_runs else None
+        initial_score = completion_runs[-1].scorecard.overall if completion_runs else None
+        latest_score = completion_runs[0].scorecard.overall if completion_runs else None
+        latest_official = official_runs[0] if official_runs else None
+        latest_review = review_runs[0] if review_runs else None
+        accepted_patch_ids = [
+            patch.id
+            for run in completion_runs
+            for patch in run.patches
+            if patch.status == "accepted"
+        ]
+        bundle = ExternalDraftReviewBundle(
+            project_id=project_id,
+            source_id=latest_intake.source_id if latest_intake else sources[0].id if sources else "",
+            intake_run_id=latest_intake.id if latest_intake else "",
+            initial_score=initial_score,
+            latest_score=latest_score,
+            accepted_patch_ids=accepted_patch_ids,
+            completion_run_ids=[run.id for run in completion_runs],
+            official_compile_run_id=latest_official.id if latest_official else "",
+            post_draft_review_run_id=latest_review.id if latest_review else "",
+            export_allowed=bool(latest_review and latest_review.export_allowed),
+        )
+        bundle = bundle.model_copy(update={"report_hash": review_bundle_hash(bundle)})
+        return PlainTextResponse(
+            external_draft_review_bundle_to_markdown(bundle),
+            media_type="text/markdown; charset=utf-8",
+        )
 
     @app.get("/api/projects/{project_id}/patent-points")
     def list_project_patent_points(project_id: str) -> dict:

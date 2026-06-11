@@ -45,10 +45,14 @@ import {
   SearchResult,
   SectionType,
   type DraftCompletionRun,
+  type ExternalDraftIntakeRun,
+  type ExternalDraftSource,
   acceptCompletionPatch,
+  confirmExternalDraftIntakeRun,
   createClaimDefenseWorksheet,
   createCorpusJob,
   createDraftCompletionRun,
+  createExternalDraftSource,
   createFilingReadinessReport,
   createProject,
   createProjectPatentPoint,
@@ -69,6 +73,8 @@ import {
   listCorpus,
   listCorpusVersions,
   listDraftCompletionRuns,
+  listExternalDraftIntakeRuns,
+  listExternalDraftSources,
   listFilingReadinessReports,
   listProjectDisclosures,
   listProjectDeliberations,
@@ -85,6 +91,7 @@ import {
   searchCorpus,
   startProjectDisclosure,
   startProjectDeliberation,
+  startExternalDraftIntakeRun,
   startFormulaRun,
   startOfficialCompileRun,
   startPostDraftReview,
@@ -188,6 +195,8 @@ function App() {
   const [filingReports, setFilingReports] = useState<FilingReadinessReport[]>([]);
   const [worksheets, setWorksheets] = useState<ClaimDefenseWorksheet[]>([]);
   const [completionRuns, setCompletionRuns] = useState<DraftCompletionRun[]>([]);
+  const [externalDraftSources, setExternalDraftSources] = useState<ExternalDraftSource[]>([]);
+  const [externalDraftIntakeRuns, setExternalDraftIntakeRuns] = useState<ExternalDraftIntakeRun[]>([]);
   const [patentPointsProjectId, setPatentPointsProjectId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [searchText, setSearchText] = useState("图像 神经网络 缺陷 方法");
@@ -235,6 +244,8 @@ function App() {
     setCurrentSourceDraftHash("");
     setPostDraftReviews([]);
     setCurrentDraftHash("");
+    setExternalDraftSources([]);
+    setExternalDraftIntakeRuns([]);
     if (selectedProject?.id) {
       void loadDeliberations(selectedProject.id);
       void loadMaterials(selectedProject.id);
@@ -242,6 +253,7 @@ function App() {
       void loadFormulaState(selectedProject.id);
       void loadOfficialCompileRuns(selectedProject.id);
       void loadPostDraftReviews(selectedProject.id);
+      void refreshExternalDrafts(selectedProject.id);
       setPatentPoints([]);
       setPatentPointsProjectId("");
       setFilingReports([]);
@@ -261,6 +273,8 @@ function App() {
       setFilingReports([]);
       setWorksheets([]);
       setCompletionRuns([]);
+      setExternalDraftSources([]);
+      setExternalDraftIntakeRuns([]);
       setPatentPointsProjectId("");
     }
   }, [selectedProject?.id]);
@@ -469,6 +483,47 @@ function App() {
     }
   }
 
+  async function refreshExternalDrafts(projectId: string, preferredSourceId?: string): Promise<boolean> {
+    try {
+      const sources = await listExternalDraftSources(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setExternalDraftSources(sources);
+      const sourceId = preferredSourceId ?? sources[0]?.id;
+      if (sourceId) {
+        const runs = await listExternalDraftIntakeRuns(projectId, sourceId);
+        if (selectedProjectIdRef.current !== projectId) {
+          return false;
+        }
+        setExternalDraftIntakeRuns(runs);
+      } else {
+        setExternalDraftIntakeRuns([]);
+      }
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setExternalDraftSources([]);
+        setExternalDraftIntakeRuns([]);
+      }
+      return false;
+    }
+  }
+
+  async function refreshProjectsPreservingSelection(projectId: string): Promise<boolean> {
+    const nextProjects = await listProjects();
+    if (selectedProjectIdRef.current !== projectId) {
+      return false;
+    }
+    setProjects(nextProjects);
+    if (nextProjects.some((project) => project.id === projectId)) {
+      setSelectedProjectId(projectId);
+      return true;
+    }
+    setSelectedProjectId(nextProjects[0]?.id ?? "");
+    return false;
+  }
+
   async function withStatus(label: string, task: () => Promise<void>) {
     setBusy(label);
     setError("");
@@ -588,6 +643,70 @@ function App() {
       if (!stillSelected) return;
       setMessage(material.status === "processed" ? `已上传材料：${material.file_name}` : `材料解析失败：${material.warnings[0]}`);
       input.value = "";
+    });
+  }
+
+  async function handleCreateExternalDraft(payload: { text: string; fileName: string }) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("external-draft-create", async () => {
+      const source = await createExternalDraftSource(projectId, {
+        source_type: "pasted_text",
+        text: payload.text,
+        file_name: payload.fileName,
+      });
+      const stillSelected = await refreshExternalDrafts(projectId, source.id);
+      if (!stillSelected) return;
+      setMessage(`已保存外部稿：${source.file_name}`);
+    });
+  }
+
+  async function handleStartExternalDraftIntake(sourceId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("external-draft-intake", async () => {
+      const run = await startExternalDraftIntakeRun(projectId, sourceId);
+      if (selectedProjectIdRef.current !== projectId) return;
+      setExternalDraftIntakeRuns((current) => [run, ...current.filter((item) => item.id !== run.id)]);
+      const draftsStillSelected = await refreshExternalDrafts(projectId, sourceId);
+      if (!draftsStillSelected) return;
+      if (run.status === "completed" && run.parsed_package) {
+        const stillSelected = await refreshProjectsPreservingSelection(projectId);
+        if (!stillSelected) return;
+        setFilingReports([]);
+        setWorksheets([]);
+        setCompletionRuns([]);
+        await loadOfficialCompileRuns(projectId);
+        await loadPostDraftReviews(projectId);
+      }
+      setMessage(run.status === "needs_review" ? "外部稿解析完成，需确认章节" : `外部稿解析${run.status}`);
+    });
+  }
+
+  async function handleConfirmExternalDraftIntake(
+    runId: string,
+    payload: {
+      title: string;
+      abstract: string;
+      claims: string;
+      description: string;
+      drawing_description: string;
+    },
+  ) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("external-draft-confirm", async () => {
+      const run = await confirmExternalDraftIntakeRun(projectId, runId, payload);
+      const stillSelected = await refreshProjectsPreservingSelection(projectId);
+      if (!stillSelected) return;
+      const draftsStillSelected = await refreshExternalDrafts(projectId, run.source_id);
+      if (!draftsStillSelected) return;
+      setFilingReports([]);
+      setWorksheets([]);
+      setCompletionRuns([]);
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
+      setMessage("外部稿已确认为内部工作稿，请重新运行质量检查");
     });
   }
 
@@ -1108,9 +1227,14 @@ function App() {
             filingReports={filingReports}
             worksheets={worksheets}
             completionRuns={completionRuns}
+            externalDraftSources={externalDraftSources}
+            externalDraftIntakeRuns={externalDraftIntakeRuns}
             busy={busy}
             busyElapsedSeconds={busyTimer.elapsedSeconds}
             onCreateIdeaProject={handleCreateIdeaProject}
+            onCreateExternalDraft={handleCreateExternalDraft}
+            onStartExternalDraftIntake={handleStartExternalDraftIntake}
+            onConfirmExternalDraftIntake={handleConfirmExternalDraftIntake}
             onUploadMaterial={handleUploadMaterial}
             disclosureResearchMode={disclosureResearchMode}
             onChangeDisclosureResearchMode={setDisclosureResearchMode}

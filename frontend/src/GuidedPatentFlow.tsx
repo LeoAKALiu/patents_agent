@@ -28,6 +28,8 @@ import {
   type DeliberationRun,
   type DisclosureRun,
   type DraftCompletionRun,
+  type ExternalDraftIntakeRun,
+  type ExternalDraftSource,
   type FilingReadinessReport,
   type FormulaNeedAssessment,
   type FormulaRun,
@@ -79,9 +81,23 @@ export type GuidedPatentFlowProps = {
   filingReports: FilingReadinessReport[];
   worksheets: ClaimDefenseWorksheet[];
   completionRuns: DraftCompletionRun[];
+  externalDraftSources: ExternalDraftSource[];
+  externalDraftIntakeRuns: ExternalDraftIntakeRun[];
   busy: string;
   busyElapsedSeconds?: number;
   onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode }) => Promise<void>;
+  onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
+  onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
+  onConfirmExternalDraftIntake: (
+    runId: string,
+    payload: {
+      title: string;
+      abstract: string;
+      claims: string;
+      description: string;
+      drawing_description: string;
+    },
+  ) => Promise<void>;
   onUploadMaterial: (event: FormEvent<HTMLFormElement>) => void;
   disclosureResearchMode: "standard" | "free_deep_research";
   onChangeDisclosureResearchMode: (mode: "standard" | "free_deep_research") => void;
@@ -116,6 +132,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         filingReports: props.filingReports,
         worksheets: props.worksheets,
         completionRuns: props.completionRuns,
+        externalDraftSources: props.externalDraftSources,
+        externalDraftIntakeRuns: props.externalDraftIntakeRuns,
         officialCompileRuns: props.officialCompileRuns,
         currentSourceDraftHash: props.currentSourceDraftHash,
         postDraftReviews: props.postDraftReviews,
@@ -131,6 +149,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       props.filingReports,
       props.worksheets,
       props.completionRuns,
+      props.externalDraftSources,
+      props.externalDraftIntakeRuns,
       props.officialCompileRuns,
       props.currentSourceDraftHash,
       props.postDraftReviews,
@@ -165,13 +185,39 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         onSelectStep={setManualViewStepId}
         state={state}
       />
+      {props.project && displayedStepId !== "idea" && (
+        <section className="guided-panel external-draft-side-entry">
+          <div className="guided-panel-heading">
+            <div>
+              <h3>外部初稿导入</h3>
+              <p>可随时保存外部稿、解析章节，并确认为内部工作稿；后续质检和导出门禁仍需重新运行。</p>
+            </div>
+            <FileText size={24} />
+          </div>
+          <ExternalDraftIntakePanel
+            project={props.project}
+            sources={props.externalDraftSources}
+            runs={props.externalDraftIntakeRuns}
+            busy={props.busy}
+            busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
+            onCreateExternalDraft={props.onCreateExternalDraft}
+            onStartExternalDraftIntake={props.onStartExternalDraftIntake}
+            onConfirmExternalDraftIntake={props.onConfirmExternalDraftIntake}
+          />
+        </section>
+      )}
       {displayedStepId === "idea" && (
         <IdeaIntakePanel
           project={props.project}
           materials={props.materials}
+          externalDraftSources={props.externalDraftSources}
+          externalDraftIntakeRuns={props.externalDraftIntakeRuns}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onCreateIdeaProject={props.onCreateIdeaProject}
+          onCreateExternalDraft={props.onCreateExternalDraft}
+          onStartExternalDraftIntake={props.onStartExternalDraftIntake}
+          onConfirmExternalDraftIntake={props.onConfirmExternalDraftIntake}
           onUploadMaterial={props.onUploadMaterial}
         />
       )}
@@ -355,21 +401,32 @@ function StepNavButton({
 function IdeaIntakePanel({
   project,
   materials,
+  externalDraftSources,
+  externalDraftIntakeRuns,
   busy,
   busyElapsedSeconds,
   onCreateIdeaProject,
+  onCreateExternalDraft,
+  onStartExternalDraftIntake,
+  onConfirmExternalDraftIntake,
   onUploadMaterial,
 }: {
   project: ProjectRecord | null;
   materials: ProjectMaterial[];
+  externalDraftSources: ExternalDraftSource[];
+  externalDraftIntakeRuns: ExternalDraftIntakeRun[];
   busy: string;
   busyElapsedSeconds: number;
   onCreateIdeaProject: GuidedPatentFlowProps["onCreateIdeaProject"];
+  onCreateExternalDraft: GuidedPatentFlowProps["onCreateExternalDraft"];
+  onStartExternalDraftIntake: GuidedPatentFlowProps["onStartExternalDraftIntake"];
+  onConfirmExternalDraftIntake: GuidedPatentFlowProps["onConfirmExternalDraftIntake"];
   onUploadMaterial: GuidedPatentFlowProps["onUploadMaterial"];
 }) {
   const [name, setName] = useState(project?.name ?? "");
   const [idea, setIdea] = useState(project?.draft_text ?? "");
   const [mode, setMode] = useState<PatentGoalMode>("stable");
+  const [intakeMode, setIntakeMode] = useState<"idea" | "external">("idea");
   const canSubmit = Boolean(name.trim() && idea.trim() && !project);
 
   async function handleSubmit(event: FormEvent) {
@@ -382,61 +439,223 @@ function IdeaIntakePanel({
     <section className="guided-panel">
       <div className="guided-panel-heading">
         <div>
-          <h3>把你的想法写成一段话</h3>
-          <p>系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。</p>
+          <h3>{intakeMode === "idea" ? "把你的想法写成一段话" : "导入外部专利初稿"}</h3>
+          <p>
+            {intakeMode === "idea"
+              ? "系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。"
+              : "保存外部稿原文，解析章节，并在人工确认后转为内部工作稿。"}
+          </p>
         </div>
-        <Wand2 size={24} />
+        {intakeMode === "idea" ? <Wand2 size={24} /> : <FileText size={24} />}
       </div>
-      <form className="guided-intake" onSubmit={handleSubmit}>
+      <div className="segmented-control" role="tablist" aria-label="专利生成入口">
+        <button
+          aria-selected={intakeMode === "idea"}
+          className={intakeMode === "idea" ? "selected" : ""}
+          onClick={() => setIntakeMode("idea")}
+          role="tab"
+          type="button"
+        >
+          从想法生成
+        </button>
+        <button
+          aria-selected={intakeMode === "external"}
+          className={intakeMode === "external" ? "selected" : ""}
+          onClick={() => setIntakeMode("external")}
+          role="tab"
+          type="button"
+        >
+          导入外部初稿
+        </button>
+      </div>
+      {intakeMode === "idea" ? (
+        <>
+          <form className="guided-intake" onSubmit={handleSubmit}>
+            <label>
+              <span>项目名称</span>
+              <input value={name} onChange={(event) => setName(event.target.value)} disabled={Boolean(project)} />
+            </label>
+            <label>
+              <span>一句话想法</span>
+              <textarea
+                className="idea-input"
+                value={idea}
+                onChange={(event) => setIdea(event.target.value)}
+                disabled={Boolean(project)}
+                placeholder="例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。"
+              />
+            </label>
+            <div className="mode-grid">
+              {patentGoalModes.map((item) => (
+                <button
+                  className={mode === item.id ? "mode-card selected" : "mode-card"}
+                  key={item.id}
+                  onClick={() => setMode(item.id)}
+                  type="button"
+                >
+                  <strong>{item.label}</strong>
+                  <span>{item.description}</span>
+                </button>
+              ))}
+            </div>
+            <button className="primary" disabled={!canSubmit || busy === "guided-create"} type="submit">
+              <FileText size={17} />
+              <span>{project ? "已创建想法" : "创建并继续"}</span>
+            </button>
+            <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "guided-create"} />
+          </form>
+          {project && (
+            <form className="guided-upload" onSubmit={onUploadMaterial}>
+              <input
+                id="project-material-file"
+                name="project-material-file"
+                type="file"
+                accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
+              />
+              <button className="primary" disabled={busy === "material-upload"} type="submit">
+                <Upload size={17} />
+                <span>上传补充材料</span>
+              </button>
+              <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "material-upload"} />
+            </form>
+          )}
+          <MaterialSummary materials={materials} />
+        </>
+      ) : (
+        <ExternalDraftIntakePanel
+          project={project}
+          sources={externalDraftSources}
+          runs={externalDraftIntakeRuns}
+          busy={busy}
+          busyElapsedSeconds={busyElapsedSeconds}
+          onCreateExternalDraft={onCreateExternalDraft}
+          onStartExternalDraftIntake={onStartExternalDraftIntake}
+          onConfirmExternalDraftIntake={onConfirmExternalDraftIntake}
+        />
+      )}
+    </section>
+  );
+}
+
+function ExternalDraftIntakePanel({
+  project,
+  sources,
+  runs,
+  busy,
+  busyElapsedSeconds,
+  onCreateExternalDraft,
+  onStartExternalDraftIntake,
+  onConfirmExternalDraftIntake,
+}: {
+  project: ProjectRecord | null;
+  sources: ExternalDraftSource[];
+  runs: ExternalDraftIntakeRun[];
+  busy: string;
+  busyElapsedSeconds: number;
+  onCreateExternalDraft: GuidedPatentFlowProps["onCreateExternalDraft"];
+  onStartExternalDraftIntake: GuidedPatentFlowProps["onStartExternalDraftIntake"];
+  onConfirmExternalDraftIntake: GuidedPatentFlowProps["onConfirmExternalDraftIntake"];
+}) {
+  const [text, setText] = useState("");
+  const [fileName, setFileName] = useState("external-draft.txt");
+  const latestRun = runs[0] ?? null;
+  const draft = latestRun?.parsed_package ?? null;
+  const confirmable = Boolean(draft?.claims.trim() && draft?.description.trim());
+
+  async function handleCreate(event: FormEvent) {
+    event.preventDefault();
+    if (!project || !text.trim()) return;
+    await onCreateExternalDraft({ text: text.trim(), fileName: fileName.trim() || "external-draft.txt" });
+    setText("");
+  }
+
+  async function handleConfirm() {
+    if (!latestRun || !draft || !confirmable) return;
+    await onConfirmExternalDraftIntake(latestRun.id, {
+      title: draft.title,
+      abstract: draft.abstract,
+      claims: draft.claims,
+      description: draft.description,
+      drawing_description: draft.drawing_description,
+    });
+  }
+
+  return (
+    <section className="external-draft-panel">
+      {!project && <p className="workflow-hint">请先创建或选择一个项目，再导入外部初稿。</p>}
+      <form className="guided-intake" onSubmit={handleCreate}>
         <label>
-          <span>项目名称</span>
-          <input value={name} onChange={(event) => setName(event.target.value)} disabled={Boolean(project)} />
+          <span>文件名</span>
+          <input value={fileName} onChange={(event) => setFileName(event.target.value)} disabled={!project} />
         </label>
         <label>
-          <span>一句话想法</span>
+          <span>粘贴外部专利初稿</span>
           <textarea
             className="idea-input"
-            value={idea}
-            onChange={(event) => setIdea(event.target.value)}
-            disabled={Boolean(project)}
-            placeholder="例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            disabled={!project}
+            placeholder="粘贴发明名称、摘要、权利要求书、说明书和附图说明。"
           />
         </label>
-        <div className="mode-grid">
-          {patentGoalModes.map((item) => (
+        <button className="primary" disabled={!project || !text.trim() || busy === "external-draft-create"} type="submit">
+          <FileText size={17} />
+          <span>保存原始外部稿</span>
+        </button>
+      </form>
+      <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy.startsWith("external-draft")} />
+      <div className="guided-summary-list">
+        {sources.map((source) => (
+          <article className="guided-summary-row external-draft-source-row" key={source.id}>
+            <FileText size={18} />
+            <div>
+              <strong>{source.file_name}</strong>
+              <span>
+                {source.source_type} / {source.content_hash.slice(0, 12)}
+              </span>
+            </div>
             <button
-              className={mode === item.id ? "mode-card selected" : "mode-card"}
-              key={item.id}
-              onClick={() => setMode(item.id)}
+              className="icon-button"
+              disabled={busy === "external-draft-intake"}
+              onClick={() => onStartExternalDraftIntake(source.id)}
               type="button"
             >
-              <strong>{item.label}</strong>
-              <span>{item.description}</span>
+              解析章节
             </button>
-          ))}
-        </div>
-        <button className="primary" disabled={!canSubmit || busy === "guided-create"} type="submit">
-          <FileText size={17} />
-          <span>{project ? "已创建想法" : "创建并继续"}</span>
-        </button>
-        <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "guided-create"} />
-      </form>
-      {project && (
-        <form className="guided-upload" onSubmit={onUploadMaterial}>
-          <input
-            id="project-material-file"
-            name="project-material-file"
-            type="file"
-            accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
-          />
-          <button className="primary" disabled={busy === "material-upload"} type="submit">
-            <Upload size={17} />
-            <span>上传补充材料</span>
-          </button>
-          <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "material-upload"} />
-        </form>
+          </article>
+        ))}
+        {sources.length === 0 && <p className="empty">保存外部稿后，系统会解析章节并生成内部工作稿。</p>}
+      </div>
+      {latestRun && (
+        <article className="guided-choice selected external-draft-result">
+          <div className="result-meta">
+            <span className={latestRun.status === "needs_review" ? "status-badge warn" : "status-badge"}>
+              {latestRun.status === "completed" ? "解析完成" : latestRun.status === "needs_review" ? "需要确认" : "解析失败"}
+            </span>
+            <span>{latestRun.working_draft_hash.slice(0, 12) || "无工作稿 hash"}</span>
+          </div>
+          <h4>{draft?.title || "外部初稿解析结果"}</h4>
+          <p>{latestRun.intake_issues.map((issue) => issue.message).join("；") || "未发现导入阶段阻断问题。"}</p>
+          {draft && (
+            <div className="external-draft-section-preview">
+              <span>权利要求：{draft.claims.trim() ? "已识别" : "缺失"}</span>
+              <span>说明书：{draft.description.trim() ? "已识别" : "缺失"}</span>
+            </div>
+          )}
+          {draft && (
+            <button
+              className="primary"
+              disabled={!confirmable || busy === "external-draft-confirm"}
+              onClick={handleConfirm}
+              type="button"
+            >
+              <CheckCircle2 size={17} />
+              <span>确认为内部工作稿</span>
+            </button>
+          )}
+          {draft && !confirmable && <p className="workflow-hint">请补齐权利要求书和说明书后重新保存并解析。</p>}
+        </article>
       )}
-      <MaterialSummary materials={materials} />
     </section>
   );
 }

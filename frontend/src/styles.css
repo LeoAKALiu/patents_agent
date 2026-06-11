@@ -498,6 +498,80 @@ textarea { resize: vertical; line-height: 1.6; }
   background: #162032;
   padding: 8px 10px;
 }
+.segmented-control {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  max-width: 360px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #0f172a;
+  padding: 4px;
+}
+.segmented-control button {
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.segmented-control button:hover {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+.segmented-control button.selected,
+.segmented-control button[aria-selected="true"] {
+  border-color: #2dd4bf44;
+  background: #2dd4bf18;
+  color: #5eead4;
+}
+.external-draft-side-entry {
+  border-color: #2dd4bf33;
+  background: #172335;
+}
+.external-draft-panel {
+  display: grid;
+  gap: 12px;
+}
+.external-draft-source-row {
+  align-items: flex-start;
+}
+.external-draft-source-row > div {
+  flex: 1;
+  min-width: 0;
+}
+.external-draft-source-row strong,
+.external-draft-source-row span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.external-draft-source-row .icon-button {
+  flex: 0 0 auto;
+}
+.external-draft-result {
+  cursor: default;
+}
+.external-draft-section-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.external-draft-section-preview span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #94a3b8;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
 .guided-preview {
   max-height: 320px;
   overflow: auto;
@@ -694,6 +768,9 @@ textarea { resize: vertical; line-height: 1.6; }
   .topbar, .action-band { align-items: stretch; flex-direction: column; }
   .two-column, .preview, .export-grid, .doctor-grid, .strategy-grid, .metric-grid, .score-grid, .search-form { grid-template-columns: 1fr; }
   .guided-stepper { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .segmented-control { max-width: none; width: 100%; }
+  .external-draft-source-row { align-items: stretch; flex-direction: column; }
+  .external-draft-source-row .icon-button { width: 100%; }
 }
 @media (max-width: 520px) {
   .guided-stepper { grid-template-columns: 1fr; }
