@@ -439,14 +439,6 @@ function IdeaIntakePanel({
   const canSubmit = Boolean(name.trim() && idea.trim() && !project);
   const effectiveMode = fixedGoalMode ?? mode;
 
-  useEffect(() => {
-    if (fixedGoalMode) {
-      setMode(fixedGoalMode);
-      return;
-    }
-    setMode((current) => current === "utility" ? "stable" : current);
-  }, [fixedGoalMode]);
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
