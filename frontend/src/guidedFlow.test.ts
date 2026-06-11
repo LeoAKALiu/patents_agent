@@ -27,6 +27,7 @@ import {
   guidedOperationLog,
   guidedStepLabels,
   guidedStepStatusLabel,
+  ideaPatentGoalModes,
   mainSections,
   officialCompileActionGate,
   patentGoalModes,
@@ -371,8 +372,8 @@ function patentPoint(selected: boolean): PatentPointCandidate {
 }
 
 describe("guided flow navigation", () => {
-  it("uses three main sections and keeps expert tools grouped", () => {
-    expect(mainSections.map((item) => item.label)).toEqual(["专利生成", "项目", "专家工具"]);
+  it("uses four main sections and keeps expert tools grouped", () => {
+    expect(mainSections.map((item) => item.label)).toEqual(["专利生成", "实用新型轻量版", "项目", "专家工具"]);
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
     expect(guidedStepLabels).toEqual([
       "想法与材料",
@@ -516,13 +517,13 @@ describe("guided flow defaults", () => {
 
 describe("patent goal modes", () => {
   it("exposes user-facing goal modes for the idea intake", () => {
-    expect(patentGoalModes.map((mode) => mode.label)).toEqual([
+    expect(ideaPatentGoalModes.map((mode) => mode.label)).toEqual([
       "授权稳健",
       "保护范围优先",
       "快速初稿",
-      "实用新型轻量版",
       "专利护城河",
     ]);
+    expect(patentGoalModes.find((mode) => mode.id === "utility")?.label).toBe("实用新型轻量版");
   });
 
   it("marks utility model projects with an explicit draft prefix", () => {

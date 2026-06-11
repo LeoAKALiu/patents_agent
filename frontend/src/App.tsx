@@ -1218,7 +1218,7 @@ function App() {
           </div>
         )}
 
-        {activeSection === "generate" && (
+        {(activeSection === "generate" || activeSection === "utility") && (
           <div className="px-4 md:px-8 py-4 md:py-6">
           <GuidedPatentFlowView
             project={selectedProject}
@@ -1242,6 +1242,7 @@ function App() {
             externalDraftIntakeRuns={externalDraftIntakeRuns}
             busy={busy}
             busyElapsedSeconds={busyTimer.elapsedSeconds}
+            fixedGoalMode={activeSection === "utility" ? "utility" : undefined}
             onCreateIdeaProject={handleCreateIdeaProject}
             onCreateExternalDraft={handleCreateExternalDraft}
             onUploadExternalDraft={handleUploadExternalDraft}

@@ -43,8 +43,8 @@ import {
   deriveGuidedFlowState,
   guidedOperationLog,
   guidedStepStatusLabel,
+  ideaPatentGoalModes,
   officialCompileActionGate,
-  patentGoalModes,
   postDraftReviewActionGate,
   qualityActionGate,
   qualitySummaryFromRuns,
@@ -85,6 +85,7 @@ export type GuidedPatentFlowProps = {
   externalDraftIntakeRuns: ExternalDraftIntakeRun[];
   busy: string;
   busyElapsedSeconds?: number;
+  fixedGoalMode?: PatentGoalMode;
   onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode }) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
   onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
@@ -216,6 +217,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           externalDraftIntakeRuns={props.externalDraftIntakeRuns}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
+          fixedGoalMode={props.fixedGoalMode}
           onCreateIdeaProject={props.onCreateIdeaProject}
           onCreateExternalDraft={props.onCreateExternalDraft}
           onUploadExternalDraft={props.onUploadExternalDraft}
@@ -408,6 +410,7 @@ function IdeaIntakePanel({
   externalDraftIntakeRuns,
   busy,
   busyElapsedSeconds,
+  fixedGoalMode,
   onCreateIdeaProject,
   onCreateExternalDraft,
   onUploadExternalDraft,
@@ -421,6 +424,7 @@ function IdeaIntakePanel({
   externalDraftIntakeRuns: ExternalDraftIntakeRun[];
   busy: string;
   busyElapsedSeconds: number;
+  fixedGoalMode?: PatentGoalMode;
   onCreateIdeaProject: GuidedPatentFlowProps["onCreateIdeaProject"];
   onCreateExternalDraft: GuidedPatentFlowProps["onCreateExternalDraft"];
   onUploadExternalDraft: GuidedPatentFlowProps["onUploadExternalDraft"];
@@ -433,11 +437,12 @@ function IdeaIntakePanel({
   const [mode, setMode] = useState<PatentGoalMode>("stable");
   const [intakeMode, setIntakeMode] = useState<"idea" | "external">("idea");
   const canSubmit = Boolean(name.trim() && idea.trim() && !project);
+  const effectiveMode = fixedGoalMode ?? mode;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
-    await onCreateIdeaProject({ name: name.trim(), idea: idea.trim(), mode });
+    await onCreateIdeaProject({ name: name.trim(), idea: idea.trim(), mode: effectiveMode });
   }
 
   return (
@@ -490,19 +495,21 @@ function IdeaIntakePanel({
                 placeholder="例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。"
               />
             </label>
-            <div className="mode-grid">
-              {patentGoalModes.map((item) => (
-                <button
-                  className={mode === item.id ? "mode-card selected" : "mode-card"}
-                  key={item.id}
-                  onClick={() => setMode(item.id)}
-                  type="button"
-                >
-                  <strong>{item.label}</strong>
-                  <span>{item.description}</span>
-                </button>
-              ))}
-            </div>
+            {!fixedGoalMode && (
+              <div className="mode-grid">
+                {ideaPatentGoalModes.map((item) => (
+                  <button
+                    className={mode === item.id ? "mode-card selected" : "mode-card"}
+                    key={item.id}
+                    onClick={() => setMode(item.id)}
+                    type="button"
+                  >
+                    <strong>{item.label}</strong>
+                    <span>{item.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <button className="primary" disabled={!canSubmit || busy === "guided-create"} type="submit">
               <FileText size={17} />
               <span>{project ? "已创建想法" : "创建并继续"}</span>
