@@ -501,14 +501,15 @@ function App() {
 
   async function refreshProjectsPreservingSelection(projectId: string): Promise<boolean> {
     const nextProjects = await listProjects();
+    if (selectedProjectIdRef.current !== projectId) {
+      return false;
+    }
     setProjects(nextProjects);
     if (nextProjects.some((project) => project.id === projectId)) {
       setSelectedProjectId(projectId);
       return true;
     }
-    if (!nextProjects.some((project) => project.id === selectedProjectIdRef.current)) {
-      setSelectedProjectId(nextProjects[0]?.id ?? "");
-    }
+    setSelectedProjectId(nextProjects[0]?.id ?? "");
     return false;
   }
 
@@ -656,7 +657,8 @@ function App() {
       const run = await startExternalDraftIntakeRun(projectId, sourceId);
       if (selectedProjectIdRef.current !== projectId) return;
       setExternalDraftIntakeRuns((current) => [run, ...current.filter((item) => item.id !== run.id)]);
-      await refreshExternalDrafts(projectId, sourceId);
+      const draftsStillSelected = await refreshExternalDrafts(projectId, sourceId);
+      if (!draftsStillSelected) return;
       if (run.status === "completed" && run.parsed_package) {
         const stillSelected = await refreshProjectsPreservingSelection(projectId);
         if (!stillSelected) return;
@@ -686,7 +688,8 @@ function App() {
       const run = await confirmExternalDraftIntakeRun(projectId, runId, payload);
       const stillSelected = await refreshProjectsPreservingSelection(projectId);
       if (!stillSelected) return;
-      await refreshExternalDrafts(projectId, run.source_id);
+      const draftsStillSelected = await refreshExternalDrafts(projectId, run.source_id);
+      if (!draftsStillSelected) return;
       setFilingReports([]);
       setWorksheets([]);
       setCompletionRuns([]);
