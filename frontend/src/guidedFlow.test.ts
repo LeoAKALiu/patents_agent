@@ -28,6 +28,7 @@ import {
   guidedStepLabels,
   guidedStepStatusLabel,
   ideaPatentGoalModes,
+  isUtilityModelProject,
   mainSections,
   officialCompileActionGate,
   patentGoalModes,
@@ -530,6 +531,52 @@ describe("patent goal modes", () => {
   it("marks utility model projects with an explicit draft prefix", () => {
     expect(projectGoalPrefix("utility")).toContain(utilityModelModePrefix);
     expect(projectGoalPrefix("utility")).toContain("专利类型：实用新型");
+  });
+});
+
+describe("isUtilityModelProject", () => {
+  it("returns true when patent_type is utility_model (explicit field check)", () => {
+    const project: ProjectRecord = {
+      id: "u1",
+      name: "一种可调安装支架",
+      draft_text: "一种可调安装支架，包括底座、支撑臂和限位件。",
+      patent_type: "utility_model",
+      package: null,
+      created_at: "2026-06-11T00:00:00Z",
+      updated_at: "2026-06-11T00:00:00Z",
+    };
+    expect(isUtilityModelProject(project)).toBe(true);
+  });
+
+  it("returns true when project has legacy draft prefix but patent_type is invention", () => {
+    const project: ProjectRecord = {
+      id: "u2",
+      name: "一种可调安装支架",
+      draft_text: `${utilityModelModePrefix}\n一种可调安装支架，包括底座、支撑臂和限位件。`,
+      patent_type: "invention",
+      package: null,
+      created_at: "2026-06-11T00:00:00Z",
+      updated_at: "2026-06-11T00:00:00Z",
+    };
+    expect(isUtilityModelProject(project)).toBe(true);
+  });
+
+  it("returns false when patent_type is invention and no legacy prefix is present", () => {
+    const project: ProjectRecord = {
+      id: "u3",
+      name: "一种外立面检测方法",
+      draft_text: "一种外立面检测方法，通过无人机拍摄获得图像数据。",
+      patent_type: "invention",
+      package: null,
+      created_at: "2026-06-11T00:00:00Z",
+      updated_at: "2026-06-11T00:00:00Z",
+    };
+    expect(isUtilityModelProject(project)).toBe(false);
+  });
+
+  it("returns false for null or undefined project", () => {
+    expect(isUtilityModelProject(null)).toBe(false);
+    expect(isUtilityModelProject(undefined)).toBe(false);
   });
 });
 
