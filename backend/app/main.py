@@ -324,23 +324,30 @@ def create_app(
     @app.post("/api/projects/{project_id}/external-drafts/upload")
     async def upload_external_draft(project_id: str, file: UploadFile = File(...)) -> dict:
         _require_project(store, project_id)
-        suffix = Path(file.filename or "external-draft").suffix.lower()
-        raw_bytes = await file.read()
+        safe_name = Path(file.filename or "external-draft.txt").name
+        suffix = Path(safe_name).suffix.lower()
+        if suffix not in {".docx", ".markdown", ".md", ".txt"}:
+            raise HTTPException(status_code=415, detail="Unsupported external draft file type.")
         source_type = "docx_file" if suffix == ".docx" else "markdown_file"
         raw_path = settings.data_dir / "external-drafts" / project_id / f"{uuid.uuid4().hex}{suffix or '.txt'}"
         raw_path.parent.mkdir(parents=True, exist_ok=True)
-        raw_path.write_bytes(raw_bytes)
+        with raw_path.open("wb") as handle:
+            shutil.copyfileobj(file.file, handle)
         if suffix == ".docx":
-            text = extract_docx_text(raw_path)
+            try:
+                text = extract_docx_text(raw_path)
+            except ValueError as exc:
+                raw_path.unlink(missing_ok=True)
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
         else:
-            text = raw_bytes.decode("utf-8", errors="replace")
+            text = raw_path.read_text(encoding="utf-8", errors="replace")
         if not text.strip():
             raise HTTPException(status_code=422, detail="External draft text is required.")
         source = create_external_draft_source(
             project_id=project_id,
             source_type=source_type,
             text=text,
-            file_name=file.filename or raw_path.name,
+            file_name=safe_name,
             raw_path=str(raw_path),
             metadata={"uploaded": True, "content_type": file.content_type or ""},
         )

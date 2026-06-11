@@ -6,8 +6,10 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from zipfile import BadZipFile
 
 from docx import Document
+from docx.opc.exceptions import PackageNotFoundError
 
 from backend.app.schemas import (
     DeliberationLogEntry,
@@ -60,7 +62,11 @@ def review_bundle_hash(bundle: ExternalDraftReviewBundle) -> str:
 
 
 def extract_docx_text(path: Path) -> str:
-    document = Document(path)
+    try:
+        document = Document(path)
+    except (BadZipFile, KeyError, PackageNotFoundError, ValueError) as exc:
+        raise ValueError("External draft DOCX could not be read.") from exc
+
     parts: list[str] = []
     for paragraph in document.paragraphs:
         text = paragraph.text.strip()

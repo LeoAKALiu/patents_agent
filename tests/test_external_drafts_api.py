@@ -168,6 +168,48 @@ def test_external_draft_docx_upload_creates_source(tmp_path):
     assert "DOCX导入方法" in response.json()["raw_text"]
 
 
+def test_external_draft_docx_upload_rejects_malformed_docx(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "损坏DOCX外部稿", "draft_text": "损坏DOCX外部稿导入。"},
+    ).json()
+
+    response = client.post(
+        f"/api/projects/{project['id']}/external-drafts/upload",
+        files={
+            "file": (
+                "broken.docx",
+                b"not a real docx package",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 422
+    list_response = client.get(f"/api/projects/{project['id']}/external-drafts")
+    assert list_response.status_code == 200
+    assert list_response.json()["sources"] == []
+
+
+def test_external_draft_upload_rejects_unsupported_file_type(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "PDF外部稿", "draft_text": "PDF外部稿导入。"},
+    ).json()
+
+    response = client.post(
+        f"/api/projects/{project['id']}/external-drafts/upload",
+        files={"file": ("external.pdf", b"%PDF-1.4 fake", "application/pdf")},
+    )
+
+    assert response.status_code == 415
+    list_response = client.get(f"/api/projects/{project['id']}/external-drafts")
+    assert list_response.status_code == 200
+    assert list_response.json()["sources"] == []
+
+
 def test_external_draft_confirmed_package_runs_quality_and_bundle_report(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
     project = client.post(
