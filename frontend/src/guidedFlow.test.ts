@@ -384,6 +384,11 @@ describe("guided flow defaults", () => {
     expect(defaultMainSectionId).toBe("generate");
     expect(defaultExpertToolId).toBe("build");
   });
+
+  it("keeps idea mode as the default main generation entry", () => {
+    expect(guidedStepLabels[0]).toBe("想法与材料");
+    expect(defaultMainSectionId).toBe("generate");
+  });
 });
 
 describe("patent goal modes", () => {
