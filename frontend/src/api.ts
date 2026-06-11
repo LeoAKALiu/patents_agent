@@ -769,6 +769,15 @@ export async function createExternalDraftSource(
   });
 }
 
+export async function uploadExternalDraftSource(projectId: string, file: File): Promise<ExternalDraftSource> {
+  const form = new FormData();
+  form.append("file", file);
+  return request<ExternalDraftSource>(`/api/projects/${projectId}/external-drafts/upload`, {
+    method: "POST",
+    body: form,
+  });
+}
+
 export async function listExternalDraftSources(projectId: string): Promise<ExternalDraftSource[]> {
   const data = await request<{ sources: ExternalDraftSource[] }>(`/api/projects/${projectId}/external-drafts`);
   return data.sources;

@@ -97,6 +97,7 @@ import {
   startPostDraftReview,
   updateProjectPatentPoint,
   uploadCorpusJobFile,
+  uploadExternalDraftSource,
   uploadProjectMaterial,
 } from "./api";
 import { GuidedPatentFlowView } from "./GuidedPatentFlow";
@@ -652,6 +653,22 @@ function App() {
       const stillSelected = await refreshExternalDrafts(projectId, source.id);
       if (!stillSelected) return;
       setMessage(`已保存外部稿：${source.file_name}`);
+    });
+  }
+
+  async function handleUploadExternalDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    const input = event.currentTarget.elements.namedItem("external-draft-file") as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    await withStatus("external-draft-upload", async () => {
+      const source = await uploadExternalDraftSource(projectId, file);
+      const stillSelected = await refreshExternalDrafts(projectId, source.id);
+      if (!stillSelected) return;
+      setMessage(`已上传外部稿：${source.file_name}`);
+      input.value = "";
     });
   }
 
@@ -1227,6 +1244,7 @@ function App() {
             busyElapsedSeconds={busyTimer.elapsedSeconds}
             onCreateIdeaProject={handleCreateIdeaProject}
             onCreateExternalDraft={handleCreateExternalDraft}
+            onUploadExternalDraft={handleUploadExternalDraft}
             onStartExternalDraftIntake={handleStartExternalDraftIntake}
             onConfirmExternalDraftIntake={handleConfirmExternalDraftIntake}
             onUploadMaterial={handleUploadMaterial}
