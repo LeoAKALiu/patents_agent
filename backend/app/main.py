@@ -400,6 +400,7 @@ def create_app(
         completion_runs = store.list_draft_completion_runs(project_id)
         official_runs = store.list_official_compile_runs(project_id)
         review_runs = store.list_post_draft_review_runs(project_id)
+        latest_intake = intake_runs[0] if intake_runs else None
         initial_score = completion_runs[-1].scorecard.overall if completion_runs else None
         latest_score = completion_runs[0].scorecard.overall if completion_runs else None
         latest_official = official_runs[0] if official_runs else None
@@ -412,8 +413,8 @@ def create_app(
         ]
         bundle = ExternalDraftReviewBundle(
             project_id=project_id,
-            source_id=sources[0].id if sources else "",
-            intake_run_id=intake_runs[0].id if intake_runs else "",
+            source_id=latest_intake.source_id if latest_intake else sources[0].id if sources else "",
+            intake_run_id=latest_intake.id if latest_intake else "",
             initial_score=initial_score,
             latest_score=latest_score,
             accepted_patch_ids=accepted_patch_ids,

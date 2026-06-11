@@ -174,3 +174,42 @@ def test_external_draft_confirmed_package_runs_quality_and_bundle_report(tmp_pat
     assert "EXTERNAL_DRAFT_REVIEW_BUNDLE" in report_response.text
     assert "initial_score" in report_response.text
     assert "official_compile_run_id" in report_response.text
+
+
+def test_external_draft_review_bundle_pairs_intake_run_with_its_source(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "外部稿配对", "draft_text": "外部初稿导入项目。"},
+    ).json()
+
+    source_with_run = client.post(
+        f"/api/projects/{project['id']}/external-drafts",
+        json={
+            "source_type": "pasted_text",
+            "file_name": "with-run.txt",
+            "text": (
+                "发明名称\n一种外部稿处理方法\n"
+                "权利要求书\n1. 一种外部稿处理方法。\n"
+                "说明书\n本发明涉及专利初稿处理。\n"
+            ),
+        },
+    ).json()
+    intake = client.post(
+        f"/api/projects/{project['id']}/external-drafts/{source_with_run['id']}/intake-runs"
+    ).json()
+    newer_source = client.post(
+        f"/api/projects/{project['id']}/external-drafts",
+        json={
+            "source_type": "pasted_text",
+            "file_name": "newer-without-run.txt",
+            "text": "发明名称\n一种后续外部稿\n说明书\n本发明涉及后续稿。",
+        },
+    ).json()
+
+    report_response = client.get(f"/api/projects/{project['id']}/external-draft-review-bundle/report.md")
+
+    assert report_response.status_code == 200
+    assert f"- source_id: {source_with_run['id']}" in report_response.text
+    assert f"- intake_run_id: {intake['id']}" in report_response.text
+    assert f"- source_id: {newer_source['id']}" not in report_response.text
