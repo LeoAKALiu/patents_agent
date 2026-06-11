@@ -250,7 +250,12 @@ def create_app(
 
     @app.post("/api/projects")
     def create_project(payload: ProjectCreate) -> dict:
-        project = ProjectRecord(id=uuid.uuid4().hex, name=payload.name, draft_text=payload.draft_text)
+        project = ProjectRecord(
+            id=uuid.uuid4().hex,
+            name=payload.name,
+            draft_text=payload.draft_text,
+            patent_type=payload.patent_type,
+        )
         stored = store.create_project(project)
         return stored.model_dump(mode="json")
 
@@ -1595,6 +1600,7 @@ def _brief_from_draft(project: ProjectRecord, disclosure: DisclosurePackage | No
         patent_point_summary=selected.title if selected else None,
         prior_art_differences=disclosure.prior_art_differences if disclosure else None,
         supporting_materials_summary=disclosure.materials_summary if disclosure else None,
+        patent_type=project.patent_type,
     )
 
 

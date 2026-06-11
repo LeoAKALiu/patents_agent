@@ -45,6 +45,7 @@ const projectWithIdea: ProjectRecord = {
   id: "p1",
   name: "外立面逆建模",
   draft_text: "一种外立面逆建模方法。",
+  patent_type: "invention",
   package: null,
   created_at: "2026-06-07T00:00:00Z",
   updated_at: "2026-06-07T00:00:00Z",

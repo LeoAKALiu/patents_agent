@@ -138,6 +138,7 @@ import {
   type ExpertToolId,
   type MainSectionId,
   type PatentGoalMode,
+  type PatentType,
 } from "./guidedFlow";
 
 
@@ -612,10 +613,10 @@ function App() {
     });
   }
 
-  async function handleCreateIdeaProject(payload: { name: string; idea: string; mode: PatentGoalMode }) {
+  async function handleCreateIdeaProject(payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) {
     await withStatus("guided-create", async () => {
       const prefix = projectGoalPrefix(payload.mode);
-      const project = await createProject(payload.name, `${prefix}\n${payload.idea}`);
+      const project = await createProject(payload.name, `${prefix}\n${payload.idea}`, payload.patentType);
       const nextProjects = await listProjects();
       setProjects(nextProjects);
       setSelectedProjectId(project.id);

@@ -29,10 +29,13 @@ import type {
   OfficialCompileRun,
   PatentPointCandidate,
   PatentPointCreatePayload,
+  PatentType,
   PostDraftReviewRun,
   ProjectMaterial,
   ProjectRecord,
 } from "./api";
+
+export type { PatentType };
 import { canExportPackage, latestCompletedDeliberation } from "./domain";
 
 export type MainSectionId = "generate" | "utility" | "projects" | "expert";
@@ -149,6 +152,19 @@ export const defaultMainSectionId: MainSectionId = "generate";
 export const defaultExpertToolId: ExpertToolId = "build";
 export const utilityModelModePrefix = "目标模式：实用新型轻量版。";
 
+export const patentTypeOptions: Array<{ id: PatentType; label: string; description: string }> = [
+  {
+    id: "invention",
+    label: "发明专利",
+    description: "覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。",
+  },
+  {
+    id: "utility_model",
+    label: "实用新型专利",
+    description: "聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。",
+  },
+];
+
 export const patentGoalModes: Array<{ id: PatentGoalMode; label: string; description: string }> = [
   { id: "stable", label: "授权稳健", description: "收紧独权，强调组合闭环和说明书支撑。" },
   { id: "broad", label: "保护范围优先", description: "先上位覆盖，再用从权兜底替代实现。" },
@@ -170,7 +186,12 @@ export function projectGoalPrefix(mode: PatentGoalMode): string {
 }
 
 export function isUtilityModelProject(project: ProjectRecord | null | undefined): boolean {
-  const draftText = project?.draft_text ?? "";
+  if (!project) return false;
+  // Explicit utility_model always wins.
+  if (project.patent_type === "utility_model") return true;
+  // Fallback: legacy text-based detection (catches pre-PR3 projects
+  // and projects created without an explicit patent_type).
+  const draftText = project.draft_text ?? "";
   return draftText.includes(utilityModelModePrefix) || draftText.includes("专利类型：实用新型");
 }
 

@@ -331,10 +331,16 @@ export interface ScoreImprovementResult {
   logs: string[];
 }
 
+export type PatentType = "invention" | "utility_model";
+
+export const PATENT_TYPE_INVENTION: PatentType = "invention";
+export const PATENT_TYPE_UTILITY_MODEL: PatentType = "utility_model";
+
 export interface ProjectRecord {
   id: string;
   name: string;
   draft_text: string;
+  patent_type: PatentType;
   package: DraftPackage | null;
   created_at: string;
   updated_at: string;
@@ -734,11 +740,19 @@ export async function listProjects(): Promise<ProjectRecord[]> {
   return data.projects;
 }
 
-export async function createProject(name: string, draftText: string): Promise<ProjectRecord> {
+export async function createProject(
+  name: string,
+  draftText: string,
+  patentType: PatentType = PATENT_TYPE_INVENTION,
+): Promise<ProjectRecord> {
   return request<ProjectRecord>("/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, draft_text: draftText }),
+    body: JSON.stringify({
+      name,
+      draft_text: draftText,
+      patent_type: patentType,
+    }),
   });
 }
 
