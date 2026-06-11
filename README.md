@@ -219,6 +219,23 @@ npm run build
 - `npm run build`：通过
 - Chrome headless smoke：默认新建入口、四项导航、项目创建、发明点步骤、材料上传入口、专家工具入口均通过
 
+## v1.0.0 Agent Pipeline Bootstrap
+
+v1.0.0 release automation uses GitHub as the audit trail and Hermes Kanban as the worker queue. The conservative bootstrap helper lives at:
+
+```text
+scripts/bootstrap_v1_agent_pipeline.py
+```
+
+Run it in dry-run mode first, then apply labels/profiles/board setup only after review:
+
+```bash
+python3 scripts/bootstrap_v1_agent_pipeline.py --no-detect
+python3 scripts/bootstrap_v1_agent_pipeline.py --apply --repo LeoAKALiu/patents_agent --default-workdir /Users/leo/Projects/patents_agent
+```
+
+Details and safety boundaries are documented in `docs/release/v1.0.0-agent-bootstrap.md`. The helper does not configure secrets, enable auto-merge, or dispatch workers.
+
 ## 云端部署方向
 
 后续云端版本建议按以下边界推进：
