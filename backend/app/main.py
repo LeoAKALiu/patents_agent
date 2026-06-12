@@ -6,7 +6,7 @@ import time
 import uuid
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import ValidationError
@@ -110,6 +110,30 @@ from backend.app.storage import SQLiteStore
 
 
 STRICT_DELIBERATION_PROVIDERS = ("codex", "gemini", "claude")
+APP_VERSION = "1.0.0"
+LOCAL_RENDERER_ORIGINS = frozenset(
+    {
+        "null",  # Electron/file:// renderer fetches report Origin: null.
+        "file://",
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:5174",
+        "http://localhost:5174",
+    }
+)
+
+
+def _enforce_desktop_config_origin(request: Request) -> None:
+    """Reject browser-originated config writes from non-renderer origins.
+
+    Electron main-process requests and tests do not send Origin, so absence is
+    allowed. Browser requests from arbitrary sites send Origin and must not be
+    able to read or mutate the local desktop LLM configuration.
+    """
+
+    origin = request.headers.get("origin")
+    if origin and origin not in LOCAL_RENDERER_ORIGINS:
+        raise HTTPException(status_code=403, detail="Forbidden desktop config origin.")
 
 
 def create_app(
@@ -133,11 +157,11 @@ def create_app(
     desktop_config = load_desktop_config(settings.data_dir)
     llm = llm_client or _build_llm(settings, desktop_config)
 
-    app = FastAPI(title="Patents Agent", version="0.1.0")
+    app = FastAPI(title="Patents Agent", version=APP_VERSION)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=sorted(LOCAL_RENDERER_ORIGINS),
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -164,8 +188,9 @@ def create_app(
         }
 
     @app.get("/api/desktop-config", response_model=DesktopConfigView)
-    def get_desktop_config() -> dict:
+    def get_desktop_config(request: Request) -> dict:
         """Return the redacted desktop LLM configuration (no raw key)."""
+        _enforce_desktop_config_origin(request)
         view = desktop_config_redacted_view(app.state.desktop_config)
         effective = effective_desktop_settings(settings, app.state.desktop_config)
         view["provider"] = effective["provider"]
@@ -175,12 +200,13 @@ def create_app(
         return view
 
     @app.patch("/api/desktop-config", response_model=DesktopConfigView)
-    def patch_desktop_config(payload: DesktopConfigUpdate) -> dict:
+    def patch_desktop_config(payload: DesktopConfigUpdate, request: Request) -> dict:
         """Persist a desktop LLM configuration update on the local machine.
 
         The raw API key is dropped from the response and from any log lines.
         The ``.env`` file is never touched.
         """
+        _enforce_desktop_config_origin(request)
         try:
             updated = apply_desktop_config_update(
                 app.state.desktop_config,
@@ -206,8 +232,9 @@ def create_app(
         return view
 
     @app.post("/api/desktop-config/health", response_model=DesktopConfigHealthResult)
-    def desktop_config_health() -> dict:
+    def desktop_config_health(request: Request) -> dict:
         """Probe the configured LLM with a tiny request without echoing the key."""
+        _enforce_desktop_config_origin(request)
         effective = effective_desktop_settings(settings, app.state.desktop_config)
         api_key = effective["api_key"]
         model = effective["model"]

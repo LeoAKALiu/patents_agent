@@ -167,6 +167,12 @@ def test_smoke_script_executable_and_self_contained(
     assert "PATENTAGENT_ELECTRON_BIN" in text, (
         "smoke.mjs must honour PATENTAGENT_ELECTRON_BIN for CI override"
     )
+    assert '"--no-sandbox", projectRoot, "--smoke"' in text, (
+        "Linux CI smoke must pass --no-sandbox before the app path"
+    )
+    assert "ELECTRON_DISABLE_SANDBOX" in text, (
+        "Linux CI smoke must avoid Electron's SUID sandbox helper requirement"
+    )
     assert "import.meta.url" in text, "smoke.mjs must use ESM path resolution"
 
 
@@ -306,6 +312,9 @@ def test_desktop_dialogs_module_exposes_native_import_export_contract(
         assert required in text, f"desktop-dialogs must include {required!r}"
     assert "readFile(filePath)" in text, (
         "main process must read only the user-selected draft path"
+    )
+    assert "unlink(outputPath)" in text, (
+        "failed or empty exports must remove partial output files"
     )
 
 
