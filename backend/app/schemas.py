@@ -947,3 +947,51 @@ class CorpusImportJob(BaseModel):
     failed_documents: int = 0
     errors: list[str] = Field(default_factory=list)
     quality_report: CorpusQualityReport | None = None
+
+
+class DesktopConfigView(BaseModel):
+    """Redacted view of the desktop LLM configuration (PR6, issue #20).
+
+    The raw API key is never included; only its presence and a short,
+    non-reversible fingerprint.
+    """
+
+    provider: str
+    base_url: str
+    model: str
+    api_key_present: bool
+    api_key_fingerprint: str
+    updated_at: str = ""
+    version: int = 1
+    api_key_source: str = "none"
+
+
+class DesktopConfigUpdate(BaseModel):
+    """Update payload for the desktop configuration.
+
+    Pass ``clear_api_key=True`` to remove the stored key. ``api_key`` and
+    ``clear_api_key`` are mutually exclusive.
+    """
+
+    provider: str | None = Field(default=None, max_length=32)
+    base_url: str | None = Field(default=None, max_length=512)
+    model: str | None = Field(default=None, max_length=128)
+    api_key: str | None = Field(default=None, max_length=4096)
+    clear_api_key: bool = False
+
+    @model_validator(mode="after")
+    def _api_key_exclusive(self) -> "DesktopConfigUpdate":
+        if self.clear_api_key and self.api_key is not None:
+            raise ValueError("Pass either api_key or clear_api_key, not both.")
+        return self
+
+
+class DesktopConfigHealthResult(BaseModel):
+    """Result of probing the configured LLM with a tiny request."""
+
+    ok: bool
+    model: str
+    api_key_source: str
+    latency_ms: int = 0
+    status_code: int = 0
+    error: str = ""

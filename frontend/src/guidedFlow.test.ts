@@ -374,8 +374,14 @@ function patentPoint(selected: boolean): PatentPointCandidate {
 }
 
 describe("guided flow navigation", () => {
-  it("uses four main sections and keeps expert tools grouped", () => {
-    expect(mainSections.map((item) => item.label)).toEqual(["专利生成", "实用新型轻量版", "项目", "专家工具"]);
+  it("uses main sections and keeps expert tools grouped", () => {
+    expect(mainSections.map((item) => item.label)).toEqual([
+      "专利生成",
+      "实用新型轻量版",
+      "项目",
+      "专家工具",
+      "设置",
+    ]);
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
     expect(guidedStepLabels).toEqual([
       "想法与材料",

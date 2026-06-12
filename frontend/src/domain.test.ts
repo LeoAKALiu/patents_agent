@@ -23,8 +23,14 @@ import {
 import { expertToolGroups, mainSections } from "./guidedFlow";
 
 describe("guided navigation", () => {
-  it("uses four primary sections and preserves expert tools", () => {
-    expect(mainSections.map((section) => section.label)).toEqual(["专利生成", "实用新型轻量版", "项目", "专家工具"]);
+  it("uses primary sections and preserves expert tools", () => {
+    expect(mainSections.map((section) => section.label)).toEqual([
+      "专利生成",
+      "实用新型轻量版",
+      "项目",
+      "专家工具",
+      "设置",
+    ]);
     expect(expertToolGroups.flatMap((group) => group.tools.map((tool) => tool.label))).toEqual([
       "语料库建设",
       "知识库检索",

@@ -15,6 +15,10 @@ import {
   BackendSupervisor,
   startBackendSupervisor,
 } from "./backend-supervisor";
+import {
+  DesktopConfigClient,
+  attachDesktopConfigIpc,
+} from "./desktop-config";
 
 const isSmoke = process.argv.includes("--smoke");
 const isDev =
@@ -197,6 +201,11 @@ async function startBackend(dataDir: string): Promise<BackendSupervisor> {
   return backendSupervisor;
 }
 
+function installDesktopConfigIpc(backendBaseUrl: string): void {
+  const client = new DesktopConfigClient({ baseUrl: backendBaseUrl });
+  attachDesktopConfigIpc(client);
+}
+
 async function stopBackend(): Promise<void> {
   const supervisor = backendSupervisor;
   backendSupervisor = null;
@@ -342,6 +351,7 @@ async function runSmoke(): Promise<number> {
   try {
     const backend = await startBackend(smokeBackendDataDir());
     configureSessionSecurity(backend.baseUrl);
+    installDesktopConfigIpc(backend.baseUrl);
     // eslint-disable-next-line no-console
     console.log(`[smoke] backend health ok: ${backend.healthUrl}`);
 
@@ -352,11 +362,15 @@ async function runSmoke(): Promise<number> {
     await new Promise((r) => setTimeout(r, 200));
 
     const probe = await win.webContents.executeJavaScript(
-      "JSON.stringify({hasDesktop: typeof window.desktop==='object' && window.desktop!==null, hasOnMenuAction: typeof (window.desktop && window.desktop.onMenuAction)==='function', platform: (window.desktop && window.desktop.platform) || null})",
+      "JSON.stringify({hasDesktop: typeof window.desktop==='object' && window.desktop!==null, hasOnMenuAction: typeof (window.desktop && window.desktop.onMenuAction)==='function', hasConfigGet: typeof (window.desktop && window.desktop.config && window.desktop.config.get)==='function', hasConfigUpdate: typeof (window.desktop && window.desktop.config && window.desktop.config.update)==='function', hasConfigClearKey: typeof (window.desktop && window.desktop.config && window.desktop.config.clearKey)==='function', hasConfigHealth: typeof (window.desktop && window.desktop.config && window.desktop.config.health)==='function', platform: (window.desktop && window.desktop.platform) || null})",
     );
     const result = JSON.parse(String(probe)) as {
       hasDesktop: boolean;
       hasOnMenuAction: boolean;
+      hasConfigGet: boolean;
+      hasConfigUpdate: boolean;
+      hasConfigClearKey: boolean;
+      hasConfigHealth: boolean;
       platform: string | null;
     };
 
@@ -365,6 +379,18 @@ async function runSmoke(): Promise<number> {
     }
     if (!result.hasOnMenuAction) {
       throw new Error("preload did not expose window.desktop.onMenuAction");
+    }
+    if (!result.hasConfigGet) {
+      throw new Error("preload did not expose window.desktop.config.get");
+    }
+    if (!result.hasConfigUpdate) {
+      throw new Error("preload did not expose window.desktop.config.update");
+    }
+    if (!result.hasConfigClearKey) {
+      throw new Error("preload did not expose window.desktop.config.clearKey");
+    }
+    if (!result.hasConfigHealth) {
+      throw new Error("preload did not expose window.desktop.config.health");
     }
 
     // eslint-disable-next-line no-console
@@ -386,6 +412,7 @@ async function bootDesktopApp(): Promise<void> {
   try {
     const backend = await startBackend(backendDataDir());
     configureSessionSecurity(backend.baseUrl);
+    installDesktopConfigIpc(backend.baseUrl);
   } catch (err) {
     backendError = err;
     console.error("[main] failed to start backend:", err);

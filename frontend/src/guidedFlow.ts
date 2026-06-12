@@ -9,6 +9,7 @@ import {
   PenLine,
   Scale,
   SearchCheck,
+  Settings as SettingsIcon,
   ShieldCheck,
   UsersRound,
   Wand2,
@@ -38,7 +39,7 @@ import type {
 export type { PatentType };
 import { canExportPackage, latestCompletedDeliberation } from "./domain";
 
-export type MainSectionId = "generate" | "utility" | "projects" | "expert";
+export type MainSectionId = "generate" | "utility" | "projects" | "expert" | "settings";
 
 export type ExpertToolId =
   | "build"
@@ -200,6 +201,7 @@ export const mainSections: Array<NavEntry<MainSectionId>> = [
   { id: "utility", label: "实用新型轻量版", description: "结构与附图优先的轻量流程", icon: Wrench },
   { id: "projects", label: "项目", description: "查看历史项目和运行记录", icon: FolderKanban },
   { id: "expert", label: "专家工具", description: "进入旧工作台和高级检查", icon: Gauge },
+  { id: "settings", label: "设置", description: "本机 LLM 服务参数与 API Key", icon: SettingsIcon },
 ];
 
 export const expertToolGroups: ExpertToolGroup[] = [
