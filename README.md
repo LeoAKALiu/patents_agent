@@ -16,7 +16,9 @@
 
 ## 项目定位
 
-PatentAgent 不是“专利文本生成器”，而是一个面向专利护城河建设的工作流系统。它把技术交底、发明点提炼、现有技术差异、权利要求防线、说明书支撑、初稿完善、提交成熟度检查和导出组织成一个可执行流程。
+PatentAgent 是以桌面应用形式交付的专利工程系统，面向中国发明专利和实用新型的授权导向撰写。它把技术交底、发明点提炼、现有技术差异、权利要求防线、说明书支撑、初稿完善、提交成熟度检查和导出组织成一个可执行流程。
+
+当前版本提供 **macOS 桌面应用**，内置自管理后端，无需手动启动 Python 或 Node.js。开发者和高级用户仍可通过命令行本地启动全部服务。
 
 当前版本重点服务两类用户：
 
@@ -133,7 +135,41 @@ PatentAgent
 - Frontend：React 19、TypeScript、Vite、Vitest、lucide-react。
 - Export：DOCX、Markdown、Mermaid、Prompt 和侧车报告。
 
-## 本地启动
+## 桌面应用安装与使用（非开发者）
+
+### macOS
+
+v1.0.0 release candidate 当前产物是可验证的 compiled bundle，不自动生成、签名或公证 DMG：
+
+- `frontend/dist/`：React 渲染端静态 bundle。
+- `desktop/dist-electron/`：Electron main/preload 编译产物。
+
+release manager 可基于上述 bundle 打包 ZIP/DMG 后分发给非开发者。收到已打包的 macOS 应用后：
+
+1. 将 PatentAgent 拖入 `/Applications` 或解压到本地应用目录。
+2. 首次启动时，如果系统提示"无法验证开发者"，进入 `系统设置 → 隐私与安全性`，点击"仍要打开"。
+3. 启动后，应用会自动在本地启动内置后端。首次启动可能需要 5–15 秒等待后端就绪。
+4. 应用窗口打开后，选择一种撰写路径开始使用。
+
+### 环境要求
+
+- **macOS 13 Ventura 或更高版本**。
+- Python 3.11+（应用内置自动检测；推荐通过 Homebrew 或 Anaconda 安装）。
+- 有效的 DeepSeek API key（在应用设置中填入，或通过环境变量 `DEEPSEEK_API_KEY` 提供）。
+
+### 设置 API Key
+
+启动后进入 `设置` → 填入你的 DeepSeek API key。也可以创建 `~/.patentagent/.env` 文件：
+
+```env
+DEEPSEEK_API_KEY=your_api_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-chat
+```
+
+缺少 API key 时，应用仍可启动，但生成类功能会提示 503。
+
+## 开发者本地启动
 
 ### 1. 后端
 
@@ -260,10 +296,10 @@ bash scripts/v1_smoke.sh
 
 当前 release 前验证结果：
 
-- `python3 -m pytest -q`：`79 passed, 1 skipped`
-- `npm test -- --run`：`18 passed`
+- `python3 -m pytest -q`：`231 passed, 1 skipped`
+- `npm test -- --run`：`58 passed`
 - `npm run build`：通过
-- Chrome headless smoke：默认新建入口、四项导航、项目创建、发明点步骤、材料上传入口、专家工具入口均通过
+- `scripts/v1_smoke.sh`：全部通过（后端测试、API 烟测、前端测试、前端构建、桌面构建；Electron launch smoke 在当前环境可行时运行，否则记录跳过原因）
 
 ## v1.0.0 Agent Pipeline Bootstrap
 
@@ -308,6 +344,15 @@ frontend/public/favicon.svg
 - 专利文档：正式申请文件。
 - 节点回链：权利要求、说明书、证据和现有技术之间的可追溯关系。
 - 青绿色与暖金色：工程理性和授权价值。
+
+## 已知局限
+
+- **仅 macOS 桌面应用**：当前版本仅提供 macOS 桌面端。Linux 和 Windows 用户可使用开发者本地启动方式。
+- **依赖本地 Python**：内置后端需要本地 Python 3.11+。未来版本计划打包独立后端二进制。
+- **无签名安装包和自动更新**：当前仓库不会自动生成、签名或公证 DMG，也不含 Electron 自动更新。
+- **单用户本地**：无用户登录、无多用户协作。项目数据存储在本地文件系统。
+- **API Key 本地管理**：模型 API key 由用户在本地配置和保管，无云端密钥分发。
+- **生成内容不替代法律意见**：所有生成内容均为专利撰写辅助材料，提交前应由专利代理师或律师审查。
 
 ## 许可证与责任
 
