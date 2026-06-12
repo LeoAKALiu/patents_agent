@@ -250,6 +250,14 @@ npm run build        # tsc -p tsconfig.json
 npm run smoke        # electron . --smoke → 校验 preload API
 ```
 
+v1.0.0 发布烟测（推荐 release gate 单命令）：
+
+```bash
+bash scripts/v1_smoke.sh
+```
+
+该脚本会依次运行后端 `python3 -m pytest -q`、基于 `samples/` 三个 golden sample 的确定性 API smoke、前端 `npm test -- --run`、前端 build，以及桌面端 build。Electron launch smoke 会在当前环境可行时运行；Linux 无显示服务且无 `xvfb-run`、或 Electron 二进制未安装/未批准安装脚本时会记录跳过。整个 API smoke 使用本地 fake LLM，不读取 `.env`，不调用真实 LLM API，也不需要凭证。
+
 当前 release 前验证结果：
 
 - `python3 -m pytest -q`：`79 passed, 1 skipped`
