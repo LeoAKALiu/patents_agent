@@ -41,9 +41,18 @@ if (typeof electronBin !== "string" || !existsSync(electronBin)) {
   process.exit(2);
 }
 
-const child = spawn(electronBin, [projectRoot, "--smoke"], {
+const electronArgs =
+  process.platform === "linux"
+    ? ["--no-sandbox", projectRoot, "--smoke"]
+    : [projectRoot, "--smoke"];
+
+const child = spawn(electronBin, electronArgs, {
   stdio: "inherit",
-  env: { ...process.env, ELECTRON_ENABLE_LOGGING: "1" },
+  env: {
+    ...process.env,
+    ELECTRON_ENABLE_LOGGING: "1",
+    ...(process.platform === "linux" ? { ELECTRON_DISABLE_SANDBOX: "1" } : {}),
+  },
 });
 
 const timeoutMs = Number(process.env.PATENTAGENT_SMOKE_TIMEOUT_MS ?? 30_000);

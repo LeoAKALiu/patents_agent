@@ -56,6 +56,57 @@ def test_get_desktop_config_returns_defaults(client: TestClient) -> None:
     assert body["version"] >= 1
 
 
+def test_app_reports_release_version(client: TestClient) -> None:
+    assert client.app.version == "1.0.0"
+
+
+def test_cors_allows_renderer_origin_without_credentials(client: TestClient) -> None:
+    origin = "http://127.0.0.1:5173"
+    response = client.options(
+        "/api/health",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert "access-control-allow-credentials" not in response.headers
+
+
+def test_cors_rejects_untrusted_browser_origin_preflight(client: TestClient) -> None:
+    response = client.options(
+        "/api/desktop-config",
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "PATCH",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_desktop_config_rejects_untrusted_browser_origin(client: TestClient) -> None:
+    response = client.patch(
+        "/api/desktop-config",
+        json={"base_url": "https://attacker.example"},
+        headers={"Origin": "https://evil.example"},
+    )
+    assert response.status_code == 403
+    assert "Forbidden desktop config origin" in response.json()["detail"]
+
+
+def test_desktop_config_allows_electron_file_origin(client: TestClient) -> None:
+    response = client.patch(
+        "/api/desktop-config",
+        json={"model": "deepseek-release-test"},
+        headers={"Origin": "null"},
+    )
+    assert response.status_code == 200
+    assert response.json()["model"] == "deepseek-release-test"
+
+
 def test_patch_persists_provider_base_url_and_model(client: TestClient) -> None:
     response = client.patch(
         "/api/desktop-config",

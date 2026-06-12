@@ -28,6 +28,13 @@
 - Desktop: compiled Electron main/preload bundle builds successfully; launch smoke is environment-gated and records a skip reason when the Electron binary is unavailable.
 - `scripts/v1_smoke.sh` passes as release gate.
 
+### Fixed
+
+- Restricted local FastAPI CORS to Electron/file renderer and Vite dev origins, with a separate Origin guard on `/api/desktop-config*` so arbitrary browser pages cannot read or mutate local LLM configuration.
+- Added desktop build/smoke coverage to CI so Electron main/preload TypeScript and the desktop smoke entry are no longer only checked locally.
+- Aligned frontend and desktop package-lock root versions with `1.0.0`.
+- Clean up partial export files when desktop official export streaming fails or returns an empty body.
+
 ### Known Limitations
 
 - Backend supervision relies on user's local Python runtime; standalone packaged backend is deferred.

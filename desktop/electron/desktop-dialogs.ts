@@ -18,7 +18,7 @@
  */
 import { dialog, ipcMain, shell } from "electron";
 import { createWriteStream } from "fs";
-import { mkdir, readFile } from "fs/promises";
+import { mkdir, readFile, unlink } from "fs/promises";
 import { basename, dirname, extname } from "path";
 import * as http from "http";
 import { URL } from "url";
@@ -133,6 +133,19 @@ function streamBackendToFile(
   );
 
   return new Promise<number>((resolve, reject) => {
+    const rejectWithCleanup = (error: DesktopDialogsError) => {
+      unlink(outputPath)
+        .catch((err: NodeJS.ErrnoException) => {
+          if (err.code !== "ENOENT") {
+            // Best-effort cleanup; preserve the original export failure.
+            console.warn(
+              `[desktop-dialogs] failed to remove partial export ${basename(outputPath)}: ${sanitiseError(err)}`,
+            );
+          }
+        })
+        .finally(() => reject(error));
+    };
+
     const request = http.request(
       {
         method: "GET",
@@ -158,20 +171,26 @@ function streamBackendToFile(
           .then(() => {
             const out = createWriteStream(outputPath);
             let byteCount = 0;
+            let settled = false;
+            const rejectOnce = (error: DesktopDialogsError) => {
+              if (settled) return;
+              settled = true;
+              rejectWithCleanup(error);
+            };
             response.on("data", (chunk: Buffer) => {
               byteCount += chunk.length;
             });
             response.on("error", (err: Error) => {
               out.destroy();
-              reject(new DesktopDialogsError(sanitiseError(err), 502));
+              rejectOnce(new DesktopDialogsError(sanitiseError(err), 502));
             });
             out.on("error", (err: Error) => {
               response.destroy();
-              reject(new DesktopDialogsError(sanitiseError(err), 502));
+              rejectOnce(new DesktopDialogsError(sanitiseError(err), 502));
             });
             out.on("finish", () => {
               if (byteCount === 0) {
-                reject(
+                rejectOnce(
                   new DesktopDialogsError(
                     `backend returned an empty body for ${downloadPath}`,
                     502,
@@ -179,6 +198,7 @@ function streamBackendToFile(
                 );
                 return;
               }
+              settled = true;
               resolve(byteCount);
             });
             response.pipe(out);
