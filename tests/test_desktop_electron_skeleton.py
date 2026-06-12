@@ -1,9 +1,9 @@
-"""Structural tests for the Electron desktop runtime skeleton (PR4, issue #18).
+"""Structural tests for the Electron desktop runtime (PR4/PR5).
 
-These tests are intentionally static — they verify the desktop workspace is
-shaped correctly and that the source files compile. The actual Electron launch
-is exercised by ``desktop/scripts/smoke.mjs``, which the desktop build script
-runs via ``npm run smoke``.
+These tests verify that the desktop workspace is shaped correctly and that the
+source files compile when the Electron dependencies are installed. The actual
+Electron launch is exercised by ``desktop/scripts/smoke.mjs``, which now checks
+both preload exposure and FastAPI backend health from the main process.
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ def desktop_paths() -> dict[str, Path]:
         "tsconfig": DESKTOP_ROOT / "tsconfig.json",
         "gitignore": DESKTOP_ROOT / ".gitignore",
         "main": DESKTOP_ROOT / "electron" / "main.ts",
+        "backend_supervisor": DESKTOP_ROOT / "electron" / "backend-supervisor.ts",
         "preload": DESKTOP_ROOT / "electron" / "preload.ts",
         "smoke": DESKTOP_ROOT / "scripts" / "smoke.mjs",
     }
@@ -105,6 +106,47 @@ def test_main_process_security_defaults(desktop_paths: dict[str, Path]) -> None:
     )
 
 
+def test_backend_supervisor_launches_python_uvicorn(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """PR5 launches the local FastAPI backend with the local Python runtime."""
+    text = desktop_paths["backend_supervisor"].read_text(encoding="utf-8")
+    assert "uvicorn" in text
+    assert "backend.app.main:app" in text
+    assert "/api/health" in text
+    assert "PATENTAGENT_PYTHON" in text
+    assert "PATENTAGENT_BACKEND_PORT" in text
+    assert "findAvailablePort" in text
+    assert "waitForBackendHealth" in text
+    assert "stopBackendProcess" in text
+    assert "PYTHONPATH" in text
+    assert "DATA_DIR" in text
+
+
+def test_main_process_supervises_backend_lifecycle(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """The renderer must wait for a healthy backend and app quit must stop it."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    assert "startBackend(" in text
+    assert "configureSessionSecurity(backend.baseUrl)" in text
+    assert "routeRendererApiRequests" in text
+    assert "onBeforeRequest" in text
+    assert "file:///api/*" in text
+    assert "loadBackendErrorPage" in text
+    assert "before-quit" in text
+    assert "stopBackendSync" in text
+
+
+def test_smoke_checks_backend_health_from_main_process(
+    desktop_paths: dict[str, Path],
+) -> None:
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    assert "[smoke] backend health ok" in text
+    assert "smokeBackendDataDir" in text
+    assert "await startBackend(smokeBackendDataDir())" in text
+
+
 def test_preload_uses_context_bridge(desktop_paths: dict[str, Path]) -> None:
     text = desktop_paths["preload"].read_text(encoding="utf-8")
     assert "contextBridge" in text
@@ -139,9 +181,14 @@ def test_app_menu_defines_required_actions(desktop_paths: dict[str, Path]) -> No
 
 
 def test_does_not_modify_env_or_credentials() -> None:
-    """PR4 must not touch .env, auth, or credential files."""
+    """Desktop PRs must not touch environment, auth, or credential files."""
     forbidden = [".env", "auth.json", "credentials", "secrets"]
-    for rel in ("desktop/package.json", "desktop/electron/main.ts", "desktop/electron/preload.ts"):
+    for rel in (
+        "desktop/package.json",
+        "desktop/electron/main.ts",
+        "desktop/electron/backend-supervisor.ts",
+        "desktop/electron/preload.ts",
+    ):
         path = REPO_ROOT / rel
         if not path.is_file():
             continue

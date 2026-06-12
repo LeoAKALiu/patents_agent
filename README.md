@@ -148,19 +148,24 @@ npm run dev -- --host 127.0.0.1 --port 5174
 http://127.0.0.1:5174/
 ```
 
-### 3. Electron 桌面壳（v1.0.0 规划）
+### 3. Electron 桌面端（v1.0.0）
 
-`desktop/` 工作区是 v1.0.0 桌面版（PR4 起的 Electron 骨架）。开发模式指向现有 Vite dev server，生产模式加载 `frontend/dist/index.html`：
+`desktop/` 工作区是 v1.0.0 桌面版。Electron 主进程会启动本地 Python/FastAPI 后端，等待 `http://127.0.0.1:<port>/api/health` 通过后再加载前端；生产模式加载 `frontend/dist/index.html`，并把渲染端的 `/api/*` 请求代理到本地后端：
 
 ```bash
-cd desktop
+cd frontend
+npm run build        # 生产模式桌面端需要已有 frontend/dist/
+
+cd ../desktop
 npm install
-npm run dev          # 编译 main/preload 并以开发模式启动 Electron
+npm run dev          # 编译 main/preload 并以开发模式启动 Electron + 后端
 npm run build        # 仅编译 main/preload 到 dist-electron/
-npm run smoke        # 启动 --smoke 模式的隐藏窗口并校验 preload API
+npm run smoke        # 启动 --smoke，校验后端 health + preload API
 ```
 
-桌面端详情、安全边界和后续 PR 范围见 `docs/release/v1.0.0-pr4-electron-skeleton.md`。PR4 不修改 `.env`、凭证或自动合并策略。
+可选覆盖项：`PATENTAGENT_PYTHON=/path/to/python` 指定 Python，`PATENTAGENT_BACKEND_PORT=8000` 固定本地端口，`PATENTAGENT_BACKEND_DATA_DIR=/path/to/data` 指定桌面端数据目录。
+
+桌面端详情、安全边界和 PR 范围见 `docs/release/v1.0.0-pr4-electron-skeleton.md` 与 `docs/release/v1.0.0-pr5-backend-supervision.md`。PR5 不修改 `.env`、凭证或自动合并策略。
 
 ## 配置
 
