@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Smoke test for the Electron desktop skeleton.
+ * Smoke test for the Electron desktop runtime.
  *
  * Compiles main + preload (via `npm run build`), then launches the Electron
- * binary with `--smoke`. The main process boots a hidden BrowserWindow, waits
- * for `did-finish-load`, then exits 0 (or 1 on failure). On Linux CI without a
- * display, wrap this with `xvfb-run -a` if you want a real launch.
+ * binary with `--smoke`. The main process starts the local FastAPI backend,
+ * waits for `/api/health`, boots a hidden BrowserWindow, validates preload,
+ * then exits 0 (or 1 on failure). On Linux CI without a display, wrap this with
+ * `xvfb-run -a` if you want a real launch.
  *
  * Exit codes:
  *   0  smoke passed
