@@ -57,6 +57,11 @@ class SearchResult(BaseModel):
     score: float
 
 
+class PatentType(str, Enum):
+    INVENTION = "invention"
+    UTILITY_MODEL = "utility_model"
+
+
 class Citation(BaseModel):
     chunk_id: str
     document_id: str
@@ -76,6 +81,7 @@ class InventionBrief(BaseModel):
     patent_point_summary: str | None = None
     prior_art_differences: str | None = None
     supporting_materials_summary: str | None = None
+    patent_type: PatentType = PatentType.INVENTION
 
 
 class ReviewFinding(BaseModel):
@@ -251,12 +257,14 @@ class OfficialCompileRun(BaseModel):
 class ProjectCreate(BaseModel):
     name: str
     draft_text: str
+    patent_type: PatentType = PatentType.INVENTION
 
 
 class ProjectRecord(BaseModel):
     id: str
     name: str
     draft_text: str
+    patent_type: PatentType = PatentType.INVENTION
     package: DraftPackage | None = None
     created_at: str = ""
     updated_at: str = ""

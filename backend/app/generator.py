@@ -12,6 +12,7 @@ from backend.app.schemas import (
     InventionBrief,
     PatentChunk,
     PatentStrategyBrief,
+    PatentType,
     ReviewFinding,
 )
 
@@ -110,6 +111,8 @@ UTILITY_MODEL_SYSTEM_PROMPT = (
 
 
 def _is_utility_model_brief(brief: InventionBrief) -> bool:
+    if brief.patent_type == PatentType.UTILITY_MODEL:
+        return True
     return is_utility_model_text(brief.raw_draft) or "实用新型" in brief.technical_field
 
 

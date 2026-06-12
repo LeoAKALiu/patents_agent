@@ -25,11 +25,31 @@ from backend.app.schemas import (
     PatentChunk,
     PatentPointCandidate,
     PatentDocument,
+    PatentType,
     PostDraftReviewRun,
     ProjectMaterial,
     ProjectRecord,
     SectionType,
 )
+
+
+def _patent_type_to_db(value: PatentType | str | None) -> str:
+    """Normalize a patent-type value to its on-disk string form.
+
+    Accepts a :class:`PatentType` enum, a raw ``"invention"``/``"utility_model"``
+    string (e.g. from a hand-rolled DB row), or ``None`` (treated as the
+    invention default). Unknown strings round-trip as ``"invention"`` so
+    legacy rows created before the field existed do not crash callers.
+    """
+
+    if value is None:
+        return PatentType.INVENTION.value
+    if isinstance(value, PatentType):
+        return value.value
+    try:
+        return PatentType(value).value
+    except ValueError:
+        return PatentType.INVENTION.value
 
 
 class SQLiteStore:
@@ -268,13 +288,14 @@ class SQLiteStore:
         with self.connection:
             self.connection.execute(
                 """
-                insert into projects(id, name, draft_text, package_json)
-                values (?, ?, ?, ?)
+                insert into projects(id, name, draft_text, patent_type, package_json)
+                values (?, ?, ?, ?, ?)
                 """,
                 (
                     project.id,
                     project.name,
                     project.draft_text,
+                    _patent_type_to_db(project.patent_type),
                     json.dumps(project.package.model_dump(mode="json"), ensure_ascii=False)
                     if project.package
                     else None,
@@ -944,6 +965,7 @@ class SQLiteStore:
                     id text primary key,
                     name text not null,
                     draft_text text not null,
+                    patent_type text not null default 'invention',
                     package_json text,
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp
@@ -1166,6 +1188,7 @@ class SQLiteStore:
                 """
             )
             self._migrate_project_patent_points_primary_key()
+            self._ensure_column("projects", "patent_type", "text not null default 'invention'")
             self._ensure_column("deliberation_runs", "logs_json", "text not null default '[]'")
             self._ensure_column("formula_runs", "providers_json", "text not null default '[]'")
             self._ensure_column("post_draft_review_runs", "official_compile_run_id", "text not null default ''")
@@ -1238,10 +1261,19 @@ class SQLiteStore:
 
     def _project_from_row(self, row: sqlite3.Row) -> ProjectRecord:
         package_json: str | None = row["package_json"]
+        try:
+            raw_patent_type = row["patent_type"]
+        except (IndexError, KeyError):
+            raw_patent_type = None
+        try:
+            patent_type = PatentType(raw_patent_type) if raw_patent_type else PatentType.INVENTION
+        except ValueError:
+            patent_type = PatentType.INVENTION
         return ProjectRecord(
             id=row["id"],
             name=row["name"],
             draft_text=row["draft_text"],
+            patent_type=patent_type,
             package=DraftPackage(**json.loads(package_json)) if package_json else None,
             created_at=row["created_at"],
             updated_at=row["updated_at"],

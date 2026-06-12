@@ -45,6 +45,7 @@ import {
   guidedStepStatusLabel,
   ideaPatentGoalModes,
   officialCompileActionGate,
+  patentTypeOptions,
   postDraftReviewActionGate,
   qualityActionGate,
   qualitySummaryFromRuns,
@@ -56,6 +57,7 @@ import {
   type GuidedStepId,
   type GuidedStepState,
   type PatentGoalMode,
+  type PatentType,
 } from "./guidedFlow";
 import {
   deliberationRunModeLabel,
@@ -86,7 +88,7 @@ export type GuidedPatentFlowProps = {
   busy: string;
   busyElapsedSeconds?: number;
   fixedGoalMode?: PatentGoalMode;
-  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode }) => Promise<void>;
+  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
   onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
@@ -435,14 +437,16 @@ function IdeaIntakePanel({
   const [name, setName] = useState(project?.name ?? "");
   const [idea, setIdea] = useState(project?.draft_text ?? "");
   const [mode, setMode] = useState<PatentGoalMode>("stable");
+  const [patentType, setPatentType] = useState<PatentType>(fixedGoalMode === "utility" ? "utility_model" : "invention");
   const [intakeMode, setIntakeMode] = useState<"idea" | "external">("idea");
   const canSubmit = Boolean(name.trim() && idea.trim() && !project);
   const effectiveMode = fixedGoalMode ?? mode;
+  const effectivePatentType: PatentType = fixedGoalMode === "utility" ? "utility_model" : patentType;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
-    await onCreateIdeaProject({ name: name.trim(), idea: idea.trim(), mode: effectiveMode });
+    await onCreateIdeaProject({ name: name.trim(), idea: idea.trim(), mode: effectiveMode, patentType: effectivePatentType });
   }
 
   return (
@@ -495,6 +499,21 @@ function IdeaIntakePanel({
                 placeholder="例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。"
               />
             </label>
+            {fixedGoalMode !== "utility" && (
+              <div className="mode-grid">
+                {patentTypeOptions.map((item) => (
+                  <button
+                    className={patentType === item.id ? "mode-card selected" : "mode-card"}
+                    key={item.id}
+                    onClick={() => setPatentType(item.id)}
+                    type="button"
+                  >
+                    <strong>{item.label}</strong>
+                    <span>{item.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {!fixedGoalMode && (
               <div className="mode-grid">
                 {ideaPatentGoalModes.map((item) => (
