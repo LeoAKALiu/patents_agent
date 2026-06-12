@@ -24,6 +24,8 @@ import {
   deriveGuidedFlowState,
   expertToolGroups,
   guidedBusyLabel,
+  guidedNextActionDescription,
+  guidedNextActionLabel,
   guidedOperationLog,
   guidedStepLabels,
   guidedStepStatusLabel,
@@ -39,6 +41,7 @@ import {
   resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
   utilityModelModePrefix,
+  v1StartChoices,
   type GuidedStepId,
 } from "./guidedFlow";
 
@@ -374,14 +377,19 @@ function patentPoint(selected: boolean): PatentPointCandidate {
 }
 
 describe("guided flow navigation", () => {
-  it("uses main sections and keeps expert tools grouped", () => {
+  it("uses a three-choice v1 landing path and keeps expert tools secondary", () => {
+    expect(v1StartChoices.map((item) => item.label)).toEqual([
+      "从技术想法撰写发明专利",
+      "从结构方案撰写实用新型",
+      "导入已有稿件进行润色提升",
+    ]);
+    expect(v1StartChoices).toHaveLength(3);
     expect(mainSections.map((item) => item.label)).toEqual([
-      "专利生成",
-      "实用新型轻量版",
+      "开始",
       "项目",
-      "专家工具",
       "设置",
     ]);
+    expect(mainSections.some((item) => item.id === "expert")).toBe(false);
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
     expect(guidedStepLabels).toEqual([
       "想法与材料",
@@ -520,6 +528,13 @@ describe("guided flow defaults", () => {
   it("keeps idea mode as the default main generation entry", () => {
     expect(guidedStepLabels[0]).toBe("想法与材料");
     expect(defaultMainSectionId).toBe("generate");
+  });
+
+  it("provides a visible next-action label for each guided step", () => {
+    expect(guidedNextActionLabel("idea")).toBe("填写并创建项目");
+    expect(guidedNextActionLabel("quality")).toBe("运行质量检查");
+    expect(guidedNextActionLabel("export")).toBe("打开导出工具");
+    expect(guidedNextActionDescription("postReview")).toContain("正式导出前");
   });
 });
 

@@ -137,10 +137,12 @@ import {
   projectGoalPrefix,
   selectCurrentOfficialCompileRun,
   selectLatestMatchingPostDraftReview,
+  v1StartChoices,
   type ExpertToolId,
   type MainSectionId,
   type PatentGoalMode,
   type PatentType,
+  type StartChoiceId,
 } from "./guidedFlow";
 
 type DesktopMenuBridge = {
@@ -321,6 +323,7 @@ function fileFromNativeDraft(
 function App() {
   const [activeSection, setActiveSection] = useState<MainSectionId>(defaultMainSectionId);
   const [activeExpertTool, setActiveExpertTool] = useState<ExpertToolId>(defaultExpertToolId);
+  const [startChoice, setStartChoice] = useState<StartChoiceId | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [agentDoctor, setAgentDoctor] = useState<AgentDoctorReport | null>(null);
   const [documents, setDocuments] = useState<PatentDocument[]>([]);
@@ -1358,6 +1361,19 @@ function App() {
     setActiveSection("expert");
   }
 
+  function handleStartChoice(choice: StartChoiceId) {
+    setStartChoice(choice);
+    setActiveSection("generate");
+    if (choice === "external") {
+      setActiveExpertTool("materials");
+    }
+  }
+
+  function returnToStartChoices() {
+    setStartChoice(null);
+    setActiveSection("generate");
+  }
+
   function renderExpertTool() {
     switch (activeExpertTool) {
       case "build":
@@ -1536,7 +1552,7 @@ function App() {
             {agentDoctor?.status === "blocked" ? <AlertTriangle size={16} /> : <UsersRound size={16} />}
             <span>智能体 {agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}</span>
           </div>
-          <p>生成时会向云端模型服务发送 draft 与检索片段。</p>
+          <p>生成、会审和检索时可能向已配置的模型服务发送草稿、交底材料和检索片段。PatentAgent 仅提供专利撰写辅助材料，不替代专利代理师、律师或正式法律意见；正式提交前请由专业人员复核。</p>
           <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-transparent hover:bg-[#0f172a] text-white transition-colors disabled:opacity-50 px-3 py-2 text-sm" onClick={refreshAll} type="button" title="刷新">
             <RefreshCw size={16} />
             <span>刷新</span>
@@ -1579,6 +1595,28 @@ function App() {
                 : activeMainSection.description}
             </p>
           </div>
+          {!(activeSection === "generate" && !selectedProject && !startChoice) && (
+            <nav className="secondary-nav" aria-label="二级导航">
+              {activeSection !== "expert" && (
+                <button className="icon-button" onClick={() => setActiveSection("expert")} type="button">
+                  <Gauge size={16} />
+                  <span>专家工具</span>
+                </button>
+              )}
+              {activeSection === "expert" && (
+                <button className="icon-button" onClick={() => setActiveSection("generate")} type="button">
+                  <Wand2 size={16} />
+                  <span>返回向导</span>
+                </button>
+              )}
+              {(startChoice || activeSection === "expert") && (
+                <button className="icon-button" onClick={returnToStartChoices} type="button">
+                  <ClipboardList size={16} />
+                  <span>返回三选一</span>
+                </button>
+              )}
+            </nav>
+          )}
           <ProjectSelect
             projects={projects}
             selectedProjectId={selectedProject?.id ?? ""}
@@ -1596,7 +1634,10 @@ function App() {
 
         {(activeSection === "generate" || activeSection === "utility") && (
           <div className="px-4 md:px-8 py-4 md:py-6">
-          <GuidedPatentFlowView
+          {!selectedProject && !startChoice ? (
+            <StartChoiceScreen onSelect={handleStartChoice} />
+          ) : (
+            <GuidedPatentFlowView
             project={selectedProject}
             materials={projectMaterials}
             disclosures={disclosureRuns}
@@ -1618,7 +1659,8 @@ function App() {
             externalDraftIntakeRuns={externalDraftIntakeRuns}
             busy={busy}
             busyElapsedSeconds={busyTimer.elapsedSeconds}
-            fixedGoalMode={activeSection === "utility" ? "utility" : undefined}
+            fixedGoalMode={startChoice === "utility" || activeSection === "utility" ? "utility" : undefined}
+            initialIntakeMode={startChoice === "external" ? "external" : "idea"}
             onCreateIdeaProject={handleCreateIdeaProject}
             onCreateExternalDraft={handleCreateExternalDraft}
             onUploadExternalDraft={handleUploadExternalDraft}
@@ -1640,7 +1682,8 @@ function App() {
             onImproveScore={() => void handleImproveScore()}
             onAcceptPatch={(runId, patchId) => void handleCompletionPatch(runId, patchId, "accept")}
             onOpenExpertTool={openExpertTool}
-          />
+            />
+          )}
           </div>
         )}
         {activeSection === "projects" && (
@@ -2424,6 +2467,43 @@ function StatusPill({ label, value }: { label: string; value: string }) {
   );
 }
 
+function StartChoiceScreen({ onSelect }: { onSelect: (choice: StartChoiceId) => void }) {
+  const iconForChoice: Record<StartChoiceId, typeof Wand2> = {
+    invention: Wand2,
+    utility: ShieldCheck,
+    external: Upload,
+  };
+  return (
+    <section className="start-choice-screen" aria-label="v1.0.0 默认入口">
+      <div className="start-choice-copy">
+        <span className="status-badge">v1.0.0</span>
+        <h3>请选择本次工作的起点</h3>
+        <p>普通用户只需要先选一种路径；专家工具已移到二级导航，仍可随时打开。</p>
+      </div>
+      <div className="start-choice-grid">
+        {v1StartChoices.map((choice) => {
+          const Icon = iconForChoice[choice.id];
+          return (
+            <button
+              className="start-choice-card"
+              key={choice.id}
+              onClick={() => onSelect(choice.id)}
+              type="button"
+            >
+              <Icon size={24} aria-hidden="true" />
+              <strong>{choice.label}</strong>
+              <span>{choice.description}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="workflow-hint">
+        PatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见；正式提交前请由专业人员复核。
+      </p>
+    </section>
+  );
+}
+
 function ProjectSelect({
   projects,
   selectedProjectId,
@@ -2833,9 +2913,9 @@ function FilingReadinessView({
         {project && canExport ? (
           <div className="flex flex-col gap-4">
             {report?.status === "high_risk" && (
-              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">高风险：请结合成稿会审报告处理命中项。</p>
+              <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">高风险：请先处理报告中的不利表述、内部痕迹或支撑缺口，再让专利代理师或律师复核。</p>
             )}
-            {!officialAllowed && <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">正式稿入口已锁定：需先完成正式稿编译，并通过匹配正式稿哈希的成稿会审。</p>}
+            {!officialAllowed && <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">正式稿入口已锁定：需先完成正式稿编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和侧车报告仅供内部复核。</p>}
             {officialCompileRun?.official_package_hash && (
               <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">当前正式稿哈希：{officialCompileRun.official_package_hash.slice(0, 12)}</p>
             )}
@@ -3369,7 +3449,7 @@ function ExportView({
       <p className="text-sm text-[#e2e8f0]/70 bg-[#162032] px-4 py-3 rounded-lg border border-[#334155] flex items-center gap-2">
         {officialAllowed
           ? `正式稿已由成稿会审解锁：${officialCompileRun?.official_package_hash.slice(0, 12)}`
-          : "正式稿需完成编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和报告可继续导出。"}
+          : "正式稿需完成编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和侧车报告仅供内部复核。"}
       </p>
       {contaminationMatches.length > 0 && (
         <div
