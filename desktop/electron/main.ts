@@ -3,9 +3,11 @@
  *
  * PR5 (GitHub issue #19) starts the local FastAPI backend as a Python/uvicorn
  * sidecar, waits for /api/health before loading the renderer, proxies renderer
- * /api/* requests to that local backend, and shuts the backend down when the app
- * exits. Packaging a standalone backend binary, desktop settings, and native
- * file dialogs remain out of scope for later PRs.
+ * /api/* requests to that local backend, and shuts the backend down when the
+ * app exits. PR6 (issue #20) adds desktop LLM configuration IPC. PR7
+ * (issue #21) adds native open / save file dialogs for draft import and
+ * official export, plus the "open export folder" menu action. Packaging a
+ * standalone backend binary remains deferred to a later PR.
  */
 import { app, BrowserWindow, Menu, MenuItemConstructorOptions, dialog, shell, session } from "electron";
 import * as os from "os";
@@ -19,6 +21,10 @@ import {
   DesktopConfigClient,
   attachDesktopConfigIpc,
 } from "./desktop-config";
+import {
+  DesktopDialogsClient,
+  attachDesktopDialogsIpc,
+} from "./desktop-dialogs";
 
 const isSmoke = process.argv.includes("--smoke");
 const isDev =
@@ -122,6 +128,36 @@ function buildAppMenu(): Menu {
     label: "文件",
     submenu: [
       {
+        label: "导入草稿…",
+        submenu: [
+          {
+            label: "Word 文档 (.docx)",
+            click: () => emitMenuAction("import-draft-docx"),
+          },
+          {
+            label: "Markdown 文本 (.md)",
+            click: () => emitMenuAction("import-draft-markdown"),
+          },
+        ],
+      },
+      {
+        label: "导出正式稿…",
+        submenu: [
+          {
+            label: "官方 DOCX",
+            click: () => emitMenuAction("export-official-docx"),
+          },
+          {
+            label: "官方 Markdown",
+            click: () => emitMenuAction("export-official-md"),
+          },
+          {
+            label: "侧车报告",
+            click: () => emitMenuAction("export-official-sidecar"),
+          },
+        ],
+      },
+      {
         label: "导出目录…",
         click: () => emitMenuAction("open-export-folder"),
       },
@@ -201,9 +237,14 @@ async function startBackend(dataDir: string): Promise<BackendSupervisor> {
   return backendSupervisor;
 }
 
-function installDesktopConfigIpc(backendBaseUrl: string): void {
+function installDesktopConfigIpc(backendBaseUrl: string, parent: BrowserWindow | null = null): void {
   const client = new DesktopConfigClient({ baseUrl: backendBaseUrl });
   attachDesktopConfigIpc(client);
+  const dialogClient = new DesktopDialogsClient({
+    baseUrl: backendBaseUrl,
+    parentWindow: parent ?? undefined,
+  });
+  attachDesktopDialogsIpc(dialogClient);
 }
 
 async function stopBackend(): Promise<void> {
@@ -362,7 +403,7 @@ async function runSmoke(): Promise<number> {
     await new Promise((r) => setTimeout(r, 200));
 
     const probe = await win.webContents.executeJavaScript(
-      "JSON.stringify({hasDesktop: typeof window.desktop==='object' && window.desktop!==null, hasOnMenuAction: typeof (window.desktop && window.desktop.onMenuAction)==='function', hasConfigGet: typeof (window.desktop && window.desktop.config && window.desktop.config.get)==='function', hasConfigUpdate: typeof (window.desktop && window.desktop.config && window.desktop.config.update)==='function', hasConfigClearKey: typeof (window.desktop && window.desktop.config && window.desktop.config.clearKey)==='function', hasConfigHealth: typeof (window.desktop && window.desktop.config && window.desktop.config.health)==='function', platform: (window.desktop && window.desktop.platform) || null})",
+      "JSON.stringify({hasDesktop: typeof window.desktop==='object' && window.desktop!==null, hasOnMenuAction: typeof (window.desktop && window.desktop.onMenuAction)==='function', hasConfigGet: typeof (window.desktop && window.desktop.config && window.desktop.config.get)==='function', hasConfigUpdate: typeof (window.desktop && window.desktop.config && window.desktop.config.update)==='function', hasConfigClearKey: typeof (window.desktop && window.desktop.config && window.desktop.config.clearKey)==='function', hasConfigHealth: typeof (window.desktop && window.desktop.config && window.desktop.config.health)==='function', hasDialogsOpenDraft: typeof (window.desktop && window.desktop.dialogs && window.desktop.dialogs.openDraft)==='function', hasDialogsSaveOfficial: typeof (window.desktop && window.desktop.dialogs && window.desktop.dialogs.saveOfficial)==='function', hasDialogsOpenFolder: typeof (window.desktop && window.desktop.dialogs && window.desktop.dialogs.openFolder)==='function', platform: (window.desktop && window.desktop.platform) || null})",
     );
     const result = JSON.parse(String(probe)) as {
       hasDesktop: boolean;
@@ -371,6 +412,9 @@ async function runSmoke(): Promise<number> {
       hasConfigUpdate: boolean;
       hasConfigClearKey: boolean;
       hasConfigHealth: boolean;
+      hasDialogsOpenDraft: boolean;
+      hasDialogsSaveOfficial: boolean;
+      hasDialogsOpenFolder: boolean;
       platform: string | null;
     };
 
@@ -392,6 +436,15 @@ async function runSmoke(): Promise<number> {
     if (!result.hasConfigHealth) {
       throw new Error("preload did not expose window.desktop.config.health");
     }
+    if (!result.hasDialogsOpenDraft) {
+      throw new Error("preload did not expose window.desktop.dialogs.openDraft");
+    }
+    if (!result.hasDialogsSaveOfficial) {
+      throw new Error("preload did not expose window.desktop.dialogs.saveOfficial");
+    }
+    if (!result.hasDialogsOpenFolder) {
+      throw new Error("preload did not expose window.desktop.dialogs.openFolder");
+    }
 
     // eslint-disable-next-line no-console
     console.log(
@@ -412,22 +465,29 @@ async function bootDesktopApp(): Promise<void> {
   try {
     const backend = await startBackend(backendDataDir());
     configureSessionSecurity(backend.baseUrl);
-    installDesktopConfigIpc(backend.baseUrl);
+    Menu.setApplicationMenu(buildAppMenu());
+    mainWindow = createMainWindow();
+    // Install the desktop IPC (config + dialogs) once the main window exists
+    // so save/open dialogs are parented to it on macOS.
+    installDesktopConfigIpc(backend.baseUrl, mainWindow);
   } catch (err) {
     backendError = err;
     console.error("[main] failed to start backend:", err);
   }
 
-  Menu.setApplicationMenu(buildAppMenu());
-  mainWindow = createMainWindow();
-
   if (backendError) {
+    if (!mainWindow) {
+      mainWindow = createMainWindow();
+      Menu.setApplicationMenu(buildAppMenu());
+    }
     await loadBackendErrorPage(mainWindow, backendError);
     return;
   }
 
   try {
-    await loadRenderer(mainWindow);
+    const win = mainWindow ?? createMainWindow();
+    mainWindow = win;
+    await loadRenderer(win);
   } catch (err) {
     console.error("[main] failed to load renderer:", err);
     if (mainWindow) {

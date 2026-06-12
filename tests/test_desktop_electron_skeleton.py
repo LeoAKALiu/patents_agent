@@ -33,6 +33,7 @@ def desktop_paths() -> dict[str, Path]:
         "backend_supervisor": DESKTOP_ROOT / "electron" / "backend-supervisor.ts",
         "preload": DESKTOP_ROOT / "electron" / "preload.ts",
         "desktop_config": DESKTOP_ROOT / "electron" / "desktop-config.ts",
+        "desktop_dialogs": DESKTOP_ROOT / "electron" / "desktop-dialogs.ts",
         "smoke": DESKTOP_ROOT / "scripts" / "smoke.mjs",
     }
 
@@ -189,6 +190,7 @@ def test_does_not_modify_env_or_credentials() -> None:
         "desktop/electron/backend-supervisor.ts",
         "desktop/electron/preload.ts",
         "desktop/electron/desktop-config.ts",
+        "desktop/electron/desktop-dialogs.ts",
     ):
         path = REPO_ROOT / rel
         if not path.is_file():
@@ -230,9 +232,8 @@ def test_main_process_wires_desktop_config_ipc(
     assert "installDesktopConfigIpc" in text
     assert "attachDesktopConfigIpc" in text
     # Wired exactly when the backend is alive — both production boot and smoke test.
-    assert text.count("installDesktopConfigIpc(backend.baseUrl)") >= 2, (
-        "installDesktopConfigIpc must be called in both bootDesktopApp and runSmoke"
-    )
+    assert "installDesktopConfigIpc(backend.baseUrl);" in text
+    assert "installDesktopConfigIpc(backend.baseUrl, mainWindow)" in text
 
 
 def test_preload_exposes_config_api(desktop_paths: dict[str, Path]) -> None:
@@ -283,5 +284,78 @@ def test_smoke_probes_desktop_config_api(
         "preload did not expose window.desktop.config.update",
         "preload did not expose window.desktop.config.clearKey",
         "preload did not expose window.desktop.config.health",
+    ):
+        assert required in text, f"smoke probe must check {required!r}"
+
+
+def test_desktop_dialogs_module_exposes_native_import_export_contract(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """PR7 native file dialogs must use explicit IPC channels and backend export URLs."""
+    text = desktop_paths["desktop_dialogs"].read_text(encoding="utf-8")
+    for required in (
+        "dialog.showOpenDialog",
+        "dialog.showSaveDialog",
+        "shell.showItemInFolder",
+        "desktop:dialogs:open-draft",
+        "desktop:dialogs:save-official",
+        "desktop:dialogs:open-folder",
+        "downloadPath must start with /api/",
+        "contentBase64",
+    ):
+        assert required in text, f"desktop-dialogs must include {required!r}"
+    assert "readFile(filePath)" in text, (
+        "main process must read only the user-selected draft path"
+    )
+
+
+def test_main_process_wires_native_dialogs_and_menu_actions(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """PR7 main process must wire native file dialog IPC and menu actions."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    for required in (
+        "attachDesktopDialogsIpc",
+        "DesktopDialogsClient",
+        "导入草稿",
+        "导出正式稿",
+        "import-draft-docx",
+        "import-draft-markdown",
+        "export-official-docx",
+        "export-official-md",
+        "export-official-sidecar",
+        "open-export-folder",
+    ):
+        assert required in text, f"main.ts must wire {required!r}"
+
+
+def test_preload_exposes_dialogs_api(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """PR7 preload must expose window.desktop.dialogs without enabling Node in renderer."""
+    text = desktop_paths["preload"].read_text(encoding="utf-8")
+    assert "dialogs: DesktopDialogsApi" in text
+    assert "dialogs: dialogsApi" in text
+    for required in (
+        "desktop:dialogs:open-draft",
+        "desktop:dialogs:save-official",
+        "desktop:dialogs:open-folder",
+        "contentBase64",
+    ):
+        assert required in text, f"preload must expose {required!r}"
+
+
+def test_smoke_probes_native_dialog_api(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """The Electron smoke must assert the native dialog bridge is present."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    for required in (
+        "hasDialogsOpenDraft",
+        "hasDialogsSaveOfficial",
+        "hasDialogsOpenFolder",
+        "preload did not expose window.desktop.dialogs.openDraft",
+        "preload did not expose window.desktop.dialogs.saveOfficial",
+        "preload did not expose window.desktop.dialogs.openFolder",
     ):
         assert required in text, f"smoke probe must check {required!r}"

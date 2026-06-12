@@ -35,6 +35,7 @@ import {
   FormulaRun,
   Health,
   OfficialCompileRun,
+  type OfficialDraftPackage,
   PatentPointCandidate,
   PatentPointCreatePayload,
   PatentDocument,
@@ -145,8 +146,44 @@ import {
 type DesktopMenuBridge = {
   desktop?: {
     onMenuAction?: (
-      handler: (action: "open-settings" | "open-export-folder" | "about") => void,
+      handler: (
+        action:
+          | "open-settings"
+          | "open-export-folder"
+          | "about"
+          | "import-draft-docx"
+          | "import-draft-markdown"
+          | "export-official-docx"
+          | "export-official-md"
+          | "export-official-sidecar",
+      ) => void,
     ) => () => void;
+    dialogs?: {
+      openDraft?: (kind: "docx" | "markdown") => Promise<{
+        cancelled: boolean;
+        filePath: string;
+        fileName: string;
+        mimeType: string;
+        contentBase64: string;
+        byteCount: number;
+      }>;
+      saveOfficial?: (payload: {
+        format: "docx" | "md" | "sidecar";
+        label: string;
+        downloadPath: string;
+        filter: { name: string; extensions: string[] };
+        defaultFileName: string;
+      }) => Promise<{
+        cancelled: boolean;
+        filePath: string;
+        byteCount: number;
+        format: "docx" | "md" | "sidecar";
+      }>;
+      openFolder?: (filePath: string) => Promise<{
+        revealed: boolean;
+        filePath: string;
+      }>;
+    };
   };
 };
 
@@ -171,6 +208,115 @@ type BusyTimer = {
   elapsedSeconds: number;
   startedAt: number | null;
 };
+
+/**
+ * PR7 (issue #21): contamination patterns the official compiler is supposed
+ * to strip. Mirrors `RESIDUAL_INTERNAL_PATTERNS` and the explicit
+ * `INTERNAL_FIELD_RE` patterns in ``backend/app/official_compile.py``. If
+ * any of these still appear in the cleaned official package, the compile
+ * gate would normally refuse to unlock the export — this scan is a
+ * defence-in-depth client-side check that surfaces the warning in the
+ * export UI without having to round-trip to the backend.
+ */
+const OFFICIAL_CONTAMINATION_PATTERNS: ReadonlyArray<{
+  pattern: string;
+  label: string;
+}> = [
+  { pattern: "support_gap", label: "support_gap" },
+  { pattern: "support_gaps", label: "support_gaps" },
+  { pattern: "支撑不足", label: "支撑不足" },
+  { pattern: "撰写说明", label: "撰写说明" },
+  { pattern: "generation_logs", label: "generation_logs" },
+  { pattern: "image_prompt", label: "image_prompt" },
+  { pattern: "attorney_memo", label: "attorney_memo" },
+  { pattern: "system_trace", label: "system_trace" },
+  { pattern: "official_safe_patches", label: "official_safe_patches" },
+  { pattern: "根据会审策略", label: "根据会审策略" },
+  { pattern: "多 Agent 会审", label: "多 Agent 会审" },
+  { pattern: "多Agent会审", label: "多Agent会审" },
+  { pattern: "主席汇总", label: "主席汇总" },
+  { pattern: "可能不具备创造性", label: "可能不具备创造性" },
+  { pattern: "禁止直接提交", label: "禁止直接提交" },
+  { pattern: "存在充分公开风险", label: "存在充分公开风险" },
+];
+
+const OFFICIAL_INTERNAL_FIELD_RE = /(?:^|\n)\s*(image_prompt|prompt|diagram|generation_logs|attorney_memo|system_trace|official_safe_patches)\s*[:：=]/i;
+const OFFICIAL_MERMAID_RE = /^(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt)\b/i;
+const OFFICIAL_FENCE_RE = /```/;
+
+interface ContaminationMatch {
+  section: string;
+  pattern: string;
+}
+
+/**
+ * Scan every text field of a completed official package for the residual
+ * internal markers. Returns one match per (section, pattern) — the UI uses
+ * this to populate the contamination warning banner.
+ */
+function findOfficialContaminationMarkers(
+  packageValue: OfficialDraftPackage,
+): ContaminationMatch[] {
+  const sections: Array<[string, string]> = [
+    ["title", packageValue.title],
+    ["abstract", packageValue.abstract],
+    ["claims", packageValue.claims],
+    ["description", packageValue.description],
+    ["drawing_description", packageValue.drawing_description],
+    ["compile_warnings", packageValue.compile_warnings.join("\n")],
+  ];
+  const matches: ContaminationMatch[] = [];
+  for (const [section, text] of sections) {
+    if (!text) continue;
+    for (const { pattern } of OFFICIAL_CONTAMINATION_PATTERNS) {
+      if (text.includes(pattern)) {
+        matches.push({ section, pattern });
+      }
+    }
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (OFFICIAL_INTERNAL_FIELD_RE.test(line)) {
+        matches.push({ section, pattern: "internal_field" });
+      }
+      if (OFFICIAL_FENCE_RE.test(trimmed)) {
+        matches.push({ section, pattern: "markdown_fence" });
+      }
+      if (OFFICIAL_MERMAID_RE.test(trimmed)) {
+        matches.push({ section, pattern: "mermaid" });
+      }
+    }
+  }
+  return matches;
+}
+
+function formatBytes(byteCount: number): string {
+  if (byteCount < 1024) return `${byteCount} B`;
+  if (byteCount < 1024 * 1024) return `${(byteCount / 1024).toFixed(1)} KB`;
+  return `${(byteCount / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function fileFromNativeDraft(
+  pick: {
+    fileName: string;
+    mimeType: string;
+    contentBase64: string;
+  },
+  kind: "docx" | "markdown",
+): File {
+  const binary = window.atob(pick.contentBase64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  const fallbackName = kind === "docx" ? "external-draft.docx" : "external-draft.md";
+  return new File([bytes], pick.fileName || fallbackName, {
+    type: pick.mimeType ||
+      (kind === "docx"
+        ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        : "text/markdown"),
+  });
+}
 
 function App() {
   const [activeSection, setActiveSection] = useState<MainSectionId>(defaultMainSectionId);
@@ -218,6 +364,14 @@ function App() {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  // PR7 (issue #21): track the most recent successful native export so the
+  // UI can show its absolute path and offer an "open folder" action.
+  const [lastExport, setLastExport] = useState<{
+    format: "docx" | "md" | "sidecar";
+    filePath: string;
+    byteCount: number;
+    officialPackageHash?: string;
+  } | null>(null);
   const selectedProjectIdRef = useRef("");
   const busyTimer = useBusyTimer(busy);
 
@@ -243,7 +397,14 @@ function App() {
 
   useEffect(() => {
     void refreshAll();
-  }, []);
+  }, [
+    selectedProject,
+    latestOfficialCompileRun,
+    latestPostDraftReview,
+    currentDraftHash,
+    currentSourceDraftHash,
+    lastExport,
+  ]);
 
   useEffect(() => {
     const desktop = (window as Window & DesktopMenuBridge).desktop;
@@ -251,6 +412,39 @@ function App() {
     return desktop.onMenuAction((action) => {
       if (action === "open-settings") {
         setActiveSection("settings");
+        return;
+      }
+      if (action === "open-export-folder") {
+        void triggerOpenExportFolder();
+        return;
+      }
+      if (action === "import-draft-docx") {
+        // External-draft intake lives inside the "materials" expert tool.
+        setActiveSection("expert");
+        setActiveExpertTool("materials");
+        void triggerNativeImport("docx");
+        return;
+      }
+      if (action === "import-draft-markdown") {
+        setActiveSection("expert");
+        setActiveExpertTool("materials");
+        void triggerNativeImport("markdown");
+        return;
+      }
+      if (
+        action === "export-official-docx" ||
+        action === "export-official-md" ||
+        action === "export-official-sidecar"
+      ) {
+        setActiveSection("expert");
+        setActiveExpertTool("export");
+        if (action === "export-official-docx") {
+          void triggerNativeExport("docx");
+        } else if (action === "export-official-md") {
+          void triggerNativeExport("md");
+        } else {
+          void triggerNativeExport("sidecar");
+        }
       }
     });
   }, []);
@@ -556,6 +750,158 @@ function App() {
     } finally {
       setBusy("");
     }
+  }
+
+  /**
+   * PR7 (issue #21): open a native open-file dialog, then upload the chosen
+   * DOCX/Markdown file as an external draft. The renderer's own
+   * ``uploadExternalDraftSource`` POSTs the file to the existing FastAPI
+   * ``/api/projects/{id}/external-drafts/upload`` endpoint and triggers the
+   * normal intake confirmation flow.
+   */
+  async function triggerNativeImport(kind: "docx" | "markdown"): Promise<void> {
+    const desktop = (window as Window & DesktopMenuBridge).desktop;
+    if (!desktop?.dialogs?.openDraft) {
+      setError("原生导入对话框不可用：请使用页面内的上传按钮。");
+      return;
+    }
+    if (!selectedProject) {
+      setError("请先选择项目再导入草稿。");
+      return;
+    }
+    await withStatus("native-import-draft", async () => {
+      const pick = await desktop.dialogs!.openDraft!(kind);
+      if (pick.cancelled) {
+        setMessage("已取消草稿导入。");
+        return;
+      }
+      // The main process reads exactly the file selected in the native dialog.
+      // The renderer then POSTs the bytes through the existing upload endpoint
+      // so DOCX extraction, content-hash sealing, and intake confirmation stay
+      // on the same backend path as the in-page upload.
+      const file = fileFromNativeDraft(pick, kind);
+      const source = await uploadExternalDraftSource(selectedProject.id, file);
+      const stillSelected = await refreshExternalDrafts(selectedProject.id, source.id);
+      if (!stillSelected) return;
+      setMessage(`已通过原生对话框导入：${source.file_name}`);
+    });
+  }
+
+  /**
+   * PR7 (issue #21): show a native save dialog, then have the main process
+   * stream the chosen backend export endpoint to the user-selected file. If
+   * the running app does not expose the dialog bridge (web preview), fall
+   * back to the existing ``<a download>`` flow so the UI is still usable.
+   */
+  async function triggerNativeExport(
+    format: "docx" | "md" | "sidecar",
+  ): Promise<void> {
+    const desktop = (window as Window & DesktopMenuBridge).desktop;
+    if (!desktop?.dialogs?.saveOfficial) {
+      // Web preview / dev fallback: trigger the existing browser download.
+      if (!selectedProject) return;
+      const href =
+        format === "sidecar"
+          ? `${window.location.origin}/api/projects/${selectedProject.id}/official-compile-runs/${latestOfficialCompileRun?.id ?? ""}/report.md`
+          : officialExportUrl(
+              selectedProject.id,
+              format === "docx" ? "docx" : "md",
+            );
+      if (format === "sidecar" && !latestOfficialCompileRun?.id) {
+        setError("侧车报告需要先完成正式稿编译。");
+        return;
+      }
+      window.location.href = href;
+      return;
+    }
+    if (!selectedProject) {
+      setError("请先选择项目再导出。");
+      return;
+    }
+    if (!latestOfficialCompileRun?.id) {
+      setError("请先完成正式稿编译，再导出官方稿。");
+      return;
+    }
+    if (format === "sidecar") {
+      // Sidecar is always allowed; it doesn't depend on the post-draft review gate.
+    } else if (format === "docx" || format === "md") {
+      const allowed = Boolean(
+        latestPostDraftReview?.status === "completed" &&
+        latestPostDraftReview.export_allowed &&
+        latestPostDraftReview.draft_package_hash === currentDraftHash &&
+        latestPostDraftReview.draft_package_hash === currentSourceDraftHash &&
+        latestPostDraftReview.official_compile_run_id === latestOfficialCompileRun.id &&
+        latestPostDraftReview.official_package_hash ===
+          latestOfficialCompileRun.official_package_hash,
+      );
+      if (!allowed) {
+        setError(
+          "官方稿导出被锁定：需先通过匹配当前正式稿哈希的成稿会审。",
+        );
+        return;
+      }
+    }
+    const projectName = selectedProject.name || "PatentAgent";
+    const safeName = projectName.replace(/[\\/:*?"<>|]/g, "_");
+    const option =
+      format === "docx"
+        ? {
+            format: "docx" as const,
+            label: "官方 DOCX",
+            downloadPath: officialExportUrl(selectedProject.id, "docx"),
+            filter: {
+              name: "Word 文档",
+              extensions: ["docx"],
+            },
+            defaultFileName: `${safeName}-正式提交稿.docx`,
+          }
+        : format === "md"
+          ? {
+              format: "md" as const,
+              label: "官方 Markdown",
+              downloadPath: officialExportUrl(selectedProject.id, "md"),
+              filter: { name: "Markdown 文本", extensions: ["md"] },
+              defaultFileName: `${safeName}-正式提交稿.md`,
+            }
+          : {
+              format: "sidecar" as const,
+              label: "正式稿编译报告",
+              downloadPath: `/api/projects/${selectedProject.id}/official-compile-runs/${latestOfficialCompileRun.id}/report.md`,
+              filter: { name: "Markdown 文本", extensions: ["md"] },
+              defaultFileName: `${safeName}-正式稿编译报告.md`,
+            };
+    await withStatus("native-export", async () => {
+      const result = await desktop.dialogs!.saveOfficial!(option);
+      if (result.cancelled) {
+        setMessage("已取消导出。");
+        return;
+      }
+      setLastExport({
+        format: result.format,
+        filePath: result.filePath,
+        byteCount: result.byteCount,
+        officialPackageHash: latestOfficialCompileRun?.official_package_hash ?? undefined,
+      });
+      setMessage(
+        `已保存到 ${result.filePath}（${result.byteCount} 字节，${result.format}）`,
+      );
+    });
+  }
+
+  async function triggerOpenExportFolder(): Promise<void> {
+    const desktop = (window as Window & DesktopMenuBridge).desktop;
+    if (!lastExport) {
+      setError("暂无可打开的导出文件。请先完成一次原生导出。");
+      return;
+    }
+    if (!desktop?.dialogs?.openFolder) {
+      setError("原生文件管理器集成不可用。");
+      return;
+    }
+    await withStatus("native-open-folder", async () => {
+      await desktop.dialogs!.openFolder!(lastExport.filePath);
+      setMessage(`已在系统文件管理器中定位 ${lastExport.filePath}`);
+    });
   }
 
   async function handleImport(event: FormEvent<HTMLFormElement>) {
@@ -1138,6 +1484,17 @@ function App() {
             officialCompileRun={latestOfficialCompileRun}
             currentDraftHash={currentDraftHash}
             currentSourceDraftHash={currentSourceDraftHash}
+            lastExport={lastExport}
+            onNativeExport={(format) => {
+              void triggerNativeExport(format);
+            }}
+            onOpenExportFolder={() => {
+              void triggerOpenExportFolder();
+            }}
+            desktopDialogsAvailable={Boolean(
+              (window as Window & DesktopMenuBridge).desktop?.dialogs?.saveOfficial &&
+                (window as Window & DesktopMenuBridge).desktop?.dialogs?.openFolder,
+            )}
           />
         );
     }
@@ -2955,6 +3312,10 @@ function ExportView({
   officialCompileRun,
   currentDraftHash,
   currentSourceDraftHash,
+  lastExport,
+  onNativeExport,
+  onOpenExportFolder,
+  desktopDialogsAvailable,
 }: {
   project: ProjectRecord | null;
   packageValue: DraftPackage | null;
@@ -2962,6 +3323,15 @@ function ExportView({
   officialCompileRun: OfficialCompileRun | null;
   currentDraftHash: string;
   currentSourceDraftHash: string;
+  lastExport: {
+    format: "docx" | "md" | "sidecar";
+    filePath: string;
+    byteCount: number;
+    officialPackageHash?: string;
+  } | null;
+  onNativeExport: (format: "docx" | "md" | "sidecar") => void;
+  onOpenExportFolder: () => void;
+  desktopDialogsAvailable: boolean;
 }) {
   const enabled = canExportPackage(packageValue);
   const officialAllowed = Boolean(
@@ -2973,6 +3343,26 @@ function ExportView({
       && postDraftReview.official_compile_run_id === officialCompileRun?.id
       && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
+  // PR7 (issue #21): scan the official package text for residual internal
+  // markers (log lines, prompt fragments, review memos, mermaid fences, etc.).
+  // The backend already strips these at compile time and the gate refuses to
+  // run, but a defensive warning in the UI lets the user double-check before
+  // they hand the file to their attorney / 国知局.
+  const officialPackage = officialCompileRun?.official_package ?? null;
+  const contaminationMatches = officialPackage
+    ? findOfficialContaminationMarkers(officialPackage)
+    : [];
+  const lastExportMatchesHash = Boolean(
+    lastExport?.officialPackageHash &&
+    lastExport.officialPackageHash === officialCompileRun?.official_package_hash,
+  );
+  const lastExportDownloadHref = project && lastExport
+    ? lastExport.format === "sidecar"
+      ? officialCompileRun?.id
+        ? `/api/projects/${project.id}/official-compile-runs/${officialCompileRun.id}/report.md`
+        : undefined
+      : officialExportUrl(project.id, lastExport.format === "docx" ? "docx" : "md")
+    : undefined;
   return (
     <section className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl col-span-full">
       <h3>导出文件</h3>
@@ -2981,6 +3371,69 @@ function ExportView({
           ? `正式稿已由成稿会审解锁：${officialCompileRun?.official_package_hash.slice(0, 12)}`
           : "正式稿需完成编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和报告可继续导出。"}
       </p>
+      {contaminationMatches.length > 0 && (
+        <div
+          className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-amber-300/60 bg-amber-100/5 text-amber-100"
+          role="alert"
+          data-testid="official-contamination-warning"
+        >
+          <p className="flex items-center gap-2 font-medium">
+            <AlertTriangle size={18} aria-hidden="true" />
+            <span>检测到正式稿仍包含 {contaminationMatches.length} 处内部痕迹</span>
+          </p>
+          <p className="text-sm text-amber-100/80">
+            请重新运行正式稿编译并通过成稿会审后再导出；下方涉及的章节与模式仅作提示，不会自动从已生成的官方稿中删除。
+          </p>
+          <ul className="text-xs font-mono list-disc pl-6 text-amber-100/80">
+            {contaminationMatches.slice(0, 8).map((entry, index) => (
+              <li key={`${entry.section}-${entry.pattern}-${index}`}>
+                {entry.section}: 命中 “{entry.pattern}”
+              </li>
+            ))}
+            {contaminationMatches.length > 8 && (
+              <li>其余 {contaminationMatches.length - 8} 处已省略…</li>
+            )}
+          </ul>
+        </div>
+      )}
+      {lastExport && lastExportMatchesHash && (
+        <div
+          className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-emerald-400/40 bg-emerald-100/5 text-emerald-100"
+          data-testid="export-success-card"
+        >
+          <p className="flex items-center gap-2 font-medium">
+            <CheckCircle2 size={18} aria-hidden="true" />
+            <span>已导出{lastExport.format === "sidecar" ? "正式稿编译报告" : lastExport.format === "docx" ? "官方 DOCX" : "官方 Markdown"}</span>
+          </p>
+          <p className="text-sm font-mono break-all text-emerald-100/90">
+            {lastExport.filePath}（{formatBytes(lastExport.byteCount)}）
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0d9488] text-white font-medium hover:brightness-110 transition-all disabled:opacity-50"
+              disabled={!desktopDialogsAvailable}
+              onClick={onOpenExportFolder}
+              type="button"
+            >
+              <FileArchive size={16} aria-hidden="true" />
+              <span>在系统文件管理器中打开</span>
+            </button>
+            <a
+              aria-disabled={!lastExportDownloadHref}
+              className={lastExportDownloadHref ? "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#1e293b] border border-[#334155] text-[#e2e8f0] font-medium hover:bg-white transition-colors" : "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
+              href={lastExportDownloadHref}
+            >
+              <Download size={16} aria-hidden="true" />
+              <span>再次下载</span>
+            </a>
+          </div>
+          {!desktopDialogsAvailable && (
+            <p className="text-xs text-emerald-100/70">
+              “在系统文件管理器中打开”仅在桌面端原生对话框可用时启用。
+            </p>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <a
           aria-disabled={!officialAllowed}
@@ -2998,6 +3451,38 @@ function ExportView({
           <Download size={18} />
           <span>正式提交稿 MD</span>
         </a>
+        {desktopDialogsAvailable && officialCompileRun?.status === "completed" && (
+          <>
+            <button
+              aria-disabled={!officialAllowed}
+              className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#0d9488] text-white font-medium hover:brightness-110 transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
+              disabled={!officialAllowed}
+              onClick={() => onNativeExport("docx")}
+              type="button"
+            >
+              <FileText size={18} />
+              <span>原生保存 DOCX…</span>
+            </button>
+            <button
+              aria-disabled={!officialAllowed}
+              className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#0d9488] text-white font-medium hover:brightness-110 transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#162032] border border-[#334155] text-[#e2e8f0]/40 font-medium cursor-not-allowed"}
+              disabled={!officialAllowed}
+              onClick={() => onNativeExport("md")}
+              type="button"
+            >
+              <FileText size={18} />
+              <span>原生保存 Markdown…</span>
+            </button>
+            <button
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[#1e293b] border border-[#334155] shadow-sm hover:bg-white text-[#e2e8f0] font-medium transition-colors"
+              onClick={() => onNativeExport("sidecar")}
+              type="button"
+            >
+              <FileText size={18} />
+              <span>导出侧车报告…</span>
+            </button>
+          </>
+        )}
         {[
           ["docx", "DOCX"],
           ["md", "Markdown"],

@@ -178,6 +178,28 @@ def test_export_official_docx_cleans_pollution_and_keeps_formal_sections(tmp_pat
     assert "根据会审策略" not in text
 
 
+def test_official_exports_do_not_emit_internal_contamination_markers(tmp_path):
+    package = _dirty_package()
+    output_path = tmp_path / "official-clean.docx"
+    forbidden = [
+        "```",
+        "flowchart TD",
+        "prompt",
+        "generation_logs",
+        "根据会审策略",
+        "多Agent会审",
+    ]
+
+    markdown = official_package_to_markdown(package)
+    export_official_docx(package, output_path)
+    doc = Document(output_path)
+    docx_text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
+
+    for marker in forbidden:
+        assert marker not in markdown
+        assert marker not in docx_text
+
+
 from backend.app.storage import SQLiteStore
 
 
