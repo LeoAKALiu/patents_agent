@@ -148,6 +148,20 @@ npm run dev -- --host 127.0.0.1 --port 5174
 http://127.0.0.1:5174/
 ```
 
+### 3. Electron 桌面壳（v1.0.0 规划）
+
+`desktop/` 工作区是 v1.0.0 桌面版（PR4 起的 Electron 骨架）。开发模式指向现有 Vite dev server，生产模式加载 `frontend/dist/index.html`：
+
+```bash
+cd desktop
+npm install
+npm run dev          # 编译 main/preload 并以开发模式启动 Electron
+npm run build        # 仅编译 main/preload 到 dist-electron/
+npm run smoke        # 启动 --smoke 模式的隐藏窗口并校验 preload API
+```
+
+桌面端详情、安全边界和后续 PR 范围见 `docs/release/v1.0.0-pr4-electron-skeleton.md`。PR4 不修改 `.env`、凭证或自动合并策略。
+
 ## 配置
 
 `.env` 中常用配置：
@@ -210,6 +224,14 @@ python3 -m pytest -q
 cd frontend
 npm test -- --run
 npm run build
+```
+
+桌面壳：
+
+```bash
+cd desktop
+npm run build        # tsc -p tsconfig.json
+npm run smoke        # electron . --smoke → 校验 preload API
 ```
 
 当前 release 前验证结果：
