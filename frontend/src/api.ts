@@ -454,6 +454,34 @@ export interface Health {
   embedding_model: string;
 }
 
+export interface DesktopConfigView {
+  provider: string;
+  base_url: string;
+  model: string;
+  api_key_present: boolean;
+  api_key_fingerprint: string;
+  updated_at: string;
+  version: number;
+  api_key_source: "env" | "desktop_config" | "none";
+}
+
+export interface DesktopConfigUpdatePayload {
+  provider?: string;
+  base_url?: string;
+  model?: string;
+  api_key?: string;
+  clear_api_key?: boolean;
+}
+
+export interface DesktopConfigHealthResult {
+  ok: boolean;
+  model: string;
+  api_key_source: "env" | "desktop_config" | "none";
+  latency_ms: number;
+  status_code: number;
+  error: string;
+}
+
 export interface AgentProviderStatus {
   id: string;
   label: string;
@@ -664,6 +692,36 @@ export interface CorpusStats {
 
 export async function getHealth(): Promise<Health> {
   return request<Health>("/api/health");
+}
+
+export async function getDesktopConfig(): Promise<DesktopConfigView> {
+  return request<DesktopConfigView>("/api/desktop-config");
+}
+
+export async function updateDesktopConfig(
+  payload: DesktopConfigUpdatePayload,
+): Promise<DesktopConfigView> {
+  return request<DesktopConfigView>("/api/desktop-config", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function clearDesktopConfigKey(): Promise<DesktopConfigView> {
+  return request<DesktopConfigView>("/api/desktop-config", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clear_api_key: true }),
+  });
+}
+
+export async function checkDesktopConfigHealth(): Promise<DesktopConfigHealthResult> {
+  return request<DesktopConfigHealthResult>("/api/desktop-config/health", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
 }
 
 export async function getAgentDoctor(): Promise<AgentDoctorReport> {

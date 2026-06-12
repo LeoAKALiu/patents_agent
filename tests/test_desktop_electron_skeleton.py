@@ -32,6 +32,7 @@ def desktop_paths() -> dict[str, Path]:
         "main": DESKTOP_ROOT / "electron" / "main.ts",
         "backend_supervisor": DESKTOP_ROOT / "electron" / "backend-supervisor.ts",
         "preload": DESKTOP_ROOT / "electron" / "preload.ts",
+        "desktop_config": DESKTOP_ROOT / "electron" / "desktop-config.ts",
         "smoke": DESKTOP_ROOT / "scripts" / "smoke.mjs",
     }
 
@@ -45,7 +46,6 @@ def test_required_files_present(desktop_paths: dict[str, Path]) -> None:
         if name == "root":
             continue
         assert path.is_file(), f"desktop skeleton is missing {name} at {path}"
-
 
 def test_package_json_shape(desktop_paths: dict[str, Path]) -> None:
     pkg = json.loads(desktop_paths["package_json"].read_text(encoding="utf-8"))
@@ -188,6 +188,7 @@ def test_does_not_modify_env_or_credentials() -> None:
         "desktop/electron/main.ts",
         "desktop/electron/backend-supervisor.ts",
         "desktop/electron/preload.ts",
+        "desktop/electron/desktop-config.ts",
     ):
         path = REPO_ROOT / rel
         if not path.is_file():
@@ -197,3 +198,90 @@ def test_does_not_modify_env_or_credentials() -> None:
             assert token not in text or token == ".env", (
                 f"{rel} must not reference {token!r}"
             )
+
+
+def test_desktop_config_module_exposes_required_contract(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """PR6 desktop config module must talk to the local FastAPI backend."""
+    text = desktop_paths["desktop_config"].read_text(encoding="utf-8")
+    # Must talk to /api/desktop-config on the local backend
+    assert "/api/desktop-config" in text
+    assert "ipcMain.handle" in text
+    # Raw-key leak guard
+    assert "sk-[A-Za-z0-9_-]" in text or "sk-…" in text, (
+        "desktop-config must scrub raw key patterns from errors"
+    )
+    # Endpoints the renderer needs
+    for required in (
+        "desktop:config:get",
+        "desktop:config:update",
+        "desktop:config:clear-key",
+        "desktop:config:health",
+    ):
+        assert required in text, f"desktop-config must register IPC {required!r}"
+
+
+def test_main_process_wires_desktop_config_ipc(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """PR6 main process must install the desktop-config IPC once the backend is healthy."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    assert "installDesktopConfigIpc" in text
+    assert "attachDesktopConfigIpc" in text
+    # Wired exactly when the backend is alive — both production boot and smoke test.
+    assert text.count("installDesktopConfigIpc(backend.baseUrl)") >= 2, (
+        "installDesktopConfigIpc must be called in both bootDesktopApp and runSmoke"
+    )
+
+
+def test_preload_exposes_config_api(desktop_paths: dict[str, Path]) -> None:
+    """PR6 preload must expose window.desktop.config.{get,update,clearKey,health}."""
+    text = desktop_paths["preload"].read_text(encoding="utf-8")
+    # The bridge is exposed as `config: configApi` (and the type uses
+    # `config: DesktopConfigApi`); the renderer reaches it as
+    # `window.desktop.config.{get,update,clearKey,health}`.
+    assert "config: DesktopConfigApi" in text, "preload must declare config on DesktopApi"
+    assert "config: configApi" in text, "preload must attach configApi to the bridge"
+    for required in (
+        "DesktopConfigView",
+        "DesktopConfigUpdatePayload",
+        "DesktopConfigApi",
+    ):
+        assert required in text, f"preload must expose {required!r}"
+    # IPC channels must match the names registered by desktop-config.ts.
+    for required in (
+        "desktop:config:get",
+        "desktop:config:update",
+        "desktop:config:clear-key",
+        "desktop:config:health",
+    ):
+        assert required in text, f"preload must invoke IPC channel {required!r}"
+    # The renderer only sees the redacted view through the IPC bridge — the
+    # main process / backend are responsible for redaction, not the preload.
+    assert "invoke(\"desktop:config:get\")" in text
+
+
+def test_preload_does_not_expose_key_hash(desktop_paths: dict[str, Path]) -> None:
+    """The renderer only needs a presence flag and short fingerprint."""
+    for name in ("preload", "desktop_config"):
+        text = desktop_paths[name].read_text(encoding="utf-8")
+        assert "api_key_hash" not in text
+
+
+def test_smoke_probes_desktop_config_api(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """The Electron smoke must assert the new config IPC surface is wired up."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    assert "hasConfigGet" in text
+    assert "hasConfigUpdate" in text
+    assert "hasConfigClearKey" in text
+    assert "hasConfigHealth" in text
+    for required in (
+        "preload did not expose window.desktop.config.get",
+        "preload did not expose window.desktop.config.update",
+        "preload did not expose window.desktop.config.clearKey",
+        "preload did not expose window.desktop.config.health",
+    ):
+        assert required in text, f"smoke probe must check {required!r}"

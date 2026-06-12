@@ -778,3 +778,135 @@ textarea { resize: vertical; line-height: 1.6; }
   .button-row .icon-button,
   .button-row .primary { width: 100%; }
 }
+
+/* ── Settings Panel (PR6, issue #20) ───────────────────────────── */
+.settings-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.settings-status-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #0f172a;
+}
+.settings-status-tile span {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.settings-status-tile strong { font-size: 15px; }
+.settings-status-tile code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #cbd5e1;
+  word-break: break-all;
+}
+.settings-form {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.settings-field {
+  display: grid;
+  gap: 6px;
+}
+.settings-field > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.settings-key-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.settings-hint {
+  color: #64748b;
+  font-size: 11px;
+}
+.settings-hint.warn { color: #fbbf24; }
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+.settings-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.settings-feedback.ok { color: #34d399; }
+.settings-feedback.warn { color: #fbbf24; }
+.settings-feedback.err { color: #f87171; }
+
+/* ── Generic Buttons (used by SettingsPanel + others) ─────────── */
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.btn-primary {
+  background: #267a78;
+  color: #f1f5f9;
+  border-color: #2dd4bf;
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-secondary {
+  background: #162032;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: #1e293b;
+  border-color: #475569;
+}
+.btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-danger {
+  background: transparent;
+  color: #f87171;
+  border-color: #b91c1c;
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+.btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-ghost {
+  background: transparent;
+  color: #94a3b8;
+  border-color: #334155;
+  min-height: 36px;
+  padding: 6px 10px;
+}
+.btn-ghost:hover { color: #f1f5f9; border-color: #475569; }

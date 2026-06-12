@@ -101,6 +101,7 @@ import {
   uploadProjectMaterial,
 } from "./api";
 import { GuidedPatentFlowView } from "./GuidedPatentFlow";
+import { SettingsPanel } from "./SettingsPanel";
 import {
   canExportPackage,
   completionCategoryLabel,
@@ -141,6 +142,13 @@ import {
   type PatentType,
 } from "./guidedFlow";
 
+type DesktopMenuBridge = {
+  desktop?: {
+    onMenuAction?: (
+      handler: (action: "open-settings" | "open-export-folder" | "about") => void,
+    ) => () => void;
+  };
+};
 
 const sectionOptions: Array<{ value: SectionType | ""; label: string }> = [
   { value: "", label: "全部章节" },
@@ -235,6 +243,16 @@ function App() {
 
   useEffect(() => {
     void refreshAll();
+  }, []);
+
+  useEffect(() => {
+    const desktop = (window as Window & DesktopMenuBridge).desktop;
+    if (!desktop?.onMenuAction) return undefined;
+    return desktop.onMenuAction((action) => {
+      if (action === "open-settings") {
+        setActiveSection("settings");
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -1277,6 +1295,11 @@ function App() {
               onDelete={(project) => void handleDeleteProject(project)}
               busy={busy}
             />
+          </div>
+        )}
+        {activeSection === "settings" && (
+          <div className="px-4 md:px-8 py-4 md:py-6">
+            <SettingsPanel />
           </div>
         )}
         {activeSection === "expert" && (
