@@ -416,6 +416,40 @@ export interface DisclosureSelfCheckFinding {
   suggestion: string;
 }
 
+export interface RuntimeStageState {
+  current_stage: string;
+  provider: string;
+  query: string;
+  subtask: string;
+  heartbeat_at: string;
+  elapsed_ms: number;
+  warning_count: number;
+  partial_artifact_count: number;
+  timeout_ms?: number | null;
+  attempt?: number | null;
+}
+
+export interface RuntimeFailure {
+  flow: string;
+  stage: string;
+  provider: string;
+  reason: string;
+  message: string;
+  retryable: boolean;
+  elapsed_ms: number;
+  repair_suggestion: string;
+  partial_artifact_count: number;
+  created_at: string;
+}
+
+export interface ProviderDiagnostic {
+  phase: string;
+  available_providers: string[];
+  skipped_providers: Array<{ provider: string; reason: string }>;
+  active_chain: string[];
+  warnings: string[];
+}
+
 export interface DisclosurePackage {
   title: string;
   summary: string;
@@ -430,6 +464,9 @@ export interface DisclosurePackage {
   self_check_findings: DisclosureSelfCheckFinding[];
   generation_logs: string[];
   export_warnings: string[];
+  research_ledger?: Record<string, unknown>;
+  provider_diagnostics?: ProviderDiagnostic[];
+  research_confidence?: "none" | "low" | "medium" | "high";
 }
 
 export interface DisclosureRun {
@@ -444,6 +481,10 @@ export interface DisclosureRun {
   failures: string[];
   events: string[];
   research_mode?: "standard" | "free_deep_research";
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
 }
 
 export interface Health {
@@ -533,6 +574,10 @@ export interface DeliberationRun {
   }>;
   events: string[];
   logs: DeliberationLogEntry[];
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
 }
 
 export interface DeliberationLogEntry {
@@ -581,12 +626,16 @@ export interface CoreFormulaPackage {
 export interface FormulaRun {
   id: string;
   project_id: string;
-  status: "queued" | "running" | "completed" | "failed";
+  status: "queued" | "running" | "completed" | "failed" | "interrupted";
   providers: string[];
   requirement: FormulaNeedAssessment;
   package: CoreFormulaPackage | null;
   failures: string[];
   events: string[];
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -618,7 +667,7 @@ export interface PostDraftReviewChairResult {
 export interface PostDraftReviewRun {
   id: string;
   project_id: string;
-  status: "queued" | "running" | "completed" | "failed";
+  status: "queued" | "running" | "completed" | "failed" | "interrupted";
   providers: string[];
   prompt_pack_version: string;
   draft_package_hash: string;
@@ -630,6 +679,10 @@ export interface PostDraftReviewRun {
   blocking_issues: string[];
   contamination_hits: string[];
   logs: DeliberationLogEntry[];
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
   created_at: string;
   updated_at: string;
 }

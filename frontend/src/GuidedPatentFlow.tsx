@@ -39,6 +39,8 @@ import {
   type PostDraftReviewRun,
   type ProjectMaterial,
   type ProjectRecord,
+  type RuntimeFailure,
+  type RuntimeStageState,
 } from "./api";
 import {
   deriveGuidedFlowState,
@@ -267,6 +269,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       {displayedStepId === "invention" && (
         <InventionPointConfirmation
           disclosure={latestDisclosure}
+          disclosureRuns={props.disclosures}
           materials={props.materials}
           patentPoints={props.patentPoints}
           busy={props.busy}
@@ -854,8 +857,73 @@ function formatElapsedLabel(seconds: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
 
+type GuidedRuntimeRun = {
+  id: string;
+  status: string;
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  events?: string[];
+  providers?: string[];
+  stage_results?: unknown[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
+};
+
+function guidedActiveRun<T extends GuidedRuntimeRun>(runs: T[]): T | null {
+  return runs.find((run) => run.status === "queued" || run.status === "running") ?? null;
+}
+
+function GuidedRuntimeConsole({ run, label }: { run: GuidedRuntimeRun | null; label: string }) {
+  if (!run || (run.status !== "queued" && run.status !== "running")) return null;
+  const state = run.runtime_state ?? null;
+  const lines = [
+    `run ${run.id.slice(0, 10)} / ${pipelineRunStatusLabel(run.status)}`,
+    `stage ${guidedRuntimeStageLabel(state?.current_stage)}`,
+    state?.provider ? `provider ${state.provider}` : "",
+    state?.subtask ? `task ${state.subtask}` : "",
+    typeof state?.elapsed_ms === "number" ? `elapsed ${formatElapsedLabel(Math.floor(state.elapsed_ms / 1000))}` : "",
+    typeof state?.partial_artifact_count === "number" ? `partials ${state.partial_artifact_count}` : "",
+    typeof state?.warning_count === "number" ? `warnings ${state.warning_count}` : "",
+    run.events?.at(-1) ? `event ${run.events.at(-1)}` : "",
+  ].filter(Boolean);
+  return (
+    <div className="inline-console" role="status" aria-label={label}>
+      <div className="console-heading">
+        <span>{label}</span>
+        <span>{state ? formatElapsedLabel(Math.floor(state.elapsed_ms / 1000)) : "00:00"}</span>
+      </div>
+      <pre>{lines.join("\n")}</pre>
+    </div>
+  );
+}
+
+function GuidedRuntimeFailures({ run }: { run: GuidedRuntimeRun | null }) {
+  const failures = run?.failure_details ?? [];
+  if (failures.length === 0) return null;
+  return (
+    <div className="guided-runtime-failures">
+      {failures.slice(-2).map((failure, index) => (
+        <p key={`${run?.id}-failure-${index}`}>
+          {failure.reason} / {guidedRuntimeStageLabel(failure.stage)}：{failure.message}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function guidedRuntimeStageLabel(stage?: string | null): string {
+  if (!stage) return "等待调度";
+  if (stage === "formula_generation") return "凝练核心公式";
+  if (stage === "post_draft_review") return "成稿会审";
+  if (stage === "deliberation_finalize") return "会审收尾";
+  if (stage === "disclosure_package") return "整理交底包";
+  if (stage.startsWith("deep_research")) return "Deep Research";
+  return stage.replaceAll("_", " ");
+}
+
 function InventionPointConfirmation({
   disclosure,
+  disclosureRuns,
   materials,
   patentPoints,
   busy,
@@ -868,6 +936,7 @@ function InventionPointConfirmation({
   onOpenExpertTool,
 }: {
   disclosure: DisclosureRun | null;
+  disclosureRuns: DisclosureRun[];
   materials: ProjectMaterial[];
   patentPoints: PatentPointCandidate[];
   busy: string;
@@ -879,9 +948,10 @@ function InventionPointConfirmation({
   onSelectPatentPoint: GuidedPatentFlowProps["onSelectPatentPoint"];
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
+  const activeRun = guidedActiveRun(disclosureRuns);
   const disclosureCandidates = disclosure?.package?.candidates ?? [];
   const candidates = disclosureCandidates.length ? disclosureCandidates : patentPoints;
-  const needsGeneration = !disclosure || candidates.length === 0;
+  const needsGeneration = (!disclosure || candidates.length === 0) && !activeRun;
 
   return (
     <section className="guided-panel">
@@ -943,6 +1013,8 @@ function InventionPointConfirmation({
         </button>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "disclosure"} />
+      <GuidedRuntimeConsole run={activeRun} label="发明点提炼运行中" />
+      <GuidedRuntimeFailures run={disclosureRuns[0] ?? null} />
       <div className="guided-card-grid">
         {candidates.map((point) => (
           <article className={point.selected ? "guided-choice selected" : "guided-choice"} key={point.id}>
@@ -992,6 +1064,8 @@ function DeliberationPanel({
   onToggleProvider: (providerId: string, enabled: boolean) => void;
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
+  const activeRun = guidedActiveRun(runs);
+  const deliberationBusy = busy === "deliberate" || Boolean(activeRun);
   return (
     <section className="guided-panel">
       <div className="guided-panel-heading">
@@ -1010,14 +1084,16 @@ function DeliberationPanel({
         doctor={doctor}
         role="deliberation"
         selectedProviders={selectedProviders}
-        disabled={busy === "deliberate"}
+        disabled={deliberationBusy}
         onToggleProvider={onToggleProvider}
       />
-      <button className="primary" disabled={busy === "deliberate"} onClick={onStartDeliberation} type="button">
-        {busy === "deliberate" ? <Loader2 className="spin" size={17} /> : <UsersRound size={17} />}
-        <span>{deliberation ? "重新会审" : "启动多智能体会审"}</span>
+      <button className="primary" disabled={deliberationBusy} onClick={onStartDeliberation} type="button">
+        {deliberationBusy ? <Loader2 className="spin" size={17} /> : <UsersRound size={17} />}
+        <span>{activeRun ? "会审中" : deliberation ? "重新会审" : "启动多智能体会审"}</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "deliberate"} />
+      <GuidedRuntimeConsole run={activeRun} label="会审运行中" />
+      <GuidedRuntimeFailures run={runs[0] ?? null} />
       {deliberation?.strategy_brief && (
         <article className="guided-choice selected">
           <div className="result-meta">
@@ -1103,6 +1179,8 @@ function FormulaPanel({
   onToggleProvider: (providerId: string, enabled: boolean) => void;
 }) {
   const required = Boolean(requirement?.required);
+  const activeRun = guidedActiveRun(runs);
+  const formulaBusy = busy === "formula" || Boolean(activeRun);
   return (
     <section className="guided-panel">
       <div className="guided-panel-heading">
@@ -1122,16 +1200,18 @@ function FormulaPanel({
         doctor={doctor}
         role="formula"
         selectedProviders={selectedProviders}
-        disabled={busy === "formula"}
+        disabled={formulaBusy}
         onToggleProvider={onToggleProvider}
       />
       {required && (
-        <button className="primary" disabled={!project || busy === "formula"} onClick={onStartFormula} type="button">
-          {busy === "formula" ? <Loader2 className="spin" size={17} /> : <Sigma size={17} />}
-          <span>{formulaRun ? "重新凝练核心公式" : "凝练核心公式"}</span>
+        <button className="primary" disabled={!project || formulaBusy} onClick={onStartFormula} type="button">
+          {formulaBusy ? <Loader2 className="spin" size={17} /> : <Sigma size={17} />}
+          <span>{activeRun ? "公式凝练中" : formulaRun ? "重新凝练核心公式" : "凝练核心公式"}</span>
         </button>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "formula"} />
+      <GuidedRuntimeConsole run={activeRun} label="核心公式运行中" />
+      <GuidedRuntimeFailures run={runs[0] ?? null} />
       {formulaRun?.package && (
         <article className="guided-choice selected">
           <div className="result-meta">
@@ -1389,6 +1469,8 @@ function PostDraftReviewPanel({
 }) {
   const passed = Boolean(review?.status === "completed" && review.export_allowed);
   const blocked = Boolean(review?.status === "completed" && !review.export_allowed);
+  const activeRun = guidedActiveRun(runs);
+  const reviewBusy = busy === "post-draft-review" || Boolean(activeRun);
   return (
     <section className="guided-panel">
       <div className="guided-panel-heading">
@@ -1410,21 +1492,23 @@ function PostDraftReviewPanel({
         doctor={doctor}
         role="post_review"
         selectedProviders={selectedProviders}
-        disabled={!actionGate.allowed || busy === "post-draft-review"}
+        disabled={!actionGate.allowed || reviewBusy}
         onToggleProvider={onToggleProvider}
       />
       <ActionGateHint gate={actionGate} />
       <button
         className="primary"
-        disabled={!actionGate.allowed || busy === "post-draft-review"}
+        disabled={!actionGate.allowed || reviewBusy}
         onClick={onStartPostDraftReview}
         title={actionGate.reason || undefined}
         type="button"
       >
-        {busy === "post-draft-review" ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
-        <span>{review ? "重新成稿会审" : "启动成稿会审"}</span>
+        {reviewBusy ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
+        <span>{activeRun ? "成稿会审中" : review ? "重新成稿会审" : "启动成稿会审"}</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "post-draft-review"} />
+      <GuidedRuntimeConsole run={activeRun} label="成稿会审运行中" />
+      <GuidedRuntimeFailures run={runs[0] ?? null} />
       {review && (
         <article className={passed ? "guided-choice selected" : "guided-choice"}>
           <div className="result-meta">
