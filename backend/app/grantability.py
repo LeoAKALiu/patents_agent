@@ -539,7 +539,7 @@ def _compute_overall_status(
         if r.feature_placement == FeaturePlacement.INDEPENDENT_CLAIM_REQUIRED
         and r.support_status != "missing"
     ]
-    if independent_rows and evidence_quality in ("verified", "unverified"):
+    if independent_rows and evidence_quality == "verified":
         return "high"
 
     return "medium"

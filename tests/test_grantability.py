@@ -758,6 +758,25 @@ def test_overall_status_high_with_clean_features() -> None:
     assert status == "high"
 
 
+def test_overall_status_unverified_evidence_cannot_be_high() -> None:
+    """Unverified evidence may support a medium path, but never a high one."""
+    from backend.app.grantability import _compute_overall_status
+
+    rows = [
+        GrantabilityClaimChartRow(
+            claim_ref="1",
+            feature_text="f1",
+            feature_placement=FeaturePlacement.INDEPENDENT_CLAIM_REQUIRED,
+            support_status="strong",
+        ),
+    ]
+    novelty = [NoveltyAttack(feature_text="f1", attack_strength="weak")]
+
+    status = _compute_overall_status(rows, novelty, [], fail_closed=False, evidence_quality="unverified")
+
+    assert status == "medium"
+
+
 def test_overall_status_fail_closed_overrides() -> None:
     """Fail-closed flag always produces 'uncertain' regardless of other signals."""
     from backend.app.grantability import _compute_overall_status
