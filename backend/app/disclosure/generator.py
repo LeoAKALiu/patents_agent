@@ -8,6 +8,7 @@ from backend.app.disclosure.prior_art import PriorArtProvider
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
 from backend.app.research.ledger import SourceLedger, citation_snapshot
+from backend.app.runtime import RuntimeContext
 from backend.app.schemas import (
     ClaimChartItem,
     DisclosurePackage,
@@ -35,6 +36,8 @@ class DisclosureGenerator:
         user_candidates: list[PatentPointCandidate] | None = None,
         ledger: SourceLedger | None = None,
         pre_diagnostics: list[dict[str, Any]] | None = None,
+        runtime: RuntimeContext | None = None,
+        on_stage_result: Any | None = None,
     ) -> tuple[DisclosurePackage, list[dict[str, Any]], list[str]]:
         stage_results: list[dict[str, Any]] = []
         logs: list[str] = []
@@ -45,11 +48,16 @@ class DisclosureGenerator:
         system_prompt = _system_prompt(project)
         ledger = ledger or SourceLedger()
 
+        if runtime:
+            runtime.begin_stage("disclosure_scan", provider="llm", subtask="project/material scan")
         scan_raw = self.llm.complete_stage("disclosure_scan", system_prompt, _scan_prompt(project, material_context))
         scan = _json_object(scan_raw, _fallback_scan(project, materials))
         stage_results.append({"phase": "project_scan", "payload": scan})
+        _checkpoint_stage(stage_results, runtime, on_stage_result)
         logs.append("project_scan: summarized draft and uploaded materials")
 
+        if runtime:
+            runtime.begin_stage("patent_points", provider="llm", subtask="candidate generation")
         points_raw = self.llm.complete_stage(
             "patent_points",
             system_prompt,
@@ -70,8 +78,11 @@ class DisclosureGenerator:
                 },
             }
         )
+        _checkpoint_stage(stage_results, runtime, on_stage_result)
         logs.append("patent_points: generated candidates and selected recommended point")
 
+        if runtime:
+            runtime.begin_stage("prior_art_terms", provider="llm", subtask="search term planning")
         terms_raw = self.llm.complete_stage(
             "prior_art_terms",
             system_prompt,
@@ -79,9 +90,12 @@ class DisclosureGenerator:
         )
         terms = _parse_terms(terms_raw, project)
         stage_results.append({"phase": "prior_art_terms", "payload": {"terms": terms}})
+        _checkpoint_stage(stage_results, runtime, on_stage_result)
         logs.append("prior_art_terms: generated semantic search chunks")
 
         try:
+            if runtime:
+                runtime.begin_stage("prior_art_search", provider="prior_art", query=", ".join(terms[:3]))
             prior_art_hits, provider_warnings = _search_prior_art_with_ledger(
                 self.prior_art_provider,
                 terms,
@@ -104,8 +118,11 @@ class DisclosureGenerator:
                 },
             }
         )
+        _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(provider_warnings))
         logs.append(f"prior_art_search: collected {len(prior_art_hits)} public references")
 
+        if runtime:
+            runtime.begin_stage("prior_art_relevance", provider="llm", subtask="claim chart enrichment")
         prior_art_hits, prior_art_differences, charts_by_candidate = self._enrich_prior_art(project, candidates, selected_id, prior_art_hits)
         candidates = [
             candidate.model_copy(update={"claim_chart": charts_by_candidate.get(candidate.id, candidate.claim_chart)})
@@ -125,32 +142,44 @@ class DisclosureGenerator:
                 },
             }
         )
+        _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(provider_warnings))
         logs.append("prior_art_relevance: summarized differences against public references")
 
+        if runtime:
+            runtime.begin_stage("disclosure_body", provider="llm", subtask="technical disclosure markdown")
         body = self.llm.complete_stage(
             "disclosure_body",
             system_prompt,
             _body_prompt(project, material_context, scan, candidates, selected_id, prior_art_hits, prior_art_differences),
         ).strip()
         stage_results.append({"phase": "disclosure_body", "payload": {"chars": len(body)}})
+        _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(provider_warnings))
         logs.append("disclosure_body: generated technical disclosure markdown")
 
+        if runtime:
+            runtime.begin_stage("disclosure_mermaid", provider="llm", subtask="diagram generation")
         mermaid = self.llm.complete_stage(
             "disclosure_mermaid",
             system_prompt,
             _mermaid_prompt(project, candidates, selected_id, body),
         ).strip()
         stage_results.append({"phase": "disclosure_mermaid", "payload": {"chars": len(mermaid)}})
+        _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(provider_warnings))
         logs.append("disclosure_mermaid: generated Mermaid diagrams")
 
+        if runtime:
+            runtime.begin_stage("disclosure_image_prompt", provider="llm", subtask="drawing prompt")
         image_prompt = self.llm.complete_stage(
             "disclosure_image_prompt",
             system_prompt,
             _image_prompt(project, mermaid),
         ).strip()
         stage_results.append({"phase": "disclosure_image_prompt", "payload": {"chars": len(image_prompt)}})
+        _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(provider_warnings))
         logs.append("disclosure_image_prompt: generated patent drawing prompt")
 
+        if runtime:
+            runtime.begin_stage("disclosure_self_check", provider="llm", subtask="consistency check")
         self_check_raw = self.llm.complete_stage(
             "disclosure_self_check",
             system_prompt,
@@ -160,6 +189,7 @@ class DisclosureGenerator:
         stage_results.append(
             {"phase": "disclosure_self_check", "payload": [finding.model_dump(mode="json") for finding in findings]}
         )
+        _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(provider_warnings))
         logs.append("disclosure_self_check: checked disclosure consistency and support")
 
         package = DisclosurePackage(
@@ -189,6 +219,9 @@ class DisclosureGenerator:
                 "交底书不隐含高专利性置信度。"
             )
 
+        if runtime:
+            runtime.begin_stage("disclosure_package", provider="system", subtask="artifact assembly")
+            runtime.complete_stage(partial_artifact_count=len(stage_results), warning_count=len(provider_warnings))
         return package, stage_results, provider_warnings
 
     def _enrich_prior_art(
@@ -260,6 +293,19 @@ def _search_prior_art_with_ledger(
         citations=[citation_snapshot(hit) for hit in hits],
     )
     return hits, warnings
+
+
+def _checkpoint_stage(
+    stage_results: list[dict[str, Any]],
+    runtime: RuntimeContext | None,
+    on_stage_result: Any | None,
+    *,
+    warning_count: int = 0,
+) -> None:
+    if on_stage_result:
+        on_stage_result(list(stage_results))
+    if runtime:
+        runtime.complete_stage(partial_artifact_count=len(stage_results), warning_count=warning_count)
 
 
 INVENTION_SYSTEM_PROMPT = (

@@ -135,6 +135,36 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+class RuntimeStageState(BaseModel):
+    """Heartbeat metadata exposed while a long-running pipeline is active."""
+
+    current_stage: str = ""
+    provider: str = ""
+    query: str = ""
+    subtask: str = ""
+    heartbeat_at: str = Field(default_factory=_utc_now_iso)
+    elapsed_ms: int = 0
+    warning_count: int = 0
+    partial_artifact_count: int = 0
+    timeout_ms: int | None = None
+    attempt: int | None = None
+
+
+class RuntimeFailure(BaseModel):
+    """Structured failure/cancel/timeout details for retryable runs."""
+
+    flow: str = ""
+    stage: str = ""
+    provider: str = ""
+    reason: str
+    message: str
+    retryable: bool = True
+    elapsed_ms: int = 0
+    repair_suggestion: str = ""
+    partial_artifact_count: int = 0
+    created_at: str = Field(default_factory=_utc_now_iso)
+
+
 class DeliberationLogEntry(BaseModel):
     level: str = Field(pattern="^(info|warn|error)$")
     phase: str = ""
@@ -177,6 +207,8 @@ class DeliberationRunCreate(BaseModel):
 
 class FormulaRunCreate(BaseModel):
     providers: list[str] | None = None
+    stage_timeout_ms: int | None = None
+    run_timeout_ms: int | None = None
 
 
 class DeliberationRun(BaseModel):
@@ -191,8 +223,12 @@ class DeliberationRun(BaseModel):
     stage_results: list[DeliberationStageResult] = Field(default_factory=list)
     strategy_brief: PatentStrategyBrief | None = None
     failures: list[AgentFailure] = Field(default_factory=list)
+    failure_details: list[RuntimeFailure] = Field(default_factory=list)
     events: list[str] = Field(default_factory=list)
     logs: list[DeliberationLogEntry] = Field(default_factory=list)
+    runtime_state: RuntimeStageState | None = None
+    cancel_requested: bool = False
+    retry_of: str | None = None
 
 
 class DraftPackage(BaseModel):
@@ -555,18 +591,24 @@ class CoreFormulaPackage(BaseModel):
 class FormulaRun(BaseModel):
     id: str
     project_id: str
-    status: str = Field(pattern="^(queued|running|completed|failed)$")
+    status: str = Field(pattern="^(queued|running|completed|failed|interrupted)$")
     providers: list[str] = Field(default_factory=list)
     requirement: FormulaNeedAssessment
     package: CoreFormulaPackage | None = None
     failures: list[str] = Field(default_factory=list)
+    failure_details: list[RuntimeFailure] = Field(default_factory=list)
     events: list[str] = Field(default_factory=list)
+    runtime_state: RuntimeStageState | None = None
+    cancel_requested: bool = False
+    retry_of: str | None = None
     created_at: str = ""
     updated_at: str = ""
 
 
 class PostDraftReviewRunCreate(BaseModel):
     providers: list[str] | None = None
+    stage_timeout_ms: int | None = None
+    run_timeout_ms: int | None = None
 
 
 class PostDraftReviewRoleResult(BaseModel):
@@ -596,7 +638,7 @@ class PostDraftReviewChairResult(BaseModel):
 class PostDraftReviewRun(BaseModel):
     id: str
     project_id: str
-    status: str = Field(pattern="^(queued|running|completed|failed)$")
+    status: str = Field(pattern="^(queued|running|completed|failed|interrupted)$")
     providers: list[str] = Field(default_factory=list)
     prompt_pack_version: str = "post-draft-review-v1"
     draft_package_hash: str = ""
@@ -608,6 +650,10 @@ class PostDraftReviewRun(BaseModel):
     blocking_issues: list[str] = Field(default_factory=list)
     contamination_hits: list[str] = Field(default_factory=list)
     logs: list[DeliberationLogEntry] = Field(default_factory=list)
+    failure_details: list[RuntimeFailure] = Field(default_factory=list)
+    runtime_state: RuntimeStageState | None = None
+    cancel_requested: bool = False
+    retry_of: str | None = None
     created_at: str = ""
     updated_at: str = ""
 
@@ -864,6 +910,8 @@ class DisclosurePackage(BaseModel):
 class DisclosureRunCreate(BaseModel):
     trace: bool = False
     max_prior_art_results: int = Field(default=8, ge=0, le=20)
+    stage_timeout_ms: int | None = None
+    run_timeout_ms: int | None = None
     # research_mode toggles the internal-only "free deep research" supplement.
     # standard            -> existing disclosure pipeline, unchanged.
     # free_deep_research  -> run patent deep researcher AFTER the standard
@@ -889,7 +937,11 @@ class DisclosureRun(BaseModel):
     stage_results: list[dict[str, Any]] = Field(default_factory=list)
     package: DisclosurePackage | None = None
     failures: list[str] = Field(default_factory=list)
+    failure_details: list[RuntimeFailure] = Field(default_factory=list)
     events: list[str] = Field(default_factory=list)
+    runtime_state: RuntimeStageState | None = None
+    cancel_requested: bool = False
+    retry_of: str | None = None
 
 
 class CorpusQualityReport(BaseModel):
