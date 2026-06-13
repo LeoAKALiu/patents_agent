@@ -196,6 +196,65 @@ def test_utility_model_lite_skips_deliberation_and_formula_gate(tmp_path):
     assert "权利要求书" in official_export.text
 
 
+def test_invention_patent_type_requires_deliberation(tmp_path):
+    """Explicit patent_type='invention' must not skip the deliberation gate."""
+    llm = FakeLLMClient({})
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm))
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "图像缺陷识别方法",
+            "draft_text": "一种基于神经网络的图像缺陷识别方法。",
+            "patent_type": "invention",
+        },
+    ).json()["id"]
+
+    response = client.post(f"/api/projects/{project_id}/generate", json={})
+    assert response.status_code == 409
+    assert "deliberation" in response.json()["detail"].lower()
+
+
+def test_utility_model_explicit_patent_type_skips_gates(tmp_path):
+    """Explicit patent_type='utility_model' (no text markers in draft_text)
+    must skip the deliberation/formula gates."""
+    llm = FakeLLMClient(
+        {
+            "claims": "1. 一种可调安装支架，其特征在于，包括底座、支撑臂和限位件。",
+            "description": "技术领域\n本实用新型涉及安装支架结构。",
+            "abstract": "本实用新型公开了一种可调安装支架。",
+            "drawings": "图1为整体结构示意图。",
+            "diagram": "flowchart TD\nA[底座] --> B[支撑臂]",
+            "image_prompt": "黑白线稿，展示底座、支撑臂和限位件连接关系。",
+        }
+    )
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm))
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "可调安装支架",
+            "draft_text": "一种可调安装支架，包括底座、支撑臂和限位件。",
+            "patent_type": "utility_model",
+        },
+    ).json()["id"]
+
+    # Formula requirement must be false for utility model.
+    requirement = client.get(f"/api/projects/{project_id}/formula-requirement").json()
+    assert requirement["required"] is False
+    assert any(
+        "结构" in reason or "部件" in reason or "连接" in reason
+        for reason in requirement["reasons"]
+    )
+
+    # Generation must succeed without a deliberation run.
+    response = client.post(f"/api/projects/{project_id}/generate", json={})
+    assert response.status_code == 200
+    package = response.json()
+    assert package["deliberation_run_id"] is None
+    claims_call = next(call for call in llm.calls if call.stage == "claims")
+    assert "中国实用新型专利权利要求书" in claims_call.user_prompt
+    assert "不得写成方法步骤" in claims_call.user_prompt
+
+
 def test_project_records_include_timestamps_and_can_be_deleted(tmp_path):
     client = _test_app_without_env(tmp_path)
     create_response = client.post(

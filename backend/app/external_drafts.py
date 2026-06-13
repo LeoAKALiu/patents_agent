@@ -52,6 +52,45 @@ def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def file_content_hash(path: Path) -> str:
+    """Compute the SHA-256 hash of a file's bytes on disk.
+
+    Used to keep the on-disk raw external draft tied to the same content hash
+    that the database stores, so re-imports can be cross-checked and tampering
+    with the read-only file is detectable.
+    """
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def seal_external_draft_file(path: Path) -> Path:
+    """Best-effort: flip a raw external draft file to read-only.
+
+    Strips the owner/group/other write bits (target 0o444 = r--r--r-- on POSIX)
+    and silently swallows ``OSError`` so the import flow is not blocked on
+    filesystems that reject chmod (e.g. some Windows / sandboxed FS). The
+    on-disk file is still tracked via its content_hash, which is the durable
+    integrity check the seal complements.
+
+    Returns the same path so callers can chain.
+    """
+    target = Path(path)
+    if not target.exists():
+        return target
+    try:
+        current = target.stat().st_mode
+        target.chmod(current & ~0o222)
+    except OSError:
+        # Filesystem refused the chmod (e.g. Windows, sandboxed FS). The
+        # import flow is allowed to continue; content_hash is the durable
+        # integrity guarantee.
+        pass
+    return target
+
+
 def working_draft_hash(package: DraftPackage) -> str:
     return hashlib.sha256(package.model_dump_json().encode("utf-8")).hexdigest()
 
@@ -88,8 +127,21 @@ def create_external_draft_source(
     file_name: str = "",
     raw_path: str = "",
     metadata: dict[str, Any] | None = None,
+    raw_content_hash: str = "",
 ) -> ExternalDraftSource:
     normalized = normalize_text(text)
+    base_metadata: dict[str, Any] = {"source_type": source_type}
+    if metadata:
+        # Preserve caller-supplied keys but never let the caller silently
+        # override ``source_type`` or ``raw_content_hash`` from the outside.
+        for key, value in metadata.items():
+            if key in {"source_type", "raw_content_hash"}:
+                continue
+            base_metadata[key] = value
+    if raw_path:
+        base_metadata.setdefault("raw_path", raw_path)
+    if raw_content_hash:
+        base_metadata["raw_content_hash"] = raw_content_hash
     return ExternalDraftSource(
         id=uuid.uuid4().hex,
         project_id=project_id,
@@ -98,7 +150,7 @@ def create_external_draft_source(
         content_hash=content_hash(normalized),
         raw_text=normalized,
         raw_path=raw_path,
-        metadata=metadata or {},
+        metadata=base_metadata,
         created_at=utc_now_iso(),
     )
 

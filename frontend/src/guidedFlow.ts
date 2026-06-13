@@ -9,10 +9,10 @@ import {
   PenLine,
   Scale,
   SearchCheck,
+  Settings as SettingsIcon,
   ShieldCheck,
   UsersRound,
   Wand2,
-  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,13 +29,16 @@ import type {
   OfficialCompileRun,
   PatentPointCandidate,
   PatentPointCreatePayload,
+  PatentType,
   PostDraftReviewRun,
   ProjectMaterial,
   ProjectRecord,
 } from "./api";
+
+export type { PatentType };
 import { canExportPackage, latestCompletedDeliberation } from "./domain";
 
-export type MainSectionId = "generate" | "utility" | "projects" | "expert";
+export type MainSectionId = "generate" | "utility" | "projects" | "expert" | "settings";
 
 export type ExpertToolId =
   | "build"
@@ -62,6 +65,7 @@ export type GuidedStepId =
   | "export";
 export type GuidedStepStatus = "done" | "current" | "ready" | "locked";
 export type PatentGoalMode = "stable" | "broad" | "fast" | "utility" | "moat";
+export type StartChoiceId = "invention" | "utility" | "external";
 
 export type NavEntry<T extends string> = {
   id: T;
@@ -145,9 +149,44 @@ export type PatentPointSelectionPayload = {
   payload: PatentPointCreatePayload;
 };
 
+export const v1StartChoices: Array<{
+  id: StartChoiceId;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "invention",
+    label: "从技术想法撰写发明专利",
+    description: "输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。",
+  },
+  {
+    id: "utility",
+    label: "从结构方案撰写实用新型",
+    description: "聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。",
+  },
+  {
+    id: "external",
+    label: "导入已有稿件进行润色提升",
+    description: "上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。",
+  },
+];
+
 export const defaultMainSectionId: MainSectionId = "generate";
 export const defaultExpertToolId: ExpertToolId = "build";
 export const utilityModelModePrefix = "目标模式：实用新型轻量版。";
+
+export const patentTypeOptions: Array<{ id: PatentType; label: string; description: string }> = [
+  {
+    id: "invention",
+    label: "发明专利",
+    description: "覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。",
+  },
+  {
+    id: "utility_model",
+    label: "实用新型专利",
+    description: "聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。",
+  },
+];
 
 export const patentGoalModes: Array<{ id: PatentGoalMode; label: string; description: string }> = [
   { id: "stable", label: "授权稳健", description: "收紧独权，强调组合闭环和说明书支撑。" },
@@ -170,15 +209,19 @@ export function projectGoalPrefix(mode: PatentGoalMode): string {
 }
 
 export function isUtilityModelProject(project: ProjectRecord | null | undefined): boolean {
-  const draftText = project?.draft_text ?? "";
+  if (!project) return false;
+  // Explicit utility_model always wins.
+  if (project.patent_type === "utility_model") return true;
+  // Fallback: legacy text-based detection (catches pre-PR3 projects
+  // and projects created without an explicit patent_type).
+  const draftText = project.draft_text ?? "";
   return draftText.includes(utilityModelModePrefix) || draftText.includes("专利类型：实用新型");
 }
 
 export const mainSections: Array<NavEntry<MainSectionId>> = [
-  { id: "generate", label: "专利生成", description: "从一句想法到可导出文件", icon: Wand2 },
-  { id: "utility", label: "实用新型轻量版", description: "结构与附图优先的轻量流程", icon: Wrench },
+  { id: "generate", label: "开始", description: "选择一种默认路径进入 v1.0.0 向导", icon: Wand2 },
   { id: "projects", label: "项目", description: "查看历史项目和运行记录", icon: FolderKanban },
-  { id: "expert", label: "专家工具", description: "进入旧工作台和高级检查", icon: Gauge },
+  { id: "settings", label: "设置", description: "本机 LLM 服务参数与 API Key", icon: SettingsIcon },
 ];
 
 export const expertToolGroups: ExpertToolGroup[] = [
@@ -328,6 +371,30 @@ export function guidedStepStatusLabel(status: GuidedStepStatus): string {
   if (status === "current") return "当前步骤";
   if (status === "ready") return "可查看";
   return "未解锁";
+}
+
+export function guidedNextActionLabel(stepId: GuidedStepId): string {
+  if (stepId === "idea") return "填写并创建项目";
+  if (stepId === "invention") return "提炼发明点";
+  if (stepId === "deliberation") return "启动多智能体会审";
+  if (stepId === "formula") return "凝练核心公式";
+  if (stepId === "draft") return "生成专利初稿";
+  if (stepId === "quality") return "运行质量检查";
+  if (stepId === "officialCompile") return "编译正式稿";
+  if (stepId === "postReview") return "启动成稿会审";
+  return "打开导出工具";
+}
+
+export function guidedNextActionDescription(stepId: GuidedStepId): string {
+  if (stepId === "idea") return "先创建项目；已有稿件可从第三个入口导入。";
+  if (stepId === "invention") return "生成候选发明点和护城河方向，然后人工确认主线。";
+  if (stepId === "deliberation") return "收敛权利要求边界、说明书支撑和规避路径。";
+  if (stepId === "formula") return "当项目包含算法/指标信号时，先生成公式包再写入初稿。";
+  if (stepId === "draft") return "基于已确认材料生成摘要、权利要求书、说明书和附图说明。";
+  if (stepId === "quality") return "串行运行提交成熟度、权利要求防线和初稿完善。";
+  if (stepId === "officialCompile") return "清除内部痕迹，生成只包含正式申请内容的提交包。";
+  if (stepId === "postReview") return "正式导出前复核成稿哈希、权利要求质量和清污结果。";
+  return "正式稿、内部稿和侧车报告分离导出；提交前仍需专业人员复核。";
 }
 
 export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {

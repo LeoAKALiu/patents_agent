@@ -331,10 +331,16 @@ export interface ScoreImprovementResult {
   logs: string[];
 }
 
+export type PatentType = "invention" | "utility_model";
+
+export const PATENT_TYPE_INVENTION: PatentType = "invention";
+export const PATENT_TYPE_UTILITY_MODEL: PatentType = "utility_model";
+
 export interface ProjectRecord {
   id: string;
   name: string;
   draft_text: string;
+  patent_type: PatentType;
   package: DraftPackage | null;
   created_at: string;
   updated_at: string;
@@ -446,6 +452,34 @@ export interface Health {
   data_dir: string;
   model: string;
   embedding_model: string;
+}
+
+export interface DesktopConfigView {
+  provider: string;
+  base_url: string;
+  model: string;
+  api_key_present: boolean;
+  api_key_fingerprint: string;
+  updated_at: string;
+  version: number;
+  api_key_source: "env" | "desktop_config" | "none";
+}
+
+export interface DesktopConfigUpdatePayload {
+  provider?: string;
+  base_url?: string;
+  model?: string;
+  api_key?: string;
+  clear_api_key?: boolean;
+}
+
+export interface DesktopConfigHealthResult {
+  ok: boolean;
+  model: string;
+  api_key_source: "env" | "desktop_config" | "none";
+  latency_ms: number;
+  status_code: number;
+  error: string;
 }
 
 export interface AgentProviderStatus {
@@ -660,6 +694,36 @@ export async function getHealth(): Promise<Health> {
   return request<Health>("/api/health");
 }
 
+export async function getDesktopConfig(): Promise<DesktopConfigView> {
+  return request<DesktopConfigView>("/api/desktop-config");
+}
+
+export async function updateDesktopConfig(
+  payload: DesktopConfigUpdatePayload,
+): Promise<DesktopConfigView> {
+  return request<DesktopConfigView>("/api/desktop-config", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function clearDesktopConfigKey(): Promise<DesktopConfigView> {
+  return request<DesktopConfigView>("/api/desktop-config", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clear_api_key: true }),
+  });
+}
+
+export async function checkDesktopConfigHealth(): Promise<DesktopConfigHealthResult> {
+  return request<DesktopConfigHealthResult>("/api/desktop-config/health", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
 export async function getAgentDoctor(): Promise<AgentDoctorReport> {
   return request<AgentDoctorReport>("/api/agents/doctor");
 }
@@ -734,11 +798,19 @@ export async function listProjects(): Promise<ProjectRecord[]> {
   return data.projects;
 }
 
-export async function createProject(name: string, draftText: string): Promise<ProjectRecord> {
+export async function createProject(
+  name: string,
+  draftText: string,
+  patentType: PatentType = PATENT_TYPE_INVENTION,
+): Promise<ProjectRecord> {
   return request<ProjectRecord>("/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, draft_text: draftText }),
+    body: JSON.stringify({
+      name,
+      draft_text: draftText,
+      patent_type: patentType,
+    }),
   });
 }
 

@@ -61,6 +61,7 @@ const project: ProjectRecord = {
   id: "p1",
   name: "图像缺陷识别",
   draft_text: "一种基于神经网络的图像缺陷识别方法。",
+  patent_type: "invention",
   package: null,
   created_at: "2026-06-07T00:00:00Z",
   updated_at: "2026-06-07T00:00:00Z",

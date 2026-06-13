@@ -24,10 +24,13 @@ import {
   deriveGuidedFlowState,
   expertToolGroups,
   guidedBusyLabel,
+  guidedNextActionDescription,
+  guidedNextActionLabel,
   guidedOperationLog,
   guidedStepLabels,
   guidedStepStatusLabel,
   ideaPatentGoalModes,
+  isUtilityModelProject,
   mainSections,
   officialCompileActionGate,
   patentGoalModes,
@@ -38,6 +41,7 @@ import {
   resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
   utilityModelModePrefix,
+  v1StartChoices,
   type GuidedStepId,
 } from "./guidedFlow";
 
@@ -45,6 +49,7 @@ const projectWithIdea: ProjectRecord = {
   id: "p1",
   name: "外立面逆建模",
   draft_text: "一种外立面逆建模方法。",
+  patent_type: "invention",
   package: null,
   created_at: "2026-06-07T00:00:00Z",
   updated_at: "2026-06-07T00:00:00Z",
@@ -372,8 +377,19 @@ function patentPoint(selected: boolean): PatentPointCandidate {
 }
 
 describe("guided flow navigation", () => {
-  it("uses four main sections and keeps expert tools grouped", () => {
-    expect(mainSections.map((item) => item.label)).toEqual(["专利生成", "实用新型轻量版", "项目", "专家工具"]);
+  it("uses a three-choice v1 landing path and keeps expert tools secondary", () => {
+    expect(v1StartChoices.map((item) => item.label)).toEqual([
+      "从技术想法撰写发明专利",
+      "从结构方案撰写实用新型",
+      "导入已有稿件进行润色提升",
+    ]);
+    expect(v1StartChoices).toHaveLength(3);
+    expect(mainSections.map((item) => item.label)).toEqual([
+      "开始",
+      "项目",
+      "设置",
+    ]);
+    expect(mainSections.some((item) => item.id === "expert")).toBe(false);
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
     expect(guidedStepLabels).toEqual([
       "想法与材料",
@@ -513,6 +529,13 @@ describe("guided flow defaults", () => {
     expect(guidedStepLabels[0]).toBe("想法与材料");
     expect(defaultMainSectionId).toBe("generate");
   });
+
+  it("provides a visible next-action label for each guided step", () => {
+    expect(guidedNextActionLabel("idea")).toBe("填写并创建项目");
+    expect(guidedNextActionLabel("quality")).toBe("运行质量检查");
+    expect(guidedNextActionLabel("export")).toBe("打开导出工具");
+    expect(guidedNextActionDescription("postReview")).toContain("正式导出前");
+  });
 });
 
 describe("patent goal modes", () => {
@@ -529,6 +552,52 @@ describe("patent goal modes", () => {
   it("marks utility model projects with an explicit draft prefix", () => {
     expect(projectGoalPrefix("utility")).toContain(utilityModelModePrefix);
     expect(projectGoalPrefix("utility")).toContain("专利类型：实用新型");
+  });
+});
+
+describe("isUtilityModelProject", () => {
+  it("returns true when patent_type is utility_model (explicit field check)", () => {
+    const project: ProjectRecord = {
+      id: "u1",
+      name: "一种可调安装支架",
+      draft_text: "一种可调安装支架，包括底座、支撑臂和限位件。",
+      patent_type: "utility_model",
+      package: null,
+      created_at: "2026-06-11T00:00:00Z",
+      updated_at: "2026-06-11T00:00:00Z",
+    };
+    expect(isUtilityModelProject(project)).toBe(true);
+  });
+
+  it("returns true when project has legacy draft prefix but patent_type is invention", () => {
+    const project: ProjectRecord = {
+      id: "u2",
+      name: "一种可调安装支架",
+      draft_text: `${utilityModelModePrefix}\n一种可调安装支架，包括底座、支撑臂和限位件。`,
+      patent_type: "invention",
+      package: null,
+      created_at: "2026-06-11T00:00:00Z",
+      updated_at: "2026-06-11T00:00:00Z",
+    };
+    expect(isUtilityModelProject(project)).toBe(true);
+  });
+
+  it("returns false when patent_type is invention and no legacy prefix is present", () => {
+    const project: ProjectRecord = {
+      id: "u3",
+      name: "一种外立面检测方法",
+      draft_text: "一种外立面检测方法，通过无人机拍摄获得图像数据。",
+      patent_type: "invention",
+      package: null,
+      created_at: "2026-06-11T00:00:00Z",
+      updated_at: "2026-06-11T00:00:00Z",
+    };
+    expect(isUtilityModelProject(project)).toBe(false);
+  });
+
+  it("returns false for null or undefined project", () => {
+    expect(isUtilityModelProject(null)).toBe(false);
+    expect(isUtilityModelProject(undefined)).toBe(false);
   });
 });
 

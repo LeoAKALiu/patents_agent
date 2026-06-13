@@ -1,6 +1,6 @@
 [project]
 name = "patents-agent"
-version = "0.6.0"
+version = "1.0.0"
 description = "Guided patent engineering system for Chinese invention patent drafting."
 requires-python = ">=3.11"
 dependencies = [
@@ -27,3 +27,6 @@ chroma = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["backend*"]

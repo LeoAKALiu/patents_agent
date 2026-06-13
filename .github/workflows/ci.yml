@@ -1,0 +1,78 @@
+name: CI
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+      - release/v1.0.0
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Run backend tests
+        run: python -m pytest -q
+
+  frontend:
+    name: Frontend tests and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Run Vitest
+        run: npm test -- --run
+      - name: Build frontend
+        run: npm run build
+
+  desktop:
+    name: Desktop build and smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install Linux smoke display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+      - name: Build desktop
+        working-directory: desktop
+        run: npm run build
+      - name: Run desktop smoke
+        working-directory: desktop
+        run: xvfb-run -a npm run smoke

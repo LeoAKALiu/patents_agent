@@ -7,6 +7,7 @@ import {
   FileText,
   Gauge,
   Loader2,
+  PlayCircle,
   ShieldCheck,
   Sigma,
   Upload,
@@ -42,9 +43,12 @@ import {
 import {
   deriveGuidedFlowState,
   guidedOperationLog,
+  guidedNextActionDescription,
+  guidedNextActionLabel,
   guidedStepStatusLabel,
   ideaPatentGoalModes,
   officialCompileActionGate,
+  patentTypeOptions,
   postDraftReviewActionGate,
   qualityActionGate,
   qualitySummaryFromRuns,
@@ -56,6 +60,8 @@ import {
   type GuidedStepId,
   type GuidedStepState,
   type PatentGoalMode,
+  type PatentType,
+  type StartChoiceId,
 } from "./guidedFlow";
 import {
   deliberationRunModeLabel,
@@ -86,7 +92,8 @@ export type GuidedPatentFlowProps = {
   busy: string;
   busyElapsedSeconds?: number;
   fixedGoalMode?: PatentGoalMode;
-  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode }) => Promise<void>;
+  initialIntakeMode?: Extract<StartChoiceId, "external"> | "idea";
+  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
   onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
@@ -179,6 +186,28 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
   }, [state.currentStepId]);
 
   const displayedStepId = resolveGuidedViewStep(state.currentStepId, manualViewStepId, state.steps);
+  const completedStepCount = state.steps.filter((step) => step.status === "done").length;
+
+  function handleNextAction(): void {
+    setManualViewStepId(null);
+    if (state.currentStepId === "invention") {
+      props.onStartDisclosure();
+    } else if (state.currentStepId === "deliberation") {
+      props.onStartDeliberation();
+    } else if (state.currentStepId === "formula") {
+      props.onStartFormula();
+    } else if (state.currentStepId === "draft") {
+      props.onGenerateDraft();
+    } else if (state.currentStepId === "quality") {
+      props.onRunQualityChecks();
+    } else if (state.currentStepId === "officialCompile") {
+      props.onStartOfficialCompile();
+    } else if (state.currentStepId === "postReview") {
+      props.onStartPostDraftReview();
+    } else if (state.currentStepId === "export") {
+      props.onOpenExpertTool("export");
+    }
+  }
 
   return (
     <div className="guided-flow">
@@ -186,6 +215,14 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         displayedStepId={displayedStepId}
         onSelectStep={setManualViewStepId}
         state={state}
+      />
+      <GuidedProgressBanner
+        busy={props.busy}
+        completedStepCount={completedStepCount}
+        currentStepId={state.currentStepId}
+        displayedStepId={displayedStepId}
+        onNext={handleNextAction}
+        totalStepCount={state.steps.length}
       />
       {props.project && displayedStepId !== "idea" && (
         <section className="guided-panel external-draft-side-entry">
@@ -218,6 +255,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           fixedGoalMode={props.fixedGoalMode}
+          initialIntakeMode={props.initialIntakeMode}
           onCreateIdeaProject={props.onCreateIdeaProject}
           onCreateExternalDraft={props.onCreateExternalDraft}
           onUploadExternalDraft={props.onUploadExternalDraft}
@@ -337,6 +375,52 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
   );
 }
 
+function GuidedProgressBanner({
+  busy,
+  completedStepCount,
+  currentStepId,
+  displayedStepId,
+  onNext,
+  totalStepCount,
+}: {
+  busy: string;
+  completedStepCount: number;
+  currentStepId: GuidedStepId;
+  displayedStepId: GuidedStepId;
+  onNext: () => void;
+  totalStepCount: number;
+}) {
+  const percent = Math.round((completedStepCount / totalStepCount) * 100);
+  const isBrowsingPastStep = displayedStepId !== currentStepId;
+  const actionIsFormOnly = currentStepId === "idea";
+  return (
+    <section className="guided-progress-banner" aria-label="流程进度和下一步">
+      <div className="guided-progress-copy">
+        <span className="status-badge">{completedStepCount}/{totalStepCount} 已完成</span>
+        <div>
+          <h3>当前进度：{percent}%</h3>
+          <p>{guidedNextActionDescription(currentStepId)}</p>
+        </div>
+      </div>
+      <div className="guided-progress-meter" aria-hidden="true">
+        <span style={{ width: `${percent}%` }} />
+      </div>
+      <button
+        className="primary"
+        disabled={Boolean(busy) || actionIsFormOnly}
+        onClick={onNext}
+        type="button"
+      >
+        {busy ? <Loader2 className="spin" size={17} /> : <PlayCircle size={17} />}
+        <span>{isBrowsingPastStep ? "回到当前步骤" : guidedNextActionLabel(currentStepId)}</span>
+      </button>
+      {actionIsFormOnly && (
+        <p className="workflow-hint">请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。</p>
+      )}
+    </section>
+  );
+}
+
 function WorkflowStepper({
   state,
   displayedStepId,
@@ -411,6 +495,7 @@ function IdeaIntakePanel({
   busy,
   busyElapsedSeconds,
   fixedGoalMode,
+  initialIntakeMode,
   onCreateIdeaProject,
   onCreateExternalDraft,
   onUploadExternalDraft,
@@ -425,6 +510,7 @@ function IdeaIntakePanel({
   busy: string;
   busyElapsedSeconds: number;
   fixedGoalMode?: PatentGoalMode;
+  initialIntakeMode?: "idea" | "external";
   onCreateIdeaProject: GuidedPatentFlowProps["onCreateIdeaProject"];
   onCreateExternalDraft: GuidedPatentFlowProps["onCreateExternalDraft"];
   onUploadExternalDraft: GuidedPatentFlowProps["onUploadExternalDraft"];
@@ -435,15 +521,21 @@ function IdeaIntakePanel({
   const [name, setName] = useState(project?.name ?? "");
   const [idea, setIdea] = useState(project?.draft_text ?? "");
   const [mode, setMode] = useState<PatentGoalMode>("stable");
-  const [intakeMode, setIntakeMode] = useState<"idea" | "external">("idea");
+  const [patentType, setPatentType] = useState<PatentType>(fixedGoalMode === "utility" ? "utility_model" : "invention");
+  const [intakeMode, setIntakeMode] = useState<"idea" | "external">(initialIntakeMode ?? "idea");
   const canSubmit = Boolean(name.trim() && idea.trim() && !project);
   const effectiveMode = fixedGoalMode ?? mode;
+  const effectivePatentType: PatentType = fixedGoalMode === "utility" ? "utility_model" : patentType;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
-    await onCreateIdeaProject({ name: name.trim(), idea: idea.trim(), mode: effectiveMode });
+    await onCreateIdeaProject({ name: name.trim(), idea: idea.trim(), mode: effectiveMode, patentType: effectivePatentType });
   }
+
+  useEffect(() => {
+    setIntakeMode(initialIntakeMode ?? "idea");
+  }, [initialIntakeMode]);
 
   return (
     <section className="guided-panel">
@@ -495,6 +587,21 @@ function IdeaIntakePanel({
                 placeholder="例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。"
               />
             </label>
+            {fixedGoalMode !== "utility" && (
+              <div className="mode-grid">
+                {patentTypeOptions.map((item) => (
+                  <button
+                    className={patentType === item.id ? "mode-card selected" : "mode-card"}
+                    key={item.id}
+                    onClick={() => setPatentType(item.id)}
+                    type="button"
+                  >
+                    <strong>{item.label}</strong>
+                    <span>{item.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {!fixedGoalMode && (
               <div className="mode-grid">
                 {ideaPatentGoalModes.map((item) => (
@@ -1378,13 +1485,13 @@ function ExportConfirmationPanel({
       <div className="guided-panel-heading">
         <div>
           <h3>导出前确认</h3>
-          <p>这是默认流程的第二个暂停点。正式稿只在成稿会审通过且匹配当前成稿哈希后放行。</p>
+          <p>正式稿只在正式稿编译完成、成稿会审通过且哈希匹配后放行；导出文件仍需专利代理师或律师复核后再提交。</p>
         </div>
         <Download size={24} />
       </div>
-      {filingReport?.status === "high_risk" && <p className="workflow-hint">当前提交成熟度为高风险，请结合成稿会审报告处理。</p>}
+      {filingReport?.status === "high_risk" && <p className="workflow-hint">当前提交成熟度为高风险：请先处理报告中的不利表述、内部痕迹或支撑缺口，再让专业人员复核。</p>}
       {!officialAllowed && (
-        <p className="workflow-hint">正式稿入口已锁定：需先完成正式稿编译，并通过匹配当前正式稿哈希的成稿会审。</p>
+        <p className="workflow-hint">正式稿入口已锁定：请先完成正式稿编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和侧车报告仅供内部复核。</p>
       )}
       <div className="export-confirmation">
         <article>
@@ -1393,11 +1500,11 @@ function ExportConfirmationPanel({
         </article>
         <article>
           <strong>内部稿</strong>
-          <span>保留策略、风险、会审、支撑矩阵和补强报告。</span>
+          <span>保留策略、风险、会审、支撑矩阵和补强建议，仅供内部复核，不作为提交稿。</span>
         </article>
         <article>
           <strong>导出原则</strong>
-          <span>存在阻断项时将阻止正式稿导出；内部稿和报告不受此限制。</span>
+          <span>阻断项会锁定正式稿；侧车报告用于解释风险来源，不替代最终人工审查。</span>
         </article>
       </div>
       <button className="icon-button" onClick={() => onOpenExpertTool("export")} type="button">
