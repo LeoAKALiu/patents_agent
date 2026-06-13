@@ -43,6 +43,8 @@ import {
   ProjectMaterial,
   PatentStrategyBrief,
   ProjectRecord,
+  RuntimeFailure,
+  RuntimeStageState,
   SearchResult,
   SectionType,
   type DraftCompletionRun,
@@ -144,6 +146,7 @@ import {
   type PatentType,
   type StartChoiceId,
 } from "./guidedFlow";
+import { OperationConsole } from "./ui/OperationConsole";
 
 type DesktopMenuBridge = {
   desktop?: {
@@ -1744,6 +1747,107 @@ function BusyOperationConsole({ log }: { log: ReturnType<typeof guidedOperationL
   );
 }
 
+type RuntimeAwareRun = {
+  id: string;
+  status: string;
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  events?: string[];
+  providers?: string[];
+  stage_results?: unknown[];
+  failures?: unknown[];
+  logs?: unknown[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
+};
+
+function isActiveRun(run: RuntimeAwareRun | null | undefined): run is RuntimeAwareRun {
+  return Boolean(run && (run.status === "queued" || run.status === "running"));
+}
+
+function latestActiveRun<T extends RuntimeAwareRun>(runs: T[]): T | null {
+  return runs.find(isActiveRun) ?? null;
+}
+
+function RuntimeRunConsole({ run, title }: { run: RuntimeAwareRun | null; title: string }) {
+  if (!run || !isActiveRun(run)) return null;
+  const state = run.runtime_state ?? null;
+  const lines = [
+    `run ${run.id.slice(0, 10)} / ${pipelineRunStatusLabel(run.status)}`,
+    `stage ${runtimeStageLabel(state?.current_stage)}`,
+    state?.provider ? `provider ${state.provider}` : "",
+    state?.subtask ? `task ${state.subtask}` : "",
+    state?.query ? `query ${state.query}` : "",
+    typeof state?.elapsed_ms === "number" ? `elapsed ${formatRuntimeMs(state.elapsed_ms)}` : "",
+    typeof state?.partial_artifact_count === "number" ? `partials ${state.partial_artifact_count}` : "",
+    typeof state?.warning_count === "number" ? `warnings ${state.warning_count}` : "",
+    state?.timeout_ms ? `stage timeout ${formatRuntimeMs(state.timeout_ms)}` : "",
+    run.events?.at(-1) ? `event ${run.events.at(-1)}` : "",
+  ].filter(Boolean);
+  return <OperationConsole label={title} lines={lines} elapsedSeconds={Math.floor((state?.elapsed_ms ?? 0) / 1000)} />;
+}
+
+function RuntimeFailurePanel({ run }: { run: RuntimeAwareRun | null }) {
+  const failures = run?.failure_details ?? [];
+  if (!run || failures.length === 0) return null;
+  return (
+    <div className="grid gap-2">
+      {failures.slice(-3).map((failure, index) => (
+        <article className="rounded-lg border border-red-500/30 bg-red-950/20 p-3 text-sm" key={`${run.id}-runtime-failure-${index}`}>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-red-200/80">
+            <span>{failure.reason}</span>
+            <span>{runtimeStageLabel(failure.stage)}</span>
+            {failure.provider && <span>{failure.provider}</span>}
+            <span>{formatRuntimeMs(failure.elapsed_ms)}</span>
+          </div>
+          <p className="mt-1 text-[#e2e8f0]">{failure.message}</p>
+          {failure.repair_suggestion && <p className="mt-1 text-[#e2e8f0]/60">{failure.repair_suggestion}</p>}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function runtimeStageLabel(stage?: string | null): string {
+  if (!stage) return "等待调度";
+  const labels: Record<string, string> = {
+    queued: "等待调度",
+    disclosure_scan: "扫描材料",
+    patent_points: "提炼专利点",
+    prior_art_terms: "规划检索词",
+    prior_art_search: "检索现有技术",
+    prior_art_relevance: "现有技术对比",
+    disclosure_body: "生成交底正文",
+    disclosure_mermaid: "生成流程图",
+    disclosure_image_prompt: "生成绘图提示",
+    disclosure_self_check: "交底自检",
+    disclosure_package: "整理交底包",
+    deep_research_plan: "Deep Research 规划",
+    deep_research_evidence: "证据账本",
+    deep_research_final: "研究包收尾",
+    deliberation_prepare: "准备会审上下文",
+    deliberation: "多智能体会审",
+    deliberation_finalize: "会审收尾",
+    formula_assessment: "判断公式需求",
+    formula_generation: "凝练核心公式",
+    post_draft_review: "成稿会审",
+  };
+  if (labels[stage]) return labels[stage];
+  if (stage.startsWith("deep_research_queries")) return "Deep Research 检索词";
+  if (stage.startsWith("deep_research_search")) return "Deep Research 检索";
+  if (stage.startsWith("deep_research_synthesis")) return "Deep Research 归纳";
+  if (stage.startsWith("deep_research_obviousness")) return "创造性攻击模拟";
+  return stage.replaceAll("_", " ");
+}
+
+function formatRuntimeMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "00:00";
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 function CorpusBuildView({
   form,
   job,
@@ -2259,6 +2363,8 @@ function DeliberationView({
 }) {
   const latest = runs[0] ?? null;
   const completed = latestCompletedDeliberation(runs);
+  const activeRun = latestActiveRun(runs);
+  const deliberationBusy = busy === "deliberate" || Boolean(activeRun);
   return (
     <div className="flex flex-col gap-4">
       <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
@@ -2277,15 +2383,16 @@ function DeliberationView({
           </button>
           <button
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
-            disabled={!project || busy === "deliberate"}
+            disabled={!project || deliberationBusy}
             onClick={() => onStart(false)}
             type="button"
           >
             <UsersRound size={18} />
-            <span>启动会审</span>
+            <span>{activeRun ? "会审中" : "启动会审"}</span>
           </button>
         </div>
       </section>
+      <RuntimeRunConsole run={activeRun} title="多智能体会审运行中" />
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
@@ -2298,7 +2405,7 @@ function DeliberationView({
             doctor={doctor}
             role="deliberation"
             selectedProviders={selectedProviders}
-            disabled={busy === "deliberate"}
+            disabled={deliberationBusy}
             onToggleProvider={onToggleProvider}
           />
         </div>
@@ -2311,6 +2418,8 @@ function DeliberationView({
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                   <span>{pipelineRunStatusLabel(run.status)}</span>
                   <span>{deliberationRunModeLabel(run.run_mode)}</span>
+                  {run.runtime_state && <span>{runtimeStageLabel(run.runtime_state.current_stage)}</span>}
+                  {run.retry_of && <span>重试 {run.retry_of.slice(0, 8)}</span>}
                 </div>
                 <p>{run.providers.join(" / ")}</p>
                 <p>{run.events.at(-1) ?? "暂无事件"}</p>
@@ -2319,6 +2428,7 @@ function DeliberationView({
                   <span>{run.failures.length} 失败</span>
                   <span>{run.logs.length} 日志</span>
                 </div>
+                <RuntimeFailurePanel run={run} />
                 {run.failures.length > 0 && (
                   <div className="flex flex-col gap-2">
                     {run.failures.map((failure) => (
@@ -2383,6 +2493,8 @@ function DisclosureView({
 }) {
   const latest = runs[0] ?? null;
   const completed = latestCompletedDisclosure(runs);
+  const activeRun = latestActiveRun(runs);
+  const disclosureBusy = busy === "disclosure" || Boolean(activeRun);
   return (
     <div className="flex flex-col gap-4">
       <section className="flex items-center justify-between gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
@@ -2398,12 +2510,13 @@ function DisclosureView({
           <button className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#162032] hover:bg-[#1e293b] text-[#e2e8f0] shadow-sm border border-[#334155] disabled:opacity-50 transition-colors" onClick={onRefresh} type="button" title="刷新前置材料">
             <RefreshCw size={17} />
           </button>
-          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || busy === "disclosure"} onClick={() => onStart(false)} type="button">
+          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || disclosureBusy} onClick={() => onStart(false)} type="button">
             <ClipboardList size={18} />
-            <span>生成交底书</span>
+            <span>{activeRun ? "生成中" : "生成交底书"}</span>
           </button>
         </div>
       </section>
+      <RuntimeRunConsole run={activeRun} title="交底书生成运行中" />
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
@@ -2443,9 +2556,12 @@ function DisclosureView({
                 <div className="flex items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium mb-1">
                   <span>{pipelineRunStatusLabel(run.status)}</span>
                   <span>{run.package?.prior_art_hits.length ?? 0} 条现有技术</span>
+                  {run.runtime_state && <span>{runtimeStageLabel(run.runtime_state.current_stage)}</span>}
+                  {run.retry_of && <span>重试 {run.retry_of.slice(0, 8)}</span>}
                 </div>
                 <p>{run.package?.title ?? run.events.at(-1) ?? "等待生成"}</p>
                 <p>{run.events.at(-1) ?? "暂无事件"}</p>
+                <RuntimeFailurePanel run={run} />
               </article>
             ))}
             {runs.length === 0 && <p className="text-sm text-[#e2e8f0]/50 italic py-4">暂无交底书生成记录。</p>}
@@ -2819,6 +2935,7 @@ function DisclosurePreview({
           )}
         </div>
       </section>
+      <DisclosureSourceStatus packageValue={packageValue} />
 
       <section className="flex flex-col gap-6">
         {selected && <PreviewBlock title="推荐专利点" text={`${selected.title}\n${selected.innovation}\n${selected.rationale}`} />}
@@ -2836,6 +2953,42 @@ function DisclosurePreview({
       </section>
     </div>
   );
+}
+
+function DisclosureSourceStatus({ packageValue }: { packageValue: DisclosurePackage }) {
+  const diagnostics = packageValue.provider_diagnostics ?? [];
+  const activeChain = diagnostics.flatMap((item) => item.active_chain ?? []);
+  const skipped = diagnostics.flatMap((item) => item.skipped_providers ?? []);
+  const warnings = diagnostics.flatMap((item) => item.warnings ?? []);
+  return (
+    <section className="grid gap-3 border border-[#334155] rounded-lg bg-[#162032] p-4">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium">
+        <span>研究置信度：{researchConfidenceLabel(packageValue.research_confidence)}</span>
+        <span>检索链：{dedupeStrings(activeChain).join(" / ") || "未记录"}</span>
+        <span>现有技术：{packageValue.prior_art_hits.length} 条</span>
+      </div>
+      {(skipped.length > 0 || warnings.length > 0) && (
+        <div className="grid gap-2 text-sm text-[#e2e8f0]/70">
+          {skipped.slice(0, 4).map((item) => (
+            <p key={`${item.provider}-${item.reason}`}>{item.provider} 跳过：{item.reason}</p>
+          ))}
+          {warnings.slice(0, 3).map((warning, index) => <p key={`provider-warning-${index}`}>告警：{warning}</p>)}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function researchConfidenceLabel(value: DisclosurePackage["research_confidence"]): string {
+  if (value === "high") return "高";
+  if (value === "medium") return "中";
+  if (value === "low") return "低";
+  if (value === "none") return "无";
+  return "未记录";
+}
+
+function dedupeStrings(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
 }
 
 function DisclosureSummaryView({ packageValue }: { packageValue: DisclosurePackage | null }) {
