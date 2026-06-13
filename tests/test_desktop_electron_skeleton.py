@@ -34,6 +34,7 @@ def desktop_paths() -> dict[str, Path]:
         "preload": DESKTOP_ROOT / "electron" / "preload.ts",
         "desktop_config": DESKTOP_ROOT / "electron" / "desktop-config.ts",
         "desktop_dialogs": DESKTOP_ROOT / "electron" / "desktop-dialogs.ts",
+        "startup_diagnostics": DESKTOP_ROOT / "electron" / "startup-diagnostics.ts",
         "smoke": DESKTOP_ROOT / "scripts" / "smoke.mjs",
     }
 
@@ -368,3 +369,188 @@ def test_smoke_probes_native_dialog_api(
         "preload did not expose window.desktop.dialogs.openFolder",
     ):
         assert required in text, f"smoke probe must check {required!r}"
+
+
+# ---------------------------------------------------------------------------
+# PR6 of v1.1 (issue #38): desktop startup reliability and diagnostics.
+# ---------------------------------------------------------------------------
+
+
+def test_startup_diagnostics_module_exists(desktop_paths: dict[str, Path]) -> None:
+    """The diagnostics module must be a real file so the main process can import it."""
+    path = desktop_paths["startup_diagnostics"]
+    assert path.is_file(), f"startup-diagnostics module missing at {path}"
+    text = path.read_text(encoding="utf-8")
+    for required in (
+        "StartupDiagnostics",
+        "StartupReport",
+        "StartupRenderer",
+        "StartupBackend",
+        "StartupPython",
+        "StartupStage",
+        "attachIpc",
+        "getReport",
+        "toText",
+        "setBackend",
+        "setRenderer",
+        "setRendererIndex",
+        "setPython",
+        "record(",
+        "error(",
+    ):
+        assert required in text, (
+            f"startup-diagnostics.ts must define {required!r} (issue #38)"
+        )
+
+
+def test_startup_diagnostics_redacts_secrets(desktop_paths: dict[str, Path]) -> None:
+    """The diagnostics logger must redact obvious secret fields before logging."""
+    text = desktop_paths["startup_diagnostics"].read_text(encoding="utf-8")
+    for required in (
+        "REDACT_KEYS",
+        "api_key",
+        "authorization",
+        "password",
+        "<redacted:",
+    ):
+        assert required in text, (
+            f"startup-diagnostics.ts must redact {required!r} (issue #38)"
+        )
+
+
+def test_startup_diagnostics_emits_json_lines(desktop_paths: dict[str, Path]) -> None:
+    """Each recorded stage must be emitted as a single JSON line on stdout."""
+    text = desktop_paths["startup_diagnostics"].read_text(encoding="utf-8")
+    assert "[startup]" in text, "startup-diagnostics must prefix log lines with [startup]"
+    assert "JSON.stringify" in text, (
+        "startup-diagnostics must serialise each stage to a JSON line"
+    )
+
+
+def test_main_process_records_startup_diagnostics(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """The main process must wire the diagnostics into both boot and smoke paths."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    for required in (
+        'from "./startup-diagnostics"',
+        "StartupDiagnostics",
+        "diagnosticsInstance",
+        "recordBootContext",
+        'd.record("boot.start"',
+        'd.record("smoke.start"',
+        'd.record("smoke.passed"',
+        "d.attachIpc",
+        "diagnosticsInstance().toText()",
+    ):
+        assert required in text, (
+            f"main.ts must integrate startup diagnostics with {required!r} (issue #38)"
+        )
+
+
+def test_main_process_checks_frontend_dist_exists(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """A packaged app must not silently show a blank page when the frontend build is missing."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    assert "existsSync(FRONTEND_INDEX)" in text, (
+        "main.ts must check the frontend dist exists before loading the renderer"
+    )
+    assert "loadFrontendMissingPage" in text, (
+        "main.ts must define a friendly diagnostic page for missing frontend builds"
+    )
+    assert "frontend/dist/index.html" in text or "前端构建产物缺失" in text, (
+        "main.ts must surface a clear message when the frontend build is missing"
+    )
+
+
+def test_main_process_handles_renderer_asset_failures(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """Renderer asset failures must surface as a diagnostic page, not a white screen."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    assert '"did-fail-load"' in text, (
+        "main.ts must register a did-fail-load listener on the renderer"
+    )
+    assert '"render-process-gone"' in text, (
+        "main.ts must register a render-process-gone listener on the renderer"
+    )
+    assert "showRendererAssetFailurePage" in text, (
+        "main.ts must show a diagnostic page when an asset fails to load"
+    )
+    assert "failedSubresources" in text, (
+        "main.ts must collect a list of failed subresources for the help-menu report"
+    )
+
+
+def test_help_menu_exposes_diagnostics_action(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """A 'Help → 诊断信息' menu item must surface the diagnostics to the user."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    assert "诊断信息" in text, "main.ts must add a Help → 诊断信息 menu item"
+    assert "toText()" in text, (
+        "main.ts must render the diagnostics report as a human-readable string"
+    )
+    assert "showMessageBox" in text, (
+        "main.ts must show the diagnostics report via dialog.showMessageBox"
+    )
+
+
+def test_preload_exposes_diagnostics_api(desktop_paths: dict[str, Path]) -> None:
+    """The preload bridge must expose window.desktop.diagnostics.getReport()."""
+    text = desktop_paths["preload"].read_text(encoding="utf-8")
+    for required in (
+        "diagnostics: DesktopDiagnosticsApi",
+        "diagnostics: diagnosticsApi",
+        "DesktopDiagnosticsApi",
+        "StartupReport",
+        "StartupStage",
+        "StartupBackend",
+        "StartupRenderer",
+        "StartupPython",
+        "StartupLevel",
+        'ipcRenderer.invoke("desktop:startup-diagnostics:get")',
+    ):
+        assert required in text, (
+            f"preload must expose diagnostics API with {required!r} (issue #38)"
+        )
+
+
+def test_smoke_probes_renderer_assets(desktop_paths: dict[str, Path]) -> None:
+    """The Electron smoke must catch asset/resource failures when probing the production renderer."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    for required in (
+        "loadSmokeFrontendDocument",
+        "smoke.frontend_probe.start",
+        "smoke.frontend_probe.ok",
+        "smoke.frontend_probe.skipped",
+        "smoke.frontend_probe.asset_failures",
+        "smoke.frontend_probe.crashed",
+        '"did-fail-load"',
+        '"render-process-gone"',
+        "assetFailures",
+        "PATENTAGENT_SMOKE_SKIP_FRONTEND",
+        "existsSync(FRONTEND_INDEX)",
+        "production renderer did not expose window.desktop",
+        "frontend renderer failed to load",
+    ):
+        assert required in text, (
+            f"smoke must probe renderer assets with {required!r} (issue #38)"
+        )
+
+
+def test_smoke_probe_asserts_diagnostics_bridge(
+    desktop_paths: dict[str, Path],
+) -> None:
+    """The smoke must assert the diagnostics bridge is wired to the preload."""
+    text = desktop_paths["main"].read_text(encoding="utf-8")
+    for required in (
+        "hasDiagnostics",
+        "hasDiagnosticsGet",
+        "preload did not expose window.desktop.diagnostics",
+        "preload did not expose window.desktop.diagnostics.getReport",
+    ):
+        assert required in text, (
+            f"smoke probe must check diagnostics bridge with {required!r} (issue #38)"
+        )

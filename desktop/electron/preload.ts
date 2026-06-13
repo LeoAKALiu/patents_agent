@@ -12,6 +12,10 @@
  * HTTP; the bridge only chooses the path, streams the response, and returns
  * the chosen file path + byte count. The renderer never receives a path it
  * did not select.
+ *
+ * PR6 of the v1.1 line (issue #38) adds ``window.desktop.diagnostics`` so the
+ * renderer (and a future "Copy diagnostics" button) can fetch the structured
+ * boot report that the main process collected.
  */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 
@@ -143,6 +147,67 @@ export interface DesktopApi {
   config: DesktopConfigApi;
   /** Native file dialogs (PR7, issue #21). */
   dialogs: DesktopDialogsApi;
+  /**
+   * Startup diagnostics IPC (PR6 of v1.1, issue #38). Returns the structured
+   * boot report — argv, python, backend, renderer, recorded stages, and any
+   * errors. The raw key is never included; credential-shaped fields are
+   * redacted by the main process before the report crosses the bridge.
+   */
+  diagnostics: DesktopDiagnosticsApi;
+}
+
+export type StartupLevel = "info" | "warn" | "error";
+
+export interface StartupStage {
+  stage: string;
+  ts: number;
+  level: StartupLevel;
+  data?: Record<string, unknown>;
+}
+
+export interface StartupPython {
+  executable: string;
+  version?: string;
+}
+
+export interface StartupBackend {
+  command: string;
+  port: number;
+  baseUrl: string;
+  healthUrl: string;
+  healthOk: boolean;
+  durationMs: number;
+  pid?: number;
+}
+
+export interface StartupRenderer {
+  indexPath: string;
+  indexExists: boolean;
+  loadOk: boolean;
+  loadDurationMs: number;
+  failedSubresources: Array<{ code: number; description: string; url: string }>;
+  crashed?: { reason: string; exitCode: number };
+}
+
+export interface StartupReport {
+  schema: 1;
+  app: { name: string; version: string };
+  runtime: { electron: string; node: string; chrome: string };
+  platform: NodeJS.Platform;
+  argv: string[];
+  env: { isDev: boolean; isSmoke: boolean; isPackaged: boolean };
+  startedAt: string;
+  uptimeMs: number;
+  stages: StartupStage[];
+  python?: StartupPython;
+  backend?: StartupBackend;
+  renderer?: StartupRenderer;
+  errors: string[];
+}
+
+export interface DesktopDiagnosticsApi {
+  /** Fetch the structured boot report collected by the main process. */
+  getReport(): Promise<StartupReport>;
 }
 
 const configApi: DesktopConfigApi = {
@@ -164,6 +229,11 @@ const dialogsApi: DesktopDialogsApi = {
     ipcRenderer.invoke("desktop:dialogs:open-folder", { filePath }) as Promise<OpenFolderResult>,
 };
 
+const diagnosticsApi: DesktopDiagnosticsApi = {
+  getReport: () =>
+    ipcRenderer.invoke("desktop:startup-diagnostics:get") as Promise<StartupReport>,
+};
+
 const api: DesktopApi = {
   platform: process.platform,
   versions: {
@@ -174,6 +244,7 @@ const api: DesktopApi = {
   isDev: process.env.PATENTAGENT_ELECTRON_DEV === "1",
   config: configApi,
   dialogs: dialogsApi,
+  diagnostics: diagnosticsApi,
   onMenuAction(handler) {
     const listener = (
       _event: IpcRendererEvent,

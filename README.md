@@ -210,7 +210,9 @@ npm run build        # 仅编译 main/preload 到 dist-electron/
 npm run smoke        # 启动 --smoke，校验后端 health + preload API
 ```
 
-可选覆盖项：`PATENTAGENT_PYTHON=/path/to/python` 指定 Python，`PATENTAGENT_BACKEND_PORT=8000` 固定本地端口，`PATENTAGENT_BACKEND_DATA_DIR=/path/to/data` 指定桌面端数据目录。
+v1.1.0 release branch 额外加入桌面启动诊断：启动失败、前端资源缺失、渲染进程崩溃和后端 health 结果会记录为 `[startup]` JSON 行，并可在桌面端 `帮助 → 诊断信息` 中查看。生产模式若缺少 `frontend/dist/index.html`，窗口会显示诊断页而不是空白页。
+
+可选覆盖项：`PATENTAGENT_PYTHON=/path/to/python` 指定 Python，`PATENTAGENT_BACKEND_PORT=8000` 固定本地端口，`PATENTAGENT_BACKEND_DATA_DIR=/path/to/data` 指定桌面端数据目录。`PATENTAGENT_SMOKE_SKIP_FRONTEND=1` 可让 `npm --prefix desktop run smoke` 跳过生产前端资源探测；默认在 `frontend/dist/index.html` 存在时会加载真实 production renderer 并捕获 asset/crash 失败。
 
 桌面端详情、安全边界和 PR 范围见 `docs/release/v1.0.0-pr4-electron-skeleton.md` 与 `docs/release/v1.0.0-pr5-backend-supervision.md`。PR5 不修改 `.env`、凭证或自动合并策略。
 
