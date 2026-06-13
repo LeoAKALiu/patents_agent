@@ -844,6 +844,14 @@ class DisclosurePackage(BaseModel):
     self_check_findings: list[DisclosureSelfCheckFinding] = Field(default_factory=list)
     generation_logs: list[str] = Field(default_factory=list)
     export_warnings: list[str] = Field(default_factory=list)
+    # V1.1: research source ledger and provider diagnostics
+    research_ledger: dict[str, Any] = Field(default_factory=dict)
+    provider_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+    research_confidence: str = Field(
+        default="low",
+        pattern="^(low|medium|high)$",
+        description="Confidence level derived from the source ledger: low (0 refs/failures), medium (1-4), high (5+)",
+    )
 
     @property
     def selected_candidate(self) -> PatentPointCandidate | None:
