@@ -111,7 +111,8 @@ cd "$ROOT_DIR"
 ensure_python_deps
 
 run "$PYTHON_BIN" -m pytest -q
-run "$PYTHON_BIN" scripts/v1_api_smoke.py
+V1_1_REPORT_DIR="${PATENTAGENT_V1_1_REPORT_DIR:-${ROOT_DIR}/.artifacts/v1.1.0-quality}"
+run "$PYTHON_BIN" scripts/v1_api_smoke.py --report-dir "$V1_1_REPORT_DIR"
 
 ensure_node_runtime
 ensure_npm_deps frontend
