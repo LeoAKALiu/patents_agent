@@ -7,6 +7,7 @@
 - **Desktop startup diagnostics**: Electron now records structured boot stages, backend health, renderer load state, failed subresources, and renderer crashes; users can inspect the report from `帮助 → 诊断信息` (PR6, issue #38).
 - **Desktop blank-page guard**: packaged startup now shows a diagnostic page when `frontend/dist/index.html` is missing instead of leaving a blank renderer window (PR6, issue #38).
 - **Desktop production-renderer smoke**: `npm --prefix desktop run smoke` probes the built frontend assets when `frontend/dist/index.html` exists, verifies the diagnostics preload bridge, and fails on renderer asset/crash regressions. Set `PATENTAGENT_SMOKE_SKIP_FRONTEND=1` to skip the production renderer probe intentionally (PR6, issue #38).
+- **Release handoff checklist**: v1.1.0 now has a human release-manager handoff covering issue/task mapping, dependency graph, packaging proof, checksums, and human-only tag/release boundaries (PR8, issue #37).
 
 ## v1.0.0 — Electron Desktop Release
 

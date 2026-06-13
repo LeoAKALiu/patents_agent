@@ -226,6 +226,8 @@ scripts/v1_smoke.sh
 
 该命令默认不读取 live provider secrets，不调用外部模型，v1.1 质量趋势报告写入 `.artifacts/v1.1.0-quality/`。范围、报告字段和 live-provider opt-in 边界见 `docs/release/v1.1.0-quality-gates.md`。
 
+v1.1.0 打包、校验、人工 tag/release 边界和 issue/task 映射见 `docs/release/v1.1.0-release-handoff.md`。自动化不得创建 tag、GitHub release 或发布产物。
+
 ## 配置
 
 `.env` 中常用配置：
