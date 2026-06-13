@@ -10,7 +10,7 @@ def test_post_draft_review_pass_unlocks_official_export(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(
         client,
-        _package(drawing_description="图1为系统流程图。\nimage_prompt: 黑白线稿。"),
+        _package(drawing_description="图1为系统流程图。", image_prompt="黑白线稿。"),
     )
 
     blocked = client.get(f"/api/projects/{project_id}/official-export.md")
@@ -99,7 +99,7 @@ def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path
     assert "Official draft compile is required" in docx_response.json()["detail"]
 
 
-def test_official_export_removes_case_insensitive_internal_labels_after_passing_review(tmp_path):
+def test_official_export_blocks_case_insensitive_internal_labels_before_review(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(
         client,
@@ -114,32 +114,16 @@ def test_official_export_removes_case_insensitive_internal_labels_after_passing_
     )
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
-    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
-    assert review["export_allowed"] is True
+    assert compile_response.json()["status"] == "blocked"
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
-    assert export_response.status_code == 200
-    assert "本发明涉及无人机任务规划技术领域。" in export_response.text
-    assert "图1为系统流程图。" in export_response.text
-    assert "attorney_memo" not in export_response.text
-    assert "代理人复核" not in export_response.text
-    assert "official_safe_patches" not in export_response.text
-    assert "Prompt" not in export_response.text
-    assert "黑白线稿" not in export_response.text
+    assert export_response.status_code == 409
+    assert "Official draft compile is required" in export_response.json()["detail"]
 
     docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
-    assert docx_response.status_code == 200
-    docx_path = tmp_path / "clean-official.docx"
-    docx_path.write_bytes(docx_response.content)
-    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
-    assert "本发明涉及无人机任务规划技术领域。" in docx_text
-    assert "图1为系统流程图。" in docx_text
-    assert "attorney_memo" not in docx_text
-    assert "代理人复核" not in docx_text
-    assert "official_safe_patches" not in docx_text
-    assert "Prompt" not in docx_text
-    assert "黑白线稿" not in docx_text
+    assert docx_response.status_code == 409
+    assert "Official draft compile is required" in docx_response.json()["detail"]
 
 
 def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_path):
@@ -227,6 +211,62 @@ def test_invalid_json_post_draft_review_fails_with_diagnostic_log(tmp_path):
     assert "invalid_json" in run["logs"][0]["message"]
 
 
+def test_post_draft_review_repairs_common_schema_drift_and_stays_fail_closed(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_schema_drift_llm(), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "completed"
+    assert run["export_allowed"] is False
+    assert run["role_results"][0]["status"] == "passed"
+    assert run["role_results"][1]["status"] == "blocked"
+    assert run["role_results"][1]["official_safe_patches"]
+    assert run["chair_result"]["status"] == "blocked"
+    assert any(log["level"] == "warn" and "schema repair" in log["message"] for log in run["logs"])
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 409
+
+
+def test_post_draft_review_schema_failure_reports_exact_paths(tmp_path):
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=FakeLLMClient(
+                {
+                    "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+                }
+            ),
+            load_env_file=False,
+        )
+    )
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "failed"
+    assert run["export_allowed"] is False
+    assert run["logs"][0]["level"] == "error"
+    assert "schema_validation" in run["logs"][0]["message"]
+    assert "post_draft_claims_reviewer.status" in run["logs"][0]["detail"]
+
+
 def _create_project_with_package(client: TestClient, package: DraftPackage) -> str:
     project_id = client.post(
         "/api/projects",
@@ -308,5 +348,60 @@ def _review_llm(*, export_allowed: bool) -> FakeLLMClient:
   "next_actions": ["修复 blocking 后重新会审。"]
 }}
 """.replace("'", '"'),
+        }
+    )
+
+
+def _schema_drift_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims",
+  "status": "PASSED",
+  "blocking_issues": "",
+  "contamination_hits": "[]",
+  "rewrite_suggestions": "权利要求1保留闭环。",
+  "official_safe_patches": {"target": "claims", "patch": "不应直接入稿"},
+  "attorney_memo": "权利要求需代理人复核。"
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec",
+  "status": "BLOCKING",
+  "blocking_issues": "说明书仍需复核支撑。",
+  "contamination_hits": {"field": "description", "text": "support_gap"},
+  "rewrite_suggestions": ["删除内部提示词。"],
+  "official_safe_patches": [{"target": "description", "text": "support_gap"}],
+  "attorney_memo": "清污后再提交。"
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "PASSED",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "PASSED",
+  "export_allowed": "true",
+  "blocking_issues": "",
+  "contamination_hits": "",
+  "claim_1_rewrite": null,
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": "补充实施例。",
+  "official_safe_patches": {"target": "description", "text": "object patch"},
+  "attorney_memo": "主席综合意见。",
+  "next_actions": "修复后重新会审。"
+}
+""",
         }
     )

@@ -196,7 +196,7 @@ def _issues_from_readiness(report: FilingReadinessReport) -> list[CompletionIssu
         "unfavorable_statement": "unfavorable_statement",
         "unverified_effect": "unverified_scheme_gap",
         "subject_matter_risk": "subject_matter_risk",
-        "support_gap": "claim_support_gap",
+        "support_gap": "format_pollution",
     }
     issues: list[CompletionIssue] = []
     for index, item in enumerate(report.issues, start=1):
