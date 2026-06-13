@@ -1003,3 +1003,77 @@ class DesktopConfigHealthResult(BaseModel):
     latency_ms: int = 0
     status_code: int = 0
     error: str = ""
+
+
+# --- V1.1 PR2: Grantability claim chart and patentability attack analysis -----
+
+
+class FeaturePlacement(str, Enum):
+    """Where a feature should appear in the claims/description."""
+
+    INDEPENDENT_CLAIM_REQUIRED = "independent_claim_required"
+    DEPENDENT_CLAIM_OPTIONAL = "dependent_claim_optional"
+    DESCRIPTION_ONLY_SUPPORT = "description_only_support"
+    SHOULD_DELETE = "should_delete"
+
+
+class NoveltyAttack(BaseModel):
+    """A single novelty attack on one of our claim features using a prior-art reference."""
+
+    feature_text: str
+    prior_art_title: str = ""
+    prior_art_ref: str = ""
+    citation_source: str = ""
+    overlap_analysis: str = ""
+    attack_strength: str = Field(default="weak", pattern="^(strong|moderate|weak|none)$")
+    evidence_quality: str = Field(default="low", pattern="^(verified|unverified|low)$")
+
+
+class InventiveStepAttackCombo(BaseModel):
+    """An obviousness / inventive-step attack combining one or more prior-art references."""
+
+    title: str
+    primary_reference: str = ""
+    secondary_references: list[str] = Field(default_factory=list)
+    combination_rationale: str = ""
+    attack_strength: str = Field(default="moderate", pattern="^(strong|moderate|weak)$")
+    defense_suggestion: str = ""
+
+
+class GrantabilityClaimChartRow(BaseModel):
+    """One row in the grantability claim chart — maps a claim feature to prior art."""
+
+    claim_ref: str
+    feature_text: str
+    feature_placement: FeaturePlacement
+    closest_prior_art_refs: list[str] = Field(default_factory=list)
+    novelty_distinction: str = ""
+    novelty_attack: NoveltyAttack | None = None
+    inventive_step_combos: list[InventiveStepAttackCombo] = Field(default_factory=list)
+    support_status: str = Field(default="weak", pattern="^(strong|partial|weak|missing)$")
+    overbreadth_risk: bool = False
+    recommended_scope_adjustment: str = ""
+
+
+class GrantabilityReport(BaseModel):
+    """Structured grantability analysis: prior art, claim chart, attacks, risks.
+
+    Low-evidence / no-prior-art cases MUST set ``status`` to ``"low"`` or
+    ``"uncertain"`` and ``fail_closed=True`` — they can never be presented as
+    high grant probability.
+    """
+
+    id: str
+    project_id: str
+    status: str = Field(default="low", pattern="^(high|medium|low|uncertain)$")
+    overall_assessment: str = ""
+    closest_prior_art_summary: str = ""
+    claim_chart: list[GrantabilityClaimChartRow] = Field(default_factory=list)
+    novelty_attacks: list[NoveltyAttack] = Field(default_factory=list)
+    inventive_step_attacks: list[InventiveStepAttackCombo] = Field(default_factory=list)
+    risk_summary: dict[str, str] = Field(default_factory=dict)
+    low_evidence_flags: list[str] = Field(default_factory=list)
+    fail_closed: bool = False
+    recommendation: str = ""
+    source_ledger_citations: list[dict[str, Any]] = Field(default_factory=list)
+    created_at: str = ""
