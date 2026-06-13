@@ -7,6 +7,7 @@ from typing import Any
 from backend.app.disclosure.prior_art import PriorArtProvider
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
+from backend.app.research.ledger import SourceLedger, citation_snapshot
 from backend.app.schemas import (
     ClaimChartItem,
     DisclosurePackage,
@@ -32,6 +33,8 @@ class DisclosureGenerator:
         context_chunks: list[PatentChunk],
         max_prior_art_results: int,
         user_candidates: list[PatentPointCandidate] | None = None,
+        ledger: SourceLedger | None = None,
+        pre_diagnostics: list[dict[str, Any]] | None = None,
     ) -> tuple[DisclosurePackage, list[dict[str, Any]], list[str]]:
         stage_results: list[dict[str, Any]] = []
         logs: list[str] = []
@@ -40,6 +43,7 @@ class DisclosureGenerator:
         material_context = _format_materials(project, materials)
         rag_context = _format_context(context_chunks)
         system_prompt = _system_prompt(project)
+        ledger = ledger or SourceLedger()
 
         scan_raw = self.llm.complete_stage("disclosure_scan", system_prompt, _scan_prompt(project, material_context))
         scan = _json_object(scan_raw, _fallback_scan(project, materials))
@@ -77,13 +81,26 @@ class DisclosureGenerator:
         stage_results.append({"phase": "prior_art_terms", "payload": {"terms": terms}})
         logs.append("prior_art_terms: generated semantic search chunks")
 
-        prior_art_hits, provider_warnings = self.prior_art_provider.search(terms, max_prior_art_results)
+        try:
+            prior_art_hits, provider_warnings = _search_prior_art_with_ledger(
+                self.prior_art_provider,
+                terms,
+                max_prior_art_results,
+                ledger,
+            )
+        except Exception as exc:
+            search_entry = ledger.start(provider="prior_art", kind="prior_art", query="; ".join(terms[:4]))
+            search_entry.mark_failed(str(exc))
+            prior_art_hits = []
+            provider_warnings = [f"prior_art search failed: {exc}"]
+
         stage_results.append(
             {
                 "phase": "prior_art_search",
                 "payload": {
                     "hits": [hit.model_dump(mode="json") for hit in prior_art_hits],
                     "warnings": provider_warnings,
+                    "ledger": ledger.to_stage_payload(),
                 },
             }
         )
@@ -158,7 +175,20 @@ class DisclosureGenerator:
             image_prompt=image_prompt,
             self_check_findings=findings,
             generation_logs=[*logs, *[f"warning: {warning}" for warning in provider_warnings]],
+            research_ledger=ledger.to_stage_payload(),
+            provider_diagnostics=pre_diagnostics or [],
+            research_confidence=ledger.research_confidence(),
         )
+
+        # Append a low-evidence warning when research confidence is low
+        if package.research_confidence == "low" and not any(
+            log.startswith("low_research_confidence:") for log in package.generation_logs
+        ):
+            package.generation_logs.append(
+                f"low_research_confidence: 0 references collected ({len(ledger.entries)} provider attempts); "
+                "交底书不隐含高专利性置信度。"
+            )
+
         return package, stage_results, provider_warnings
 
     def _enrich_prior_art(
@@ -208,6 +238,28 @@ class DisclosureGenerator:
                 )
             )
         return enriched, str(data.get("prior_art_differences") or "与公开文献的区别已在交底书正文中进一步展开。"), charts_by_candidate
+
+
+def _search_prior_art_with_ledger(
+    prior_art_provider: PriorArtProvider,
+    terms: list[str],
+    max_prior_art_results: int,
+    ledger: SourceLedger,
+) -> tuple[list[PriorArtHit], list[str]]:
+    search_with_ledger = getattr(prior_art_provider, "search_with_ledger", None)
+    if callable(search_with_ledger):
+        return search_with_ledger(terms, max_prior_art_results, ledger)
+
+    search_entry = ledger.start(provider="prior_art", kind="prior_art", query="; ".join(terms[:4]))
+    hits, warnings = prior_art_provider.search(terms, max_prior_art_results)
+    search_entry.mark_ok(
+        hit_count=len(hits),
+        parsed_count=len(hits),
+        dedupe_count=0,
+        retained_count=len(hits),
+        citations=[citation_snapshot(hit) for hit in hits],
+    )
+    return hits, warnings
 
 
 INVENTION_SYSTEM_PROMPT = (

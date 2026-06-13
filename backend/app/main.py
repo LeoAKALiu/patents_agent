@@ -67,6 +67,10 @@ from backend.app.research.deep_researcher import (
     PatentDeepResearcher,
     PriorArtProviderAdapter,
 )
+from backend.app.research.ledger import (
+    ProviderDiagnostic,
+    SourceLedger,
+)
 from backend.app.research.providers import ChainedResearchProvider, build_provider_chain
 from backend.app.schemas import (
     AgentFailure,
@@ -1310,6 +1314,13 @@ def _execute_disclosure(
     materials = store.list_project_materials(project.id)
     brief = _brief_from_draft(project)
     context = _retrieve_generation_context(index, brief)
+
+    # ---- V1.1: pre-flight provider diagnostics ----
+    pre_diagnostics = _collect_provider_diagnostics(
+        prior_art_provider=prior_art_provider,
+        research_search_provider=research_search_provider,
+    )
+
     try:
         generator = DisclosureGenerator(llm, prior_art_provider)
         user_candidates = store.list_project_patent_points(project.id)
@@ -1319,6 +1330,7 @@ def _execute_disclosure(
             context_chunks=context,
             max_prior_art_results=run.max_prior_art_results,
             user_candidates=user_candidates,
+            pre_diagnostics=[d.model_dump(mode="json") for d in pre_diagnostics],
         )
         events: list[str] = [
             *running.events,
@@ -1341,19 +1353,33 @@ def _execute_disclosure(
             stage_results.extend(deep_stages)
             warnings.extend(deep_warnings)
             events.append("free deep research supplement completed")
-        run_dir = Path(run.run_dir)
-        write_disclosure_artifacts(package, run_dir)
+
+        # ---- V1.1: post-flight provider diagnostics ----
+        post_diagnostics = _collect_provider_diagnostics(
+            prior_art_provider=prior_art_provider,
+            research_search_provider=research_search_provider,
+            ledger=package.research_ledger,
+        )
+        package_with_diagnostics = package.model_copy(
+            update={
+                "provider_diagnostics": [
+                    d.model_dump(mode="json") for d in [*pre_diagnostics, *post_diagnostics]
+                ],
+            }
+        )
         completed = running.model_copy(
             update={
                 "status": "completed",
                 "stage_results": stage_results,
-                "package": package,
+                "package": package_with_diagnostics,
                 "events": [
                     *events,
                     *[f"warning: {warning}" for warning in warnings],
                 ],
             }
         )
+        run_dir = Path(run.run_dir)
+        write_disclosure_artifacts(package_with_diagnostics, run_dir)
         store.update_disclosure_run(completed)
         return completed
     except ConfigError:
@@ -1362,6 +1388,93 @@ def _execute_disclosure(
         failed = running.model_copy(update={"status": "failed", "failures": [str(exc)], "events": [*running.events, f"run failed: {exc}"]})
         store.update_disclosure_run(failed)
         return failed
+
+
+def _collect_provider_diagnostics(
+    *,
+    prior_art_provider: object,
+    research_search_provider: DeepResearchSearchProvider | None = None,
+    ledger: dict[str, Any] | None = None,
+) -> list[ProviderDiagnostic]:
+    """Collect pre/post-flight diagnostics about the provider chain.
+
+    Pre-flight (ledger=None): check which prior_art and deep research providers
+    are configured and available.
+
+    Post-flight (ledger populated): summarize what actually happened during search.
+    """
+    diagnostics: list[ProviderDiagnostic] = []
+
+    if ledger is None:
+        # ---- Pre-flight: what is configured ----
+        available: list[str] = []
+        skipped: list[dict[str, str]] = []
+
+        # Check CNIPA EPUB helper
+        cnipa_script = getattr(prior_art_provider, "cnipa_script", None)
+        if cnipa_script is not None and hasattr(cnipa_script, "exists") and cnipa_script.exists():
+            available.append("cnipa")
+        else:
+            skipped.append(
+                {"provider": "cnipa", "reason": "CNIPA EPUB helper is not configured; set CNIPA_EPUB_SEARCH_SCRIPT to enable live CNIPA search."}
+            )
+
+        # Google Patents is always available (stdlib fetch)
+        available.append("google_patents")
+
+        # Deep research providers
+        if research_search_provider is not None:
+            provider_names = list(getattr(research_search_provider, "provider_names", []))
+            available.extend(provider_names)
+        else:
+            # Without a configured chain, only the patent provider is used
+            available.append("patent")
+
+        diagnostics.append(
+            ProviderDiagnostic(
+                phase="pre_flight",
+                available_providers=available,
+                skipped_providers=skipped,
+                active_chain=available,
+                warnings=[],
+            )
+        )
+    else:
+        # ---- Post-flight: what actually happened ----
+        ledger_entries: list[dict] = ledger.get("entries", [])
+        available: list[str] = []
+        skipped: list[dict[str, str]] = []
+        warnings: list[str] = []
+
+        for entry in ledger_entries:
+            provider = entry.get("provider", "")
+            status = entry.get("status", "running")
+            if status == "skipped":
+                skipped.append({"provider": provider, "reason": entry.get("failure_reason", "unknown")})
+            elif status == "failed":
+                warnings.append(f"{provider} failed: {entry.get('failure_reason', 'unknown')}")
+            elif status == "timeout":
+                warnings.append(f"{provider} timed out: {entry.get('failure_reason', 'unknown')}")
+            elif status == "ok":
+                available.append(provider)
+
+        total_hits = ledger.get("total_hits", 0)
+        provider_warnings_list = ledger.get("provider_warnings", [])
+        warnings.extend(provider_warnings_list)
+        if total_hits == 0 and available:
+            warnings.append("0 references collected from active providers; disclosure should not imply high patentability confidence.")
+
+        diagnostics.append(
+            ProviderDiagnostic(
+                phase="post_flight",
+                available_providers=available,
+                skipped_providers=skipped,
+                active_chain=available,
+                warnings=warnings,
+            )
+        )
+
+    return diagnostics
 
 
 def _apply_free_deep_research(

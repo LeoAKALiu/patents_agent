@@ -105,6 +105,8 @@ def test_disclosure_generator_runs_pipeline_and_records_prior_art():
     ]
     assert package.selected_candidate_id == "p1"
     assert package.prior_art_hits[0].url == "https://patents.google.com/patent/CN123456789A"
+    assert package.research_ledger["entries"][0]["provider"] == "static_prior_art"
+    assert package.research_confidence == "medium"
     assert stage_results[0]["phase"] == "project_scan"
     assert warnings == []
 
@@ -231,6 +233,9 @@ def test_disclosure_api_lifecycle_and_generation_injection(tmp_path: Path):
     export_response = client.get(f"/api/projects/{project_id}/disclosures/{run['id']}/export.md")
     assert export_response.status_code == 200
     assert "公开现有技术" in export_response.text
+    assert "检索来源台账" in export_response.text
+    assert "检索前" in export_response.text
+    assert "检索后" in export_response.text
     assert "候选专利点" in export_response.text
     assert "证据状态" in export_response.text
 
