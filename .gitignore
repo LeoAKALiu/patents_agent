@@ -9,6 +9,7 @@ __pycache__/
 .playwright-cli/
 .omc/
 .superpowers/
+.artifacts/
 data/
 *.egg-info/
 frontend/node_modules/
@@ -17,4 +18,3 @@ frontend/*.tsbuildinfo
 desktop/node_modules/
 desktop/dist-electron/
 desktop/*.tsbuildinfo
-
