@@ -57,7 +57,7 @@ def test_get_desktop_config_returns_defaults(client: TestClient) -> None:
 
 
 def test_app_reports_release_version(client: TestClient) -> None:
-    assert client.app.version == "1.0.0"
+    assert client.app.version == "1.1.0"
 
 
 def test_cors_allows_renderer_origin_without_credentials(client: TestClient) -> None:

@@ -8,6 +8,7 @@ import {
   Gauge,
   Loader2,
   PlayCircle,
+  RefreshCw,
   ShieldCheck,
   Sigma,
   Upload,
@@ -113,11 +114,19 @@ export type GuidedPatentFlowProps = {
   disclosureResearchMode: "standard" | "free_deep_research";
   onChangeDisclosureResearchMode: (mode: "standard" | "free_deep_research") => void;
   onStartDisclosure: () => void;
+  onCancelDisclosureRun: (runId: string) => void;
+  onRetryDisclosureRun: (runId: string) => void;
   onSelectPatentPoint: (point: PatentPointCandidate, candidates: PatentPointCandidate[]) => void;
   onStartDeliberation: () => void;
+  onCancelDeliberationRun: (runId: string) => void;
+  onRetryDeliberationRun: (runId: string) => void;
   onStartFormula: () => void;
+  onCancelFormulaRun: (runId: string) => void;
+  onRetryFormulaRun: (runId: string) => void;
   onStartOfficialCompile: () => void;
   onStartPostDraftReview: () => void;
+  onCancelPostDraftReviewRun: (runId: string) => void;
+  onRetryPostDraftReviewRun: (runId: string) => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
   onToggleFormulaProvider: (providerId: string, enabled: boolean) => void;
   onGenerateDraft: () => void;
@@ -278,6 +287,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onChangeResearchMode={props.onChangeDisclosureResearchMode}
           onUploadMaterial={props.onUploadMaterial}
           onStartDisclosure={props.onStartDisclosure}
+          onCancelRun={props.onCancelDisclosureRun}
+          onRetryRun={props.onRetryDisclosureRun}
           onSelectPatentPoint={props.onSelectPatentPoint}
           onOpenExpertTool={props.onOpenExpertTool}
         />
@@ -303,6 +314,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartDeliberation={props.onStartDeliberation}
+          onCancelRun={props.onCancelDeliberationRun}
+          onRetryRun={props.onRetryDeliberationRun}
           onToggleProvider={props.onToggleDeliberationProvider}
           onOpenExpertTool={props.onOpenExpertTool}
         />
@@ -318,6 +331,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartFormula={props.onStartFormula}
+          onCancelRun={props.onCancelFormulaRun}
+          onRetryRun={props.onRetryFormulaRun}
           onToggleProvider={props.onToggleFormulaProvider}
         />
       )}
@@ -360,6 +375,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartPostDraftReview={props.onStartPostDraftReview}
+          onCancelRun={props.onCancelPostDraftReviewRun}
+          onRetryRun={props.onRetryPostDraftReviewRun}
           onToggleProvider={props.onToggleDeliberationProvider}
         />
       )}
@@ -873,7 +890,59 @@ function guidedActiveRun<T extends GuidedRuntimeRun>(runs: T[]): T | null {
   return runs.find((run) => run.status === "queued" || run.status === "running") ?? null;
 }
 
-function GuidedRuntimeConsole({ run, label }: { run: GuidedRuntimeRun | null; label: string }) {
+function guidedRetryableRun(run: GuidedRuntimeRun): boolean {
+  return (
+    run.status !== "queued"
+    && run.status !== "running"
+    && (run.status === "failed" || run.status === "interrupted" || Boolean(run.failure_details?.some((failure) => failure.retryable)))
+  );
+}
+
+function GuidedRuntimeActions({
+  run,
+  disabled = false,
+  onCancel,
+  onRetry,
+}: {
+  run: GuidedRuntimeRun | null;
+  disabled?: boolean;
+  onCancel?: (runId: string) => void;
+  onRetry?: (runId: string) => void;
+}) {
+  if (!run) return null;
+  const active = run.status === "queued" || run.status === "running";
+  const canCancel = Boolean(onCancel && active && !run.cancel_requested);
+  const canRetry = Boolean(onRetry && guidedRetryableRun(run));
+  if (!canCancel && !canRetry) return null;
+  return (
+    <div className="button-row">
+      {canCancel && (
+        <button className="icon-button danger" disabled={disabled} onClick={() => onCancel?.(run.id)} type="button">
+          <AlertTriangle size={16} />
+          <span>取消运行</span>
+        </button>
+      )}
+      {canRetry && (
+        <button className="icon-button" disabled={disabled} onClick={() => onRetry?.(run.id)} type="button">
+          <RefreshCw size={16} />
+          <span>重试</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function GuidedRuntimeConsole({
+  run,
+  label,
+  busy,
+  onCancel,
+}: {
+  run: GuidedRuntimeRun | null;
+  label: string;
+  busy?: string;
+  onCancel?: (runId: string) => void;
+}) {
   if (!run || (run.status !== "queued" && run.status !== "running")) return null;
   const state = run.runtime_state ?? null;
   const lines = [
@@ -893,6 +962,7 @@ function GuidedRuntimeConsole({ run, label }: { run: GuidedRuntimeRun | null; la
         <span>{state ? formatElapsedLabel(Math.floor(state.elapsed_ms / 1000)) : "00:00"}</span>
       </div>
       <pre>{lines.join("\n")}</pre>
+      <GuidedRuntimeActions run={run} disabled={Boolean(busy)} onCancel={onCancel} />
     </div>
   );
 }
@@ -932,6 +1002,8 @@ function InventionPointConfirmation({
   onChangeResearchMode,
   onUploadMaterial,
   onStartDisclosure,
+  onCancelRun,
+  onRetryRun,
   onSelectPatentPoint,
   onOpenExpertTool,
 }: {
@@ -945,6 +1017,8 @@ function InventionPointConfirmation({
   onChangeResearchMode: (mode: "standard" | "free_deep_research") => void;
   onUploadMaterial: GuidedPatentFlowProps["onUploadMaterial"];
   onStartDisclosure: () => void;
+  onCancelRun: (runId: string) => void;
+  onRetryRun: (runId: string) => void;
   onSelectPatentPoint: GuidedPatentFlowProps["onSelectPatentPoint"];
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
@@ -1013,8 +1087,9 @@ function InventionPointConfirmation({
         </button>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "disclosure"} />
-      <GuidedRuntimeConsole run={activeRun} label="发明点提炼运行中" />
+      <GuidedRuntimeConsole run={activeRun} label="发明点提炼运行中" busy={busy} onCancel={onCancelRun} />
       <GuidedRuntimeFailures run={disclosureRuns[0] ?? null} />
+      <GuidedRuntimeActions run={disclosureRuns[0] ?? null} disabled={Boolean(busy)} onRetry={onRetryRun} />
       <div className="guided-card-grid">
         {candidates.map((point) => (
           <article className={point.selected ? "guided-choice selected" : "guided-choice"} key={point.id}>
@@ -1051,6 +1126,8 @@ function DeliberationPanel({
   busy,
   busyElapsedSeconds,
   onStartDeliberation,
+  onCancelRun,
+  onRetryRun,
   onToggleProvider,
   onOpenExpertTool,
 }: {
@@ -1061,6 +1138,8 @@ function DeliberationPanel({
   busy: string;
   busyElapsedSeconds: number;
   onStartDeliberation: () => void;
+  onCancelRun: (runId: string) => void;
+  onRetryRun: (runId: string) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
@@ -1092,8 +1171,9 @@ function DeliberationPanel({
         <span>{activeRun ? "会审中" : deliberation ? "重新会审" : "启动多智能体会审"}</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "deliberate"} />
-      <GuidedRuntimeConsole run={activeRun} label="会审运行中" />
+      <GuidedRuntimeConsole run={activeRun} label="会审运行中" busy={busy} onCancel={onCancelRun} />
       <GuidedRuntimeFailures run={runs[0] ?? null} />
+      <GuidedRuntimeActions run={runs[0] ?? null} disabled={Boolean(busy)} onRetry={onRetryRun} />
       {deliberation?.strategy_brief && (
         <article className="guided-choice selected">
           <div className="result-meta">
@@ -1165,6 +1245,8 @@ function FormulaPanel({
   busy,
   busyElapsedSeconds,
   onStartFormula,
+  onCancelRun,
+  onRetryRun,
   onToggleProvider,
 }: {
   project: ProjectRecord | null;
@@ -1176,6 +1258,8 @@ function FormulaPanel({
   busy: string;
   busyElapsedSeconds: number;
   onStartFormula: () => void;
+  onCancelRun: (runId: string) => void;
+  onRetryRun: (runId: string) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
 }) {
   const required = Boolean(requirement?.required);
@@ -1210,8 +1294,9 @@ function FormulaPanel({
         </button>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "formula"} />
-      <GuidedRuntimeConsole run={activeRun} label="核心公式运行中" />
+      <GuidedRuntimeConsole run={activeRun} label="核心公式运行中" busy={busy} onCancel={onCancelRun} />
       <GuidedRuntimeFailures run={runs[0] ?? null} />
+      <GuidedRuntimeActions run={runs[0] ?? null} disabled={Boolean(busy)} onRetry={onRetryRun} />
       {formulaRun?.package && (
         <article className="guided-choice selected">
           <div className="result-meta">
@@ -1452,6 +1537,8 @@ function PostDraftReviewPanel({
   busy,
   busyElapsedSeconds,
   onStartPostDraftReview,
+  onCancelRun,
+  onRetryRun,
   onToggleProvider,
 }: {
   actionGate: GuidedActionGate;
@@ -1465,6 +1552,8 @@ function PostDraftReviewPanel({
   busy: string;
   busyElapsedSeconds: number;
   onStartPostDraftReview: () => void;
+  onCancelRun: (runId: string) => void;
+  onRetryRun: (runId: string) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
 }) {
   const passed = Boolean(review?.status === "completed" && review.export_allowed);
@@ -1507,8 +1596,9 @@ function PostDraftReviewPanel({
         <span>{activeRun ? "成稿会审中" : review ? "重新成稿会审" : "启动成稿会审"}</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "post-draft-review"} />
-      <GuidedRuntimeConsole run={activeRun} label="成稿会审运行中" />
+      <GuidedRuntimeConsole run={activeRun} label="成稿会审运行中" busy={busy} onCancel={onCancelRun} />
       <GuidedRuntimeFailures run={runs[0] ?? null} />
+      <GuidedRuntimeActions run={runs[0] ?? null} disabled={Boolean(busy)} onRetry={onRetryRun} />
       {review && (
         <article className={passed ? "guided-choice selected" : "guided-choice"}>
           <div className="result-meta">

@@ -994,6 +994,14 @@ export async function listProjectDisclosures(projectId: string): Promise<Disclos
   return data.runs;
 }
 
+export async function cancelProjectDisclosure(projectId: string, runId: string): Promise<DisclosureRun> {
+  return request<DisclosureRun>(`/api/projects/${projectId}/disclosures/${runId}/cancel`, { method: "POST" });
+}
+
+export async function retryProjectDisclosure(projectId: string, runId: string): Promise<DisclosureRun> {
+  return request<DisclosureRun>(`/api/projects/${projectId}/disclosures/${runId}/retry`, { method: "POST" });
+}
+
 export async function generateProject(projectId: string, deliberationRunId?: string | null, formulaRunId?: string | null): Promise<DraftPackage> {
   return request<DraftPackage>(`/api/projects/${projectId}/generate`, {
     method: "POST",
@@ -1083,6 +1091,14 @@ export async function listProjectDeliberations(projectId: string): Promise<Delib
   return data.runs;
 }
 
+export async function cancelProjectDeliberation(projectId: string, runId: string): Promise<DeliberationRun> {
+  return request<DeliberationRun>(`/api/projects/${projectId}/deliberations/${runId}/cancel`, { method: "POST" });
+}
+
+export async function retryProjectDeliberation(projectId: string, runId: string): Promise<DeliberationRun> {
+  return request<DeliberationRun>(`/api/projects/${projectId}/deliberations/${runId}/retry`, { method: "POST" });
+}
+
 export async function getFormulaRequirement(projectId: string): Promise<FormulaNeedAssessment> {
   return request<FormulaNeedAssessment>(`/api/projects/${projectId}/formula-requirement`);
 }
@@ -1098,6 +1114,14 @@ export async function startFormulaRun(projectId: string, providers?: string[]): 
 export async function listFormulaRuns(projectId: string): Promise<FormulaRun[]> {
   const data = await request<{ runs: FormulaRun[] }>(`/api/projects/${projectId}/formula-runs`);
   return data.runs;
+}
+
+export async function cancelFormulaRun(projectId: string, runId: string): Promise<FormulaRun> {
+  return request<FormulaRun>(`/api/projects/${projectId}/formula-runs/${runId}/cancel`, { method: "POST" });
+}
+
+export async function retryFormulaRun(projectId: string, runId: string): Promise<FormulaRun> {
+  return request<FormulaRun>(`/api/projects/${projectId}/formula-runs/${runId}/retry`, { method: "POST" });
 }
 
 export function formulaMarkdownUrl(projectId: string, runId: string): string {
@@ -1134,6 +1158,14 @@ export async function startPostDraftReview(projectId: string, providers?: string
 
 export async function listPostDraftReviews(projectId: string): Promise<{ runs: PostDraftReviewRun[]; current_draft_hash: string }> {
   return request<{ runs: PostDraftReviewRun[]; current_draft_hash: string }>(`/api/projects/${projectId}/post-draft-reviews`);
+}
+
+export async function cancelPostDraftReview(projectId: string, runId: string): Promise<PostDraftReviewRun> {
+  return request<PostDraftReviewRun>(`/api/projects/${projectId}/post-draft-reviews/${runId}/cancel`, { method: "POST" });
+}
+
+export async function retryPostDraftReview(projectId: string, runId: string): Promise<PostDraftReviewRun> {
+  return request<PostDraftReviewRun>(`/api/projects/${projectId}/post-draft-reviews/${runId}/retry`, { method: "POST" });
 }
 
 export function postDraftReviewReportUrl(projectId: string, runId: string): string {

@@ -51,6 +51,10 @@ import {
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
   acceptCompletionPatch,
+  cancelFormulaRun,
+  cancelPostDraftReview,
+  cancelProjectDeliberation,
+  cancelProjectDisclosure,
   confirmExternalDraftIntakeRun,
   createClaimDefenseWorksheet,
   createCorpusJob,
@@ -90,6 +94,10 @@ import {
   officialExportUrl,
   rejectCompletionPatch,
   reviewProject,
+  retryFormulaRun,
+  retryPostDraftReview,
+  retryProjectDeliberation,
+  retryProjectDisclosure,
   runCorpusJob,
   searchCorpus,
   startProjectDisclosure,
@@ -1158,6 +1166,96 @@ function App() {
     });
   }
 
+  async function handleCancelDisclosureRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-cancel", async () => {
+      const run = await cancelProjectDisclosure(projectId, runId);
+      const stillSelected = await loadDisclosures(projectId);
+      if (!stillSelected) return;
+      setMessage(`已请求取消交底书生成：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleRetryDisclosureRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-retry", async () => {
+      const run = await retryProjectDisclosure(projectId, runId);
+      const stillSelected = await loadDisclosures(projectId);
+      if (!stillSelected) return;
+      setMessage(`已重试交底书生成：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleCancelDeliberationRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-cancel", async () => {
+      const run = await cancelProjectDeliberation(projectId, runId);
+      const stillSelected = await loadDeliberations(projectId);
+      if (!stillSelected) return;
+      await loadFormulaState(projectId);
+      setMessage(`已请求取消会审：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleRetryDeliberationRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-retry", async () => {
+      const run = await retryProjectDeliberation(projectId, runId);
+      const stillSelected = await loadDeliberations(projectId);
+      if (!stillSelected) return;
+      await loadFormulaState(projectId);
+      setMessage(`已重试会审：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleCancelFormulaRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-cancel", async () => {
+      const run = await cancelFormulaRun(projectId, runId);
+      const stillSelected = await loadFormulaState(projectId);
+      if (!stillSelected) return;
+      setMessage(`已请求取消核心公式：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleRetryFormulaRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-retry", async () => {
+      const run = await retryFormulaRun(projectId, runId);
+      const stillSelected = await loadFormulaState(projectId);
+      if (!stillSelected) return;
+      setMessage(`已重试核心公式：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleCancelPostDraftReviewRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-cancel", async () => {
+      const run = await cancelPostDraftReview(projectId, runId);
+      const stillSelected = await loadPostDraftReviews(projectId);
+      if (!stillSelected) return;
+      setMessage(`已请求取消成稿会审：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleRetryPostDraftReviewRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-retry", async () => {
+      const run = await retryPostDraftReview(projectId, runId);
+      const stillSelected = await loadPostDraftReviews(projectId);
+      if (!stillSelected) return;
+      setMessage(`已重试成稿会审：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
   function handleToggleDeliberationProvider(providerId: string, enabled: boolean) {
     setSelectedDeliberationProviders((providers) => {
       const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
@@ -1428,6 +1526,8 @@ function App() {
             onUpload={handleUploadMaterial}
             onStart={handleStartDisclosure}
             onRefresh={() => selectedProject && loadDisclosures(selectedProject.id)}
+            onCancelRun={(runId) => void handleCancelDisclosureRun(runId)}
+            onRetryRun={(runId) => void handleRetryDisclosureRun(runId)}
           />
         );
       case "deliberate":
@@ -1442,6 +1542,8 @@ function App() {
             onStart={handleStartDeliberation}
             onToggleProvider={handleToggleDeliberationProvider}
             onRefresh={() => selectedProject && loadDeliberations(selectedProject.id)}
+            onCancelRun={(runId) => void handleCancelDeliberationRun(runId)}
+            onRetryRun={(runId) => void handleRetryDeliberationRun(runId)}
           />
         );
       case "write":
@@ -1673,11 +1775,19 @@ function App() {
             disclosureResearchMode={disclosureResearchMode}
             onChangeDisclosureResearchMode={setDisclosureResearchMode}
             onStartDisclosure={() => void handleStartDisclosure(false)}
+            onCancelDisclosureRun={(runId) => void handleCancelDisclosureRun(runId)}
+            onRetryDisclosureRun={(runId) => void handleRetryDisclosureRun(runId)}
             onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
             onStartDeliberation={() => void handleStartDeliberation(false)}
+            onCancelDeliberationRun={(runId) => void handleCancelDeliberationRun(runId)}
+            onRetryDeliberationRun={(runId) => void handleRetryDeliberationRun(runId)}
             onStartFormula={() => void handleStartFormula()}
+            onCancelFormulaRun={(runId) => void handleCancelFormulaRun(runId)}
+            onRetryFormulaRun={(runId) => void handleRetryFormulaRun(runId)}
             onStartOfficialCompile={() => void handleStartOfficialCompile()}
             onStartPostDraftReview={() => void handleStartPostDraftReview()}
+            onCancelPostDraftReviewRun={(runId) => void handleCancelPostDraftReviewRun(runId)}
+            onRetryPostDraftReviewRun={(runId) => void handleRetryPostDraftReviewRun(runId)}
             onToggleDeliberationProvider={handleToggleDeliberationProvider}
             onToggleFormulaProvider={handleToggleFormulaProvider}
             onGenerateDraft={() => void handleGenerate()}
@@ -1769,7 +1879,69 @@ function latestActiveRun<T extends RuntimeAwareRun>(runs: T[]): T | null {
   return runs.find(isActiveRun) ?? null;
 }
 
-function RuntimeRunConsole({ run, title }: { run: RuntimeAwareRun | null; title: string }) {
+function isRetryableRun(run: RuntimeAwareRun): boolean {
+  const active = run.status === "queued" || run.status === "running";
+  return (
+    !active
+    && (run.status === "failed" || run.status === "interrupted" || Boolean(run.failure_details?.some((failure) => failure.retryable)))
+  );
+}
+
+function RuntimeRunActions({
+  run,
+  disabled = false,
+  onCancel,
+  onRetry,
+}: {
+  run: RuntimeAwareRun;
+  disabled?: boolean;
+  onCancel?: (runId: string) => void;
+  onRetry?: (runId: string) => void;
+}) {
+  const canCancel = Boolean(onCancel && isActiveRun(run) && !run.cancel_requested);
+  const canRetry = Boolean(onRetry && isRetryableRun(run));
+  if (!canCancel && !canRetry) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {canCancel && (
+        <button
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-950/40 hover:bg-red-900/50 text-red-100 border border-red-500/30 disabled:opacity-50 px-3 py-2 text-sm transition-colors"
+          disabled={disabled}
+          onClick={() => onCancel?.(run.id)}
+          title="请求取消当前运行"
+          type="button"
+        >
+          <AlertTriangle size={15} />
+          <span>取消运行</span>
+        </button>
+      )}
+      {canRetry && (
+        <button
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0f172a] hover:bg-[#1e293b] text-[#e2e8f0] border border-[#334155] disabled:opacity-50 px-3 py-2 text-sm transition-colors"
+          disabled={disabled}
+          onClick={() => onRetry?.(run.id)}
+          title="按相同输入重试该运行"
+          type="button"
+        >
+          <RefreshCw size={15} />
+          <span>重试</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RuntimeRunConsole({
+  run,
+  title,
+  actionDisabled,
+  onCancel,
+}: {
+  run: RuntimeAwareRun | null;
+  title: string;
+  actionDisabled?: boolean;
+  onCancel?: (runId: string) => void;
+}) {
   if (!run || !isActiveRun(run)) return null;
   const state = run.runtime_state ?? null;
   const lines = [
@@ -1784,7 +1956,12 @@ function RuntimeRunConsole({ run, title }: { run: RuntimeAwareRun | null; title:
     state?.timeout_ms ? `stage timeout ${formatRuntimeMs(state.timeout_ms)}` : "",
     run.events?.at(-1) ? `event ${run.events.at(-1)}` : "",
   ].filter(Boolean);
-  return <OperationConsole label={title} lines={lines} elapsedSeconds={Math.floor((state?.elapsed_ms ?? 0) / 1000)} />;
+  return (
+    <div className="grid gap-2">
+      <OperationConsole label={title} lines={lines} elapsedSeconds={Math.floor((state?.elapsed_ms ?? 0) / 1000)} />
+      <RuntimeRunActions run={run} disabled={actionDisabled} onCancel={onCancel} />
+    </div>
+  );
 }
 
 function RuntimeFailurePanel({ run }: { run: RuntimeAwareRun | null }) {
@@ -2350,6 +2527,8 @@ function DeliberationView({
   onStart,
   onToggleProvider,
   onRefresh,
+  onCancelRun,
+  onRetryRun,
 }: {
   project: ProjectRecord | null;
   doctor: AgentDoctorReport | null;
@@ -2360,6 +2539,8 @@ function DeliberationView({
   onStart: (trace?: boolean) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
   onRefresh: () => void;
+  onCancelRun: (runId: string) => void;
+  onRetryRun: (runId: string) => void;
 }) {
   const latest = runs[0] ?? null;
   const completed = latestCompletedDeliberation(runs);
@@ -2392,7 +2573,7 @@ function DeliberationView({
           </button>
         </div>
       </section>
-      <RuntimeRunConsole run={activeRun} title="多智能体会审运行中" />
+      <RuntimeRunConsole run={activeRun} title="多智能体会审运行中" actionDisabled={Boolean(busy)} onCancel={onCancelRun} />
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
@@ -2429,6 +2610,7 @@ function DeliberationView({
                   <span>{run.logs.length} 日志</span>
                 </div>
                 <RuntimeFailurePanel run={run} />
+                <RuntimeRunActions run={run} disabled={Boolean(busy)} onCancel={onCancelRun} onRetry={onRetryRun} />
                 {run.failures.length > 0 && (
                   <div className="flex flex-col gap-2">
                     {run.failures.map((failure) => (
@@ -2482,6 +2664,8 @@ function DisclosureView({
   onUpload,
   onStart,
   onRefresh,
+  onCancelRun,
+  onRetryRun,
 }: {
   project: ProjectRecord | null;
   materials: ProjectMaterial[];
@@ -2490,6 +2674,8 @@ function DisclosureView({
   onUpload: (event: FormEvent<HTMLFormElement>) => void;
   onStart: (trace?: boolean) => void;
   onRefresh: () => void;
+  onCancelRun: (runId: string) => void;
+  onRetryRun: (runId: string) => void;
 }) {
   const latest = runs[0] ?? null;
   const completed = latestCompletedDisclosure(runs);
@@ -2516,7 +2702,7 @@ function DisclosureView({
           </button>
         </div>
       </section>
-      <RuntimeRunConsole run={activeRun} title="交底书生成运行中" />
+      <RuntimeRunConsole run={activeRun} title="交底书生成运行中" actionDisabled={Boolean(busy)} onCancel={onCancelRun} />
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="grid gap-4 border border-[#334155] rounded-lg bg-[#162032] p-6 shadow-xl backdrop-blur-xl">
@@ -2562,6 +2748,7 @@ function DisclosureView({
                 <p>{run.package?.title ?? run.events.at(-1) ?? "等待生成"}</p>
                 <p>{run.events.at(-1) ?? "暂无事件"}</p>
                 <RuntimeFailurePanel run={run} />
+                <RuntimeRunActions run={run} disabled={Boolean(busy)} onCancel={onCancelRun} onRetry={onRetryRun} />
               </article>
             ))}
             {runs.length === 0 && <p className="text-sm text-[#e2e8f0]/50 italic py-4">暂无交底书生成记录。</p>}
@@ -2590,9 +2777,9 @@ function StartChoiceScreen({ onSelect }: { onSelect: (choice: StartChoiceId) => 
     external: Upload,
   };
   return (
-    <section className="start-choice-screen" aria-label="v1.0.0 默认入口">
+    <section className="start-choice-screen" aria-label="v1.1.0 默认入口">
       <div className="start-choice-copy">
-        <span className="status-badge">v1.0.0</span>
+        <span className="status-badge">v1.1.0</span>
         <h3>请选择本次工作的起点</h3>
         <p>普通用户只需要先选一种路径；专家工具已移到二级导航，仍可随时打开。</p>
       </div>

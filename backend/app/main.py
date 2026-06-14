@@ -119,7 +119,7 @@ from backend.app.storage import SQLiteStore
 
 
 STRICT_DELIBERATION_PROVIDERS = ("codex", "gemini", "claude")
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 LOCAL_RENDERER_ORIGINS = frozenset(
     {
         "null",  # Electron/file:// renderer fetches report Origin: null.
