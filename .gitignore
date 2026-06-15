@@ -18,3 +18,5 @@ frontend/*.tsbuildinfo
 desktop/node_modules/
 desktop/dist-electron/
 desktop/*.tsbuildinfo
+src-tauri/gen/schemas/
+src-tauri/target/

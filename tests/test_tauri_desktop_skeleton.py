@@ -1,0 +1,126 @@
+from __future__ import annotations
+
+import json
+import tomllib
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+TAURI_DIR = ROOT / "src-tauri"
+
+
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def test_tauri_v2_scaffold_keeps_existing_frontend_and_electron() -> None:
+    cargo = TAURI_DIR / "Cargo.toml"
+    config = TAURI_DIR / "tauri.conf.json"
+    main_rs = TAURI_DIR / "src" / "main.rs"
+
+    assert cargo.exists()
+    assert config.exists()
+    assert main_rs.exists()
+    assert (ROOT / "frontend" / "package.json").exists()
+    assert (ROOT / "desktop" / "electron" / "main.ts").exists()
+
+    cargo_toml = tomllib.loads(read(cargo))
+    dependencies = cargo_toml["dependencies"]
+    tauri_dependency = dependencies["tauri"]
+    assert str(tauri_dependency.get("version", tauri_dependency)).startswith("2")
+    assert "tauri-plugin-dialog" in dependencies
+    assert "tauri-plugin-opener" in dependencies
+
+    tauri_config = json.loads(read(config))
+    build = tauri_config["build"]
+    assert build["frontendDist"] == "../frontend/dist"
+    assert build["devUrl"] == "http://127.0.0.1:5173"
+    assert "npm --prefix ../frontend run build" in build["beforeBuildCommand"]
+
+
+def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
+    main_rs = read(TAURI_DIR / "src" / "main.rs")
+
+    assert "backend.app.main:app" in main_rs
+    assert "python3" in main_rs
+    assert "--host" in main_rs
+    assert "127.0.0.1" in main_rs
+    assert "--port" in main_rs
+    assert "DATA_DIR" in main_rs
+    assert "PYTHONPATH" in main_rs
+    assert "PYTHONUNBUFFERED" in main_rs
+    assert "/api/health" in main_rs
+    assert "get_backend_base_url" in main_rs
+    assert "kill" in main_rs or "Child" in main_rs
+
+
+def test_tauri_bridge_dialogs_and_config_are_exposed_without_raw_key_leaks() -> None:
+    main_rs = read(TAURI_DIR / "src" / "main.rs")
+    bridge_ts = ROOT / "frontend" / "src" / "tauriDesktopBridge.ts"
+    main_tsx = read(ROOT / "frontend" / "src" / "main.tsx")
+
+    for command in [
+        "get_backend_base_url",
+        "desktop_config_get",
+        "desktop_config_update",
+        "desktop_config_clear_key",
+        "desktop_config_health",
+        "open_draft",
+        "save_official",
+        "open_folder",
+    ]:
+        assert command in main_rs
+
+    assert "api_key_present" in main_rs
+    assert "api_key_fingerprint" in main_rs
+    assert "sk-" not in main_rs
+    assert "DialogExt" in main_rs
+    assert "blocking_pick_file" in main_rs
+    assert "blocking_save_file" in main_rs
+    assert "set_file_name" in main_rs
+    assert "add_filter" in main_rs
+
+    assert bridge_ts.exists()
+    bridge = read(bridge_ts)
+    assert "installTauriDesktopBridge" in bridge
+    assert "desktopWindow.desktop" in bridge
+    assert "open_draft" in bridge
+    assert "save_official" in bridge
+    assert "desktop_config_get" in bridge
+    assert "desktop_config_update" in bridge
+    assert "desktop_config_clear_key" in bridge
+    assert "desktop_config_health" in bridge
+    assert "installTauriDesktopBridge" in main_tsx
+
+
+def test_frontend_api_adapter_preserves_web_and_supports_tauri_backend_base_url() -> None:
+    api_ts = read(ROOT / "frontend" / "src" / "api.ts")
+
+    assert "resolveApiUrl" in api_ts
+    assert "getTauriBackendBaseUrl" in api_ts
+    assert "__TAURI__" in api_ts
+    assert "url.startsWith(\"/api/\")" in api_ts
+    assert "fetch(await resolveApiUrl(url), init)" in api_ts
+
+
+def test_tauri_smoke_is_wired_into_release_gate_without_removing_electron_smoke() -> None:
+    smoke = read(ROOT / "scripts" / "v1_smoke.sh")
+
+    assert "run_tauri_smoke_if_present" in smoke
+    assert "cargo check" in smoke
+    assert "cargo test" in smoke
+    assert "npm --prefix desktop run build" in smoke
+    assert "run_electron_smoke_if_feasible" in smoke
+
+
+def test_tauri_packaging_follow_up_is_explicitly_manual() -> None:
+    doc = ROOT / "docs" / "release" / "v1.1.0-tauri-packaging.md"
+
+    assert doc.exists()
+    text = read(doc)
+    assert "manual" in text.lower()
+    assert "DMG" in text
+    assert "signing" in text
+    assert "notarization" in text
+    assert "auto-update" in text
+    assert "Do not publish" in text

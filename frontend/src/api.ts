@@ -1202,8 +1202,42 @@ export function disclosureExportUrl(
   return `/api/projects/${projectId}/disclosures/${runId}/image-prompt.md`;
 }
 
+type TauriInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+
+type TauriGlobal = {
+  __TAURI__?: {
+    core?: {
+      invoke?: TauriInvoke;
+    };
+  };
+};
+
+let tauriBackendBaseUrlPromise: Promise<string | null> | null = null;
+
+function getTauriInvoke(): TauriInvoke | null {
+  const maybeWindow = globalThis as typeof globalThis & TauriGlobal;
+  return maybeWindow.__TAURI__?.core?.invoke ?? null;
+}
+
+async function getTauriBackendBaseUrl(): Promise<string | null> {
+  const invoke = getTauriInvoke();
+  if (!invoke) return null;
+  if (!tauriBackendBaseUrlPromise) {
+    tauriBackendBaseUrlPromise = invoke<string>("get_backend_base_url")
+      .then((baseUrl: string) => baseUrl.replace(/\/+$/, ""))
+      .catch(() => null);
+  }
+  return tauriBackendBaseUrlPromise;
+}
+
+async function resolveApiUrl(url: string): Promise<string> {
+  if (!url.startsWith("/api/")) return url;
+  const backendBaseUrl = await getTauriBackendBaseUrl();
+  return backendBaseUrl ? `${backendBaseUrl}${url}` : url;
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
+  const response = await fetch(await resolveApiUrl(url), init);
   return parseResponse<T>(response);
 }
 

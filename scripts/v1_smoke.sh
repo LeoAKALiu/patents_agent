@@ -106,6 +106,21 @@ NODE
   fi
 }
 
+run_tauri_smoke_if_present() {
+  if [[ ! -f src-tauri/Cargo.toml ]]; then
+    log "Skipping Tauri checks: src-tauri/Cargo.toml not present"
+    return
+  fi
+
+  if [[ "${PATENTAGENT_SKIP_TAURI_SMOKE:-0}" == "1" ]]; then
+    log "Skipping Tauri checks because PATENTAGENT_SKIP_TAURI_SMOKE=1"
+    return
+  fi
+
+  run cargo check --manifest-path src-tauri/Cargo.toml
+  run cargo test --manifest-path src-tauri/Cargo.toml
+}
+
 cd "$ROOT_DIR"
 
 ensure_python_deps
@@ -126,5 +141,7 @@ if [[ -f desktop/package.json ]]; then
 else
   log "Skipping desktop checks: desktop/package.json not present"
 fi
+
+run_tauri_smoke_if_present
 
 log "v1 smoke completed successfully"
