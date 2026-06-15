@@ -11,7 +11,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use tauri::{Manager, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
@@ -35,10 +35,16 @@ struct BackendSupervisor {
 
 impl Drop for BackendSupervisor {
     fn drop(&mut self) {
+        self.shutdown();
+    }
+}
+
+impl BackendSupervisor {
+    fn shutdown(&mut self) {
         if self.child.try_wait().ok().flatten().is_none() {
             let _ = self.child.kill();
-            let _ = self.child.wait();
         }
+        let _ = self.child.wait();
     }
 }
 
@@ -112,7 +118,7 @@ struct DesktopConfigUpdatePayload {
 }
 
 fn main() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(BackendState::default())
@@ -142,8 +148,25 @@ fn main() {
             save_official,
             open_folder,
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run PatentAgent Tauri app");
+        .build(tauri::generate_context!())
+        .expect("failed to build PatentAgent Tauri app");
+    app.run(|app_handle, event| match event {
+        tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+            shutdown_backend(app_handle);
+        }
+        _ => {}
+    });
+}
+
+fn shutdown_backend(app_handle: &AppHandle) {
+    let state = app_handle.state::<BackendState>();
+    let supervisor = match state.supervisor.lock() {
+        Ok(mut guard) => guard.take(),
+        Err(_) => None,
+    };
+    if let Some(mut supervisor) = supervisor {
+        supervisor.shutdown();
+    }
 }
 
 #[tauri::command]
