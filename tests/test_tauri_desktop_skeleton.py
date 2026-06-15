@@ -63,6 +63,18 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     assert "kill" in main_rs or "Child" in main_rs
 
 
+def test_tauri_shutdown_explicitly_stops_python_sidecar() -> None:
+    main_rs = read(TAURI_DIR / "src" / "main.rs")
+
+    assert "fn shutdown_backend" in main_rs
+    assert ".take()" in main_rs
+    assert "tauri::RunEvent::ExitRequested" in main_rs
+    assert "tauri::RunEvent::Exit" in main_rs
+    assert "shutdown_backend(app_handle)" in main_rs
+    assert ".build(tauri::generate_context!())" in main_rs
+    assert ".run(|app_handle, event|" in main_rs
+
+
 def test_tauri_bridge_dialogs_and_config_are_exposed_without_raw_key_leaks() -> None:
     main_rs = read(TAURI_DIR / "src" / "main.rs")
     bridge_ts = ROOT / "frontend" / "src" / "tauriDesktopBridge.ts"
@@ -129,6 +141,14 @@ def test_tauri_cargo_checks_are_wired_into_ci() -> None:
     assert "cargo check --manifest-path src-tauri/Cargo.toml" in ci
     assert "cargo test --manifest-path src-tauri/Cargo.toml" in ci
     assert "libwebkit2gtk-4.1-dev" in ci
+
+
+def test_tauri_macos_bundle_gets_ad_hoc_resource_seal() -> None:
+    tauri_config = json.loads(read(TAURI_DIR / "tauri.conf.json"))
+
+    macos = tauri_config["bundle"]["macOS"]
+    assert macos["signingIdentity"] == "-"
+    assert macos["hardenedRuntime"] is False
 
 
 def test_tauri_icon_png_is_decodable_for_bundle_generation() -> None:
