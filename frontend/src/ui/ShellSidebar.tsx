@@ -15,6 +15,7 @@ export interface ShellSidebarProps {
   activeSectionId: string;
   onSelectSection: (id: string) => void;
   keySections?: ShellNavSection[];
+  onSelectKeySection?: (id: string) => void;
   /** Slot for the footer area (health, project info, etc.) */
   footer?: ReactNode;
 }
@@ -27,6 +28,7 @@ export function ShellSidebar({
   activeSectionId,
   onSelectSection,
   keySections,
+  onSelectKeySection,
   footer,
 }: ShellSidebarProps) {
   return (
@@ -62,7 +64,7 @@ export function ShellSidebar({
             <button
               className={`nav-link${activeSectionId === section.id ? " is-active" : ""}`}
               key={section.id}
-              onClick={() => onSelectSection(section.id)}
+              onClick={() => onSelectKeySection?.(section.id)}
               type="button"
               title={section.description}
             >

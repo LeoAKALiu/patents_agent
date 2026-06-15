@@ -1520,6 +1520,15 @@ function App() {
     }
   }
 
+  function handleKeySectionSelect(id: "idea" | "moat" | "deliberate") {
+    if (id === "idea") {
+      setActiveSection("generate");
+      return;
+    }
+    setActiveSection("expert");
+    setActiveExpertTool(id);
+  }
+
   return (
     <div className="app-shell">
       <ShellSidebar
@@ -1534,12 +1543,13 @@ function App() {
         keySections={
           selectedProject
             ? [
-                { id: "01", label: "01 想法与材料", icon: <ClipboardList size={14} aria-hidden="true" /> },
-                { id: "02", label: "02 发明点确认", icon: <Search size={14} aria-hidden="true" /> },
-                { id: "03", label: "03 多智能体会审", icon: <UsersRound size={14} aria-hidden="true" /> },
+                { id: "idea", label: "01 想法与材料", icon: <ClipboardList size={14} aria-hidden="true" /> },
+                { id: "moat", label: "02 发明点确认", icon: <Search size={14} aria-hidden="true" /> },
+                { id: "deliberate", label: "03 多智能体会审", icon: <UsersRound size={14} aria-hidden="true" /> },
               ]
             : undefined
         }
+        onSelectKeySection={(id) => handleKeySectionSelect(id as "idea" | "moat" | "deliberate")}
         footer={
           <>
             <div className="health-card">
