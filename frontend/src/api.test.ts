@@ -5,10 +5,13 @@ import {
   cancelPostDraftReview,
   cancelProjectDeliberation,
   cancelProjectDisclosure,
+  importPatent,
   retryFormulaRun,
   retryPostDraftReview,
   retryProjectDeliberation,
   retryProjectDisclosure,
+  uploadCorpusJobFile,
+  uploadProjectMaterial,
 } from "./api";
 
 describe("runtime control API", () => {
@@ -67,5 +70,41 @@ describe("runtime control API", () => {
     calls.forEach(({ url }, index) => {
       expect(fetchMock).toHaveBeenNthCalledWith(index + 1, url, { method: "POST" });
     });
+  });
+
+  it("routes direct upload fetches through the Tauri backend base URL", async () => {
+    const invokeMock = vi.fn(async (command: string) => {
+      expect(command).toBe("get_backend_base_url");
+      return "http://127.0.0.1:18234";
+    });
+    vi.stubGlobal("__TAURI__", { core: { invoke: invokeMock } });
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify({ job: {}, document: {}, chunks_count: 1, file_count: 1 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const file = new File(["patent"], "patent.md", { type: "text/markdown" });
+
+    await uploadCorpusJobFile("job-1", file);
+    await importPatent(file);
+    await uploadProjectMaterial("project-1", file);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://127.0.0.1:18234/api/corpus/jobs/job-1/files",
+      expect.objectContaining({ method: "POST", body: expect.any(FormData) }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://127.0.0.1:18234/api/corpus/import",
+      expect.objectContaining({ method: "POST", body: expect.any(FormData) }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "http://127.0.0.1:18234/api/projects/project-1/materials",
+      expect.objectContaining({ method: "POST", body: expect.any(FormData) }),
+    );
   });
 });

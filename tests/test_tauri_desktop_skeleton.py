@@ -113,6 +113,15 @@ def test_tauri_smoke_is_wired_into_release_gate_without_removing_electron_smoke(
     assert "run_electron_smoke_if_feasible" in smoke
 
 
+def test_tauri_cargo_checks_are_wired_into_ci() -> None:
+    ci = read(ROOT / ".github" / "workflows" / "ci.yml")
+
+    assert "Tauri cargo check and tests" in ci
+    assert "cargo check --manifest-path src-tauri/Cargo.toml" in ci
+    assert "cargo test --manifest-path src-tauri/Cargo.toml" in ci
+    assert "libwebkit2gtk-4.1-dev" in ci
+
+
 def test_tauri_packaging_follow_up_is_explicitly_manual() -> None:
     doc = ROOT / "docs" / "release" / "v1.1.0-tauri-packaging.md"
 
