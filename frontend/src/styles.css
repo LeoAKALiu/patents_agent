@@ -31,7 +31,7 @@
 
 /* ── CSS Variables: Light Theme (default) ─────────────────────── */
 :root {
-  --bg:      oklch(96% 0.007 100);
+  --bg:      oklch(98% 0.004 240);
   --surface: oklch(100% 0 0);
   --fg:      oklch(20% 0.02 240);
   --muted:   oklch(48% 0.022 240);
@@ -40,8 +40,8 @@
 
   --surface-base: var(--bg);
   --surface-raised: var(--surface);
-  --surface-subtle: oklch(93% 0.008 100);
-  --surface-inset: oklch(90% 0.010 100);
+  --surface-subtle: oklch(96% 0.006 240);
+  --surface-inset: oklch(94% 0.007 240);
   --text-primary: var(--fg);
   --text-muted: var(--muted);
   --text-soft: oklch(60% 0.020 240);
@@ -90,8 +90,8 @@
     --text-primary: oklch(96% 0.004 250);
     --text-muted: oklch(72% 0.016 250);
     --text-soft: oklch(54% 0.022 250);
-    --border-subtle: oklch(32% 0.024 255);
-    --border-strong: oklch(45% 0.024 255);
+    --border-subtle: oklch(35% 0.024 255);
+    --border-strong: oklch(48% 0.024 255);
     --action-primary: oklch(72% 0.15 168);
     --action-primary-contrast: oklch(10% 0.02 168);
     --info: oklch(74% 0.15 238);

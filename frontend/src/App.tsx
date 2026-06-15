@@ -1949,7 +1949,7 @@ function CorpusBuildView({
 function QualityReportView({ report }: { report: CorpusImportJob["quality_report"] }) {
   if (!report) return null;
   return (
-    <div className="flex flex-col gap-4 mt-6 p-6 rounded-lg bg-[var(--surface-inset)]/50 border border-[var(--danger)]-100">
+    <div className="flex flex-col gap-4 mt-6 p-6 rounded-lg bg-[var(--surface-inset)]/50 border border-app-danger/35">
       <h4>质量报告</h4>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatusPill label="可抽取率" value={percent(report.fulltext_extractable_rate)} />
@@ -2355,7 +2355,7 @@ function DeliberationView({
                 {run.failures.length > 0 && (
                   <div className="flex flex-col gap-2">
                     {run.failures.map((failure) => (
-                      <article className="flex items-start gap-3 p-4 bg-[var(--surface-inset)] border border-[var(--danger)]-100 rounded-lg" key={`${run.id}-${failure.phase}-${failure.provider_id}`}>
+                      <article className="flex items-start gap-3 p-4 bg-[var(--surface-inset)] border border-app-danger/35 rounded-lg" key={`${run.id}-${failure.phase}-${failure.provider_id}`}>
                         <span>{failure.phase}</span>
                         <div>
                           <strong>{failure.provider_id} / {failure.reason}</strong>
@@ -2993,7 +2993,7 @@ function FilingReadinessView({
             {reports.map((item) => (
               <article className="flex flex-col gap-2 p-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] rounded-lg shadow-sm" key={item.id}>
                 <div className="flex items-center gap-3 text-xs text-[var(--text-primary)]/60 font-medium mb-1">
-                  <span className={`px-2.5 py-0.5 rounded-md border ${ item.status === "high_risk" ? "bg-[var(--danger)]-100 border-[var(--danger)]-200 text-[var(--danger)]-700" : item.status === "warning" ? "bg-[var(--warn)]-100 border-[var(--warn)]-200 text-[var(--warn)]-700" : "bg-[var(--success)]-100 border-[var(--success)]-200 text-[var(--success)]-700" }`}>
+                  <span className={`px-2.5 py-0.5 rounded-md border ${ item.status === "high_risk" ? "bg-app-danger/10 border-app-danger/45 text-app-danger" : item.status === "warning" ? "bg-app-warn/10 border-app-warn/45 text-app-warn" : "bg-app-success/10 border-app-success/45 text-app-success" }`}>
                     {readinessStatusLabel(item.status)}
                   </span>
                   <span>{item.issues.length} 项命中</span>
@@ -3010,13 +3010,13 @@ function FilingReadinessView({
           <h3>命中项</h3>
           {report && (
             <div className="flex items-center gap-3 text-xs text-[var(--text-primary)]/60 font-medium mb-1">
-              <span className={`px-2.5 py-0.5 rounded-md border ${ reportStatusClass === "danger" ? "bg-[var(--danger)]-100 border-[var(--danger)]-200 text-[var(--danger)]-700" : reportStatusClass === "warn" ? "bg-[var(--warn)]-100 border-[var(--warn)]-200 text-[var(--warn)]-700" : "bg-[var(--surface-raised)] border-[var(--border-subtle)] text-[var(--text-primary)]" }`}>{readinessStatusLabel(report.status)}</span>
+              <span className={`px-2.5 py-0.5 rounded-md border ${ reportStatusClass === "danger" ? "bg-app-danger/10 border-app-danger/45 text-app-danger" : reportStatusClass === "warn" ? "bg-app-warn/10 border-app-warn/45 text-app-warn" : "bg-[var(--surface-raised)] border-[var(--border-subtle)] text-[var(--text-primary)]" }`}>{readinessStatusLabel(report.status)}</span>
               <span>{report.issues.length} 项</span>
             </div>
           )}
           <div className="flex flex-col gap-3">
             {report?.issues.map((issue, index) => (
-              <article className={`flex items-start gap-3 p-4 border rounded-lg ${ issue.severity === "high" ? "bg-[var(--surface-inset)] border-[var(--danger)]-100" : issue.severity === "medium" ? "bg-[var(--surface-inset)] border-[var(--warn)]-100" : "bg-[var(--info)]-50 border-[var(--info)]-100" }`} key={`${issue.category}-${issue.target}-${index}`}>
+              <article className={`flex items-start gap-3 p-4 border rounded-lg ${ issue.severity === "high" ? "bg-[var(--surface-inset)] border-app-danger/35" : issue.severity === "medium" ? "bg-[var(--surface-inset)] border-app-warn/35" : "bg-app-info/10 border-app-info/35" }`} key={`${issue.category}-${issue.target}-${index}`}>
                 <span>{severityLabel(issue.severity)}</span>
                 <div>
                   <strong>{issue.category} / {issue.target}</strong>
@@ -3165,7 +3165,7 @@ function ReviewView({
       <section className="grid gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
         <div className="flex flex-col gap-3">
           {findings.map((finding, index) => (
-            <article className={`flex items-start gap-3 p-4 border rounded-lg ${ finding.severity === "high" ? "bg-[var(--surface-inset)] border-[var(--danger)]-100" : finding.severity === "medium" ? "bg-[var(--surface-inset)] border-[var(--warn)]-100" : "bg-[var(--info)]-50 border-[var(--info)]-100" }`} key={`${finding.category}-${index}`}>
+            <article className={`flex items-start gap-3 p-4 border rounded-lg ${ finding.severity === "high" ? "bg-[var(--surface-inset)] border-app-danger/35" : finding.severity === "medium" ? "bg-[var(--surface-inset)] border-app-warn/35" : "bg-app-info/10 border-app-info/35" }`} key={`${finding.category}-${index}`}>
               <span>{severityLabel(finding.severity)}</span>
               <div>
                 <strong>{finding.category}</strong>
@@ -3286,7 +3286,7 @@ function DraftCompletionView({
           <h3>高优先级问题</h3>
           <div className="flex flex-col gap-3">
             {displayedIssues.map((issue) => (
-              <article className={`flex items-start gap-3 p-4 border rounded-lg ${ issue.severity === "high" ? "bg-[var(--surface-inset)] border-[var(--danger)]-100" : issue.severity === "medium" ? "bg-[var(--surface-inset)] border-[var(--warn)]-100" : "bg-[var(--info)]-50 border-[var(--info)]-100" }`} key={issue.id}>
+              <article className={`flex items-start gap-3 p-4 border rounded-lg ${ issue.severity === "high" ? "bg-[var(--surface-inset)] border-app-danger/35" : issue.severity === "medium" ? "bg-[var(--surface-inset)] border-app-warn/35" : "bg-app-info/10 border-app-info/35" }`} key={issue.id}>
                 <span>{severityLabel(issue.severity)}</span>
                 <div>
                   <strong>
@@ -3381,7 +3381,7 @@ function DraftCompletionView({
           {run?.patches.map((patch) => (
             <article className="flex flex-col gap-2 p-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] rounded-lg shadow-sm" key={patch.id}>
               <div className="flex items-center gap-3 text-xs text-[var(--text-primary)]/60 font-medium mb-1">
-                <span className={`px-2.5 py-0.5 rounded-md border ${ patchStatusClass(patch.status) === "danger" ? "bg-[var(--danger)]-100 border-[var(--danger)]-200 text-[var(--danger)]-700" : patchStatusClass(patch.status) === "warn" ? "bg-[var(--warn)]-100 border-[var(--warn)]-200 text-[var(--warn)]-700" : "bg-[var(--surface-raised)] border-[var(--border-subtle)] text-[var(--text-primary)]" }`}>{completionPatchStatusLabel(patch.status)}</span>
+                <span className={`px-2.5 py-0.5 rounded-md border ${ patchStatusClass(patch.status) === "danger" ? "bg-app-danger/10 border-app-danger/45 text-app-danger" : patchStatusClass(patch.status) === "warn" ? "bg-app-warn/10 border-app-warn/45 text-app-warn" : "bg-[var(--surface-raised)] border-[var(--border-subtle)] text-[var(--text-primary)]" }`}>{completionPatchStatusLabel(patch.status)}</span>
                 <span>{completionPatchKindLabel(patch.patch_kind)}</span>
                 <span>{draftSectionLabel(patch.target_section)}</span>
                 <span>{patch.can_enter_official_draft ? "可进入官方稿" : "仅内部侧车"}</span>
@@ -3486,7 +3486,7 @@ function ExportView({
       </p>
       {contaminationMatches.length > 0 && (
         <div
-          className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-[var(--warn)]-300/60 bg-[var(--warn)]-100/5 text-[var(--warn)]-100"
+          className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-app-warn/60 bg-app-warn/10 text-app-warn"
           role="alert"
           data-testid="official-contamination-warning"
         >
@@ -3494,10 +3494,10 @@ function ExportView({
             <AlertTriangle size={18} aria-hidden="true" />
             <span>检测到正式稿仍包含 {contaminationMatches.length} 处内部痕迹</span>
           </p>
-          <p className="text-sm text-[var(--warn)]-100/80">
+          <p className="text-sm text-app-warn/80">
             请重新运行正式稿编译并通过成稿会审后再导出；下方涉及的章节与模式仅作提示，不会自动从已生成的官方稿中删除。
           </p>
-          <ul className="text-xs font-mono list-disc pl-6 text-[var(--warn)]-100/80">
+          <ul className="text-xs font-mono list-disc pl-6 text-app-warn/80">
             {contaminationMatches.slice(0, 8).map((entry, index) => (
               <li key={`${entry.section}-${entry.pattern}-${index}`}>
                 {entry.section}: 命中 “{entry.pattern}”
@@ -3511,14 +3511,14 @@ function ExportView({
       )}
       {lastExport && lastExportMatchesHash && (
         <div
-          className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-[var(--success)]-400/40 bg-[var(--success)]-100/5 text-[var(--success)]-100"
+          className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-app-success/50 bg-app-success/10 text-app-success"
           data-testid="export-success-card"
         >
           <p className="flex items-center gap-2 font-medium">
             <CheckCircle2 size={18} aria-hidden="true" />
             <span>已导出{lastExport.format === "sidecar" ? "正式稿编译报告" : lastExport.format === "docx" ? "官方 DOCX" : "官方 Markdown"}</span>
           </p>
-          <p className="text-sm font-mono break-all text-[var(--success)]-100/90">
+          <p className="text-sm font-mono break-all text-app-success/90">
             {lastExport.filePath}（{formatBytes(lastExport.byteCount)}）
           </p>
           <div className="flex flex-wrap items-center gap-2">
@@ -3541,7 +3541,7 @@ function ExportView({
             </a>
           </div>
           {!desktopDialogsAvailable && (
-            <p className="text-xs text-[var(--success)]-100/70">
+            <p className="text-xs text-app-success/70">
               “在系统文件管理器中打开”仅在桌面端原生对话框可用时启用。
             </p>
           )}
