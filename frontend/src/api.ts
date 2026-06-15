@@ -803,7 +803,7 @@ export async function createCorpusJob(payload: {
 export async function uploadCorpusJobFile(jobId: string, file: File): Promise<{ job: CorpusImportJob; file_count: number }> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch(`/api/corpus/jobs/${jobId}/files`, { method: "POST", body: form });
+  const response = await fetch(await resolveApiUrl(`/api/corpus/jobs/${jobId}/files`), { method: "POST", body: form });
   return parseResponse(response);
 }
 
@@ -834,7 +834,7 @@ export async function getCorpusDocument(documentId: string): Promise<PatentDocum
 export async function importPatent(file: File): Promise<{ document: PatentDocument; chunks_count: number }> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch("/api/corpus/import", { method: "POST", body: form });
+  const response = await fetch(await resolveApiUrl("/api/corpus/import"), { method: "POST", body: form });
   return parseResponse(response);
 }
 
@@ -874,7 +874,7 @@ export async function deleteProject(projectId: string): Promise<{ ok: boolean }>
 export async function uploadProjectMaterial(projectId: string, file: File): Promise<ProjectMaterial> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch(`/api/projects/${projectId}/materials`, { method: "POST", body: form });
+  const response = await fetch(await resolveApiUrl(`/api/projects/${projectId}/materials`), { method: "POST", body: form });
   return parseResponse(response);
 }
 

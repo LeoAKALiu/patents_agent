@@ -74,6 +74,25 @@ def test_cors_allows_renderer_origin_without_credentials(client: TestClient) -> 
     assert "access-control-allow-credentials" not in response.headers
 
 
+@pytest.mark.parametrize(
+    "origin",
+    ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"],
+)
+def test_cors_allows_packaged_tauri_renderer_origins(
+    client: TestClient, origin: str
+) -> None:
+    response = client.options(
+        "/api/health",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert "access-control-allow-credentials" not in response.headers
+
+
 def test_cors_rejects_untrusted_browser_origin_preflight(client: TestClient) -> None:
     response = client.options(
         "/api/desktop-config",
@@ -105,6 +124,22 @@ def test_desktop_config_allows_electron_file_origin(client: TestClient) -> None:
     )
     assert response.status_code == 200
     assert response.json()["model"] == "deepseek-release-test"
+
+
+@pytest.mark.parametrize(
+    "origin",
+    ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"],
+)
+def test_desktop_config_allows_packaged_tauri_renderer_origins(
+    client: TestClient, origin: str
+) -> None:
+    response = client.patch(
+        "/api/desktop-config",
+        json={"model": "deepseek-tauri-release-test"},
+        headers={"Origin": origin},
+    )
+    assert response.status_code == 200
+    assert response.json()["model"] == "deepseek-tauri-release-test"
 
 
 def test_patch_persists_provider_base_url_and_model(client: TestClient) -> None:
