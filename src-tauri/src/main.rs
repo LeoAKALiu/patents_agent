@@ -7,16 +7,23 @@ use std::{
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread,
     time::{Duration, Instant},
 };
+use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
 const HEALTH_PATH: &str = "/api/health";
 const STARTUP_TIMEOUT_MS: u64 = 20_000;
+const DOM_SMOKE_TIMEOUT_MS: u64 = 15_000;
+const DOM_SMOKE_PROBE_ATTEMPTS: usize = 20;
+const DOM_SMOKE_PROBE_INTERVAL_MS: u64 = 500;
 const REDACTED_CONFIG_FIELDS: &[&str] = &["api_key_present", "api_key_fingerprint"];
 const SECRET_PREFIX: &str = concat!("s", "k", "-");
 const SECRET_REDACTION: &str = concat!("s", "k", "-...");
@@ -118,11 +125,14 @@ struct DesktopConfigUpdatePayload {
 }
 
 fn main() {
+    let dom_smoke_done = Arc::new(AtomicBool::new(false));
+    let dom_smoke_done_for_setup = Arc::clone(&dom_smoke_done);
+    let dom_smoke_done_for_page = Arc::clone(&dom_smoke_done);
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(BackendState::default())
-        .setup(|app| {
+        .setup(move |app| {
             let repo_root = repo_root();
             let data_dir = app.path().app_data_dir().unwrap_or_else(|_| {
                 std::env::temp_dir()
@@ -136,7 +146,18 @@ fn main() {
                 .supervisor
                 .lock()
                 .map_err(|_| "backend state lock poisoned")? = Some(supervisor);
+            if dom_smoke_enabled() {
+                start_dom_smoke_timeout(
+                    app.handle().clone(),
+                    Arc::clone(&dom_smoke_done_for_setup),
+                );
+            }
             Ok(())
+        })
+        .on_page_load(move |webview, payload| {
+            if dom_smoke_enabled() && payload.event() == PageLoadEvent::Finished {
+                run_renderer_dom_smoke(webview, Arc::clone(&dom_smoke_done_for_page));
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_backend_base_url,
@@ -156,6 +177,146 @@ fn main() {
         }
         _ => {}
     });
+}
+
+fn dom_smoke_enabled() -> bool {
+    std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE").is_some()
+}
+
+fn dom_smoke_report_path() -> Option<PathBuf> {
+    std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE_REPORT").map(PathBuf::from)
+}
+
+fn start_dom_smoke_timeout(app_handle: AppHandle, done: Arc<AtomicBool>) {
+    thread::spawn(move || {
+        thread::sleep(Duration::from_millis(DOM_SMOKE_TIMEOUT_MS));
+        if done.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let report = json!({
+            "ok": false,
+            "error": "renderer DOM smoke timed out",
+        });
+        write_dom_smoke_report(&report);
+        eprintln!("TAURI_DOM_SMOKE {}", report);
+        shutdown_backend(&app_handle);
+        app_handle.exit(4);
+    });
+}
+
+fn run_renderer_dom_smoke(webview: &tauri::Webview, done: Arc<AtomicBool>) {
+    let webview = webview.clone();
+    let app_handle = webview.app_handle().clone();
+    thread::spawn(move || {
+        for attempt in 0..DOM_SMOKE_PROBE_ATTEMPTS {
+            thread::sleep(Duration::from_millis(DOM_SMOKE_PROBE_INTERVAL_MS));
+            if done.load(Ordering::SeqCst) {
+                return;
+            }
+            let webview_for_probe = webview.clone();
+            let app_handle_for_probe = app_handle.clone();
+            let done_for_probe = Arc::clone(&done);
+            let is_final_attempt = attempt + 1 == DOM_SMOKE_PROBE_ATTEMPTS;
+            if let Err(err) = app_handle.run_on_main_thread(move || {
+                run_renderer_dom_smoke_probe(
+                    &webview_for_probe,
+                    app_handle_for_probe,
+                    done_for_probe,
+                    is_final_attempt,
+                );
+            }) {
+                if done.swap(true, Ordering::SeqCst) {
+                    return;
+                }
+                let report = json!({
+                    "ok": false,
+                    "error": format!("renderer DOM smoke scheduling failed: {err}"),
+                });
+                write_dom_smoke_report(&report);
+                eprintln!("TAURI_DOM_SMOKE {}", report);
+                shutdown_backend(&app_handle);
+                app_handle.exit(3);
+                return;
+            }
+        }
+    });
+}
+
+fn run_renderer_dom_smoke_probe(
+    webview: &tauri::Webview,
+    app_handle: AppHandle,
+    done: Arc<AtomicBool>,
+    is_final_attempt: bool,
+) {
+    let script = r#"
+(() => {
+  const root = document.getElementById("root");
+  const text = (document.body && document.body.innerText || "").replace(/\s+/g, " ").trim();
+  const result = {
+    url: window.location.href,
+    readyState: document.readyState,
+    title: document.title,
+    rootChildren: root ? root.children.length : 0,
+    hasAppShell: Boolean(document.querySelector(".app-shell")),
+    hasSidebar: Boolean(document.querySelector(".sidebar")),
+    hasTopbar: Boolean(document.querySelector(".topbar")),
+    hasErrorPage: text.includes("应用启动失败") || text.includes("React 根节点没有产生"),
+    textSample: text.slice(0, 240)
+  };
+  result.ok = result.rootChildren > 0 &&
+    result.hasAppShell &&
+    result.hasSidebar &&
+    result.hasTopbar &&
+    !result.hasErrorPage;
+    return result;
+})()
+"#;
+    let app_handle_for_callback = app_handle.clone();
+    let done_for_callback = Arc::clone(&done);
+    let eval_result = webview.eval_with_callback(script, move |result| {
+        let parsed = serde_json::from_str::<Value>(&result).unwrap_or_else(|err| {
+            json!({
+                "ok": false,
+                "error": format!("renderer DOM smoke returned invalid JSON: {err}"),
+                "raw": result,
+            })
+        });
+        let ok = parsed.get("ok").and_then(Value::as_bool).unwrap_or(false);
+        if !ok && !is_final_attempt {
+            return;
+        }
+        if done_for_callback.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        write_dom_smoke_report(&parsed);
+        println!("TAURI_DOM_SMOKE {}", parsed);
+        shutdown_backend(&app_handle_for_callback);
+        app_handle_for_callback.exit(if ok { 0 } else { 2 });
+    });
+    if let Err(err) = eval_result {
+        if done.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let report = json!({
+            "ok": false,
+            "error": format!("renderer DOM smoke eval failed: {err}"),
+        });
+        write_dom_smoke_report(&report);
+        eprintln!("TAURI_DOM_SMOKE {}", report);
+        shutdown_backend(&app_handle);
+        app_handle.exit(3);
+    }
+}
+
+fn write_dom_smoke_report(report: &Value) {
+    if let Some(path) = dom_smoke_report_path() {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        if let Ok(text) = serde_json::to_string_pretty(report) {
+            let _ = fs::write(path, text);
+        }
+    }
 }
 
 fn shutdown_backend(app_handle: &AppHandle) {

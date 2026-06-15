@@ -63,6 +63,26 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     assert "kill" in main_rs or "Child" in main_rs
 
 
+def test_tauri_dom_smoke_is_env_gated_and_checks_real_renderer_root() -> None:
+    main_rs = read(TAURI_DIR / "src" / "main.rs")
+
+    assert "PATENTAGENT_TAURI_DOM_SMOKE" in main_rs
+    assert "PATENTAGENT_TAURI_DOM_SMOKE_REPORT" in main_rs
+    assert "eval_with_callback" in main_rs
+    assert "PageLoadEvent::Finished" in main_rs
+    assert "DOM_SMOKE_PROBE_ATTEMPTS" in main_rs
+    assert "DOM_SMOKE_PROBE_INTERVAL_MS" in main_rs
+    assert "run_on_main_thread" in main_rs
+    assert "is_final_attempt" in main_rs
+    assert 'document.getElementById("root")' in main_rs
+    assert 'document.querySelector(".app-shell")' in main_rs
+    assert 'document.querySelector(".sidebar")' in main_rs
+    assert 'document.querySelector(".topbar")' in main_rs
+    assert "rootChildren > 0" in main_rs
+    assert "shutdown_backend(&app_handle_for_callback)" in main_rs
+    assert "app_handle_for_callback.exit(if ok { 0 } else { 2 })" in main_rs
+
+
 def test_tauri_shutdown_explicitly_stops_python_sidecar() -> None:
     main_rs = read(TAURI_DIR / "src" / "main.rs")
 
