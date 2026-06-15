@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import tomllib
+import struct
+import zlib
 from pathlib import Path
 
 
@@ -36,6 +38,13 @@ def test_tauri_v2_scaffold_keeps_existing_frontend_and_electron() -> None:
     assert build["frontendDist"] == "../frontend/dist"
     assert build["devUrl"] == "http://127.0.0.1:5173"
     assert "npm --prefix ../frontend run build" in build["beforeBuildCommand"]
+    assert tauri_config["bundle"]["icon"] == [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico",
+    ]
 
 
 def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
@@ -120,6 +129,42 @@ def test_tauri_cargo_checks_are_wired_into_ci() -> None:
     assert "cargo check --manifest-path src-tauri/Cargo.toml" in ci
     assert "cargo test --manifest-path src-tauri/Cargo.toml" in ci
     assert "libwebkit2gtk-4.1-dev" in ci
+
+
+def test_tauri_icon_png_is_decodable_for_bundle_generation() -> None:
+    icon = TAURI_DIR / "icons" / "icon.png"
+    data = icon.read_bytes()
+
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    offset = 8
+    width = height = color_type = bit_depth = None
+    idat = bytearray()
+    while offset < len(data):
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        kind = data[offset + 4 : offset + 8]
+        payload = data[offset + 8 : offset + 8 + length]
+        crc = struct.unpack(">I", data[offset + 8 + length : offset + 12 + length])[0]
+        assert zlib.crc32(kind + payload) & 0xFFFFFFFF == crc
+        if kind == b"IHDR":
+            width, height, bit_depth, color_type = struct.unpack(">IIBB", payload[:10])
+        if kind == b"IDAT":
+            idat.extend(payload)
+        if kind == b"IEND":
+            break
+        offset += 12 + length
+
+    assert width == height
+    assert width >= 512
+    assert (bit_depth, color_type) == (8, 6)
+    assert zlib.decompress(bytes(idat))
+    for generated_icon in [
+        "32x32.png",
+        "128x128.png",
+        "128x128@2x.png",
+        "icon.icns",
+        "icon.ico",
+    ]:
+        assert (TAURI_DIR / "icons" / generated_icon).is_file()
 
 
 def test_tauri_packaging_follow_up_is_explicitly_manual() -> None:
