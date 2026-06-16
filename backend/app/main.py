@@ -48,6 +48,7 @@ from backend.app.desktop_config import (
     save_desktop_config,
 )
 from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
+from backend.app.knowledge_readiness import require_knowledge_ready, run_knowledge_readiness
 from backend.app.official_compile import (
     OfficialDraftCompiler,
     export_official_package_docx,
@@ -89,6 +90,7 @@ from backend.app.schemas import (
     FormulaRunCreate,
     GenerateRequest,
     InventionBrief,
+    KnowledgeReadinessRunCreate,
     OfficialCompileRunCreate,
     OfficialCompileRun,
     PatentChunk,
@@ -436,6 +438,33 @@ def create_app(
     def list_project_materials(project_id: str) -> dict:
         _require_project(store, project_id)
         return {"materials": [material.model_dump(mode="json") for material in store.list_project_materials(project_id)]}
+
+    @app.post("/api/projects/{project_id}/knowledge-readiness")
+    def create_knowledge_readiness_run(project_id: str, payload: KnowledgeReadinessRunCreate | None = None) -> dict:
+        project = _require_project(store, project_id)
+        if isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM not configured")
+        selected_providers = payload.providers if payload and payload.providers else list(STRICT_DELIBERATION_PROVIDERS)
+        run = run_knowledge_readiness(
+            project=project,
+            materials=store.list_project_materials(project_id),
+            disclosures=store.list_disclosure_runs(project_id),
+            corpus_stats=store.get_corpus_stats(),
+            llm=app.state.llm,
+            providers=selected_providers,
+        )
+        stored = store.create_knowledge_readiness_run(run)
+        return stored.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/knowledge-readiness")
+    def list_knowledge_readiness_runs(project_id: str) -> dict:
+        _require_project(store, project_id)
+        return {
+            "runs": [
+                run.model_dump(mode="json")
+                for run in store.list_knowledge_readiness_runs(project_id)
+            ]
+        }
 
     @app.post("/api/projects/{project_id}/external-drafts")
     def create_external_draft(project_id: str, payload: ExternalDraftSourceCreate) -> dict:
@@ -871,6 +900,10 @@ def create_app(
         project = _require_project(store, project_id)
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating drafts.")
+        try:
+            require_knowledge_ready(store.get_latest_knowledge_readiness_run(project_id))
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         deliberation = _resolve_deliberation(store, project_id, payload.deliberation_run_id if payload else None)
         if deliberation is None and not is_utility_model_project(project):
             raise HTTPException(status_code=409, detail="Multi-agent deliberation is required before generating a patent draft.")

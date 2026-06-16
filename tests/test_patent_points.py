@@ -20,6 +20,7 @@ from backend.app.disclosure.prior_art import StaticPriorArtProvider
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.storage import SQLiteStore
+from tests.helpers import seed_knowledge_ready
 
 
 def test_patent_point_defaults_support_unverified_user_schemes():
@@ -447,6 +448,7 @@ def test_draft_generation_prompt_marks_unverified_schemes_as_optional(tmp_path):
         },
     )
     _create_completed_deliberation(client, project_id)
+    seed_knowledge_ready(client, project_id)
 
     client.post(f"/api/projects/{project_id}/generate", json={})
 
@@ -503,6 +505,7 @@ def test_generate_prefers_completed_disclosure_over_selected_user_synthesis(tmp_
         )
     )
     _create_completed_deliberation(client, project_id)
+    seed_knowledge_ready(client, project_id)
 
     package = client.post(f"/api/projects/{project_id}/generate", json={}).json()
 
@@ -529,6 +532,7 @@ def test_generate_synthesizes_disclosure_from_selected_user_points_only(tmp_path
     _create_patent_point(client, project_id, title="未选中用户点", selected=False)
     selected = _create_patent_point(client, project_id, title="选中用户点", selected=True)
     _create_completed_deliberation(client, project_id)
+    seed_knowledge_ready(client, project_id)
 
     package = client.post(f"/api/projects/{project_id}/generate", json={}).json()
 

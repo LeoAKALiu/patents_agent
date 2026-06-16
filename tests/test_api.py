@@ -4,6 +4,7 @@ from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.patent_mode import UTILITY_MODEL_MODE_PREFIX
 from backend.app.schemas import DeliberationRun, DeliberationStageResult, PatentStrategyBrief
+from tests.helpers import seed_knowledge_ready
 
 
 def _test_app_without_env(tmp_path):
@@ -55,6 +56,7 @@ def test_api_corpus_project_generation_review_and_export(tmp_path):
     assert project_response.status_code == 200
     project_id = project_response.json()["id"]
     _create_completed_deliberation(client, project_id)
+    seed_knowledge_ready(client, project_id)
 
     generate_response = client.post(f"/api/projects/{project_id}/generate")
     assert generate_response.status_code == 200
@@ -158,6 +160,7 @@ def test_utility_model_lite_skips_deliberation_and_formula_gate(tmp_path):
     ).json()["id"]
 
     requirement = client.get(f"/api/projects/{project_id}/formula-requirement").json()
+    seed_knowledge_ready(client, project_id)
     generate_response = client.post(f"/api/projects/{project_id}/generate", json={})
 
     assert requirement["required"] is False
@@ -208,6 +211,7 @@ def test_invention_patent_type_requires_deliberation(tmp_path):
             "patent_type": "invention",
         },
     ).json()["id"]
+    seed_knowledge_ready(client, project_id)
 
     response = client.post(f"/api/projects/{project_id}/generate", json={})
     assert response.status_code == 409
@@ -246,6 +250,7 @@ def test_utility_model_explicit_patent_type_skips_gates(tmp_path):
     )
 
     # Generation must succeed without a deliberation run.
+    seed_knowledge_ready(client, project_id)
     response = client.post(f"/api/projects/{project_id}/generate", json={})
     assert response.status_code == 200
     package = response.json()

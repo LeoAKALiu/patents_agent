@@ -547,6 +547,36 @@ export interface DeliberationLogEntry {
   created_at: string;
 }
 
+export interface KnowledgeReadinessRoleResult {
+  role: string;
+  score: number;
+  strengths: string[];
+  issues: string[];
+  recommendations: string[];
+}
+
+export interface KnowledgeReadinessRun {
+  id: string;
+  project_id: string;
+  status: "completed" | "failed";
+  providers: string[];
+  score: number;
+  score_before_bonus: number;
+  threshold: number;
+  proceed_allowed: boolean;
+  deep_research_report_uploaded: boolean;
+  processed_material_count: number;
+  related_reference_count: number;
+  corpus_document_count: number;
+  corpus_chunk_count: number;
+  role_results: KnowledgeReadinessRoleResult[];
+  blocking_issues: string[];
+  recommendations: string[];
+  logs: DeliberationLogEntry[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FormulaNeedAssessment {
   required: boolean;
   signals: string[];
@@ -828,6 +858,22 @@ export async function uploadProjectMaterial(projectId: string, file: File): Prom
 export async function listProjectMaterials(projectId: string): Promise<ProjectMaterial[]> {
   const data = await request<{ materials: ProjectMaterial[] }>(`/api/projects/${projectId}/materials`);
   return data.materials;
+}
+
+export async function startKnowledgeReadiness(
+  projectId: string,
+  providers?: string[],
+): Promise<KnowledgeReadinessRun> {
+  return request<KnowledgeReadinessRun>(`/api/projects/${projectId}/knowledge-readiness`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ providers: providers ?? null }),
+  });
+}
+
+export async function listKnowledgeReadinessRuns(projectId: string): Promise<KnowledgeReadinessRun[]> {
+  const data = await request<{ runs: KnowledgeReadinessRun[] }>(`/api/projects/${projectId}/knowledge-readiness`);
+  return data.runs;
 }
 
 export async function createExternalDraftSource(

@@ -10,6 +10,7 @@ import type {
   DeliberationRun,
   FormulaNeedAssessment,
   FormulaRun,
+  KnowledgeReadinessRun,
   OfficialCompileRun,
   PatentPointCandidate,
   PostDraftReviewRun,
@@ -65,6 +66,28 @@ const processedMaterial: ProjectMaterial = {
   text: "补充材料",
   warnings: [],
   metadata: {},
+};
+
+const completedKnowledgeReadiness: KnowledgeReadinessRun = {
+  id: "kr1",
+  project_id: "p1",
+  status: "completed",
+  providers: ["codex", "gemini", "claude"],
+  score: 86,
+  score_before_bonus: 84,
+  threshold: 80,
+  proceed_allowed: true,
+  deep_research_report_uploaded: true,
+  processed_material_count: 2,
+  related_reference_count: 1,
+  corpus_document_count: 3,
+  corpus_chunk_count: 12,
+  role_results: [],
+  blocking_issues: [],
+  recommendations: ["继续补充重点现有技术对比。"],
+  logs: [],
+  created_at: "2026-06-07T00:00:00Z",
+  updated_at: "2026-06-07T00:00:00Z",
 };
 
 const completedDisclosure: DisclosureRun = {
@@ -393,6 +416,7 @@ describe("guided flow navigation", () => {
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
     expect(guidedStepLabels).toEqual([
       "想法与材料",
+      "知识准备",
       "发明点",
       "多智能体会审",
       "核心公式",
@@ -432,6 +456,7 @@ describe("guided step navigation helpers", () => {
       disclosures: [completedDisclosure],
       deliberations: [],
       patentPoints: [],
+      knowledgeReadinessRuns: [completedKnowledgeReadiness],
       filingReports: [],
       worksheets: [],
       completionRuns: [],
@@ -684,7 +709,25 @@ describe("deriveGuidedFlowState", () => {
       "locked",
       "locked",
       "locked",
+      "locked",
     ]);
+  });
+
+  it("requires knowledge readiness before invention confirmation", () => {
+    const state = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [],
+      deliberations: [],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(state.currentStepId).toBe("knowledge");
+    expect(state.hasKnowledgeReady).toBe(false);
+    expect(state.knowledgeReadinessScore).toBe(null);
   });
 
   it("moves to invention confirmation after disclosure is completed", () => {
@@ -694,16 +737,20 @@ describe("deriveGuidedFlowState", () => {
       disclosures: [completedDisclosure],
       deliberations: [],
       patentPoints: [],
+      knowledgeReadinessRuns: [completedKnowledgeReadiness],
       filingReports: [],
       worksheets: [],
       completionRuns: [],
     });
 
     expect(state.currentStepId).toBe("invention");
+    expect(state.hasKnowledgeReady).toBe(true);
+    expect(state.knowledgeReadinessScore).toBe(86);
     expect(state.hasInventionCandidates).toBe(true);
     expect(state.hasConfirmedInventionPoint).toBe(false);
     expect(state.steps[0].status).toBe("done");
-    expect(state.steps[1].status).toBe("current");
+    expect(state.steps[1].status).toBe("done");
+    expect(state.steps[2].status).toBe("current");
   });
 
   it("distinguishes available invention candidates from confirmed selections", () => {
@@ -713,6 +760,7 @@ describe("deriveGuidedFlowState", () => {
       disclosures: [],
       deliberations: [],
       patentPoints: [patentPoint(false)],
+      knowledgeReadinessRuns: [completedKnowledgeReadiness],
       filingReports: [],
       worksheets: [],
       completionRuns: [],
@@ -731,6 +779,7 @@ describe("deriveGuidedFlowState", () => {
       disclosures: [completedDisclosure],
       deliberations: [],
       patentPoints: [selectedPoint],
+      knowledgeReadinessRuns: [completedKnowledgeReadiness],
       filingReports: [],
       worksheets: [],
       completionRuns: [],
@@ -745,6 +794,7 @@ describe("deriveGuidedFlowState", () => {
       disclosures: [completedDisclosure],
       deliberations: [completedDeliberation],
       patentPoints: [selectedPoint],
+      knowledgeReadinessRuns: [completedKnowledgeReadiness],
       filingReports: [],
       worksheets: [],
       completionRuns: [],
@@ -765,6 +815,7 @@ describe("deriveGuidedFlowState", () => {
       disclosures: [completedDisclosure],
       deliberations: [],
       patentPoints: [selectedPoint],
+      knowledgeReadinessRuns: [completedKnowledgeReadiness],
       formulaRequirement: formulaRequired,
       formulaRuns: [],
       filingReports: [],
@@ -786,6 +837,7 @@ describe("deriveGuidedFlowState", () => {
       disclosures: [completedDisclosure],
       deliberations: [completedDeliberation],
       patentPoints: [selectedPoint],
+      knowledgeReadinessRuns: [completedKnowledgeReadiness],
       formulaRequirement: formulaRequired,
       formulaRuns: [],
       filingReports: [],
@@ -802,6 +854,7 @@ describe("deriveGuidedFlowState", () => {
       disclosures: [completedDisclosure],
       deliberations: [completedDeliberation],
       patentPoints: [selectedPoint],
+      knowledgeReadinessRuns: [completedKnowledgeReadiness],
       formulaRequirement: formulaRequired,
       formulaRuns: [completedFormulaRun],
       filingReports: [],
@@ -821,6 +874,7 @@ describe("deriveGuidedFlowState", () => {
       disclosures: [completedDisclosure],
       deliberations: [failedDeliberation],
       patentPoints: [selectedPoint],
+      knowledgeReadinessRuns: [completedKnowledgeReadiness],
       formulaRequirement: formulaNotRequired,
       formulaRuns: [],
       filingReports: [],
@@ -1003,6 +1057,7 @@ describe("deriveGuidedFlowState", () => {
     expect(passedState.currentStepId).toBe("export");
     expect(passedState.exportReady).toBe(true);
     expect(passedState.steps.map((step) => step.status)).toEqual([
+      "done",
       "done",
       "done",
       "done",
@@ -1203,6 +1258,7 @@ describe("guidedStepLabels", () => {
   it("uses user-action language instead of internal module names", () => {
     expect(guidedStepLabels).toEqual([
       "想法与材料",
+      "知识准备",
       "发明点",
       "多智能体会审",
       "核心公式",

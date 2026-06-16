@@ -624,6 +624,40 @@ class ProjectMaterial(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class KnowledgeReadinessRoleResult(BaseModel):
+    role: str
+    score: int = Field(ge=0, le=100)
+    strengths: list[str] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+
+
+class KnowledgeReadinessRun(BaseModel):
+    id: str
+    project_id: str
+    status: str = Field(pattern="^(completed|failed)$")
+    providers: list[str] = Field(default_factory=list)
+    score: int = Field(default=0, ge=0, le=100)
+    score_before_bonus: int = Field(default=0, ge=0, le=100)
+    threshold: int = 80
+    proceed_allowed: bool = False
+    deep_research_report_uploaded: bool = False
+    processed_material_count: int = 0
+    related_reference_count: int = 0
+    corpus_document_count: int = 0
+    corpus_chunk_count: int = 0
+    role_results: list[KnowledgeReadinessRoleResult] = Field(default_factory=list)
+    blocking_issues: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+    logs: list[DeliberationLogEntry] = Field(default_factory=list)
+    created_at: str = Field(default_factory=_utc_now_iso)
+    updated_at: str = Field(default_factory=_utc_now_iso)
+
+
+class KnowledgeReadinessRunCreate(BaseModel):
+    providers: list[str] | None = None
+
+
 class MoatScores(BaseModel):
     scope_width: float = Field(default=0.0, ge=0.0, le=1.0)
     designaround_difficulty: float = Field(default=0.0, ge=0.0, le=1.0)

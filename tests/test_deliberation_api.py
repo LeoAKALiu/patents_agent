@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.schemas import AgentDoctorReport, AgentProviderStatus
+from tests.helpers import seed_knowledge_ready
 
 
 def test_deliberation_api_lifecycle_and_generation_injection(tmp_path):
@@ -30,6 +31,7 @@ def test_deliberation_api_lifecycle_and_generation_injection(tmp_path):
         },
     )
     project_id = project_response.json()["id"]
+    seed_knowledge_ready(client, project_id)
 
     generate_without_deliberation = client.post(f"/api/projects/{project_id}/generate", json={})
     assert generate_without_deliberation.status_code == 409
@@ -75,6 +77,7 @@ def test_failed_deliberation_has_diagnostic_logs_and_cannot_generate(tmp_path):
             "draft_text": "根据指标置信度增益生成无人机任务包。",
         },
     ).json()["id"]
+    seed_knowledge_ready(client, project_id)
 
     run_response = client.post(
         f"/api/projects/{project_id}/deliberations",

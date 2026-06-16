@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.schemas import DeliberationRun, DeliberationStageResult, PatentStrategyBrief
+from tests.helpers import seed_knowledge_ready
 
 
 def test_formula_requirement_detects_hcu_confidence_terms(tmp_path):
@@ -77,6 +78,7 @@ def test_non_formula_project_does_not_require_formula_package_before_generation(
         },
     ).json()["id"]
     _create_strict_completed_deliberation(client, project_id)
+    seed_knowledge_ready(client, project_id)
 
     requirement = client.get(f"/api/projects/{project_id}/formula-requirement").json()
     generate_response = client.post(f"/api/projects/{project_id}/generate", json={})
@@ -116,6 +118,7 @@ def test_required_formula_blocks_generation_until_formula_package_completed(tmp_
         },
     ).json()["id"]
     _create_strict_completed_deliberation(client, project_id)
+    seed_knowledge_ready(client, project_id)
 
     blocked = client.post(f"/api/projects/{project_id}/generate", json={})
     assert blocked.status_code == 409

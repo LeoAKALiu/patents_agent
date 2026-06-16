@@ -19,6 +19,7 @@ from backend.app.schemas import (
     ExternalDraftSource,
     FilingReadinessReport,
     FormulaRun,
+    KnowledgeReadinessRun,
     OfficialCompileRun,
     OfficialDraftPackage,
     PatentAsset,
@@ -321,6 +322,7 @@ class SQLiteStore:
                 "formula_runs",
                 "external_draft_intake_runs",
                 "external_draft_sources",
+                "knowledge_readiness_runs",
                 "official_compile_runs",
                 "post_draft_review_runs",
                 "filing_readiness_reports",
@@ -603,6 +605,47 @@ class SQLiteStore:
             (project_id, run_id),
         ).fetchone()
         return self._post_draft_review_run_from_row(row) if row else None
+
+    def create_knowledge_readiness_run(self, run: KnowledgeReadinessRun) -> KnowledgeReadinessRun:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into knowledge_readiness_runs(id, project_id, run_json)
+                values (?, ?, ?)
+                """,
+                (
+                    run.id,
+                    run.project_id,
+                    json.dumps(run.model_dump(mode="json"), ensure_ascii=False),
+                ),
+            )
+        return self.get_knowledge_readiness_run(run.project_id, run.id) or run
+
+    def list_knowledge_readiness_runs(self, project_id: str) -> list[KnowledgeReadinessRun]:
+        rows = self.connection.execute(
+            "select * from knowledge_readiness_runs where project_id = ? order by created_at desc, rowid desc",
+            (project_id,),
+        ).fetchall()
+        return [self._knowledge_readiness_run_from_row(row) for row in rows]
+
+    def get_knowledge_readiness_run(self, project_id: str, run_id: str) -> KnowledgeReadinessRun | None:
+        row = self.connection.execute(
+            "select * from knowledge_readiness_runs where project_id = ? and id = ?",
+            (project_id, run_id),
+        ).fetchone()
+        return self._knowledge_readiness_run_from_row(row) if row else None
+
+    def get_latest_knowledge_readiness_run(self, project_id: str) -> KnowledgeReadinessRun | None:
+        row = self.connection.execute(
+            """
+            select * from knowledge_readiness_runs
+            where project_id = ?
+            order by created_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return self._knowledge_readiness_run_from_row(row) if row else None
 
     def get_latest_export_allowed_post_draft_review(
         self, project_id: str, draft_package_hash: str
@@ -1108,6 +1151,14 @@ class SQLiteStore:
                     foreign key(project_id) references projects(id)
                 );
 
+                create table if not exists knowledge_readiness_runs (
+                    id text primary key,
+                    project_id text not null,
+                    run_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
                 create table if not exists formula_runs (
                     id text primary key,
                     project_id text not null,
@@ -1410,6 +1461,15 @@ class SQLiteStore:
             logs=json.loads(row["logs_json"]),
         )
         return run.model_copy(update={"created_at": row["created_at"], "updated_at": row["updated_at"]})
+
+    def _knowledge_readiness_run_from_row(self, row: sqlite3.Row) -> KnowledgeReadinessRun:
+        run = KnowledgeReadinessRun.model_validate(json.loads(row["run_json"]))
+        return run.model_copy(
+            update={
+                "created_at": run.created_at or row["created_at"],
+                "updated_at": run.updated_at or row["created_at"],
+            }
+        )
 
     def _official_compile_run_values(self, run: OfficialCompileRun) -> tuple:
         return (

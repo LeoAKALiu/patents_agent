@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
+  Database,
   Download,
   FileText,
   Gauge,
@@ -34,6 +35,7 @@ import {
   type FilingReadinessReport,
   type FormulaNeedAssessment,
   type FormulaRun,
+  type KnowledgeReadinessRun,
   type OfficialCompileRun,
   type PatentPointCandidate,
   type PostDraftReviewRun,
@@ -77,6 +79,7 @@ export type GuidedPatentFlowProps = {
   patentPoints: PatentPointCandidate[];
   formulaRequirement: FormulaNeedAssessment | null;
   formulaRuns: FormulaRun[];
+  knowledgeReadinessRuns: KnowledgeReadinessRun[];
   officialCompileRuns: OfficialCompileRun[];
   currentSourceDraftHash: string;
   postDraftReviews: PostDraftReviewRun[];
@@ -110,6 +113,7 @@ export type GuidedPatentFlowProps = {
   onUploadMaterial: (event: FormEvent<HTMLFormElement>) => void;
   disclosureResearchMode: "standard" | "free_deep_research";
   onChangeDisclosureResearchMode: (mode: "standard" | "free_deep_research") => void;
+  onStartKnowledgeReadiness: () => void;
   onStartDisclosure: () => void;
   onSelectPatentPoint: (point: PatentPointCandidate, candidates: PatentPointCandidate[]) => void;
   onStartDeliberation: () => void;
@@ -143,6 +147,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         completionRuns: props.completionRuns,
         externalDraftSources: props.externalDraftSources,
         externalDraftIntakeRuns: props.externalDraftIntakeRuns,
+        knowledgeReadinessRuns: props.knowledgeReadinessRuns,
         officialCompileRuns: props.officialCompileRuns,
         currentSourceDraftHash: props.currentSourceDraftHash,
         postDraftReviews: props.postDraftReviews,
@@ -160,6 +165,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       props.completionRuns,
       props.externalDraftSources,
       props.externalDraftIntakeRuns,
+      props.knowledgeReadinessRuns,
       props.officialCompileRuns,
       props.currentSourceDraftHash,
       props.postDraftReviews,
@@ -171,6 +177,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
   const latestFilingReport = props.filingReports[0] ?? null;
   const latestWorksheet = props.worksheets[0] ?? null;
   const latestCompletionRun = props.completionRuns[0] ?? null;
+  const latestKnowledgeReadinessRun = props.knowledgeReadinessRuns[0] ?? null;
   const latestOfficialCompileRun = selectCurrentOfficialCompileRun(
     props.officialCompileRuns,
     props.currentSourceDraftHash,
@@ -190,7 +197,9 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
 
   function handleNextAction(): void {
     setManualViewStepId(null);
-    if (state.currentStepId === "invention") {
+    if (state.currentStepId === "knowledge") {
+      props.onStartKnowledgeReadiness();
+    } else if (state.currentStepId === "invention") {
       props.onStartDisclosure();
     } else if (state.currentStepId === "deliberation") {
       props.onStartDeliberation();
@@ -224,7 +233,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         onNext={handleNextAction}
         totalStepCount={state.steps.length}
       />
-      {props.project && displayedStepId !== "idea" && (
+      {props.project && displayedStepId !== "idea" && displayedStepId !== "knowledge" && displayedStepId !== "invention" && (
         <section className="guided-panel external-draft-side-entry">
           <div className="guided-panel-heading">
             <div>
@@ -245,6 +254,16 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
             onConfirmExternalDraftIntake={props.onConfirmExternalDraftIntake}
           />
         </section>
+      )}
+      {displayedStepId === "knowledge" && (
+        <KnowledgeReadinessPanel
+          materials={props.materials}
+          run={latestKnowledgeReadinessRun}
+          busy={props.busy}
+          busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
+          onUploadMaterial={props.onUploadMaterial}
+          onStartKnowledgeReadiness={props.onStartKnowledgeReadiness}
+        />
       )}
       {displayedStepId === "idea" && (
         <IdeaIntakePanel
@@ -823,6 +842,136 @@ function MaterialSummary({ materials }: { materials: ProjectMaterial[] }) {
       ))}
       {materials.length === 0 && <p className="empty">可先不上传材料，系统会基于想法生成第一版。</p>}
     </div>
+  );
+}
+
+function KnowledgeReadinessPanel({
+  materials,
+  run,
+  busy,
+  busyElapsedSeconds,
+  onUploadMaterial,
+  onStartKnowledgeReadiness,
+}: {
+  materials: ProjectMaterial[];
+  run: KnowledgeReadinessRun | null;
+  busy: string;
+  busyElapsedSeconds: number;
+  onUploadMaterial: GuidedPatentFlowProps["onUploadMaterial"];
+  onStartKnowledgeReadiness: () => void;
+}) {
+  const processedMaterials = materials.filter((material) => material.status === "processed");
+  const hasDeepResearchReport = processedMaterials.some(isDeepResearchMaterial);
+  const relatedReferenceCount = processedMaterials.filter(
+    (material) => !isDeepResearchMaterial(material) && isRelatedReferenceMaterial(material),
+  ).length;
+  const score = run?.score ?? 0;
+  const passed = Boolean(run?.status === "completed" && run.proceed_allowed);
+  const threshold = run?.threshold ?? 80;
+
+  return (
+    <section className="guided-panel">
+      <div className="guided-panel-heading">
+        <div>
+          <h3>知识库与 DeepResearch 准备</h3>
+          <p>进入发明点提炼前，必须上传 DeepResearch 报告，并完成知识完备度评分。</p>
+        </div>
+        <Database size={24} />
+      </div>
+      <form className="guided-upload" onSubmit={onUploadMaterial}>
+        <input
+          id="project-material-file-knowledge"
+          name="project-material-file"
+          type="file"
+          accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
+        />
+        <button className="primary" disabled={busy === "material-upload"} type="submit">
+          <Upload size={17} />
+          <span>上传 DeepResearch 报告或参考文献</span>
+        </button>
+        <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "material-upload"} />
+      </form>
+      <div className="guided-card-grid compact">
+        <article className={hasDeepResearchReport ? "guided-choice selected" : "guided-choice"}>
+          <span className="status-badge">{hasDeepResearchReport ? "已满足" : "必需"}</span>
+          <h4>DeepResearch 报告</h4>
+          <p>必须上传一份 deep research / 深度研究报告，作为进入下一步的硬门槛。</p>
+        </article>
+        <article className="guided-choice">
+          <span className="status-badge">加分项</span>
+          <h4>论文/专利参考</h4>
+          <p>已识别 {relatedReferenceCount} 份相关论文或专利文件；相关参考材料会提高知识完备度评分。</p>
+        </article>
+        <article className={passed ? "guided-choice selected" : "guided-choice"}>
+          <span className="status-badge">{run ? pipelineRunStatusLabel(run.status) : "尚未评分"}</span>
+          <h4>知识完备度</h4>
+          <p>{run ? `${score}/100，需大于 ${threshold} 分。` : `运行评分后，分数需大于 ${threshold} 分才可进入发明点。`}</p>
+        </article>
+      </div>
+      <MaterialSummary materials={materials} />
+      <button
+        className="primary"
+        disabled={busy === "knowledge-readiness" || !hasDeepResearchReport}
+        onClick={onStartKnowledgeReadiness}
+        type="button"
+      >
+        {busy === "knowledge-readiness" ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
+        <span>运行知识完备度评分</span>
+      </button>
+      {!hasDeepResearchReport && <p className="workflow-hint">请先上传 DeepResearch 报告。相关论文、专利文件不是必需项，但会计入加分。</p>}
+      <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "knowledge-readiness"} />
+      {run && (
+        <div className="guided-summary-list">
+          {run.blocking_issues.map((issue) => (
+            <article className="guided-summary-row" key={issue}>
+              <AlertTriangle size={18} />
+              <div>
+                <strong>阻断项</strong>
+                <span>{issue}</span>
+              </div>
+            </article>
+          ))}
+          {run.recommendations.slice(0, 4).map((item) => (
+            <article className="guided-summary-row" key={item}>
+              <CheckCircle2 size={18} />
+              <div>
+                <strong>补强建议</strong>
+                <span>{item}</span>
+              </div>
+            </article>
+          ))}
+          {passed && (
+            <article className="guided-summary-row">
+              <CheckCircle2 size={18} />
+              <div>
+                <strong>已解锁下一步</strong>
+                <span>知识完备度评分已超过门槛，可继续提炼发明点。</span>
+              </div>
+            </article>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function isDeepResearchMaterial(material: ProjectMaterial): boolean {
+  const text = `${material.file_name} ${material.text.slice(0, 500)}`.toLowerCase();
+  return [
+    "deepresearch",
+    "deep research",
+    "deep-research",
+    "深度研究",
+    "深度检索",
+    "深度调研",
+    "检索报告",
+  ].some((keyword) => text.includes(keyword));
+}
+
+function isRelatedReferenceMaterial(material: ProjectMaterial): boolean {
+  const text = `${material.file_name} ${material.text.slice(0, 500)}`.toLowerCase();
+  return ["论文", "paper", "article", "arxiv", "专利", "patent", "cn", "us", "wo"].some((keyword) =>
+    text.includes(keyword),
   );
 }
 

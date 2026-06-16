@@ -37,6 +37,7 @@ import {
   FormulaNeedAssessment,
   FormulaRun,
   Health,
+  KnowledgeReadinessRun,
   OfficialCompileRun,
   type OfficialDraftPackage,
   PatentPointCandidate,
@@ -83,6 +84,7 @@ import {
   listProjectDisclosures,
   listProjectDeliberations,
   listFormulaRuns,
+  listKnowledgeReadinessRuns,
   listOfficialCompileRuns,
   listPostDraftReviews,
   listProjectMaterials,
@@ -93,6 +95,7 @@ import {
   reviewProject,
   runCorpusJob,
   searchCorpus,
+  startKnowledgeReadiness,
   startProjectDisclosure,
   startProjectDeliberation,
   startExternalDraftIntakeRun,
@@ -347,6 +350,7 @@ function App() {
   const [patentPoints, setPatentPoints] = useState<PatentPointCandidate[]>([]);
   const [formulaRequirement, setFormulaRequirement] = useState<FormulaNeedAssessment | null>(null);
   const [formulaRuns, setFormulaRuns] = useState<FormulaRun[]>([]);
+  const [knowledgeReadinessRuns, setKnowledgeReadinessRuns] = useState<KnowledgeReadinessRun[]>([]);
   const [officialCompileRuns, setOfficialCompileRuns] = useState<OfficialCompileRun[]>([]);
   const [currentSourceDraftHash, setCurrentSourceDraftHash] = useState("");
   const [postDraftReviews, setPostDraftReviews] = useState<PostDraftReviewRun[]>([]);
@@ -466,11 +470,13 @@ function App() {
     setCurrentSourceDraftHash("");
     setPostDraftReviews([]);
     setCurrentDraftHash("");
+    setKnowledgeReadinessRuns([]);
     setExternalDraftSources([]);
     setExternalDraftIntakeRuns([]);
     if (selectedProject?.id) {
       void loadDeliberations(selectedProject.id);
       void loadMaterials(selectedProject.id);
+      void loadKnowledgeReadinessRuns(selectedProject.id);
       void loadDisclosures(selectedProject.id);
       void loadFormulaState(selectedProject.id);
       void loadOfficialCompileRuns(selectedProject.id);
@@ -491,6 +497,7 @@ function App() {
       setDisclosureRuns([]);
       setFormulaRequirement(null);
       setFormulaRuns([]);
+      setKnowledgeReadinessRuns([]);
       setPatentPoints([]);
       setFilingReports([]);
       setWorksheets([]);
@@ -564,6 +571,22 @@ function App() {
     } catch {
       if (selectedProjectIdRef.current === projectId) {
         setProjectMaterials([]);
+      }
+      return false;
+    }
+  }
+
+  async function loadKnowledgeReadinessRuns(projectId: string): Promise<boolean> {
+    try {
+      const runs = await listKnowledgeReadinessRuns(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setKnowledgeReadinessRuns(runs);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setKnowledgeReadinessRuns([]);
       }
       return false;
     }
@@ -1041,6 +1064,21 @@ function App() {
       if (!stillSelected) return;
       setMessage(`已上传外部稿：${source.file_name}`);
       input.value = "";
+    });
+  }
+
+  async function handleStartKnowledgeReadiness() {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-readiness", async () => {
+      const run = await startKnowledgeReadiness(projectId, selectedDeliberationProviders);
+      const stillSelected = await loadKnowledgeReadinessRuns(projectId);
+      if (!stillSelected) return;
+      setMessage(
+        run.proceed_allowed
+          ? `知识完备度 ${run.score}/100，已解锁发明点提炼`
+          : `知识完备度 ${run.score}/100，仍需补齐 DeepResearch 或参考材料`,
+      );
     });
   }
 
@@ -1687,6 +1725,7 @@ function App() {
             patentPoints={visiblePatentPoints}
             formulaRequirement={formulaRequirement}
             formulaRuns={formulaRuns}
+            knowledgeReadinessRuns={knowledgeReadinessRuns}
             officialCompileRuns={officialCompileRuns}
             currentSourceDraftHash={currentSourceDraftHash}
             postDraftReviews={postDraftReviews}
@@ -1711,6 +1750,7 @@ function App() {
             onUploadMaterial={handleUploadMaterial}
             disclosureResearchMode={disclosureResearchMode}
             onChangeDisclosureResearchMode={setDisclosureResearchMode}
+            onStartKnowledgeReadiness={() => void handleStartKnowledgeReadiness()}
             onStartDisclosure={() => void handleStartDisclosure(false)}
             onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
             onStartDeliberation={() => void handleStartDeliberation(false)}

@@ -26,6 +26,7 @@ import type {
   FilingReadinessReport,
   FormulaNeedAssessment,
   FormulaRun,
+  KnowledgeReadinessRun,
   OfficialCompileRun,
   PatentPointCandidate,
   PatentPointCreatePayload,
@@ -55,6 +56,7 @@ export type ExpertToolId =
 
 export type GuidedStepId =
   | "idea"
+  | "knowledge"
   | "invention"
   | "deliberation"
   | "formula"
@@ -100,6 +102,7 @@ export type GuidedFlowInput = {
   completionRuns: DraftCompletionRun[];
   externalDraftSources?: ExternalDraftSource[];
   externalDraftIntakeRuns?: ExternalDraftIntakeRun[];
+  knowledgeReadinessRuns?: KnowledgeReadinessRun[];
   officialCompileRuns?: OfficialCompileRun[];
   currentSourceDraftHash?: string;
   postDraftReviews?: PostDraftReviewRun[];
@@ -110,6 +113,8 @@ export type GuidedFlowState = {
   steps: GuidedStepState[];
   processedMaterialCount: number;
   hasIdea: boolean;
+  hasKnowledgeReady: boolean;
+  knowledgeReadinessScore: number | null;
   hasCompletedDisclosure: boolean;
   hasInventionCandidates: boolean;
   hasConfirmedInventionPoint: boolean;
@@ -266,6 +271,7 @@ export const expertToolGroups: ExpertToolGroup[] = [
 
 export const guidedStepDefinitions: Array<Omit<GuidedStepState, "status">> = [
   { id: "idea", label: "想法与材料", description: "输入一句想法，上传可选材料。" },
+  { id: "knowledge", label: "知识准备", description: "上传 DeepResearch 报告并完成知识完备度评分。" },
   { id: "invention", label: "发明点", description: "确认主发明点、证据状态和护城河方向。" },
   { id: "deliberation", label: "多智能体会审", description: "会审权利要求边界、说明书支撑和规避风险。" },
   { id: "formula", label: "核心公式", description: "凝练算法公式、变量定义和权利要求落点。" },
@@ -375,6 +381,7 @@ export function guidedStepStatusLabel(status: GuidedStepStatus): string {
 
 export function guidedNextActionLabel(stepId: GuidedStepId): string {
   if (stepId === "idea") return "填写并创建项目";
+  if (stepId === "knowledge") return "运行知识评分";
   if (stepId === "invention") return "提炼发明点";
   if (stepId === "deliberation") return "启动多智能体会审";
   if (stepId === "formula") return "凝练核心公式";
@@ -387,6 +394,7 @@ export function guidedNextActionLabel(stepId: GuidedStepId): string {
 
 export function guidedNextActionDescription(stepId: GuidedStepId): string {
   if (stepId === "idea") return "先创建项目；已有稿件可从第三个入口导入。";
+  if (stepId === "knowledge") return "上传 DeepResearch 报告后，由多角色评分知识完备度；大于 80 分才允许继续。";
   if (stepId === "invention") return "生成候选发明点和护城河方向，然后人工确认主线。";
   if (stepId === "deliberation") return "收敛权利要求边界、说明书支撑和规避路径。";
   if (stepId === "formula") return "当项目包含算法/指标信号时，先生成公式包再写入初稿。";
@@ -401,8 +409,15 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   const processedMaterialCount = input.materials.filter((material) => material.status === "processed").length;
   const hasIdea = Boolean(input.project?.draft_text.trim());
   const utilityModelLite = isUtilityModelProject(input.project);
-  const hasCompletedDisclosure = input.disclosures.some((run) => run.status === "completed" && run.package);
   const draftReady = canExportPackage(input.project?.package);
+  const latestKnowledgeReadiness = input.knowledgeReadinessRuns?.[0] ?? null;
+  const knowledgeReadinessScore = latestKnowledgeReadiness?.score ?? null;
+  const hasKnowledgeReady = draftReady || Boolean(
+    latestKnowledgeReadiness?.status === "completed"
+      && latestKnowledgeReadiness.proceed_allowed
+      && latestKnowledgeReadiness.score > latestKnowledgeReadiness.threshold,
+  );
+  const hasCompletedDisclosure = input.disclosures.some((run) => run.status === "completed" && run.package);
   const externalDraftSources = input.externalDraftSources ?? [];
   const externalDraftIntakeRuns = input.externalDraftIntakeRuns ?? [];
   const hasExternalDraftSource = externalDraftSources.length > 0;
@@ -435,6 +450,8 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   let currentStepId: GuidedStepId = "idea";
   if (!hasIdea) {
     currentStepId = "idea";
+  } else if (!hasKnowledgeReady && !draftReady) {
+    currentStepId = "knowledge";
   } else if (!hasConfirmedInventionPoint && !draftReady) {
     currentStepId = "invention";
   } else if (!hasCompletedDeliberation && !draftReady) {
@@ -464,6 +481,8 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     steps,
     processedMaterialCount,
     hasIdea,
+    hasKnowledgeReady,
+    knowledgeReadinessScore,
     hasCompletedDisclosure,
     hasInventionCandidates,
     hasConfirmedInventionPoint,
@@ -568,6 +587,7 @@ export function guidedBusyLabel(value: string): string {
   if (value === "guided-quality") return "正在运行质量检查";
   if (value === "official-compile") return "正在编译正式稿";
   if (value === "post-draft-review") return "正在运行成稿会审";
+  if (value === "knowledge-readiness") return "正在评分知识完备度";
   if (value === "score-improve") return "正在一键提升分数";
   if (value === "disclosure") return "正在提炼发明点";
   if (value === "generate") return "正在生成专利初稿";
@@ -672,6 +692,15 @@ function operationLogSteps(value: string): Array<{ at: number; text: string }> {
       { at: 12, text: "收集阻断项、污染命中和可提交补丁建议" },
       { at: 25, text: "等待模型或服务返回" },
       { at: 45, text: "主席综合裁决并写入导出门禁" },
+    ];
+  }
+  if (value === "knowledge-readiness") {
+    return [
+      { at: 0, text: "读取项目、DeepResearch 报告和补充参考材料" },
+      { at: 4, text: "分发知识完备度评分角色" },
+      { at: 12, text: "评估现有技术、技术支撑和撰写依据" },
+      { at: 25, text: "等待模型返回评分与补强建议" },
+      { at: 45, text: "合并评分，检查是否超过 80 分门槛" },
     ];
   }
   if (value === "official-compile") {

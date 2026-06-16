@@ -24,6 +24,7 @@ from backend.app.schemas import (
     PriorArtHit,
     ProjectRecord,
 )
+from tests.helpers import seed_knowledge_ready
 
 
 def test_project_material_parser_reads_text_docx_pptx_and_rejects_blank_pdf(tmp_path: Path):
@@ -220,6 +221,7 @@ def test_disclosure_api_lifecycle_and_generation_injection(tmp_path: Path):
     list_response = client.get(f"/api/projects/{project_id}/disclosures")
     assert list_response.json()["runs"][0]["id"] == run["id"]
     _create_completed_deliberation(client, project_id)
+    seed_knowledge_ready(client, project_id)
 
     generate_response = client.post(f"/api/projects/{project_id}/generate", json={})
     assert generate_response.status_code == 200
