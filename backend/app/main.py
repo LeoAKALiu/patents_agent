@@ -801,7 +801,7 @@ def create_app(
         doctor = inspect_agent_environment()
         requested = payload.providers or list(STRICT_DELIBERATION_PROVIDERS)
         available = set(doctor.active_provider_ids)
-        selectable = set(doctor.active_provider_ids) | set(doctor.unknown_required)
+        selectable = _selectable_agent_provider_ids(doctor)
         active_requested_count = len(requested) if app.state.provider_runner is not None else len([provider for provider in requested if provider in available])
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
@@ -2655,6 +2655,14 @@ def _retrieve_generation_context(index: LocalVectorIndex, brief: InventionBrief)
                 selected.append(result.chunk)
                 seen.add(result.chunk.id)
     return selected[:8]
+
+
+def _selectable_agent_provider_ids(doctor: AgentDoctorReport) -> set[str]:
+    return (
+        set(doctor.active_provider_ids)
+        | set(doctor.unknown_required)
+        | {provider_id for provider_id, status in doctor.commands.items() if status.selectable}
+    )
 
 
 def _run_mode(active_count: int) -> str:

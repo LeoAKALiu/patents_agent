@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from backend.app.deliberation.cli_paths import agent_search_path, resolve_agent_command
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
 from backend.app.deliberation.providers import AgentProviderRunner, ProviderFailure
@@ -40,6 +41,11 @@ def _probe_not_authenticated(command: str, args: list[str], timeout_ms: int) -> 
 def _probe_timeout(command: str, args: list[str], timeout_ms: int) -> tuple[int | None, str, str]:
     """Fake probe that always times out."""
     return None, "", ""
+
+
+def _make_executable(path: Path) -> None:
+    path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    path.chmod(0o755)
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +96,34 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     assert blocked.status == "blocked"
     assert blocked.run_mode == "blocked"
     assert set(blocked.missing_required) == {"codex", "gemini", "claude"}
+
+
+def test_agent_command_resolution_survives_desktop_launch_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """GUI-launched apps should find Homebrew/user agent CLIs outside launchd PATH."""
+    for command in ("codex", "gemini", "claude"):
+        _make_executable(tmp_path / command)
+    _make_executable(tmp_path / "kimi")
+    monkeypatch.setenv("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+    monkeypatch.setenv("PATENTS_AGENT_AGENT_PATH", str(tmp_path))
+
+    assert str(tmp_path) in agent_search_path()
+    assert "/opt/homebrew/bin" in agent_search_path()
+    assert resolve_agent_command("codex") == str(tmp_path / "codex")
+    assert resolve_agent_command("gemini") == str(tmp_path / "gemini")
+    assert resolve_agent_command("claude") == str(tmp_path / "claude")
+    assert resolve_agent_command("kimicode") == str(tmp_path / "kimi")
+
+    report = inspect_agent_environment(command_probe=_probe_ready)
+
+    assert report.commands["codex"].installed is True
+    assert report.commands["codex"].path == str(tmp_path / "codex")
+    assert report.commands["gemini"].installed is True
+    assert report.commands["claude"].installed is True
+    assert report.commands["kimicode"].installed is True
+    assert report.commands["kimicode"].path == str(tmp_path / "kimi")
 
 
 def test_doctor_probe_ready_requires_auth_confirmation():

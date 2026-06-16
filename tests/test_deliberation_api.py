@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from backend.app.llm import FakeLLMClient
-from backend.app.main import create_app
+from backend.app.main import _selectable_agent_provider_ids, create_app
 from backend.app.schemas import AgentDoctorReport, AgentProviderStatus
 
 
@@ -122,6 +122,58 @@ def test_missing_required_provider_creates_failed_diagnostic_run(tmp_path, monke
     assert run["strategy_brief"] is None
     assert run["failures"][0]["reason"] == "provider_missing"
     assert any(log["provider_id"] == "gemini" and log["repair_suggestion"] for log in run["logs"])
+
+
+def test_selectable_providers_include_optional_unknown_installed_agents():
+    doctor = AgentDoctorReport(
+        status="degraded",
+        run_mode="partial",
+        commands={
+            "codex": AgentProviderStatus(
+                id="codex",
+                label="Codex",
+                command="codex",
+                available=True,
+                path="/opt/homebrew/bin/codex",
+                installed=True,
+                required=True,
+                auth_status="ready",
+                selectable=True,
+            ),
+            "gemini": AgentProviderStatus(
+                id="gemini",
+                label="Gemini",
+                command="gemini",
+                available=False,
+                path="/opt/homebrew/bin/gemini",
+                installed=True,
+                required=True,
+                auth_status="unknown",
+                selectable=True,
+            ),
+            "kimicode": AgentProviderStatus(
+                id="kimicode",
+                label="KimiCode",
+                command="kimicode",
+                available=False,
+                path="/Users/leo/.kimi-code/bin/kimi",
+                installed=True,
+                required=False,
+                auth_status="unknown",
+                selectable=True,
+            ),
+        },
+        active_provider_ids=["codex"],
+        unknown_required=["gemini"],
+        missing_required=[],
+        missing_optional=["kimicode"],
+    )
+
+    selectable = _selectable_agent_provider_ids(doctor)
+
+    assert "codex" in selectable
+    assert "gemini" in selectable
+    assert "kimicode" in selectable
 
 
 class _FakeProviderResult:

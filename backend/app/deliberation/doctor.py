@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 import subprocess
 from collections.abc import Callable
 
+from backend.app.deliberation.cli_paths import agent_subprocess_env, resolve_agent_command
 from backend.app.schemas import AgentDoctorReport, AgentProviderStatus
 
 
@@ -175,18 +175,20 @@ def _sanitize_diagnostic(text: str, max_length: int = 200) -> str:
 
 
 def _default_command_lookup(command: str) -> str | None:
-    return shutil.which(command)
+    return resolve_agent_command(command)
 
 
 def _default_command_probe(command: str, args: list[str], timeout_ms: int) -> tuple[int | None, str, str]:
     """Run a command with timeout and return (exit_code, stdout, stderr)."""
     timeout_sec = timeout_ms / 1000.0
+    executable = resolve_agent_command(command) or command
     try:
         result = subprocess.run(
-            [command, *args],
+            [executable, *args],
             capture_output=True,
             text=True,
             timeout=timeout_sec,
+            env=agent_subprocess_env(),
         )
         return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired as exc:
@@ -220,7 +222,7 @@ def _resolve_auth_status(
         # No custom probe → installed but can't verify auth
         return "unknown", f"命令存在：{path}，但无法验证其可调用状态。", ""
 
-    result = probe_fn(command, command_probe, timeout_ms)
+    result = probe_fn(path or command, command_probe, timeout_ms)
     if result is not None:
         return result
 
@@ -291,7 +293,7 @@ def inspect_agent_environment(
                 unknown_required.append(provider_id)
             else:
                 missing_required.append(provider_id)
-        else:
+        elif not selectable:
             missing_optional.append(provider_id)
 
     if missing_required:

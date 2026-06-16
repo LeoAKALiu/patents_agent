@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Awaitable, Callable
 
+from backend.app.deliberation.cli_paths import agent_subprocess_env, resolve_agent_command
 from backend.app.schemas import DeliberationLogEntry
 
 
@@ -182,10 +183,12 @@ async def _spawn_process(
     prompt: str,
     timeout_ms: int,
 ) -> tuple[int, str, str]:
+    executable = resolve_agent_command(command) or command
     process = await asyncio.create_subprocess_exec(
-        command,
+        executable,
         *args,
         cwd=str(workdir),
+        env=agent_subprocess_env(),
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -201,7 +204,7 @@ async def _spawn_process(
         raise ProviderFailure("timeout", f"{command} timed out", provider_id=command) from exc
     stdout = stdout_bytes.decode("utf-8", errors="replace")
     stderr = stderr_bytes.decode("utf-8", errors="replace")
-    if command == "codex":
+    if Path(command).name == "codex" or Path(executable).name == "codex":
         output_last_message = _read_codex_last_message(args)
         if output_last_message:
             stdout = output_last_message
