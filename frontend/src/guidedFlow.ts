@@ -485,10 +485,17 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
 
 /**
  * Returns true when all three quality gates have been completed against
- * the current source draft.  When currentSourceDraftHash is provided the
- * latest completion run and filing readiness report must be from the same
- * draft snapshot — this prevents a stale quality gate from unlocking
- * official-compile after a chair revision changes the draft.
+ * the current source draft.  When currentSourceDraftHash is provided, the
+ * latest filing readiness report and the latest completion run must both
+ * carry the same package hash — this prevents a stale quality gate from
+ * unlocking official-compile after a chair revision changes the draft.
+ *
+ * All three hashes (`filingReport.draft_package_hash`,
+ * `completionRun.draft_package_hash`, and `currentSourceDraftHash`) are
+ * `sha256(DraftPackage)` on the backend and are directly comparable.
+ * `completionRun.snapshot_hash` is intentionally NOT compared — it is
+ * `sha256(DraftPackage + points + materials)` and is used only for
+ * backend completion-run deduplication.
  */
 function isQualityChecked(
   filingReports: FilingReadinessReport[],
@@ -499,26 +506,37 @@ function isQualityChecked(
   if (!filingReports.length || !worksheets.length || !completionRuns.length) {
     return false;
   }
-  const latestCompleted = completionRuns.find((run) => run.status === "completed");
+  // Pick the most recent artifact by time rather than relying on store
+  // insertion order.  ISO-8601 timestamps are compared numerically via
+  // Date.parse (localeCompare is locale-aware and not safe here).  The
+  // original-index tiebreaker keeps the order stable when timestamps are
+  // missing or equal (Array.sort is not guaranteed stable across engines).
+  const byNewest = <T extends { created_at?: string }>(items: T[]): T[] =>
+    items
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => createdAtTime(b.item) - createdAtTime(a.item) || a.index - b.index)
+      .map((entry) => entry.item);
+  const latestReport = byNewest(filingReports)[0];
+  const latestCompleted = byNewest(completionRuns).find((run) => run.status === "completed");
   if (!latestCompleted) {
     return false;
   }
-  // If we have a hash baseline, cross-check both the completion snapshot
-  // and the filing readiness report against it.  The snapshot_hash is
-  // sha256(package + points + materials) while source_draft_hash is
-  // sha256(package) — they differ but both are stable per snapshot.
-  // When the draft changes both will mismatch, which is what we want.
-  if (currentSourceDraftHash) {
-    if (latestCompleted.snapshot_hash !== currentSourceDraftHash) {
-      return false;
-    }
-    // Filing readiness carries its own package hash for dedup.
-    const latestReport = filingReports[0];
-    if (latestReport.draft_package_hash !== currentSourceDraftHash) {
-      return false;
-    }
+  if (!currentSourceDraftHash) {
+    return true;
+  }
+  // draft_package_hash is sha256(package), the same formula as
+  // currentSourceDraftHash — so both are authoritative freshness signals.
+  if (latestReport.draft_package_hash !== currentSourceDraftHash) {
+    return false;
+  }
+  if (latestCompleted.draft_package_hash !== currentSourceDraftHash) {
+    return false;
   }
   return true;
+}
+
+function createdAtTime(item: { created_at?: string }): number {
+  return Date.parse(item.created_at || "") || 0;
 }
 
 function isMatchingPostDraftReview(review: PostDraftReviewRun, compile: OfficialCompileRun): boolean {

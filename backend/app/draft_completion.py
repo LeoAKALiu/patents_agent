@@ -87,6 +87,7 @@ def run_draft_completion(
         id=uuid.uuid4().hex,
         project_id=project_id,
         snapshot_hash=snapshot_hash,
+        draft_package_hash=package_hash,
         status="completed",
         issues=issues,
         tasks=tasks,

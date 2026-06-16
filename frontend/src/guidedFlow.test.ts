@@ -229,6 +229,7 @@ const completionRun: DraftCompletionRun = {
   id: "c1",
   project_id: "p1",
   snapshot_hash: "draft-hash",
+  draft_package_hash: "draft-hash",
   status: "completed",
   issues: [],
   tasks: [],
@@ -1214,6 +1215,88 @@ describe("deriveGuidedFlowState", () => {
     // Quality checks ran against "draft-hash" but the current source draft
     // is "new-draft-hash" (e.g., after a chair revision).  The gate should
     // reset to quality so the user re-runs quality checks before recompiling.
+    expect(state.qualityChecked).toBe(false);
+    expect(state.currentStepId).toBe("quality");
+    expect(state.exportReady).toBe(false);
+  });
+
+  it("stays satisfied when only the completion snapshot hash uses a different algorithm", () => {
+    // Regression: PR #78 compared completionRun.snapshot_hash against
+    // currentSourceDraftHash, but the two are computed differently on the
+    // backend (snapshot_hash = sha256(package + points + materials) while
+    // currentSourceDraftHash = sha256(package)), so they can never match.
+    // The gate must compare draft_package_hash (same sha256(package) formula
+    // on both the filing report and the completion run) and ignore the
+    // snapshot hash mismatch.
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        package: {
+          title: "一种外立面逆建模方法",
+          abstract: "摘要",
+          claims: "1. 一种方法。",
+          description: "说明书",
+          drawing_description: "附图说明",
+          mermaid: "flowchart TD",
+          image_prompt: "黑白线稿",
+          review_findings: [],
+          citations: [],
+          generation_logs: [],
+        },
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [{ ...filingReport("warning"), draft_package_hash: "draft-hash" }],
+      worksheets: [worksheet],
+      // snapshot_hash deliberately differs — emulates the real backend
+      // algorithm difference and must NOT invalidate the gate.
+      completionRuns: [{ ...completionRun, snapshot_hash: "snapshot-package-points-materials" }],
+      officialCompileRuns: [completedOfficialCompileRun],
+      postDraftReviews: [passedPostDraftReview],
+      currentSourceDraftHash: "draft-hash",
+    });
+
+    expect(state.qualityChecked).toBe(true);
+    expect(state.currentStepId).toBe("export");
+    expect(state.exportReady).toBe(true);
+  });
+
+  it("resets to quality when the latest completion run is stale but the filing report is fresh", () => {
+    // Regression for review finding #1: a completion run that predates the
+    // current draft (e.g. user re-ran filing readiness but skipped
+    // completion) must NOT satisfy the gate via the filing report alone.
+    // The completion run's own draft_package_hash must match too.
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        package: {
+          title: "一种外立面逆建模方法",
+          abstract: "摘要",
+          claims: "1. 一种方法。",
+          description: "说明书",
+          drawing_description: "附图说明",
+          mermaid: "flowchart TD",
+          image_prompt: "黑白线稿",
+          review_findings: [],
+          citations: [],
+          generation_logs: [],
+        },
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [{ ...filingReport("warning"), draft_package_hash: "new-draft-hash" }],
+      worksheets: [worksheet],
+      // Completion run was generated against an older draft.
+      completionRuns: [{ ...completionRun, draft_package_hash: "old-draft-hash" }],
+      officialCompileRuns: [completedOfficialCompileRun],
+      postDraftReviews: [passedPostDraftReview],
+      currentSourceDraftHash: "new-draft-hash",
+    });
+
     expect(state.qualityChecked).toBe(false);
     expect(state.currentStepId).toBe("quality");
     expect(state.exportReady).toBe(false);
