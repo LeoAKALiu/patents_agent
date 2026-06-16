@@ -508,9 +508,14 @@ function isQualityChecked(
   }
   // Pick the most recent artifact by time rather than relying on store
   // insertion order.  ISO-8601 timestamps are compared numerically via
-  // Date.parse (localeCompare is locale-aware and not safe here).
+  // Date.parse (localeCompare is locale-aware and not safe here).  The
+  // original-index tiebreaker keeps the order stable when timestamps are
+  // missing or equal (Array.sort is not guaranteed stable across engines).
   const byNewest = <T extends { created_at?: string }>(items: T[]): T[] =>
-    [...items].sort((a, b) => createdAtTime(b) - createdAtTime(a));
+    items
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => createdAtTime(b.item) - createdAtTime(a.item) || a.index - b.index)
+      .map((entry) => entry.item);
   const latestReport = byNewest(filingReports)[0];
   const latestCompleted = byNewest(completionRuns).find((run) => run.status === "completed");
   if (!latestCompleted) {
