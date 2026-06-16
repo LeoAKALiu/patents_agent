@@ -55,6 +55,18 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     assert "PATENTAGENT_REPO_ROOT" in main_rs
     assert ".resource_dir()" in main_rs
     assert 'path.join("backend").join("app").join("main.py").is_file()' in main_rs
+    assert "fn python_candidates" in main_rs
+    assert "PATENTAGENT_PYTHON" in main_rs
+    assert "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3" in main_rs
+    assert "/usr/local/bin/python3" in main_rs
+    assert '"python3"' in main_rs
+    assert "fn start_backend_with_python" in main_rs
+    assert "backend did not start with any Python interpreter" in main_rs
+    assert "backend-startup-error.txt" in main_rs
+    assert "backend-startup.log" in main_rs
+    assert "patentagent-tauri-startup.log" in main_rs
+    assert "trying python:" in main_rs
+    assert "PatentAgent backend startup failed" in main_rs
     assert "backend.app.main:app" in main_rs
     assert "python3" in main_rs
     assert "--host" in main_rs

@@ -2,7 +2,7 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    fs,
+    fs::{self, OpenOptions},
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
@@ -133,24 +133,37 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .manage(BackendState::default())
         .setup(move |app| {
-            let repo_root = backend_root(app.handle()).map_err(|err| {
-                std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!("failed to resolve backend package: {err}"),
-                )
-            })?;
             let data_dir = app.path().app_data_dir().unwrap_or_else(|_| {
                 std::env::temp_dir()
                     .join("PatentAgent")
                     .join("backend-data")
             });
             fs::create_dir_all(&data_dir)?;
-            let supervisor = start_backend(&repo_root, &data_dir)?;
-            let state = app.state::<BackendState>();
-            *state
-                .supervisor
-                .lock()
-                .map_err(|_| "backend state lock poisoned")? = Some(supervisor);
+            append_backend_startup_log(&data_dir, "setup: begin");
+            match backend_root(app.handle()).and_then(|repo_root| {
+                append_backend_startup_log(
+                    &data_dir,
+                    &format!("backend root: {}", repo_root.display()),
+                );
+                start_backend(&repo_root, &data_dir).map_err(|err| err.to_string())
+            }) {
+                Ok(supervisor) => {
+                    append_backend_startup_log(
+                        &data_dir,
+                        &format!("backend ready: {}", supervisor.info.health_url),
+                    );
+                    let state = app.state::<BackendState>();
+                    *state
+                        .supervisor
+                        .lock()
+                        .map_err(|_| "backend state lock poisoned")? = Some(supervisor);
+                }
+                Err(err) => {
+                    append_backend_startup_log(&data_dir, &format!("backend failed: {err}"));
+                    write_backend_startup_error(&data_dir, &err);
+                    eprintln!("PatentAgent backend startup failed: {err}");
+                }
+            }
             if dom_smoke_enabled() {
                 start_dom_smoke_timeout(
                     app.handle().clone(),
@@ -554,10 +567,55 @@ fn start_backend(
     repo_root: &Path,
     data_dir: &Path,
 ) -> Result<BackendSupervisor, Box<dyn std::error::Error>> {
+    let mut errors = Vec::new();
+    for python in python_candidates() {
+        append_backend_startup_log(data_dir, &format!("trying python: {python}"));
+        match start_backend_with_python(&python, repo_root, data_dir) {
+            Ok(supervisor) => return Ok(supervisor),
+            Err(err) => {
+                append_backend_startup_log(data_dir, &format!("python failed: {python}: {err}"));
+                errors.push(format!("{python}: {err}"));
+            }
+        }
+    }
+    Err(format!(
+        "backend did not start with any Python interpreter: {}",
+        errors.join(" | ")
+    )
+    .into())
+}
+
+fn python_candidates() -> Vec<String> {
+    let mut candidates = Vec::new();
+    if let Ok(python) = std::env::var("PATENTAGENT_PYTHON") {
+        push_unique(&mut candidates, python);
+    }
+    for python in [
+        "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3",
+        "/usr/local/bin/python3",
+        "/opt/homebrew/bin/python3",
+        "/opt/homebrew/bin/python3.12",
+        "python3",
+    ] {
+        push_unique(&mut candidates, python.to_string());
+    }
+    candidates
+}
+
+fn push_unique(values: &mut Vec<String>, value: String) {
+    if !values.iter().any(|existing| existing == &value) {
+        values.push(value);
+    }
+}
+
+fn start_backend_with_python(
+    python: &str,
+    repo_root: &Path,
+    data_dir: &Path,
+) -> Result<BackendSupervisor, Box<dyn std::error::Error>> {
     let port = find_available_port()?;
     let base_url = format!("http://127.0.0.1:{port}");
     let health_url = format!("{base_url}{HEALTH_PATH}");
-    let python = std::env::var("PATENTAGENT_PYTHON").unwrap_or_else(|_| "python3".to_string());
     let existing_pythonpath = std::env::var("PYTHONPATH").unwrap_or_default();
     let pythonpath = if existing_pythonpath.is_empty() {
         repo_root.to_string_lossy().to_string()
@@ -606,6 +664,25 @@ fn start_backend(
             port,
         },
     })
+}
+
+fn write_backend_startup_error(data_dir: &Path, error: &str) {
+    let path = data_dir.join("backend-startup-error.txt");
+    let _ = fs::write(path, error);
+}
+
+fn append_backend_startup_log(data_dir: &Path, message: &str) {
+    for path in [
+        data_dir.join("backend-startup.log"),
+        std::env::temp_dir().join("patentagent-tauri-startup.log"),
+    ] {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+            let _ = writeln!(file, "{message}");
+        }
+    }
 }
 
 fn read_child_pipe<R: Read>(pipe: &mut Option<R>) -> String {
