@@ -62,9 +62,12 @@ class DeliberationOrchestrator:
                 logs=logs,
             )
 
-        for provider_id in providers:
-            try:
-                result = await self.provider_runner.run_json_task(
+        # Opening phase: each provider produces an independent opening, so
+        # they are dispatched concurrently instead of sequentially.  Results
+        # are collected in provider order so logs/stage_results stay stable.
+        opening_outcomes = await asyncio.gather(
+            *(
+                self.provider_runner.run_json_task(
                     provider_id=provider_id,
                     prompt=opening_prompt(provider_id, dossier),
                     workdir=run_dir,
@@ -73,27 +76,13 @@ class DeliberationOrchestrator:
                     task_timeout_ms=task_timeout_ms,
                     log_callback=append_log,
                 )
-                openings[provider_id] = result.payload
-                stage_results.append(
-                    DeliberationStageResult(
-                        phase="opening",
-                        provider_id=provider_id,
-                        label=f"opening {provider_id}",
-                        payload=result.payload,
-                        status="completed",
-                    )
-                )
-                events.append(f"opening completed: {provider_id}")
-                append_log(
-                    DeliberationLogEntry(
-                        level="info",
-                        phase="opening",
-                        provider_id=provider_id,
-                        message="opening completed",
-                        detail=_payload_summary(result.payload),
-                    )
-                )
-            except ProviderFailure as exc:
+                for provider_id in providers
+            ),
+            return_exceptions=True,
+        )
+        for provider_id, outcome in zip(providers, opening_outcomes):
+            if isinstance(outcome, ProviderFailure):
+                exc = outcome
                 failure = _failure(provider_id, "opening", exc)
                 failures.append(failure)
                 stage_results.append(
@@ -108,6 +97,28 @@ class DeliberationOrchestrator:
                 )
                 events.append(f"opening failed: {provider_id} {exc.reason}")
                 append_log(_failure_log(provider_id, "opening", exc))
+                continue
+            result = outcome
+            openings[provider_id] = result.payload
+            stage_results.append(
+                DeliberationStageResult(
+                    phase="opening",
+                    provider_id=provider_id,
+                    label=f"opening {provider_id}",
+                    payload=result.payload,
+                    status="completed",
+                )
+            )
+            events.append(f"opening completed: {provider_id}")
+            append_log(
+                DeliberationLogEntry(
+                    level="info",
+                    phase="opening",
+                    provider_id=provider_id,
+                    message="opening completed",
+                    detail=_payload_summary(result.payload),
+                )
+            )
 
         if failures:
             _write_json(run_dir / "openings.json", openings)
@@ -131,40 +142,28 @@ class DeliberationOrchestrator:
         pair_results: list[dict] = []
         completed_providers = list(openings.keys())
         coordinator_provider = _coordinator_provider(completed_providers)
-        for provider_a, provider_b in combinations(completed_providers, 2):
-            label = f"pair {provider_a}-vs-{provider_b}"
-            try:
-                result = await self.provider_runner.run_json_task(
+        pair_pairs = list(combinations(completed_providers, 2))
+        # Pair phase: every pair only depends on openings, not on other pairs,
+        # so the pair comparisons run concurrently.
+        pair_outcomes = await asyncio.gather(
+            *(
+                self.provider_runner.run_json_task(
                     provider_id=coordinator_provider,
                     prompt=pair_prompt(provider_a, provider_b, dossier, {provider_a: openings[provider_a], provider_b: openings[provider_b]}),
                     workdir=run_dir,
-                    label=label,
+                    label=f"pair {provider_a}-vs-{provider_b}",
                     trace=trace,
                     task_timeout_ms=task_timeout_ms,
                     log_callback=append_log,
                 )
-                pair_payload = {"pair": [provider_a, provider_b], **result.payload}
-                pair_results.append(pair_payload)
-                stage_results.append(
-                    DeliberationStageResult(
-                        phase="pair",
-                        provider_id=coordinator_provider,
-                        label=label,
-                        payload=pair_payload,
-                        status="completed",
-                    )
-                )
-                events.append(f"pair completed: {provider_a} vs {provider_b}")
-                append_log(
-                    DeliberationLogEntry(
-                        level="info",
-                        phase="pair",
-                        provider_id=coordinator_provider,
-                        message=f"pair completed: {provider_a} vs {provider_b}",
-                        detail=_payload_summary(result.payload),
-                    )
-                )
-            except ProviderFailure as exc:
+                for provider_a, provider_b in pair_pairs
+            ),
+            return_exceptions=True,
+        )
+        for (provider_a, provider_b), outcome in zip(pair_pairs, pair_outcomes):
+            label = f"pair {provider_a}-vs-{provider_b}"
+            if isinstance(outcome, ProviderFailure):
+                exc = outcome
                 failure = _failure(coordinator_provider, "pair", exc)
                 failures.append(failure)
                 stage_results.append(
@@ -179,23 +178,48 @@ class DeliberationOrchestrator:
                 )
                 events.append(f"pair failed: {provider_a} vs {provider_b} {exc.reason}")
                 append_log(_failure_log(coordinator_provider, "pair", exc))
-                _write_json(run_dir / "openings.json", openings)
-                _write_json(run_dir / "pair_results.json", pair_results)
-                _write_events(run_dir / "events.jsonl", events)
-                return _build_run(
-                    run_id=run_id,
-                    project_id=project_id,
-                    status="failed",
-                    providers=providers,
-                    run_mode=_run_mode(len(completed_providers)),
-                    trace=trace,
-                    run_dir=run_dir,
-                    stage_results=stage_results,
-                    strategy_brief=None,
-                    failures=failures,
-                    events=events,
-                    logs=logs,
+                continue
+            result = outcome
+            pair_payload = {"pair": [provider_a, provider_b], **result.payload}
+            pair_results.append(pair_payload)
+            stage_results.append(
+                DeliberationStageResult(
+                    phase="pair",
+                    provider_id=coordinator_provider,
+                    label=label,
+                    payload=pair_payload,
+                    status="completed",
                 )
+            )
+            events.append(f"pair completed: {provider_a} vs {provider_b}")
+            append_log(
+                DeliberationLogEntry(
+                    level="info",
+                    phase="pair",
+                    provider_id=coordinator_provider,
+                    message=f"pair completed: {provider_a} vs {provider_b}",
+                    detail=_payload_summary(result.payload),
+                )
+            )
+
+        if failures:
+            _write_json(run_dir / "openings.json", openings)
+            _write_json(run_dir / "pair_results.json", pair_results)
+            _write_events(run_dir / "events.jsonl", events)
+            return _build_run(
+                run_id=run_id,
+                project_id=project_id,
+                status="failed",
+                providers=providers,
+                run_mode=_run_mode(len(completed_providers)),
+                trace=trace,
+                run_dir=run_dir,
+                stage_results=stage_results,
+                strategy_brief=None,
+                failures=failures,
+                events=events,
+                logs=logs,
+            )
 
         try:
             chair = await self.provider_runner.run_json_task(
