@@ -10,11 +10,11 @@ const variantStyles: Record<string, string> = {
   primary:
     "bg-teal-600 hover:bg-teal-500 text-white border-transparent shadow-sm",
   secondary:
-    "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600",
+    "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-700/50 hover:border-slate-600",
   danger:
     "bg-red-600/20 hover:bg-red-600/30 text-red-400 border-red-500/20",
   ghost:
-    "bg-transparent hover:bg-slate-800 text-slate-400 border-slate-700",
+    "bg-transparent hover:bg-slate-800 text-slate-400 border-transparent",
 };
 
 export function ActionButton({

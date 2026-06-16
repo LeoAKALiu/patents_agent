@@ -61,30 +61,32 @@ export function ShellTopbar({
       </div>
 
       <div className="top-actions">
-        {projectSelector}
+        <div className="topbar-actions-group">
+          {projectSelector}
 
-        {statusLabel && (
-          <span className={statusClass(statusVariant)}>{statusLabel}</span>
-        )}
+          {statusLabel && (
+            <span className={statusClass(statusVariant)}>{statusLabel}</span>
+          )}
 
-        {actions}
+          {actions}
 
-        {onRefresh && (
-          <button
-            className="btn btn-secondary btn-icon"
-            onClick={onRefresh}
-            type="button"
-            title="刷新运行状态"
-            aria-label="刷新运行状态"
-          >
-            <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M20 6v5h-5" />
-              <path d="M4 18v-5h5" />
-              <path d="M18 11a6 6 0 0 0-10-4l-4 4" />
-              <path d="M6 13a6 6 0 0 0 10 4l4-4" />
-            </svg>
-          </button>
-        )}
+          {onRefresh && (
+            <button
+              className="btn btn-secondary btn-icon"
+              onClick={onRefresh}
+              type="button"
+              title="刷新运行状态"
+              aria-label="刷新运行状态"
+            >
+              <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 6v5h-5" />
+                <path d="M4 18v-5h5" />
+                <path d="M18 11a6 6 0 0 0-10-4l-4 4" />
+                <path d="M6 13a6 6 0 0 0 10 4l4-4" />
+              </svg>
+            </button>
+          )}
+        </div>
 
         <div className="theme-set" aria-label="主题" role="radiogroup">
           {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
