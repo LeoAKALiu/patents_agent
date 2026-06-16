@@ -26,8 +26,9 @@ def test_knowledge_readiness_allows_progress_above_threshold_with_deep_research(
         project_id,
         "deepresearch-report.md",
         "DeepResearch 报告：覆盖现有技术、关键论文和专利差异。",
+        expected_type="deep_research",
     )
-    _upload_material(client, project_id, "prior-art-patent.md", "CN 专利对比文件，包含区别特征。")
+    _upload_material(client, project_id, "prior-art-patent.md", "CN 专利对比文件，包含区别特征。", expected_type="reference")
 
     response = client.post(
         f"/api/projects/{project_id}/knowledge-readiness",
@@ -52,7 +53,7 @@ def test_generate_blocks_without_completed_knowledge_readiness(tmp_path):
     response = client.post(f"/api/projects/{project_id}/generate", json={})
 
     assert response.status_code == 409
-    assert "Knowledge readiness" in response.json()["detail"]
+    assert "知识完备度评分" in response.json()["detail"]
 
 
 def _create_project(client: TestClient) -> str:
@@ -65,13 +66,14 @@ def _create_project(client: TestClient) -> str:
     ).json()["id"]
 
 
-def _upload_material(client: TestClient, project_id: str, file_name: str, text: str) -> None:
+def _upload_material(client: TestClient, project_id: str, file_name: str, text: str, expected_type: str) -> None:
     response = client.post(
         f"/api/projects/{project_id}/materials",
         files={"file": (file_name, text.encode("utf-8"), "text/markdown")},
     )
     assert response.status_code == 200
     assert response.json()["status"] == "processed"
+    assert response.json()["metadata"]["material_type"] == expected_type
 
 
 def _knowledge_llm(score: int) -> FakeLLMClient:

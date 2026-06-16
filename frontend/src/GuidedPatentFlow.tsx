@@ -861,9 +861,9 @@ function KnowledgeReadinessPanel({
   onStartKnowledgeReadiness: () => void;
 }) {
   const processedMaterials = materials.filter((material) => material.status === "processed");
-  const hasDeepResearchReport = processedMaterials.some(isDeepResearchMaterial);
+  const hasDeepResearchReport = processedMaterials.some((material) => materialType(material) === "deep_research");
   const relatedReferenceCount = processedMaterials.filter(
-    (material) => !isDeepResearchMaterial(material) && isRelatedReferenceMaterial(material),
+    (material) => materialType(material) === "reference",
   ).length;
   const score = run?.score ?? 0;
   const passed = Boolean(run?.status === "completed" && run.proceed_allowed);
@@ -955,24 +955,9 @@ function KnowledgeReadinessPanel({
   );
 }
 
-function isDeepResearchMaterial(material: ProjectMaterial): boolean {
-  const text = `${material.file_name} ${material.text.slice(0, 500)}`.toLowerCase();
-  return [
-    "deepresearch",
-    "deep research",
-    "deep-research",
-    "深度研究",
-    "深度检索",
-    "深度调研",
-    "检索报告",
-  ].some((keyword) => text.includes(keyword));
-}
-
-function isRelatedReferenceMaterial(material: ProjectMaterial): boolean {
-  const text = `${material.file_name} ${material.text.slice(0, 500)}`.toLowerCase();
-  return ["论文", "paper", "article", "arxiv", "专利", "patent", "cn", "us", "wo"].some((keyword) =>
-    text.includes(keyword),
-  );
+function materialType(material: ProjectMaterial): string {
+  const value = material.metadata.material_type;
+  return typeof value === "string" ? value : "general";
 }
 
 function GuidedOperationConsole({

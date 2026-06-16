@@ -48,7 +48,7 @@ from backend.app.desktop_config import (
     save_desktop_config,
 )
 from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
-from backend.app.knowledge_readiness import require_knowledge_ready, run_knowledge_readiness
+from backend.app.knowledge_readiness import classify_project_material, require_knowledge_ready, run_knowledge_readiness, with_material_type
 from backend.app.official_compile import (
     OfficialDraftCompiler,
     export_official_package_docx,
@@ -430,6 +430,7 @@ def create_app(
             text=text,
             status=status,
             warnings=warnings,
+            metadata={"material_type": classify_project_material(safe_name, text)},
         )
         store.add_project_material(material)
         return material.model_dump(mode="json")
@@ -437,7 +438,7 @@ def create_app(
     @app.get("/api/projects/{project_id}/materials")
     def list_project_materials(project_id: str) -> dict:
         _require_project(store, project_id)
-        return {"materials": [material.model_dump(mode="json") for material in store.list_project_materials(project_id)]}
+        return {"materials": [with_material_type(material).model_dump(mode="json") for material in store.list_project_materials(project_id)]}
 
     @app.post("/api/projects/{project_id}/knowledge-readiness")
     def create_knowledge_readiness_run(project_id: str, payload: KnowledgeReadinessRunCreate | None = None) -> dict:

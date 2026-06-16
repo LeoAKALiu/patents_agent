@@ -17,6 +17,9 @@ from backend.app.schemas import (
 
 
 KNOWLEDGE_READINESS_THRESHOLD = 80
+MATERIAL_TYPE_DEEP_RESEARCH = "deep_research"
+MATERIAL_TYPE_REFERENCE = "reference"
+MATERIAL_TYPE_GENERAL = "general"
 ROLE_STAGES = (
     ("deep_research_auditor", "knowledge_deep_research_auditor"),
     ("prior_art_auditor", "knowledge_prior_art_auditor"),
@@ -118,8 +121,23 @@ def run_knowledge_readiness(
 
 
 def is_deep_research_report_material(material: ProjectMaterial) -> bool:
-    haystack = f"{material.file_name}\n{material.text[:5000]}".lower()
-    return any(
+    return project_material_type(material) == MATERIAL_TYPE_DEEP_RESEARCH
+
+
+def is_reference_material(material: ProjectMaterial) -> bool:
+    return project_material_type(material) == MATERIAL_TYPE_REFERENCE
+
+
+def project_material_type(material: ProjectMaterial) -> str:
+    value = str(material.metadata.get("material_type", "")).strip()
+    if value in {MATERIAL_TYPE_DEEP_RESEARCH, MATERIAL_TYPE_REFERENCE, MATERIAL_TYPE_GENERAL}:
+        return value
+    return classify_project_material(material.file_name, material.text)
+
+
+def classify_project_material(file_name: str, text: str) -> str:
+    haystack = f"{file_name}\n{text[:5000]}".lower()
+    if any(
         pattern in haystack
         for pattern in (
             "deepresearch",
@@ -131,13 +149,24 @@ def is_deep_research_report_material(material: ProjectMaterial) -> bool:
             "现有技术调研报告",
             "检索报告",
         )
-    )
+    ):
+        return MATERIAL_TYPE_DEEP_RESEARCH
+    if any(token in haystack for token in ("论文", "paper", "article", "arxiv", "专利", "patent", "cn", "us", "wo")):
+        return MATERIAL_TYPE_REFERENCE
+    return MATERIAL_TYPE_GENERAL
+
+
+def with_material_type(material: ProjectMaterial) -> ProjectMaterial:
+    material_type = project_material_type(material)
+    if material.metadata.get("material_type") == material_type:
+        return material
+    return material.model_copy(update={"metadata": {**material.metadata, "material_type": material_type}})
 
 
 def require_knowledge_ready(run: KnowledgeReadinessRun | None) -> None:
     if run and run.status == "completed" and run.proceed_allowed:
         return
-    raise ValueError("Knowledge readiness score must be greater than 80 with an uploaded DeepResearch report before generating a draft.")
+    raise ValueError("生成初稿前必须上传 DeepResearch 报告，并完成知识完备度评分；分数需大于 80 分。")
 
 
 def _has_deep_research_report(materials: list[ProjectMaterial]) -> bool:
@@ -149,8 +178,7 @@ def _related_reference_count(materials: list[ProjectMaterial]) -> int:
     for material in materials:
         if is_deep_research_report_material(material):
             continue
-        haystack = f"{material.file_name}\n{material.text[:3000]}".lower()
-        if any(token in haystack for token in ("论文", "paper", "article", "arxiv", "专利", "patent", "cn", "us", "wo")):
+        if is_reference_material(material):
             count += 1
     return count
 
