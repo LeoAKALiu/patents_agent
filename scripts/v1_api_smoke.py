@@ -968,7 +968,7 @@ def run_golden_case(client: TestClient, case: GoldenCase) -> dict[str, Any]:
 def _classify_failure(exc: BaseException) -> str:
     text = f"{type(exc).__name__}: {exc}".lower()
     provider_markers = ("provider", "api key", "deepseek", "not configured", "unavailable")
-    environment_markers = ("no module named", "permission denied", "node", "npm", "electron", "xvfb", "missing sample")
+    environment_markers = ("no module named", "permission denied", "node", "npm", "missing sample")
     if any(marker in text for marker in provider_markers):
         return "unavailable_provider"
     if any(marker in text for marker in environment_markers):

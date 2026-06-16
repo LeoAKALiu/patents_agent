@@ -31,6 +31,7 @@ LAUNCHPAD_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
 SPCTL_TRANSIENT_STATUSES = {
     "assessment-tool-error-too-many-open-files",
     "assessment-tool-error-invalid-bundle",
+    "assessment-tool-error-invalid-resource-directory",
 }
 BACKEND_RE = re.compile(
     r"(?P<command>(?:\S*/)?(?:python(?:3(?:\.\d+)?)?|Python)\s+-m\s+uvicorn\s+"
@@ -116,6 +117,8 @@ def classify_spctl(returncode: int, output: str) -> str:
         return "assessment-tool-error-too-many-open-files"
     if "bundle format unrecognized" in output_lower:
         return "assessment-tool-error-invalid-bundle"
+    if "invalid resource directory" in output_lower:
+        return "assessment-tool-error-invalid-resource-directory"
     return "failed"
 
 

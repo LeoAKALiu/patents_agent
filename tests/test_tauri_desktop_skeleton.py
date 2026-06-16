@@ -15,7 +15,7 @@ def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_tauri_v2_scaffold_keeps_existing_frontend_and_electron() -> None:
+def test_tauri_v2_scaffold_is_the_only_desktop_runtime() -> None:
     cargo = TAURI_DIR / "Cargo.toml"
     config = TAURI_DIR / "tauri.conf.json"
     main_rs = TAURI_DIR / "src" / "main.rs"
@@ -24,7 +24,7 @@ def test_tauri_v2_scaffold_keeps_existing_frontend_and_electron() -> None:
     assert config.exists()
     assert main_rs.exists()
     assert (ROOT / "frontend" / "package.json").exists()
-    assert (ROOT / "desktop" / "electron" / "main.ts").exists()
+    assert not (ROOT / "desktop").exists()
 
     cargo_toml = tomllib.loads(read(cargo))
     dependencies = cargo_toml["dependencies"]
@@ -166,23 +166,26 @@ def test_frontend_api_adapter_preserves_web_and_supports_tauri_backend_base_url(
     assert "fetch(resolvedUrl, init)" in api_ts
 
 
-def test_tauri_smoke_is_wired_into_release_gate_without_removing_electron_smoke() -> None:
+def test_tauri_smoke_is_the_desktop_release_gate() -> None:
     smoke = read(ROOT / "scripts" / "v1_smoke.sh")
 
     assert "run_tauri_smoke_if_present" in smoke
     assert "cargo check" in smoke
     assert "cargo test" in smoke
-    assert "npm --prefix desktop run build" in smoke
-    assert "run_electron_smoke_if_feasible" in smoke
+    assert "npm --prefix desktop" not in smoke
+    assert "run_electron_smoke_if_feasible" not in smoke
 
 
-def test_tauri_cargo_checks_are_wired_into_ci() -> None:
+def test_tauri_cargo_checks_are_the_only_desktop_ci_gate() -> None:
     ci = read(ROOT / ".github" / "workflows" / "ci.yml")
 
     assert "Tauri cargo check and tests" in ci
     assert "cargo check --manifest-path src-tauri/Cargo.toml" in ci
     assert "cargo test --manifest-path src-tauri/Cargo.toml" in ci
     assert "libwebkit2gtk-4.1-dev" in ci
+    assert "Desktop build and smoke" not in ci
+    assert "desktop/package-lock.json" not in ci
+    assert "npm run smoke" not in ci
 
 
 def test_tauri_macos_bundle_gets_ad_hoc_resource_seal() -> None:

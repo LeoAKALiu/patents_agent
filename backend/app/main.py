@@ -123,8 +123,6 @@ STRICT_DELIBERATION_PROVIDERS = ("codex", "deepseek", "claude")
 APP_VERSION = "1.1.0"
 LOCAL_RENDERER_ORIGINS = frozenset(
     {
-        "null",  # Electron/file:// renderer fetches report Origin: null.
-        "file://",
         "http://127.0.0.1:5173",
         "http://localhost:5173",
         "http://127.0.0.1:5174",
@@ -139,9 +137,9 @@ LOCAL_RENDERER_ORIGINS = frozenset(
 def _enforce_desktop_config_origin(request: Request) -> None:
     """Reject browser-originated config writes from non-renderer origins.
 
-    Electron main-process requests and tests do not send Origin, so absence is
-    allowed. Browser requests from arbitrary sites send Origin and must not be
-    able to read or mutate the local desktop LLM configuration.
+    Tauri command invocations and backend tests do not send Origin, so absence
+    is allowed. Browser requests from arbitrary sites send Origin and must not
+    be able to read or mutate the local desktop LLM configuration.
     """
 
     origin = request.headers.get("origin")
