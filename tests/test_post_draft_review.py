@@ -4,6 +4,7 @@ from docx import Document
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.schemas import DraftPackage
+from tests.helpers import seed_knowledge_ready
 
 
 def test_post_draft_review_pass_unlocks_official_export(tmp_path):
@@ -183,6 +184,7 @@ def test_apply_chair_revision_updates_draft_and_recompiles_official_package(tmp_
     assert apply_response.status_code == 200
     result = apply_response.json()
     assert result["applied_revision_count"] == 1
+    assert result["description_rewrite_tasks"] == ["补充贡献矩阵示例。"]
     assert result["package"]["claims"].startswith("1. 一种方法，包括根据置信度增益生成任务包。")
     assert "applied chair revisions" in "\n".join(result["package"]["generation_logs"])
     assert result["official_compile_run"]["status"] == "completed"
@@ -195,6 +197,27 @@ def test_apply_chair_revision_updates_draft_and_recompiles_official_package(tmp_
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
     assert export_response.status_code == 409
     assert "Post-draft multi-agent review is required" in export_response.json()["detail"]
+
+
+def test_apply_chair_revision_does_not_update_package_when_compile_raises(tmp_path, monkeypatch):
+    client = TestClient(
+        create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False),
+        raise_server_exceptions=False,
+    )
+    project_id = _create_project_with_package(client, _package())
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    original_claims = client.app.state.store.get_project(project_id).package.claims
+
+    def fail_compile(self, project_id, package):
+        raise RuntimeError("compile exploded")
+
+    monkeypatch.setattr("backend.app.main.OfficialDraftCompiler.compile", fail_compile)
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/apply-revisions")
+
+    assert response.status_code == 500
+    assert client.app.state.store.get_project(project_id).package.claims == original_claims
 
 
 def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compile(tmp_path):
@@ -262,6 +285,7 @@ def _create_project_with_package(client: TestClient, package: DraftPackage) -> s
         "/api/projects",
         json={"name": "成稿会审测试", "draft_text": "一种城市体检指标驱动无人机采集方法。"},
     ).json()["id"]
+    seed_knowledge_ready(client, project_id)
     client.app.state.store.update_project_package(project_id, package)
     return project_id
 

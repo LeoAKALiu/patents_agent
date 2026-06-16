@@ -1228,13 +1228,15 @@ def create_app(
             revised_package = apply_chair_revisions_to_draft(package, run)
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        store.update_project_package(project_id, revised_package)
         compile_run = OfficialDraftCompiler().compile(project_id=project_id, package=revised_package)
+        store.update_project_package(project_id, revised_package)
         stored_compile = store.create_official_compile_run(compile_run)
+        description_tasks = run.chair_result.description_rewrite_tasks if run.chair_result else []
         return {
             "package": revised_package.model_dump(mode="json"),
             "official_compile_run": stored_compile.model_dump(mode="json"),
             "applied_revision_count": applied_count,
+            "description_rewrite_tasks": description_tasks,
             "current_source_draft_hash": source_draft_hash(revised_package),
         }
 

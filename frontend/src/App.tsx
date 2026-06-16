@@ -1197,10 +1197,13 @@ function App() {
       setFilingReports([]);
       setWorksheets([]);
       setCompletionRuns([]);
+      const taskSuffix = result.description_rewrite_tasks.length
+        ? `；待办：${result.description_rewrite_tasks.join("；")}`
+        : "";
       setMessage(
         result.official_compile_run.status === "completed"
-          ? `已应用主席修订 ${result.applied_revision_count} 项，并重新编译正式稿`
-          : `已应用主席修订 ${result.applied_revision_count} 项，但正式稿编译仍需处理`,
+          ? `已应用主席修订 ${result.applied_revision_count} 项，并重新编译正式稿${taskSuffix}`
+          : `已应用主席修订 ${result.applied_revision_count} 项，但正式稿编译仍需处理${taskSuffix}`,
       );
     });
   }

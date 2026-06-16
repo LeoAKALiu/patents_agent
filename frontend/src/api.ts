@@ -668,6 +668,7 @@ export interface ChairRevisionApplyResult {
   package: DraftPackage;
   official_compile_run: OfficialCompileRun;
   applied_revision_count: number;
+  description_rewrite_tasks: string[];
   current_source_draft_hash: string;
 }
 

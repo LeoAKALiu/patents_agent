@@ -1580,6 +1580,9 @@ function PostDraftReviewPanel({
           <h4>{passed ? "主席裁决：允许正式导出" : "主席裁决：需要修订"}</h4>
           {review.blocking_issues.length > 0 && <p>阻断项：{review.blocking_issues.slice(0, 3).join("；")}</p>}
           {review.contamination_hits.length > 0 && <p>污染命中：{review.contamination_hits.slice(0, 5).join("；")}</p>}
+          {review.chair_result?.description_rewrite_tasks.length ? (
+            <p>主席待办：{review.chair_result.description_rewrite_tasks.join("；")}</p>
+          ) : null}
           {blocked && hasChairRevision && (
             <button
               className="primary"
