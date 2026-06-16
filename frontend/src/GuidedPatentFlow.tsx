@@ -71,6 +71,7 @@ import {
   latestCompletedDeliberation,
   pipelineRunStatusLabel,
 } from "./domain";
+import { runtimeDisplayElapsedSeconds, useRuntimeNow } from "./runtimeDisplay";
 
 export type GuidedPatentFlowProps = {
   project: ProjectRecord | null;
@@ -235,28 +236,6 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         onNext={handleNextAction}
         totalStepCount={state.steps.length}
       />
-      {props.project && displayedStepId !== "idea" && (
-        <section className="guided-panel external-draft-side-entry">
-          <div className="guided-panel-heading">
-            <div>
-              <h3>外部初稿导入</h3>
-              <p>可随时保存外部稿、解析章节，并确认为内部工作稿；后续质检和导出门禁仍需重新运行。</p>
-            </div>
-            <FileText size={24} />
-          </div>
-          <ExternalDraftIntakePanel
-            project={props.project}
-            sources={props.externalDraftSources}
-            runs={props.externalDraftIntakeRuns}
-            busy={props.busy}
-            busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
-            onCreateExternalDraft={props.onCreateExternalDraft}
-            onUploadExternalDraft={props.onUploadExternalDraft}
-            onStartExternalDraftIntake={props.onStartExternalDraftIntake}
-            onConfirmExternalDraftIntake={props.onConfirmExternalDraftIntake}
-          />
-        </section>
-      )}
       {displayedStepId === "idea" && (
         <IdeaIntakePanel
           project={props.project}
@@ -943,14 +922,17 @@ function GuidedRuntimeConsole({
   busy?: string;
   onCancel?: (runId: string) => void;
 }) {
-  if (!run || (run.status !== "queued" && run.status !== "running")) return null;
+  const active = Boolean(run && (run.status === "queued" || run.status === "running"));
+  const now = useRuntimeNow(active);
+  if (!run || !active) return null;
   const state = run.runtime_state ?? null;
+  const elapsedSeconds = runtimeDisplayElapsedSeconds(state, now);
   const lines = [
     `run ${run.id.slice(0, 10)} / ${pipelineRunStatusLabel(run.status)}`,
     `stage ${guidedRuntimeStageLabel(state?.current_stage)}`,
     state?.provider ? `provider ${state.provider}` : "",
     state?.subtask ? `task ${state.subtask}` : "",
-    typeof state?.elapsed_ms === "number" ? `elapsed ${formatElapsedLabel(Math.floor(state.elapsed_ms / 1000))}` : "",
+    state ? `elapsed ${formatElapsedLabel(elapsedSeconds)}` : "",
     typeof state?.partial_artifact_count === "number" ? `partials ${state.partial_artifact_count}` : "",
     typeof state?.warning_count === "number" ? `warnings ${state.warning_count}` : "",
     run.events?.at(-1) ? `event ${run.events.at(-1)}` : "",
@@ -959,7 +941,7 @@ function GuidedRuntimeConsole({
     <div className="inline-console" role="status" aria-label={label}>
       <div className="console-heading">
         <span>{label}</span>
-        <span>{state ? formatElapsedLabel(Math.floor(state.elapsed_ms / 1000)) : "00:00"}</span>
+        <span>{formatElapsedLabel(elapsedSeconds)}</span>
       </div>
       <pre>{lines.join("\n")}</pre>
       <GuidedRuntimeActions run={run} disabled={Boolean(busy)} onCancel={onCancel} />
@@ -972,13 +954,26 @@ function GuidedRuntimeFailures({ run }: { run: GuidedRuntimeRun | null }) {
   if (failures.length === 0) return null;
   return (
     <div className="guided-runtime-failures">
-      {failures.slice(-2).map((failure, index) => (
-        <p key={`${run?.id}-failure-${index}`}>
-          {failure.reason} / {guidedRuntimeStageLabel(failure.stage)}：{failure.message}
-        </p>
-      ))}
+      {failures.slice(-2).map((failure, index) => {
+        const provider = failure.provider ? ` / ${agentProviderRuntimeLabel(failure.provider)}` : "";
+        return (
+          <p key={`${run?.id}-failure-${index}`}>
+            {failure.reason} / {guidedRuntimeStageLabel(failure.stage)}{provider}：{failure.message}
+            {failure.repair_suggestion ? ` 建议：${failure.repair_suggestion}` : ""}
+          </p>
+        );
+      })}
     </div>
   );
+}
+
+function agentProviderRuntimeLabel(providerId: string): string {
+  if (providerId === "codex") return "Codex";
+  if (providerId === "deepseek") return "DeepSeek";
+  if (providerId === "claude") return "Claude";
+  if (providerId === "kimicode") return "KimiCode";
+  if (providerId === "mimo") return "Mimo";
+  return providerId;
 }
 
 function guidedRuntimeStageLabel(stage?: string | null): string {
@@ -1023,9 +1018,17 @@ function InventionPointConfirmation({
   onOpenExpertTool: GuidedPatentFlowProps["onOpenExpertTool"];
 }) {
   const activeRun = guidedActiveRun(disclosureRuns);
-  const disclosureCandidates = disclosure?.package?.candidates ?? [];
+  const latestRun = disclosureRuns[0] ?? null;
+  const activeRunCandidates = patentPointCandidatesFromDisclosureRun(activeRun);
+  const latestRunCandidates = patentPointCandidatesFromDisclosureRun(latestRun);
+  const disclosureCandidates = activeRunCandidates.length
+    ? activeRunCandidates
+    : latestRunCandidates.length
+      ? latestRunCandidates
+      : disclosure?.package?.candidates ?? [];
   const candidates = disclosureCandidates.length ? disclosureCandidates : patentPoints;
   const needsGeneration = (!disclosure || candidates.length === 0) && !activeRun;
+  const showingPartialCandidates = Boolean(activeRun && activeRunCandidates.length > 0 && !activeRun.package);
 
   return (
     <section className="guided-panel">
@@ -1090,6 +1093,11 @@ function InventionPointConfirmation({
       <GuidedRuntimeConsole run={activeRun} label="发明点提炼运行中" busy={busy} onCancel={onCancelRun} />
       <GuidedRuntimeFailures run={disclosureRuns[0] ?? null} />
       <GuidedRuntimeActions run={disclosureRuns[0] ?? null} disabled={Boolean(busy)} onRetry={onRetryRun} />
+      {showingPartialCandidates && (
+        <p className="workflow-hint">
+          候选发明点已返回，后台仍在整理交底包；可以先查看候选主线，完整包完成后会自动刷新。
+        </p>
+      )}
       <div className="guided-card-grid">
         {candidates.map((point) => (
           <article className={point.selected ? "guided-choice selected" : "guided-choice"} key={point.id}>
@@ -1109,6 +1117,40 @@ function InventionPointConfirmation({
       </div>
     </section>
   );
+}
+
+function patentPointCandidatesFromDisclosureRun(run: DisclosureRun | null): PatentPointCandidate[] {
+  const packageCandidates = run?.package?.candidates ?? [];
+  if (packageCandidates.length > 0) return packageCandidates;
+  return patentPointCandidatesFromStageResults(run);
+}
+
+function patentPointCandidatesFromStageResults(run: DisclosureRun | null): PatentPointCandidate[] {
+  const stageResults = run?.stage_results ?? [];
+  for (let index = stageResults.length - 1; index >= 0; index -= 1) {
+    const result = stageResults[index];
+    if (result.phase !== "patent_points") continue;
+    const payload = result.payload;
+    if (isRecord(payload) && Array.isArray(payload.candidates)) {
+      return payload.candidates.filter(isPatentPointCandidate);
+    }
+  }
+  return [];
+}
+
+function isPatentPointCandidate(value: unknown): value is PatentPointCandidate {
+  return isRecord(value)
+    && typeof value.id === "string"
+    && typeof value.title === "string"
+    && Array.isArray(value.protection_focus)
+    && Array.isArray(value.support_gaps)
+    && typeof value.innovation === "string"
+    && typeof value.technical_solution === "string"
+    && typeof value.evidence_status === "string";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function evidenceStatusText(status: PatentPointCandidate["evidence_status"]): string {

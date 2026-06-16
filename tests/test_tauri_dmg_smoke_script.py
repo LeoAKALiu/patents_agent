@@ -72,6 +72,28 @@ def test_spctl_rejection_is_classified_as_not_notarized() -> None:
     assert status == "rejected-not-notarized"
 
 
+def test_spctl_too_many_open_files_is_classified_as_assessment_tool_error() -> None:
+    smoke = load_smoke_script()
+
+    status = smoke.classify_spctl(
+        1,
+        "/tmp/PatentAgent.app: Too many open files\n",
+    )
+
+    assert status == "assessment-tool-error-too-many-open-files"
+
+
+def test_spctl_invalid_bundle_message_is_classified_as_assessment_tool_error() -> None:
+    smoke = load_smoke_script()
+
+    status = smoke.classify_spctl(
+        1,
+        "/tmp/PatentAgent.app: bundle format unrecognized, invalid, or unsuitable\n",
+    )
+
+    assert status == "assessment-tool-error-invalid-bundle"
+
+
 def test_cleanup_attempts_app_quit_after_successful_launch_without_pid() -> None:
     smoke = load_smoke_script()
 
@@ -84,6 +106,52 @@ def test_cleanup_attempts_app_quit_after_successful_launch_without_pid() -> None
     assert decision.quit_app is True
     assert decision.terminate_app_pid is None
     assert decision.terminate_backend_pid is None
+
+
+def test_open_app_uses_launchpad_like_path_without_python_override(tmp_path: Path) -> None:
+    smoke = load_smoke_script()
+    calls: list[list[str]] = []
+
+    def runner(args: list[str], output_path: Path, *, check: bool = False):
+        calls.append(args)
+        output_path.write_text("opened\n", encoding="utf-8")
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    smoke.run_text_command = runner
+
+    smoke.open_app(tmp_path / "PatentAgent.app", tmp_path)
+
+    assert calls == [
+        [
+            "open",
+            "-n",
+            "-o",
+            str(tmp_path / "app_stdout.txt"),
+            "--stderr",
+            str(tmp_path / "app_stderr.txt"),
+            "--env",
+            f"PATH={smoke.LAUNCHPAD_PATH}",
+            str(tmp_path / "PatentAgent.app"),
+        ]
+    ]
+    assert not any("PATENTAGENT_PYTHON" in arg for arg in calls[0])
+
+
+def test_restore_prompt_dismissal_clicks_system_recovery_prompt(tmp_path: Path) -> None:
+    smoke = load_smoke_script()
+    calls: list[list[str]] = []
+
+    def runner(args: list[str], output_path: Path, *, check: bool = False):
+        calls.append(args)
+        output_path.write_text("dismissed\n", encoding="utf-8")
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="dismissed\n", stderr="")
+
+    smoke.run_text_command = runner
+
+    assert smoke.dismiss_restore_prompt(12345, tmp_path, timeout=0.1) is True
+    assert calls
+    assert calls[0][:2] == ["osascript", "-e"]
+    assert "button 2 of window 1" in calls[0][2]
 
 
 def test_failure_payload_includes_smoke_dir_when_available() -> None:
@@ -148,3 +216,20 @@ def test_bundle_metadata_validation_checks_executable_and_version(tmp_path: Path
     assert result.info_plist == str(plist_path)
     assert result.executable == str(macos / "patentagent-tauri")
     assert result.version == "1.1.0"
+
+
+def test_smoke_script_requires_bundled_backend_and_does_not_inject_repo_root() -> None:
+    source = SCRIPT_PATH.read_text(encoding="utf-8")
+
+    assert "BUNDLED_BACKEND_RELATIVE" in source
+    assert "Contents/Resources/backend/app/main.py" in source
+    assert "bundled_backend_ok" in source
+    assert "Copied app bundled backend is missing" in source
+    assert "PATENTAGENT_REPO_ROOT" not in source
+    assert "PATENTAGENT_PYTHON" not in source
+    assert "LAUNCHPAD_PATH" in source
+    assert "run_spctl_assessment" in source
+    assert "spctl_attempt_" in source
+    assert "backend_startup" in source
+    assert "wait_for_backend_startup_diagnostics" in source
+    assert "restore_prompt_dismissed" in source

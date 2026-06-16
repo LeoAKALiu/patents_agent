@@ -123,12 +123,12 @@ def test_required_formula_blocks_generation_until_formula_package_completed(tmp_
 
     formula_response = client.post(
         f"/api/projects/{project_id}/formula-runs",
-        json={"providers": ["codex", "gemini", "claude", "kimicode"]},
+        json={"providers": ["codex", "deepseek", "claude", "kimicode"]},
     )
     assert formula_response.status_code == 200
     formula_run = formula_response.json()
     assert formula_run["status"] == "completed"
-    assert formula_run["providers"] == ["codex", "gemini", "claude", "kimicode"]
+    assert formula_run["providers"] == ["codex", "deepseek", "claude", "kimicode"]
     assert formula_run["package"]["formula_blocks"][0]["id"] == "F01"
     assert any("selected providers" in log for log in formula_run["package"]["generation_logs"])
 
@@ -196,7 +196,7 @@ def _create_strict_completed_deliberation(client: TestClient, project_id: str) -
                 payload={"stance": "ok"},
                 status="completed",
             )
-            for provider in ["codex", "gemini", "claude"]
+            for provider in ["codex", "deepseek", "claude"]
         ],
         *[
             DeliberationStageResult(
@@ -206,7 +206,7 @@ def _create_strict_completed_deliberation(client: TestClient, project_id: str) -
                 payload={"resolved_recommendation": "ok"},
                 status="completed",
             )
-            for label in ["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"]
+            for label in ["pair codex-vs-deepseek", "pair codex-vs-claude", "pair deepseek-vs-claude"]
         ],
         DeliberationStageResult(
             phase="chair",
@@ -221,7 +221,7 @@ def _create_strict_completed_deliberation(client: TestClient, project_id: str) -
             id=f"delib-{project_id}",
             project_id=project_id,
             status="completed",
-            providers=["codex", "gemini", "claude"],
+            providers=["codex", "deepseek", "claude"],
             run_mode="full",
             stage_results=stages,
             strategy_brief=PatentStrategyBrief(

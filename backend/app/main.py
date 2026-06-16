@@ -4,6 +4,7 @@ import re
 import shutil
 import time
 import uuid
+from itertools import combinations
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
@@ -118,7 +119,7 @@ from backend.app.settings import Settings, build_settings
 from backend.app.storage import SQLiteStore
 
 
-STRICT_DELIBERATION_PROVIDERS = ("codex", "gemini", "claude")
+STRICT_DELIBERATION_PROVIDERS = ("codex", "deepseek", "claude")
 APP_VERSION = "1.1.0"
 LOCAL_RENDERER_ORIGINS = frozenset(
     {
@@ -799,9 +800,13 @@ def create_app(
     ) -> dict:
         project = _require_project(store, project_id)
         doctor = inspect_agent_environment()
-        requested = payload.providers or list(STRICT_DELIBERATION_PROVIDERS)
+        requested = _agent_provider_ids_for_role(
+            doctor,
+            payload.providers or list(STRICT_DELIBERATION_PROVIDERS),
+            "deliberation",
+        )
         available = set(doctor.active_provider_ids)
-        selectable = set(doctor.active_provider_ids) | set(doctor.unknown_required)
+        selectable = _selectable_agent_provider_ids(doctor)
         active_requested_count = len(requested) if app.state.provider_runner is not None else len([provider for provider in requested if provider in available])
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
@@ -882,7 +887,8 @@ def create_app(
     @app.get("/api/projects/{project_id}/deliberations")
     def list_deliberations(project_id: str) -> dict:
         _require_project(store, project_id)
-        return {"runs": [run.model_dump(mode="json") for run in store.list_deliberation_runs(project_id)]}
+        runs = [_reconcile_deliberation_run(store, run) for run in store.list_deliberation_runs(project_id)]
+        return {"runs": [run.model_dump(mode="json") for run in runs]}
 
     @app.get("/api/projects/{project_id}/deliberations/{run_id}")
     def get_deliberation(project_id: str, run_id: str) -> dict:
@@ -890,6 +896,7 @@ def create_app(
         run = store.get_deliberation_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
+        run = _reconcile_deliberation_run(store, run)
         return run.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/deliberations/{run_id}/cancel")
@@ -911,19 +918,20 @@ def create_app(
         previous = store.get_deliberation_run(project_id, run_id)
         if not previous:
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
+        providers = _agent_provider_ids_for_role(inspect_agent_environment(), previous.providers, "deliberation")
         retry_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / retry_id
         retry_run = DeliberationRun(
             id=retry_id,
             project_id=project_id,
             status="queued",
-            providers=list(previous.providers),
-            run_mode=previous.run_mode,
+            providers=providers,
+            run_mode=_run_mode(len(providers)),
             round_depth=previous.round_depth,
             trace=previous.trace,
             run_dir=str(run_dir),
             retry_of=previous.id,
-            events=[f"retry requested for deliberation run {previous.id}"],
+            events=[f"retry requested for deliberation run {previous.id}", f"providers normalized: {','.join(providers)}"],
         )
         store.create_deliberation_run(retry_run)
         if app.state.provider_runner is not None:
@@ -1518,6 +1526,7 @@ def create_app(
 
 
 _TERMINAL_RUN_STATUSES = {"completed", "failed", "interrupted"}
+_ACTIVE_RUN_STATUSES = {"queued", "running"}
 
 
 def _runtime_failure(
@@ -1540,6 +1549,55 @@ def _runtime_failure(
         repair_suggestion=repair_suggestion,
         partial_artifact_count=int(getattr(state, "partial_artifact_count", 0) or 0),
     )
+
+
+def _with_event_once(events: list[str], event: str) -> list[str]:
+    if event in events:
+        return events
+    return [*events, event]
+
+
+def _cancelled_deliberation_run(run: DeliberationRun) -> DeliberationRun:
+    failure_details = list(run.failure_details)
+    if not any(failure.reason == "cancelled" for failure in failure_details):
+        failure_details.append(
+            _runtime_failure(
+                flow="deliberation",
+                reason="cancelled",
+                message="Deliberation run was cancelled; partial artifacts were preserved for retry.",
+                state=run.runtime_state,
+                repair_suggestion="Review partial stage results, then retry the run when ready.",
+            )
+        )
+    events = _with_event_once(list(run.events), "cancel requested")
+    events = _with_event_once(events, "run cancelled")
+    return run.model_copy(
+        update={
+            "status": "interrupted",
+            "cancel_requested": True,
+            "failure_details": failure_details,
+            "events": events,
+        }
+    )
+
+
+def _reconcile_deliberation_run(store: SQLiteStore, run: DeliberationRun) -> DeliberationRun:
+    if run.status not in _ACTIVE_RUN_STATUSES:
+        return run
+    if run.cancel_requested or any(failure.reason == "cancelled" for failure in run.failure_details):
+        updated = _cancelled_deliberation_run(run)
+        store.update_deliberation_run(updated)
+        return updated
+    if run.failure_details:
+        updated = run.model_copy(
+            update={
+                "status": "failed",
+                "events": _with_event_once(list(run.events), "run failed"),
+            }
+        )
+        store.update_deliberation_run(updated)
+        return updated
+    return run
 
 
 def _mark_disclosure_cancel_requested(store: SQLiteStore, run: DisclosureRun) -> DisclosureRun:
@@ -1574,28 +1632,7 @@ def _mark_disclosure_cancel_requested(store: SQLiteStore, run: DisclosureRun) ->
 def _mark_deliberation_cancel_requested(store: SQLiteStore, run: DeliberationRun) -> DeliberationRun:
     if run.status in _TERMINAL_RUN_STATUSES:
         return run
-    failure_details = list(run.failure_details)
-    events = [*run.events, "cancel requested"]
-    status = run.status
-    if run.status == "queued":
-        status = "interrupted"
-        failure_details.append(
-            _runtime_failure(
-                flow="deliberation",
-                reason="cancelled",
-                message="Deliberation run was cancelled before execution started.",
-                state=run.runtime_state,
-                repair_suggestion="Retry the run when providers are ready.",
-            )
-        )
-    updated = run.model_copy(
-        update={
-            "status": status,
-            "cancel_requested": True,
-            "failure_details": failure_details,
-            "events": events,
-        }
-    )
+    updated = _cancelled_deliberation_run(run)
     store.update_deliberation_run(updated)
     return updated
 
@@ -2302,6 +2339,11 @@ def _execute_deliberation(
     )
 
     def persist_update(updated: DeliberationRun) -> None:
+        current = store.get_deliberation_run(project.id, run.id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            if current.cancel_requested:
+                raise RuntimeCancelled(f"deliberation run {run.id} cancelled")
+            return
         runtime.begin_stage(
             updated.stage_results[-1].phase if updated.stage_results else "deliberation",
             provider=updated.logs[-1].provider_id if updated.logs else ",".join(updated.providers),
@@ -2313,7 +2355,6 @@ def _execute_deliberation(
             partial_artifact_count=len(updated.stage_results),
             warning_count=len(updated.failures),
         )
-        current = store.get_deliberation_run(project.id, run.id) or running
         store.update_deliberation_run(
             updated.model_copy(
                 update={
@@ -2341,6 +2382,11 @@ def _execute_deliberation(
                 on_update=persist_update,
             )
         )
+        current = store.get_deliberation_run(project.id, run.id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            return current
+        if current.cancel_requested:
+            raise RuntimeCancelled(f"deliberation run {run.id} cancelled")
         runtime.begin_stage("deliberation_finalize", provider="system", subtask="strategy brief")
         state = runtime.complete_stage(
             partial_artifact_count=len(completed.stage_results),
@@ -2359,6 +2405,8 @@ def _execute_deliberation(
         return completed
     except RuntimeCancelled:
         current = store.get_deliberation_run(project.id, run.id) or running
+        if current.status == "interrupted" and current.cancel_requested:
+            return current
         failure = runtime.cancelled_failure()
         interrupted = current.model_copy(
             update={
@@ -2552,11 +2600,7 @@ def _is_strict_completed_deliberation(run: DeliberationRun) -> bool:
     completed = {(stage.phase, stage.provider_id, stage.label) for stage in run.stage_results if stage.status == "completed"}
     if not all(("opening", provider, f"opening {provider}") in completed for provider in required):
         return False
-    pair_labels = {
-        "pair codex-vs-gemini",
-        "pair codex-vs-claude",
-        "pair gemini-vs-claude",
-    }
+    pair_labels = {f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(STRICT_DELIBERATION_PROVIDERS, 2)}
     if not pair_labels.issubset({label for phase, _provider, label in completed if phase == "pair"}):
         return False
     return any(phase == "chair" and label == "chair synthesis" for phase, _provider, label in completed)
@@ -2655,6 +2699,32 @@ def _retrieve_generation_context(index: LocalVectorIndex, brief: InventionBrief)
                 selected.append(result.chunk)
                 seen.add(result.chunk.id)
     return selected[:8]
+
+
+def _selectable_agent_provider_ids(doctor: AgentDoctorReport) -> set[str]:
+    return (
+        set(doctor.active_provider_ids)
+        | set(doctor.unknown_required)
+        | {provider_id for provider_id, status in doctor.commands.items() if status.selectable}
+    )
+
+
+def _agent_provider_ids_for_role(doctor: AgentDoctorReport, requested: list[str], role: str) -> list[str]:
+    provider_role = "deliberation" if role == "post_review" else role
+    normalized: list[str] = []
+    for provider_id in STRICT_DELIBERATION_PROVIDERS:
+        if provider_id not in normalized:
+            normalized.append(provider_id)
+    for provider_id in requested:
+        if provider_id in normalized:
+            continue
+        status = doctor.commands.get(provider_id)
+        if not status or not status.selectable:
+            continue
+        if provider_role not in status.roles:
+            continue
+        normalized.append(provider_id)
+    return normalized
 
 
 def _run_mode(active_count: int) -> str:

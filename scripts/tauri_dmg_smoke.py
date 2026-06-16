@@ -21,7 +21,17 @@ from typing import Any
 APP_BUNDLE_NAME = "PatentAgent.app"
 APP_EXECUTABLE_RELATIVE = Path("Contents/MacOS/patentagent-tauri")
 CODE_SIGNATURE_RELATIVE = Path("Contents/_CodeSignature/CodeResources")
+BUNDLED_BACKEND_RELATIVE = Path("Contents/Resources/backend/app/main.py")
 REPO_ROOT = Path(__file__).resolve().parents[1]
+APP_BUNDLE_IDENTIFIER = "xin.liubo.patentagent"
+APP_DATA_DIR = Path.home() / "Library" / "Application Support" / APP_BUNDLE_IDENTIFIER
+BACKEND_STARTUP_LOG = APP_DATA_DIR / "backend-startup.log"
+BACKEND_STARTUP_ERROR = APP_DATA_DIR / "backend-startup-error.txt"
+LAUNCHPAD_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
+SPCTL_TRANSIENT_STATUSES = {
+    "assessment-tool-error-too-many-open-files",
+    "assessment-tool-error-invalid-bundle",
+}
 BACKEND_RE = re.compile(
     r"(?P<command>(?:\S*/)?(?:python(?:3(?:\.\d+)?)?|Python)\s+-m\s+uvicorn\s+"
     r"backend\.app\.main:app\s+--host\s+127\.0\.0\.1\s+--port\s+"
@@ -99,9 +109,46 @@ def parse_backend_process(line: str) -> BackendProcess | None:
 def classify_spctl(returncode: int, output: str) -> str:
     if returncode == 0:
         return "accepted"
-    if "rejected" in output.lower():
+    output_lower = output.lower()
+    if "rejected" in output_lower:
         return "rejected-not-notarized"
+    if "too many open files" in output_lower:
+        return "assessment-tool-error-too-many-open-files"
+    if "bundle format unrecognized" in output_lower:
+        return "assessment-tool-error-invalid-bundle"
     return "failed"
+
+
+def run_spctl_assessment(
+    app_bundle: Path,
+    smoke_dir: Path,
+    *,
+    attempts: int = 4,
+    delay: float = 1.0,
+) -> tuple[subprocess.CompletedProcess[str], str]:
+    last_result: subprocess.CompletedProcess[str] | None = None
+    last_status = "failed"
+    for attempt in range(1, attempts + 1):
+        result = run_text_command(
+            ["spctl", "--assess", "--type", "execute", "--verbose=4", str(app_bundle)],
+            smoke_dir / f"spctl_attempt_{attempt}.txt",
+            check=False,
+        )
+        output = f"{result.stdout}\n{result.stderr}"
+        status = classify_spctl(result.returncode, output)
+        last_result = result
+        last_status = status
+        if status not in SPCTL_TRANSIENT_STATUSES:
+            break
+        if attempt < attempts:
+            time.sleep(delay)
+
+    assert last_result is not None
+    (smoke_dir / "spctl.txt").write_text(
+        format_command_output(last_result.args, last_result),
+        encoding="utf-8",
+    )
+    return last_result, last_status
 
 
 def cleanup_decision(
@@ -336,6 +383,79 @@ def wait_for_backend_process(app_pid: int, timeout: float = 45.0) -> tuple[Backe
     raise SmokeError(f"Timed out waiting for backend child process under PID {app_pid}")
 
 
+def clear_backend_startup_logs() -> None:
+    for path in [BACKEND_STARTUP_LOG, BACKEND_STARTUP_ERROR]:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def collect_backend_startup_diagnostics(smoke_dir: Path) -> dict[str, Any]:
+    diagnostics: dict[str, Any] = {
+        "log_path": str(BACKEND_STARTUP_LOG),
+        "log": None,
+        "error_path": str(BACKEND_STARTUP_ERROR),
+        "error": None,
+    }
+    for source, target_name, key in [
+        (BACKEND_STARTUP_LOG, "backend-startup.log", "log"),
+        (BACKEND_STARTUP_ERROR, "backend-startup-error.txt", "error"),
+    ]:
+        if source.is_file():
+            text = source.read_text(encoding="utf-8", errors="replace")
+            diagnostics[key] = text
+            (smoke_dir / target_name).write_text(text, encoding="utf-8")
+    return diagnostics
+
+
+def wait_for_backend_startup_diagnostics(
+    smoke_dir: Path, timeout: float = 5.0
+) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout
+    diagnostics = collect_backend_startup_diagnostics(smoke_dir)
+    while time.monotonic() < deadline:
+        log = str(diagnostics.get("log") or "")
+        if "backend ready:" in log or "backend failed:" in log:
+            return diagnostics
+        time.sleep(0.2)
+        diagnostics = collect_backend_startup_diagnostics(smoke_dir)
+    return diagnostics
+
+
+def dismiss_restore_prompt(app_pid: int, smoke_dir: Path, timeout: float = 8.0) -> bool:
+    deadline = time.monotonic() + timeout
+    attempt = 0
+    while time.monotonic() < deadline:
+        attempt += 1
+        script = f"""
+tell application "System Events"
+  set targetProcesses to every process whose unix id is {app_pid}
+  if (count of targetProcesses) is 0 then return "missing-process"
+  tell item 1 of targetProcesses
+    if (count of windows) is 0 then return "no-windows"
+    set buttonNames to name of every button of window 1
+    if ((buttonNames as text) contains "Reopen") and ((count of buttonNames) is greater than 1) then
+      click button 2 of window 1
+      return "dismissed"
+    end if
+    return "buttons:" & (buttonNames as text)
+  end tell
+end tell
+"""
+        result = run_text_command(
+            ["osascript", "-e", script],
+            smoke_dir / f"restore_prompt_{attempt}.txt",
+            check=False,
+        )
+        if "dismissed" in result.stdout:
+            return True
+        if "missing-process" in result.stdout:
+            return False
+        time.sleep(0.5)
+    return False
+
+
 def poll_health(port: int, smoke_dir: Path, timeout: float = 60.0) -> dict[str, Any]:
     url = f"http://127.0.0.1:{port}/api/health"
     deadline = time.monotonic() + timeout
@@ -402,9 +522,7 @@ def open_app(copied_app: Path, smoke_dir: Path) -> subprocess.CompletedProcess[s
         "--stderr",
         str(smoke_dir / "app_stderr.txt"),
         "--env",
-        f"PATENTAGENT_REPO_ROOT={REPO_ROOT}",
-        "--env",
-        f"PATENTAGENT_PYTHON={sys.executable}",
+        f"PATH={LAUNCHPAD_PATH}",
         str(copied_app),
     ]
     return run_text_command(args, smoke_dir / "open.txt", check=True)
@@ -430,6 +548,7 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
     if not dmg.is_file():
         raise SmokeError(f"DMG does not exist: {dmg}")
 
+    clear_backend_startup_logs()
     smoke_dir = Path(
         tempfile.mkdtemp(prefix="patents-tauri-dmg-smoke-", dir="/private/tmp")
     )
@@ -439,6 +558,10 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         "keep_artifacts": keep_artifacts,
         "bundle_metadata_ok": False,
         "bundle_metadata": None,
+        "bundled_backend_ok": False,
+        "bundled_backend": None,
+        "backend_startup": None,
+        "restore_prompt_dismissed": False,
         "codesign_strict_ok": False,
         "detach": None,
         "spctl": None,
@@ -474,6 +597,11 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         code_resources = copied_app / CODE_SIGNATURE_RELATIVE
         if not code_resources.is_file():
             raise SmokeError(f"Copied app CodeResources is missing: {code_resources}")
+        bundled_backend = copied_app / BUNDLED_BACKEND_RELATIVE
+        summary["bundled_backend"] = str(bundled_backend)
+        summary["bundled_backend_ok"] = bundled_backend.is_file()
+        if not bundled_backend.is_file():
+            raise SmokeError(f"Copied app bundled backend is missing: {bundled_backend}")
         bundle_metadata = validate_bundle_metadata(copied_app)
         summary["bundle_metadata"] = asdict(bundle_metadata)
         summary["bundle_metadata_ok"] = bundle_metadata.ok
@@ -496,29 +624,27 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         if codesign.returncode != 0:
             raise SmokeError("codesign strict verification failed; see codesign.txt")
 
-        spctl = run_text_command(
-            ["spctl", "--assess", "--type", "execute", "--verbose=4", str(copied_app)],
-            smoke_dir / "spctl.txt",
-            check=False,
-        )
-        spctl_output = f"{spctl.stdout}\n{spctl.stderr}"
-        spctl_status = classify_spctl(spctl.returncode, spctl_output)
+        spctl, spctl_status = run_spctl_assessment(copied_app, smoke_dir)
         summary["spctl"] = {
             "status": spctl_status,
             "returncode": spctl.returncode,
         }
         if spctl_status == "failed":
-            raise SmokeError("spctl assessment failed for a reason other than rejection")
+            raise SmokeError(
+                "spctl assessment failed for a reason other than rejection or a known assessment tool error"
+            )
 
         open_app(copied_app, smoke_dir)
         app_launch_attempted = True
         app_pid, app_line = wait_for_app_process(app_executable)
         (smoke_dir / "app_process.txt").write_text(app_line + "\n", encoding="utf-8")
         write_process_snapshot(smoke_dir, "process_snapshot_after_app_launch.txt")
+        summary["restore_prompt_dismissed"] = dismiss_restore_prompt(app_pid, smoke_dir)
 
         try:
             backend, backend_line = wait_for_backend_process(app_pid)
         except SmokeError:
+            summary["backend_startup"] = collect_backend_startup_diagnostics(smoke_dir)
             write_process_snapshot(smoke_dir, "process_snapshot_backend_timeout.txt")
             raise
         (smoke_dir / "backend_process.txt").write_text(
@@ -527,6 +653,7 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         )
 
         health = poll_health(backend.port, smoke_dir)
+        summary["backend_startup"] = wait_for_backend_startup_diagnostics(smoke_dir)
         summary["health"] = {
             "ok": health.get("ok"),
             "model": health.get("model"),
@@ -558,6 +685,7 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
             summary["app_alive_after_quit"] = process_alive(app_pid)
         if summary["backend_alive_after_quit"] is None:
             summary["backend_alive_after_quit"] = process_alive(backend.pid if backend else None)
+        summary["backend_startup"] = collect_backend_startup_diagnostics(smoke_dir)
         summary["error"] = str(exc)
         write_summary(smoke_dir, summary)
         if isinstance(exc, SmokeError):

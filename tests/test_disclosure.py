@@ -355,7 +355,7 @@ def _create_completed_deliberation(client: TestClient, project_id: str) -> None:
             id=f"delib-{project_id}",
             project_id=project_id,
             status="completed",
-            providers=["codex", "gemini", "claude"],
+            providers=["codex", "deepseek", "claude"],
             run_mode="full",
             stage_results=stages,
             strategy_brief=PatentStrategyBrief(
@@ -380,7 +380,7 @@ def _strict_deliberation_stages() -> list[DeliberationStageResult]:
                 payload={"stance": "ok"},
                 status="completed",
             )
-            for provider in ["codex", "gemini", "claude"]
+            for provider in ["codex", "deepseek", "claude"]
         ],
         *[
             DeliberationStageResult(
@@ -390,7 +390,7 @@ def _strict_deliberation_stages() -> list[DeliberationStageResult]:
                 payload={"resolved_recommendation": "ok"},
                 status="completed",
             )
-            for label in ["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"]
+            for label in ["pair codex-vs-deepseek", "pair codex-vs-claude", "pair deepseek-vs-claude"]
         ],
         DeliberationStageResult(
             phase="chair",

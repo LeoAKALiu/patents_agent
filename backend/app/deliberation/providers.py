@@ -2,15 +2,24 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Awaitable, Callable
 
+from backend.app.deliberation.cli_paths import agent_subprocess_env, resolve_agent_command
 from backend.app.schemas import DeliberationLogEntry
+
+try:
+    from json_repair import repair_json as _repair_json
+except ImportError:  # pragma: no cover - optional in old local envs
+    _repair_json = None
 
 
 DEFAULT_TASK_TIMEOUT_MS = 180_000
+_PROMPT_ARG = "{prompt}"
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 class ProviderFailure(RuntimeError):
@@ -170,8 +179,14 @@ def build_provider_command(provider_id: str, workdir: Path, attempt: int) -> tup
             "claude",
             ["-p", "--no-chrome", "--disable-slash-commands", "--tools", "", "--output-format", "text", "-"],
         )
+    if provider_id == "deepseek":
+        return ("reasonix", ["run", "--model", "deepseek-pro"])
     if provider_id == "gemini":
         return ("gemini", ["--prompt", "", "--approval-mode", "plan", "--output-format", "text"])
+    if provider_id == "kimicode":
+        return ("kimicode", ["-p", _PROMPT_ARG, "--output-format", "text"])
+    if provider_id == "mimo":
+        return ("mimo", ["run", "--format", "default", _PROMPT_ARG])
     return (provider_id, [])
 
 
@@ -182,17 +197,21 @@ async def _spawn_process(
     prompt: str,
     timeout_ms: int,
 ) -> tuple[int, str, str]:
+    executable = resolve_agent_command(command) or command
+    prompt_is_arg = _PROMPT_ARG in args
+    process_args = [prompt if arg == _PROMPT_ARG else arg for arg in args]
     process = await asyncio.create_subprocess_exec(
-        command,
-        *args,
+        executable,
+        *process_args,
         cwd=str(workdir),
-        stdin=asyncio.subprocess.PIPE,
+        env=agent_subprocess_env(),
+        stdin=asyncio.subprocess.PIPE if not prompt_is_arg else asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     try:
         stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            process.communicate(prompt.encode("utf-8")),
+            process.communicate(None if prompt_is_arg else prompt.encode("utf-8")),
             timeout=timeout_ms / 1000 if timeout_ms else None,
         )
     except TimeoutError as exc:
@@ -201,7 +220,7 @@ async def _spawn_process(
         raise ProviderFailure("timeout", f"{command} timed out", provider_id=command) from exc
     stdout = stdout_bytes.decode("utf-8", errors="replace")
     stderr = stderr_bytes.decode("utf-8", errors="replace")
-    if command == "codex":
+    if Path(command).name == "codex" or Path(executable).name == "codex":
         output_last_message = _read_codex_last_message(args)
         if output_last_message:
             stdout = output_last_message
@@ -222,23 +241,59 @@ def _read_codex_last_message(args: list[str]) -> str:
 
 
 def _extract_json_payload(text: str) -> dict:
-    stripped = text.strip()
-    candidates = [stripped]
-    if "```" in stripped:
-        parts = stripped.split("```")
-        candidates.extend(part.replace("json", "", 1).strip() for part in parts if "{" in part)
-    first = stripped.find("{")
-    last = stripped.rfind("}")
-    if first >= 0 and last > first:
-        candidates.append(stripped[first : last + 1])
-    for candidate in candidates:
-        try:
-            payload = json.loads(candidate)
-            if isinstance(payload, dict):
-                return payload
-        except json.JSONDecodeError:
-            continue
+    for candidate in _json_payload_candidates(text):
+        payload = _loads_json_object(candidate)
+        if payload is not None:
+            return payload
     raise ProviderFailure("invalid_json", "Provider returned invalid JSON", stdout=text)
+
+
+def _json_payload_candidates(text: str) -> list[str]:
+    candidates: list[str] = []
+
+    def add(candidate: str) -> None:
+        stripped = candidate.strip()
+        if stripped and stripped not in candidates:
+            candidates.append(stripped)
+
+    for source in (text, _strip_ansi(text)):
+        add(source)
+        if "```" in source:
+            for part in source.split("```"):
+                if "{" not in part:
+                    continue
+                stripped = part.strip()
+                if stripped.lower().startswith("json"):
+                    stripped = stripped[4:].lstrip()
+                add(stripped)
+        first = source.find("{")
+        last = source.rfind("}")
+        if first >= 0 and last > first:
+            add(source[first : last + 1])
+    return candidates
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_ESCAPE_RE.sub("", text)
+
+
+def _loads_json_object(candidate: str) -> dict | None:
+    try:
+        payload = json.loads(candidate)
+        if isinstance(payload, dict):
+            return payload
+    except json.JSONDecodeError:
+        pass
+
+    if _repair_json is None:
+        return None
+    try:
+        repaired = _repair_json(candidate, return_objects=True)
+    except Exception:
+        return None
+    if isinstance(repaired, dict):
+        return repaired
+    return None
 
 
 def repair_suggestion_for_failure(reason: str, provider_id: str) -> str:

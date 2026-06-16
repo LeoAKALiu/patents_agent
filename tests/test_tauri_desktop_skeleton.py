@@ -38,6 +38,7 @@ def test_tauri_v2_scaffold_keeps_existing_frontend_and_electron() -> None:
     assert build["frontendDist"] == "../frontend/dist"
     assert build["devUrl"] == "http://127.0.0.1:5173"
     assert "npm --prefix ../frontend run build" in build["beforeBuildCommand"]
+    assert "__pycache__" in build["beforeBuildCommand"]
     assert tauri_config["bundle"]["icon"] == [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -45,11 +46,28 @@ def test_tauri_v2_scaffold_keeps_existing_frontend_and_electron() -> None:
         "icons/icon.icns",
         "icons/icon.ico",
     ]
+    assert tauri_config["bundle"]["resources"] == {"../backend": "backend"}
 
 
 def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     main_rs = read(TAURI_DIR / "src" / "main.rs")
 
+    assert "fn backend_root" in main_rs
+    assert "PATENTAGENT_REPO_ROOT" in main_rs
+    assert ".resource_dir()" in main_rs
+    assert 'path.join("backend").join("app").join("main.py").is_file()' in main_rs
+    assert "fn python_candidates" in main_rs
+    assert "PATENTAGENT_PYTHON" in main_rs
+    assert "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3" in main_rs
+    assert "/usr/local/bin/python3" in main_rs
+    assert '"python3"' in main_rs
+    assert "fn start_backend_with_python" in main_rs
+    assert "backend did not start with any Python interpreter" in main_rs
+    assert "backend-startup-error.txt" in main_rs
+    assert "backend-startup.log" in main_rs
+    assert "patentagent-tauri-startup.log" in main_rs
+    assert "trying python:" in main_rs
+    assert "PatentAgent backend startup failed" in main_rs
     assert "backend.app.main:app" in main_rs
     assert "python3" in main_rs
     assert "--host" in main_rs
@@ -58,9 +76,32 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     assert "DATA_DIR" in main_rs
     assert "PYTHONPATH" in main_rs
     assert "PYTHONUNBUFFERED" in main_rs
+    assert "PYTHONDONTWRITEBYTECODE" in main_rs
     assert "/api/health" in main_rs
+    assert "backend stdout:" in main_rs
+    assert "backend stderr:" in main_rs
     assert "get_backend_base_url" in main_rs
     assert "kill" in main_rs or "Child" in main_rs
+
+
+def test_tauri_dom_smoke_is_env_gated_and_checks_real_renderer_root() -> None:
+    main_rs = read(TAURI_DIR / "src" / "main.rs")
+
+    assert "PATENTAGENT_TAURI_DOM_SMOKE" in main_rs
+    assert "PATENTAGENT_TAURI_DOM_SMOKE_REPORT" in main_rs
+    assert "eval_with_callback" in main_rs
+    assert "PageLoadEvent::Finished" in main_rs
+    assert "DOM_SMOKE_PROBE_ATTEMPTS" in main_rs
+    assert "DOM_SMOKE_PROBE_INTERVAL_MS" in main_rs
+    assert "run_on_main_thread" in main_rs
+    assert "is_final_attempt" in main_rs
+    assert 'document.getElementById("root")' in main_rs
+    assert 'document.querySelector(".app-shell")' in main_rs
+    assert 'document.querySelector(".sidebar")' in main_rs
+    assert 'document.querySelector(".topbar")' in main_rs
+    assert "rootChildren > 0" in main_rs
+    assert "shutdown_backend(&app_handle_for_callback)" in main_rs
+    assert "app_handle_for_callback.exit(if ok { 0 } else { 2 })" in main_rs
 
 
 def test_tauri_shutdown_explicitly_stops_python_sidecar() -> None:
@@ -121,7 +162,8 @@ def test_frontend_api_adapter_preserves_web_and_supports_tauri_backend_base_url(
     assert "getTauriBackendBaseUrl" in api_ts
     assert "__TAURI__" in api_ts
     assert "url.startsWith(\"/api/\")" in api_ts
-    assert "fetch(await resolveApiUrl(url), init)" in api_ts
+    assert "const resolvedUrl = await resolveApiUrl(url)" in api_ts
+    assert "fetch(resolvedUrl, init)" in api_ts
 
 
 def test_tauri_smoke_is_wired_into_release_gate_without_removing_electron_smoke() -> None:

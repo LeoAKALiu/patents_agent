@@ -13,6 +13,7 @@ import json
 import sys
 import tempfile
 from dataclasses import dataclass
+from itertools import combinations
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,7 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from backend.app.main import create_app
+from backend.app.main import STRICT_DELIBERATION_PROVIDERS, create_app
 from backend.app.grantability import generate_grantability_report
 from backend.app.schemas import (
     ClaimChartItem,
@@ -489,6 +490,7 @@ def _ok(response, label: str, expected_status: int = 200) -> Any:
 
 
 def _seed_completed_deliberation(client: TestClient, project_id: str) -> str:
+    providers = list(STRICT_DELIBERATION_PROVIDERS)
     stages = [
         *[
             DeliberationStageResult(
@@ -498,7 +500,7 @@ def _seed_completed_deliberation(client: TestClient, project_id: str) -> str:
                 payload={"stance": "v1 smoke ready"},
                 status="completed",
             )
-            for provider in ["codex", "gemini", "claude"]
+            for provider in providers
         ],
         *[
             DeliberationStageResult(
@@ -508,7 +510,7 @@ def _seed_completed_deliberation(client: TestClient, project_id: str) -> str:
                 payload={"resolved_recommendation": "strict release path accepted"},
                 status="completed",
             )
-            for label in ["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"]
+            for label in [f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(providers, 2)]
         ],
         DeliberationStageResult(
             phase="chair",
@@ -525,7 +527,7 @@ def _seed_completed_deliberation(client: TestClient, project_id: str) -> str:
             id=run_id,
             project_id=project_id,
             status="completed",
-            providers=["codex", "gemini", "claude"],
+            providers=providers,
             run_mode="full",
             stage_results=stages,
             strategy_brief=PatentStrategyBrief(
@@ -533,7 +535,7 @@ def _seed_completed_deliberation(client: TestClient, project_id: str) -> str:
                 claim_strategy=["方法独权覆盖视频输入、目标识别、风险评分和证据留痕闭环。"],
                 description_strategy=["说明书补充风险评分变量、证据帧和处置状态的数据结构。"],
                 risk_controls=["未验证效果仅作为可行实施方式表达。"],
-                agent_consensus="三方会审同意进入确定性 v1 smoke 生成路径。",
+                agent_consensus=f"{'、'.join(providers)} 会审同意进入确定性 v1 smoke 生成路径。",
             ),
             events=["v1 smoke deliberation seeded without external agents"],
         )

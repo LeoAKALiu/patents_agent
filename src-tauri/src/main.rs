@@ -2,21 +2,28 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    fs,
+    fs::{self, OpenOptions},
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread,
     time::{Duration, Instant},
 };
+use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
 const HEALTH_PATH: &str = "/api/health";
 const STARTUP_TIMEOUT_MS: u64 = 20_000;
+const DOM_SMOKE_TIMEOUT_MS: u64 = 15_000;
+const DOM_SMOKE_PROBE_ATTEMPTS: usize = 20;
+const DOM_SMOKE_PROBE_INTERVAL_MS: u64 = 500;
 const REDACTED_CONFIG_FIELDS: &[&str] = &["api_key_present", "api_key_fingerprint"];
 const SECRET_PREFIX: &str = concat!("s", "k", "-");
 const SECRET_REDACTION: &str = concat!("s", "k", "-...");
@@ -118,25 +125,57 @@ struct DesktopConfigUpdatePayload {
 }
 
 fn main() {
+    let dom_smoke_done = Arc::new(AtomicBool::new(false));
+    let dom_smoke_done_for_setup = Arc::clone(&dom_smoke_done);
+    let dom_smoke_done_for_page = Arc::clone(&dom_smoke_done);
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(BackendState::default())
-        .setup(|app| {
-            let repo_root = repo_root();
+        .setup(move |app| {
             let data_dir = app.path().app_data_dir().unwrap_or_else(|_| {
                 std::env::temp_dir()
                     .join("PatentAgent")
                     .join("backend-data")
             });
             fs::create_dir_all(&data_dir)?;
-            let supervisor = start_backend(&repo_root, &data_dir)?;
-            let state = app.state::<BackendState>();
-            *state
-                .supervisor
-                .lock()
-                .map_err(|_| "backend state lock poisoned")? = Some(supervisor);
+            append_backend_startup_log(&data_dir, "setup: begin");
+            match backend_root(app.handle()).and_then(|repo_root| {
+                append_backend_startup_log(
+                    &data_dir,
+                    &format!("backend root: {}", repo_root.display()),
+                );
+                start_backend(&repo_root, &data_dir).map_err(|err| err.to_string())
+            }) {
+                Ok(supervisor) => {
+                    append_backend_startup_log(
+                        &data_dir,
+                        &format!("backend ready: {}", supervisor.info.health_url),
+                    );
+                    let state = app.state::<BackendState>();
+                    *state
+                        .supervisor
+                        .lock()
+                        .map_err(|_| "backend state lock poisoned")? = Some(supervisor);
+                }
+                Err(err) => {
+                    append_backend_startup_log(&data_dir, &format!("backend failed: {err}"));
+                    write_backend_startup_error(&data_dir, &err);
+                    eprintln!("PatentAgent backend startup failed: {err}");
+                }
+            }
+            if dom_smoke_enabled() {
+                start_dom_smoke_timeout(
+                    app.handle().clone(),
+                    Arc::clone(&dom_smoke_done_for_setup),
+                );
+            }
             Ok(())
+        })
+        .on_page_load(move |webview, payload| {
+            if dom_smoke_enabled() && payload.event() == PageLoadEvent::Finished {
+                run_renderer_dom_smoke(webview, Arc::clone(&dom_smoke_done_for_page));
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_backend_base_url,
@@ -156,6 +195,146 @@ fn main() {
         }
         _ => {}
     });
+}
+
+fn dom_smoke_enabled() -> bool {
+    std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE").is_some()
+}
+
+fn dom_smoke_report_path() -> Option<PathBuf> {
+    std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE_REPORT").map(PathBuf::from)
+}
+
+fn start_dom_smoke_timeout(app_handle: AppHandle, done: Arc<AtomicBool>) {
+    thread::spawn(move || {
+        thread::sleep(Duration::from_millis(DOM_SMOKE_TIMEOUT_MS));
+        if done.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let report = json!({
+            "ok": false,
+            "error": "renderer DOM smoke timed out",
+        });
+        write_dom_smoke_report(&report);
+        eprintln!("TAURI_DOM_SMOKE {}", report);
+        shutdown_backend(&app_handle);
+        app_handle.exit(4);
+    });
+}
+
+fn run_renderer_dom_smoke(webview: &tauri::Webview, done: Arc<AtomicBool>) {
+    let webview = webview.clone();
+    let app_handle = webview.app_handle().clone();
+    thread::spawn(move || {
+        for attempt in 0..DOM_SMOKE_PROBE_ATTEMPTS {
+            thread::sleep(Duration::from_millis(DOM_SMOKE_PROBE_INTERVAL_MS));
+            if done.load(Ordering::SeqCst) {
+                return;
+            }
+            let webview_for_probe = webview.clone();
+            let app_handle_for_probe = app_handle.clone();
+            let done_for_probe = Arc::clone(&done);
+            let is_final_attempt = attempt + 1 == DOM_SMOKE_PROBE_ATTEMPTS;
+            if let Err(err) = app_handle.run_on_main_thread(move || {
+                run_renderer_dom_smoke_probe(
+                    &webview_for_probe,
+                    app_handle_for_probe,
+                    done_for_probe,
+                    is_final_attempt,
+                );
+            }) {
+                if done.swap(true, Ordering::SeqCst) {
+                    return;
+                }
+                let report = json!({
+                    "ok": false,
+                    "error": format!("renderer DOM smoke scheduling failed: {err}"),
+                });
+                write_dom_smoke_report(&report);
+                eprintln!("TAURI_DOM_SMOKE {}", report);
+                shutdown_backend(&app_handle);
+                app_handle.exit(3);
+                return;
+            }
+        }
+    });
+}
+
+fn run_renderer_dom_smoke_probe(
+    webview: &tauri::Webview,
+    app_handle: AppHandle,
+    done: Arc<AtomicBool>,
+    is_final_attempt: bool,
+) {
+    let script = r#"
+(() => {
+  const root = document.getElementById("root");
+  const text = (document.body && document.body.innerText || "").replace(/\s+/g, " ").trim();
+  const result = {
+    url: window.location.href,
+    readyState: document.readyState,
+    title: document.title,
+    rootChildren: root ? root.children.length : 0,
+    hasAppShell: Boolean(document.querySelector(".app-shell")),
+    hasSidebar: Boolean(document.querySelector(".sidebar")),
+    hasTopbar: Boolean(document.querySelector(".topbar")),
+    hasErrorPage: text.includes("应用启动失败") || text.includes("React 根节点没有产生"),
+    textSample: text.slice(0, 240)
+  };
+  result.ok = result.rootChildren > 0 &&
+    result.hasAppShell &&
+    result.hasSidebar &&
+    result.hasTopbar &&
+    !result.hasErrorPage;
+    return result;
+})()
+"#;
+    let app_handle_for_callback = app_handle.clone();
+    let done_for_callback = Arc::clone(&done);
+    let eval_result = webview.eval_with_callback(script, move |result| {
+        let parsed = serde_json::from_str::<Value>(&result).unwrap_or_else(|err| {
+            json!({
+                "ok": false,
+                "error": format!("renderer DOM smoke returned invalid JSON: {err}"),
+                "raw": result,
+            })
+        });
+        let ok = parsed.get("ok").and_then(Value::as_bool).unwrap_or(false);
+        if !ok && !is_final_attempt {
+            return;
+        }
+        if done_for_callback.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        write_dom_smoke_report(&parsed);
+        println!("TAURI_DOM_SMOKE {}", parsed);
+        shutdown_backend(&app_handle_for_callback);
+        app_handle_for_callback.exit(if ok { 0 } else { 2 });
+    });
+    if let Err(err) = eval_result {
+        if done.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let report = json!({
+            "ok": false,
+            "error": format!("renderer DOM smoke eval failed: {err}"),
+        });
+        write_dom_smoke_report(&report);
+        eprintln!("TAURI_DOM_SMOKE {}", report);
+        shutdown_backend(&app_handle);
+        app_handle.exit(3);
+    }
+}
+
+fn write_dom_smoke_report(report: &Value) {
+    if let Some(path) = dom_smoke_report_path() {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        if let Ok(text) = serde_json::to_string_pretty(report) {
+            let _ = fs::write(path, text);
+        }
+    }
 }
 
 fn shutdown_backend(app_handle: &AppHandle) {
@@ -351,25 +530,92 @@ fn open_folder(
     })
 }
 
-fn repo_root() -> PathBuf {
-    std::env::var_os("PATENTAGENT_REPO_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .unwrap()
-                .to_path_buf()
-        })
+fn backend_root(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    if let Some(path) = std::env::var_os("PATENTAGENT_REPO_ROOT").map(PathBuf::from) {
+        return ensure_backend_root(path);
+    }
+
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        if is_backend_root(&resource_dir) {
+            return Ok(resource_dir);
+        }
+    }
+
+    let dev_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .ok_or("CARGO_MANIFEST_DIR has no parent")?
+        .to_path_buf();
+    ensure_backend_root(dev_root)
+}
+
+fn ensure_backend_root(path: PathBuf) -> Result<PathBuf, String> {
+    if is_backend_root(&path) {
+        Ok(path)
+    } else {
+        Err(format!(
+            "{} does not contain backend/app/main.py",
+            path.display()
+        ))
+    }
+}
+
+fn is_backend_root(path: &Path) -> bool {
+    path.join("backend").join("app").join("main.py").is_file()
 }
 
 fn start_backend(
     repo_root: &Path,
     data_dir: &Path,
 ) -> Result<BackendSupervisor, Box<dyn std::error::Error>> {
+    let mut errors = Vec::new();
+    for python in python_candidates() {
+        append_backend_startup_log(data_dir, &format!("trying python: {python}"));
+        match start_backend_with_python(&python, repo_root, data_dir) {
+            Ok(supervisor) => return Ok(supervisor),
+            Err(err) => {
+                append_backend_startup_log(data_dir, &format!("python failed: {python}: {err}"));
+                errors.push(format!("{python}: {err}"));
+            }
+        }
+    }
+    Err(format!(
+        "backend did not start with any Python interpreter: {}",
+        errors.join(" | ")
+    )
+    .into())
+}
+
+fn python_candidates() -> Vec<String> {
+    let mut candidates = Vec::new();
+    if let Ok(python) = std::env::var("PATENTAGENT_PYTHON") {
+        push_unique(&mut candidates, python);
+    }
+    for python in [
+        "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3",
+        "/usr/local/bin/python3",
+        "/opt/homebrew/bin/python3",
+        "/opt/homebrew/bin/python3.12",
+        "python3",
+    ] {
+        push_unique(&mut candidates, python.to_string());
+    }
+    candidates
+}
+
+fn push_unique(values: &mut Vec<String>, value: String) {
+    if !values.iter().any(|existing| existing == &value) {
+        values.push(value);
+    }
+}
+
+fn start_backend_with_python(
+    python: &str,
+    repo_root: &Path,
+    data_dir: &Path,
+) -> Result<BackendSupervisor, Box<dyn std::error::Error>> {
     let port = find_available_port()?;
     let base_url = format!("http://127.0.0.1:{port}");
     let health_url = format!("{base_url}{HEALTH_PATH}");
-    let python = std::env::var("PATENTAGENT_PYTHON").unwrap_or_else(|_| "python3".to_string());
     let existing_pythonpath = std::env::var("PYTHONPATH").unwrap_or_default();
     let pythonpath = if existing_pythonpath.is_empty() {
         repo_root.to_string_lossy().to_string()
@@ -392,6 +638,7 @@ fn start_backend(
         .env("DATA_DIR", data_dir)
         .env("PYTHONPATH", pythonpath)
         .env("PYTHONUNBUFFERED", "1")
+        .env("PYTHONDONTWRITEBYTECODE", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -400,7 +647,14 @@ fn start_backend(
     if let Err(err) = wait_for_health(&health_url, &mut child) {
         let _ = child.kill();
         let _ = child.wait();
-        return Err(err.into());
+        let stdout = read_child_pipe(&mut child.stdout);
+        let stderr = read_child_pipe(&mut child.stderr);
+        return Err(format!(
+            "{err}; backend stdout: {}; backend stderr: {}",
+            summarize_process_output(&stdout),
+            summarize_process_output(&stderr)
+        )
+        .into());
     }
 
     Ok(BackendSupervisor {
@@ -411,6 +665,46 @@ fn start_backend(
             port,
         },
     })
+}
+
+fn write_backend_startup_error(data_dir: &Path, error: &str) {
+    let path = data_dir.join("backend-startup-error.txt");
+    let _ = fs::write(path, error);
+}
+
+fn append_backend_startup_log(data_dir: &Path, message: &str) {
+    for path in [
+        data_dir.join("backend-startup.log"),
+        std::env::temp_dir().join("patentagent-tauri-startup.log"),
+    ] {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+            let _ = writeln!(file, "{message}");
+        }
+    }
+}
+
+fn read_child_pipe<R: Read>(pipe: &mut Option<R>) -> String {
+    let mut output = String::new();
+    if let Some(reader) = pipe.as_mut() {
+        let _ = reader.read_to_string(&mut output);
+    }
+    output
+}
+
+fn summarize_process_output(output: &str) -> String {
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return "<empty>".to_string();
+    }
+    const MAX_LEN: usize = 2_000;
+    if trimmed.len() > MAX_LEN {
+        format!("{}...[truncated]", &trimmed[..MAX_LEN])
+    } else {
+        trimmed.to_string()
+    }
 }
 
 fn find_available_port() -> Result<u16, std::io::Error> {

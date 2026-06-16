@@ -803,8 +803,10 @@ export async function createCorpusJob(payload: {
 export async function uploadCorpusJobFile(jobId: string, file: File): Promise<{ job: CorpusImportJob; file_count: number }> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch(await resolveApiUrl(`/api/corpus/jobs/${jobId}/files`), { method: "POST", body: form });
-  return parseResponse(response);
+  return request<{ job: CorpusImportJob; file_count: number }>(`/api/corpus/jobs/${jobId}/files`, {
+    method: "POST",
+    body: form,
+  });
 }
 
 export async function runCorpusJob(jobId: string): Promise<CorpusImportJob> {
@@ -834,8 +836,7 @@ export async function getCorpusDocument(documentId: string): Promise<PatentDocum
 export async function importPatent(file: File): Promise<{ document: PatentDocument; chunks_count: number }> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch(await resolveApiUrl("/api/corpus/import"), { method: "POST", body: form });
-  return parseResponse(response);
+  return request<{ document: PatentDocument; chunks_count: number }>("/api/corpus/import", { method: "POST", body: form });
 }
 
 export async function searchCorpus(q: string, sectionType: SectionType | "", version?: string): Promise<SearchResult[]> {
@@ -874,8 +875,7 @@ export async function deleteProject(projectId: string): Promise<{ ok: boolean }>
 export async function uploadProjectMaterial(projectId: string, file: File): Promise<ProjectMaterial> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch(await resolveApiUrl(`/api/projects/${projectId}/materials`), { method: "POST", body: form });
-  return parseResponse(response);
+  return request<ProjectMaterial>(`/api/projects/${projectId}/materials`, { method: "POST", body: form });
 }
 
 export async function listProjectMaterials(projectId: string): Promise<ProjectMaterial[]> {
@@ -1237,11 +1237,19 @@ async function resolveApiUrl(url: string): Promise<string> {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(await resolveApiUrl(url), init);
-  return parseResponse<T>(response);
+  const method = init?.method ?? "GET";
+  const resolvedUrl = await resolveApiUrl(url);
+  let response: Response;
+  try {
+    response = await fetch(resolvedUrl, init);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`${method} ${url} 请求失败：${message}`);
+  }
+  return parseResponse<T>(response, url, method);
 }
 
-async function parseResponse<T>(response: Response): Promise<T> {
+async function parseResponse<T>(response: Response, url: string, method: string): Promise<T> {
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -1255,7 +1263,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
     } catch {
       detail = response.statusText;
     }
-    throw new Error(detail);
+    throw new Error(`${method} ${url} 返回 ${response.status}：${detail}`);
   }
   return response.json() as Promise<T>;
 }
