@@ -316,36 +316,154 @@ button.nav-link {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  row-gap: 10px;
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* Unify every control inside the topbar actions area */
+.top-actions > *,
+.top-actions .btn,
+.top-actions .tag,
+.top-actions .select,
+.top-actions .theme-set {
+  flex: 0 0 auto;
+}
+
+.top-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  transition: background .12s, color .12s, box-shadow .12s;
+}
+
+.top-actions .btn:hover {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.top-actions .btn:active,
+.top-actions .btn.is-active {
+  background: color-mix(in oklch, var(--action-primary), transparent 90%);
+  color: var(--action-primary);
+}
+
+.top-actions .btn:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--action-primary), transparent 46%);
+  outline-offset: 2px;
+}
+
+.top-actions .btn-icon {
+  width: 36px;
+  padding: 0;
+}
+
+.top-actions .btn .icon,
+.top-actions .btn-icon svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.top-actions label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.top-actions .select {
+  width: auto;
+  min-width: 120px;
+  max-width: 220px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.top-actions .tag {
+  align-self: center;
+}
+
+.topbar-actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  row-gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 /* ── Theme switch ─────────────────────────────────────────────── */
 .theme-set {
   display: inline-flex;
+  align-items: stretch;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-subtle);
+  min-width: min-content;
 }
 
 .theme-segment {
-  min-height: 36px;
-  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: min-content;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid transparent;
   border-radius: 6px;
-  padding: 6px 10px;
   background: transparent;
   color: var(--text-muted);
   font-weight: 650;
   font-size: 13px;
+  line-height: 1;
   cursor: pointer;
-  transition: background .12s, color .12s, box-shadow .12s;
+  white-space: nowrap;
+  transition: background .12s, color .12s, border-color .12s, box-shadow .12s;
 }
 
 .theme-segment.is-active {
   background: var(--surface-raised);
   color: var(--text-primary);
-  box-shadow: var(--shadow-raised);
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 3px oklch(20% 0.02 240 / 0.06);
+}
+
+.theme-segment:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--action-primary), transparent 46%);
+  outline-offset: 2px;
+}
+
+.theme-segment svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 
 /* ── Mobile nav ───────────────────────────────────────────────── */
@@ -371,20 +489,6 @@ button.nav-link {
 .mobile-nav button:hover {
   background: var(--surface-subtle);
   color: var(--text-primary);
-}
-.guided-runtime-failures {
-  display: grid;
-  gap: 8px;
-}
-.guided-runtime-failures p {
-  margin: 0;
-  border: 1px solid #f8717144;
-  border-radius: 8px;
-  background: #f8717111;
-  color: #fecaca;
-  padding: 10px 12px;
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 .mobile-nav a.is-active,
@@ -805,6 +909,22 @@ button.nav-link {
   word-break: break-word;
   font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--text-muted);
+}
+
+.guided-runtime-failures {
+  display: grid;
+  gap: 8px;
+}
+
+.guided-runtime-failures p {
+  margin: 0;
+  border: 1px solid color-mix(in oklch, var(--danger), transparent 72%);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--danger), transparent 92%);
+  color: var(--danger);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 /* ── Form fields ──────────────────────────────────────────────── */
@@ -1826,10 +1946,12 @@ input:focus, select:focus, textarea:focus {
     gap: 10px;
     padding: 12px 16px;
   }
-  .top-actions {
-    justify-content: stretch;
+  .top-actions,
+  .topbar-actions-group {
+    justify-content: flex-start;
     width: 100%;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
   .page-title { min-width: 0; }
   .page-title h1 { font-size: 18px; }

@@ -71,6 +71,7 @@ import {
   latestCompletedDeliberation,
   pipelineRunStatusLabel,
 } from "./domain";
+import { runtimeDisplayElapsedSeconds, useRuntimeNow } from "./runtimeDisplay";
 
 export type GuidedPatentFlowProps = {
   project: ProjectRecord | null;
@@ -921,14 +922,17 @@ function GuidedRuntimeConsole({
   busy?: string;
   onCancel?: (runId: string) => void;
 }) {
-  if (!run || (run.status !== "queued" && run.status !== "running")) return null;
+  const active = Boolean(run && (run.status === "queued" || run.status === "running"));
+  const now = useRuntimeNow(active);
+  if (!run || !active) return null;
   const state = run.runtime_state ?? null;
+  const elapsedSeconds = runtimeDisplayElapsedSeconds(state, now);
   const lines = [
     `run ${run.id.slice(0, 10)} / ${pipelineRunStatusLabel(run.status)}`,
     `stage ${guidedRuntimeStageLabel(state?.current_stage)}`,
     state?.provider ? `provider ${state.provider}` : "",
     state?.subtask ? `task ${state.subtask}` : "",
-    typeof state?.elapsed_ms === "number" ? `elapsed ${formatElapsedLabel(Math.floor(state.elapsed_ms / 1000))}` : "",
+    state ? `elapsed ${formatElapsedLabel(elapsedSeconds)}` : "",
     typeof state?.partial_artifact_count === "number" ? `partials ${state.partial_artifact_count}` : "",
     typeof state?.warning_count === "number" ? `warnings ${state.warning_count}` : "",
     run.events?.at(-1) ? `event ${run.events.at(-1)}` : "",
@@ -937,7 +941,7 @@ function GuidedRuntimeConsole({
     <div className="inline-console" role="status" aria-label={label}>
       <div className="console-heading">
         <span>{label}</span>
-        <span>{state ? formatElapsedLabel(Math.floor(state.elapsed_ms / 1000)) : "00:00"}</span>
+        <span>{formatElapsedLabel(elapsedSeconds)}</span>
       </div>
       <pre>{lines.join("\n")}</pre>
       <GuidedRuntimeActions run={run} disabled={Boolean(busy)} onCancel={onCancel} />

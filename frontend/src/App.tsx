@@ -115,6 +115,7 @@ import {
   uploadProjectMaterial,
 } from "./api";
 import { GuidedPatentFlowView } from "./GuidedPatentFlow";
+import { runtimeDisplayElapsedMs, runtimeDisplayElapsedSeconds, useRuntimeNow } from "./runtimeDisplay";
 import { SettingsPanel } from "./SettingsPanel";
 import {
   canExportPackage,
@@ -537,7 +538,7 @@ function App() {
       void loadFormulaState(selectedProject.id);
       void loadOfficialCompileRuns(selectedProject.id);
       void loadPostDraftReviews(selectedProject.id);
-    }, 2500);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [selectedProject?.id, deliberationRuns, disclosureRuns, formulaRuns, postDraftReviews]);
 
@@ -2019,15 +2020,19 @@ function RuntimeRunConsole({
   actionDisabled?: boolean;
   onCancel?: (runId: string) => void;
 }) {
-  if (!run || !isActiveRun(run)) return null;
+  const active = isActiveRun(run);
+  const now = useRuntimeNow(active);
+  if (!run || !active) return null;
   const state = run.runtime_state ?? null;
+  const elapsedMs = runtimeDisplayElapsedMs(state, now);
+  const elapsedSeconds = runtimeDisplayElapsedSeconds(state, now);
   const lines = [
     `run ${run.id.slice(0, 10)} / ${pipelineRunStatusLabel(run.status)}`,
     `stage ${runtimeStageLabel(state?.current_stage)}`,
     state?.provider ? `provider ${state.provider}` : "",
     state?.subtask ? `task ${state.subtask}` : "",
     state?.query ? `query ${state.query}` : "",
-    typeof state?.elapsed_ms === "number" ? `elapsed ${formatRuntimeMs(state.elapsed_ms)}` : "",
+    state ? `elapsed ${formatRuntimeMs(elapsedMs)}` : "",
     typeof state?.partial_artifact_count === "number" ? `partials ${state.partial_artifact_count}` : "",
     typeof state?.warning_count === "number" ? `warnings ${state.warning_count}` : "",
     state?.timeout_ms ? `stage timeout ${formatRuntimeMs(state.timeout_ms)}` : "",
@@ -2035,7 +2040,7 @@ function RuntimeRunConsole({
   ].filter(Boolean);
   return (
     <div className="grid gap-2">
-      <OperationConsole label={title} lines={lines} elapsedSeconds={Math.floor((state?.elapsed_ms ?? 0) / 1000)} />
+      <OperationConsole label={title} lines={lines} elapsedSeconds={elapsedSeconds} />
       <RuntimeRunActions run={run} disabled={actionDisabled} onCancel={onCancel} />
     </div>
   );
