@@ -272,7 +272,7 @@ export const guidedStepDefinitions: Array<Omit<GuidedStepState, "status">> = [
   { id: "draft", label: "生成初稿", description: "生成摘要、权利要求书和说明书。" },
   { id: "quality", label: "质量检查", description: "运行提交成熟度、权利要求防线和初稿完善。" },
   { id: "officialCompile", label: "正式稿编译", description: "清除内部痕迹，生成可提交正式稿包。" },
-  { id: "postReview", label: "成稿会审", description: "提交前强制审查权利要求、说明书支撑、清污和技术硬度。" },
+  { id: "postReview", label: "成稿会审", description: "提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。" },
   { id: "export", label: "导出", description: "确认风险并导出正式稿和内部报告。" },
 ];
 
@@ -327,7 +327,7 @@ export function officialCompileActionGate(
     return { allowed: false, reason: "请先生成专利初稿。" };
   }
   if (!state.qualityChecked) {
-    return { allowed: false, reason: "请先完成质量检查后再编译正式稿。" };
+    return { allowed: false, reason: "请先完成质量检查再生成正式稿。" };
   }
   return { allowed: true, reason: "" };
 }
@@ -345,7 +345,7 @@ export function postDraftReviewActionGate(
     return { allowed: false, reason: "请先生成专利初稿。" };
   }
   if (!state.hasCompletedOfficialCompile) {
-    return { allowed: false, reason: "请先完成正式稿编译后再启动成稿会审。" };
+    return { allowed: false, reason: "请先生成正式稿再启动成稿会审。" };
   }
   return { allowed: true, reason: "" };
 }
@@ -380,7 +380,7 @@ export function guidedNextActionLabel(stepId: GuidedStepId): string {
   if (stepId === "formula") return "凝练核心公式";
   if (stepId === "draft") return "生成专利初稿";
   if (stepId === "quality") return "运行质量检查";
-  if (stepId === "officialCompile") return "编译正式稿";
+  if (stepId === "officialCompile") return "生成正式稿";
   if (stepId === "postReview") return "启动成稿会审";
   return "打开导出工具";
 }
@@ -389,12 +389,12 @@ export function guidedNextActionDescription(stepId: GuidedStepId): string {
   if (stepId === "idea") return "先创建项目；已有稿件可从第三个入口导入。";
   if (stepId === "invention") return "生成候选发明点和护城河方向，然后人工确认主线。";
   if (stepId === "deliberation") return "收敛权利要求边界、说明书支撑和规避路径。";
-  if (stepId === "formula") return "当项目包含算法/指标信号时，先生成公式包再写入初稿。";
+  if (stepId === "formula") return "当项目包含算法或指标信号时，先生成公式再写入初稿。";
   if (stepId === "draft") return "基于已确认材料生成摘要、权利要求书、说明书和附图说明。";
   if (stepId === "quality") return "串行运行提交成熟度、权利要求防线和初稿完善。";
   if (stepId === "officialCompile") return "清除内部痕迹，生成只包含正式申请内容的提交包。";
-  if (stepId === "postReview") return "正式导出前复核成稿哈希、权利要求质量和清污结果。";
-  return "正式稿、内部稿和侧车报告分离导出；提交前仍需专业人员复核。";
+  if (stepId === "postReview") return "正式提交前复核当前版本、权利要求质量并清理内部痕迹。";
+  return "正式稿与内部稿分离导出；提交前仍需专业人员复核。";
 }
 
 export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
@@ -623,7 +623,7 @@ export function qualitySummaryFromRuns(input: {
 
 export function guidedBusyLabel(value: string): string {
   if (value === "guided-quality") return "正在运行质量检查";
-  if (value === "official-compile") return "正在编译正式稿";
+  if (value === "official-compile") return "正在生成正式稿";
   if (value === "post-draft-review") return "正在运行成稿会审";
   if (value === "score-improve") return "正在一键提升分数";
   if (value === "disclosure") return "正在提炼发明点";
@@ -719,14 +719,14 @@ function operationLogSteps(value: string): Array<{ at: number; text: string }> {
       { at: 4, text: "识别公式型信号和变量关系" },
       { at: 10, text: "凝练核心公式、变量定义和权利要求落点" },
       { at: 25, text: "等待模型或服务返回" },
-      { at: 45, text: "生成 LaTeX 公式包并写入项目" },
+      { at: 45, text: "生成核心公式并写入项目" },
     ];
   }
   if (value === "post-draft-review") {
     return [
-      { at: 0, text: "启动成稿后多智能体会审，锁定当前成稿哈希" },
-      { at: 4, text: "分发权利要求、清污和技术硬度审查角色" },
-      { at: 12, text: "收集阻断项、污染命中和可提交补丁建议" },
+      { at: 0, text: "启动成稿后多智能体会审，锁定当前版本" },
+      { at: 4, text: "分发权利要求、内部痕迹与技术硬度审查角色" },
+      { at: 12, text: "收集阻断项、问题项和可提交补强建议" },
       { at: 25, text: "等待模型或服务返回" },
       { at: 45, text: "主席综合裁决并写入导出门禁" },
     ];
@@ -735,7 +735,7 @@ function operationLogSteps(value: string): Array<{ at: number; text: string }> {
     return [
       { at: 0, text: "锁定当前初稿快照" },
       { at: 2, text: "移除内部提示、会审痕迹和非正式内容" },
-      { at: 5, text: "检查正式稿必备章节和交叉项目污染" },
+      { at: 5, text: "检查正式稿必备章节并排除交叉项目内容" },
       { at: 8, text: "生成正式稿包、hash 和编译报告" },
     ];
   }

@@ -67,6 +67,7 @@ import {
   deliberationRunModeLabel,
   latestCompletedDeliberation,
   pipelineRunStatusLabel,
+  sourceTypeLabel,
 } from "./domain";
 
 export type GuidedPatentFlowProps = {
@@ -756,7 +757,7 @@ function ExternalDraftIntakePanel({
             <div>
               <strong>{source.file_name}</strong>
               <span>
-                {source.source_type} / {source.content_hash.slice(0, 12)}
+                {sourceTypeLabel(source.source_type)} · {source.content_hash.slice(0, 12)}
               </span>
             </div>
             <button
@@ -777,10 +778,10 @@ function ExternalDraftIntakePanel({
             <span className={latestRun.status === "needs_review" ? "status-badge warn" : "status-badge"}>
               {latestRun.status === "completed" ? "解析完成" : latestRun.status === "needs_review" ? "需要确认" : "解析失败"}
             </span>
-            <span>{latestRun.working_draft_hash.slice(0, 12) || "无工作稿 hash"}</span>
+            <span>工作稿：{latestRun.working_draft_hash.slice(0, 12) || "尚未生成"}</span>
           </div>
           <h4>{draft?.title || "外部初稿解析结果"}</h4>
-          <p>{latestRun.intake_issues.map((issue) => issue.message).join("；") || "未发现导入阶段阻断问题。"}</p>
+          <p>{latestRun.intake_issues.map((issue) => issue.message).join("；") || "导入阶段未发现阻断问题。"}</p>
           {draft && (
             <div className="external-draft-section-preview">
               <span>权利要求：{draft.claims.trim() ? "已识别" : "缺失"}</span>
@@ -888,7 +889,7 @@ function InventionPointConfirmation({
       <div className="guided-panel-heading">
         <div>
           <h3>确认发明点与护城河</h3>
-          <p>这里是默认流程的第一个暂停点。确认主线后，系统才进入初稿生成。</p>
+          <p>确认主线后，才会进入初稿生成。</p>
         </div>
         <ShieldCheck size={24} />
       </div>
@@ -997,7 +998,7 @@ function DeliberationPanel({
       <div className="guided-panel-heading">
         <div>
           <h3>多智能体会审</h3>
-          <p>专利生成前必须完成会审，用于收敛权利要求边界、说明书支撑和规避风险。</p>
+          <p>生成前需完成会审，用于收敛权利要求边界、说明书支撑和规避风险。</p>
         </div>
         <UsersRound size={24} />
       </div>
@@ -1060,12 +1061,12 @@ function DraftGenerationPanel({
           <h3>生成专利初稿</h3>
           <p>
             {deliberation
-              ? `将使用会审 run：${deliberation.id}`
+              ? "将结合会审结论生成。"
               : disclosure
-                ? `将使用交底书 run：${disclosure.id}`
-                : "将使用当前想法和已确认发明点生成。"}
+                ? "将结合交底书生成。"
+                : "将基于当前想法和已确认的发明点生成。"}
           </p>
-          <p>{formulaRun ? `将注入核心公式 run：${formulaRun.id}` : formulaRequirement?.required ? "等待核心公式包。" : "本项目无需公式型凝练。"}</p>
+          <p>{formulaRun ? "已注入核心公式。" : formulaRequirement?.required ? "等待核心公式。" : "本项目无需核心公式。"}</p>
         </div>
         <FileText size={24} />
       </div>
@@ -1108,13 +1109,13 @@ function FormulaPanel({
       <div className="guided-panel-heading">
         <div>
           <h3>核心公式</h3>
-          <p>{required ? "该项目包含公式型信号，需先凝练公式包。" : "当前项目未检测到必须凝练的公式型信号。"}</p>
+          <p>{required ? "本项目含公式型信号，需先凝练公式。" : "本项目未检测到必须凝练的公式信号。"}</p>
         </div>
         <Sigma size={24} />
       </div>
       {requirement && (
         <div className="result-meta">
-          <span className={required ? "status-badge warn" : "status-badge"}>{required ? "需要公式包" : "无需公式包"}</span>
+          <span className={required ? "status-badge warn" : "status-badge"}>{required ? "需要公式" : "无需公式"}</span>
           <span>{requirement.signals.join(" / ") || "无公式信号"}</span>
         </div>
       )}
@@ -1140,7 +1141,7 @@ function FormulaPanel({
             {formulaRun.providers.length > 0 && <span>{formulaRun.providers.join(" / ")}</span>}
             {project && (
               <a href={formulaMarkdownUrl(project.id, formulaRun.id)} rel="noreferrer" target="_blank">
-                公式 LaTeX
+                公式说明
               </a>
             )}
           </div>
@@ -1148,7 +1149,7 @@ function FormulaPanel({
           <p>{formulaRun.package.formula_blocks.map((block) => `${block.id} ${block.name}`).join("；")}</p>
         </article>
       )}
-      {!formulaRun && runs.length > 0 && <p className="workflow-hint">已有公式运行记录，但尚无已完成的公式包。</p>}
+      {!formulaRun && runs.length > 0 && <p className="workflow-hint">已有公式运行记录，但尚无已完成的公式。</p>}
     </section>
   );
 }
@@ -1190,7 +1191,7 @@ function QualityPanel({
       <div className="guided-panel-heading">
         <div>
           <h3>质量检查与补强</h3>
-          <p>系统会运行提交成熟度、权利要求防线、初稿完善和审查意见。</p>
+          <p>依次运行提交成熟度、权利要求防线、初稿完善和审查意见。</p>
         </div>
         <Gauge size={24} />
       </div>
@@ -1307,14 +1308,14 @@ function OfficialCompilePanel({
       <div className="guided-panel-heading">
         <div>
           <h3>正式稿编译</h3>
-          <p>隔离内部痕迹、支撑缺口、绘图提示和会审过程文本，生成正式申请文本专用包。</p>
+          <p>去除内部痕迹、支撑缺口和过程文本，生成可提交的正式稿。</p>
         </div>
         <FileText size={24} />
       </div>
       <div className="result-meta">
         <span className={statusClass}>{statusText}</span>
-        <span>源稿哈希：{currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成"}</span>
-        {run?.official_package_hash && <span>正式稿哈希：{run.official_package_hash.slice(0, 12)}</span>}
+        <span>当前源稿：{currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成"}</span>
+        {run?.official_package_hash && <span>正式稿：{run.official_package_hash.slice(0, 12)}</span>}
       </div>
       {blocked && (
         <p className="workflow-hint workflow-hint-danger">
@@ -1330,31 +1331,29 @@ function OfficialCompilePanel({
         type="button"
       >
         {busy === "official-compile" ? <Loader2 className="spin" size={17} /> : <FileText size={17} />}
-        <span>{run ? "重新编译正式稿" : "编译正式稿"}</span>
+        <span>{run ? "重新生成正式稿" : "生成正式稿"}</span>
       </button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "official-compile"} />
       {run && (
         <article className={completed ? "guided-choice selected" : "guided-choice"}>
           <div className="result-meta">
             <span className={statusClass}>{pipelineRunStatusLabel(run.status)}</span>
-            <span>移除污染 {run.contamination_removed.length} 项</span>
-            <span>阻断 {run.blocked_items.length} 项</span>
+            <span>已清理内部痕迹 {run.contamination_removed.length} 项</span>
+            <span>待处理阻断 {run.blocked_items.length} 项</span>
             {project && (
               <a href={officialCompileReportUrl(project.id, run.id)} rel="noreferrer" target="_blank">
                 编译报告
               </a>
             )}
           </div>
-          <h4>{completed ? "正式稿包已生成" : "正式稿未放行"}</h4>
-          <p>源稿哈希：{run.source_draft_hash.slice(0, 12)}</p>
-          <p>正式稿哈希：{run.official_package_hash ? run.official_package_hash.slice(0, 12) : "未生成"}</p>
+          <h4>{completed ? "正式稿已生成" : "正式稿未放行"}</h4>
           {run.blocked_items.length > 0 && (
             <p>阻断项：{run.blocked_items.map((item) => item.message || item.category || "未命名阻断项").slice(0, 3).join("；")}</p>
           )}
         </article>
       )}
       {!run && runs.length > 0 && (
-        <p className="workflow-hint">已有正式稿编译记录，但不属于当前源稿。请重新编译正式稿。</p>
+        <p className="workflow-hint">已有正式稿记录，但不属于当前源稿。请重新生成正式稿。</p>
       )}
     </section>
   );
@@ -1394,7 +1393,7 @@ function PostDraftReviewPanel({
       <div className="guided-panel-heading">
         <div>
           <h3>成稿后多智能体会审</h3>
-          <p>正式导出前必选。内置 Prompt Pack 会审权利要求质量、说明书清污、技术硬度和主席裁决。</p>
+          <p>正式导出前必选。多智能体会审权利要求质量、说明书清洁度、技术硬度，再综合裁决。</p>
         </div>
         <ClipboardCheck size={24} />
       </div>
@@ -1402,9 +1401,8 @@ function PostDraftReviewPanel({
         <span className={passed ? "status-badge" : blocked ? "status-badge danger" : "status-badge warn"}>
           {passed ? "已通过" : blocked ? "阻止正式导出" : "等待会审"}
         </span>
-        <span>{review?.prompt_pack_version ?? "post-draft-review-v1"}</span>
-        <span>当前成稿哈希：{currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成"}</span>
-        <span>正式稿哈希：{officialCompileRun?.official_package_hash.slice(0, 12) ?? "未编译"}</span>
+        <span>当前成稿：{currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成"}</span>
+        <span>正式稿：{officialCompileRun?.official_package_hash.slice(0, 12) ?? "未编译"}</span>
       </div>
       <AgentProviderCards
         doctor={doctor}
@@ -1430,17 +1428,17 @@ function PostDraftReviewPanel({
           <div className="result-meta">
             <span className={passed ? "status-badge" : "status-badge danger"}>{pipelineRunStatusLabel(review.status)}</span>
             <span>{review.providers.join(" / ") || "默认三方"}</span>
-            <span>会审哈希：{review.draft_package_hash.slice(0, 12)}</span>
-            {review.official_package_hash && <span>正式稿哈希：{review.official_package_hash.slice(0, 12)}</span>}
+            <span>会审版本：{review.draft_package_hash.slice(0, 12)}</span>
+            {review.official_package_hash && <span>正式稿版本：{review.official_package_hash.slice(0, 12)}</span>}
             {project && (
               <a href={postDraftReviewReportUrl(project.id, review.id)} rel="noreferrer" target="_blank">
                 会审报告
               </a>
             )}
           </div>
-          <h4>{passed ? "主席裁决：允许正式导出" : "主席裁决：需要修订"}</h4>
+          <h4>{passed ? "综合裁决：允许正式导出" : "综合裁决：需要修订"}</h4>
           {review.blocking_issues.length > 0 && <p>阻断项：{review.blocking_issues.slice(0, 3).join("；")}</p>}
-          {review.contamination_hits.length > 0 && <p>污染命中：{review.contamination_hits.slice(0, 5).join("；")}</p>}
+          {review.contamination_hits.length > 0 && <p>问题项：{review.contamination_hits.slice(0, 5).join("；")}</p>}
         </article>
       )}
       {!review && runs.length > 0 && (
@@ -1491,7 +1489,7 @@ function ExportConfirmationPanel({
       </div>
       {filingReport?.status === "high_risk" && <p className="workflow-hint">当前提交成熟度为高风险：请先处理报告中的不利表述、内部痕迹或支撑缺口，再让专业人员复核。</p>}
       {!officialAllowed && (
-        <p className="workflow-hint">正式稿入口已锁定：请先完成正式稿编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和侧车报告仅供内部复核。</p>
+        <p className="workflow-hint">正式稿入口已锁定：请先生成正式稿，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。</p>
       )}
       <div className="export-confirmation">
         <article>
@@ -1504,7 +1502,7 @@ function ExportConfirmationPanel({
         </article>
         <article>
           <strong>导出原则</strong>
-          <span>阻断项会锁定正式稿；侧车报告用于解释风险来源，不替代最终人工审查。</span>
+          <span>阻断项会锁定正式稿；风险说明用于解释风险来源，不替代最终人工审查。</span>
         </article>
       </div>
       <button className="icon-button" onClick={() => onOpenExpertTool("export")} type="button">

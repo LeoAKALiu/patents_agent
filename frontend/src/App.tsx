@@ -818,7 +818,7 @@ function App() {
               format === "docx" ? "docx" : "md",
             );
       if (format === "sidecar" && !latestOfficialCompileRun?.id) {
-        setError("侧车报告需要先完成正式稿编译。");
+        setError("风险说明需要先生成正式稿。");
         return;
       }
       window.location.href = href;
@@ -829,7 +829,7 @@ function App() {
       return;
     }
     if (!latestOfficialCompileRun?.id) {
-      setError("请先完成正式稿编译，再导出官方稿。");
+      setError("请先生成正式稿，再导出官方稿。");
       return;
     }
     if (format === "sidecar") {
@@ -846,7 +846,7 @@ function App() {
       );
       if (!allowed) {
         setError(
-          "官方稿导出被锁定：需先通过匹配当前正式稿哈希的成稿会审。",
+          "正式稿导出已锁定：需先通过针对当前正式稿的成稿会审。",
         );
         return;
       }
@@ -1579,7 +1579,7 @@ function App() {
                 </span>
               </div>
               <div className="health-line">
-                <span>清污检查</span>
+                <span>内部痕迹检查</span>
                 <span className="tag tag-success">可用</span>
               </div>
             </div>
@@ -2315,7 +2315,7 @@ function DeliberationView({
               ? "会审会调用本机 Codex、Gemini、Claude，先讨论保护范围和写作策略，再注入生成流程。"
               : "先创建项目后再启动会审。"}
           </p>
-          <p>{disclosure ? `将默认注入交底书 run：${disclosure.id}` : "暂无已完成交底书，会审仅使用 draft 与 RAG 片段。"}</p>
+          <p>{disclosure ? "将默认结合前置交底书。" : "暂无已完成交底书，会审仅基于草稿和检索片段。"}</p>
         </div>
         <div className="flex items-center gap-3">
           <button className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--surface-subtle)] hover:bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-sm border border-[var(--border-subtle)] disabled:opacity-50 transition-colors" onClick={onRefresh} type="button" title="刷新会审">
@@ -2803,11 +2803,11 @@ function WriteView({
           <p>{project?.draft_text ?? "先创建项目后再生成申请文本。"}</p>
           <p>
             {deliberation
-              ? `将注入会审 run：${deliberation.id}`
-              : "未完成多智能体会审，仍可直接生成。"}
+              ? "将结合会审结论生成。"
+              : "尚未完成多智能体会审，仍可直接生成。"}
           </p>
-          <p>{disclosure ? `将注入前置交底书 run：${disclosure.id}` : "未完成前置交底书，仍可直接生成。"}</p>
-          <p>{formulaRun ? `将注入核心公式 run：${formulaRun.id}` : formulaRequirement?.required ? "核心公式包未完成，暂不能生成。" : "无需核心公式包。"}</p>
+          <p>{disclosure ? "将结合前置交底书生成。" : "尚未完成前置交底书，仍可直接生成。"}</p>
+          <p>{formulaRun ? "已注入核心公式。" : formulaRequirement?.required ? "核心公式未完成，暂不能生成。" : "无需核心公式。"}</p>
         </div>
         <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[var(--action-primary)] to-[color-mix(in_oklch,var(--action-primary),black_30%)] text-[var(--action-primary-contrast)] font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || !deliberation || !formulaReady || busy === "generate"} onClick={onGenerate} type="button">
           <Wand2 size={18} />
@@ -2961,9 +2961,9 @@ function FilingReadinessView({
             {report?.status === "high_risk" && (
               <p className="text-sm text-[var(--text-primary)]/70 bg-[var(--surface-subtle)] px-4 py-3 rounded-lg border border-[var(--border-subtle)] flex items-center gap-2">高风险：请先处理报告中的不利表述、内部痕迹或支撑缺口，再让专利代理师或律师复核。</p>
             )}
-            {!officialAllowed && <p className="text-sm text-[var(--text-primary)]/70 bg-[var(--surface-subtle)] px-4 py-3 rounded-lg border border-[var(--border-subtle)] flex items-center gap-2">正式稿入口已锁定：需先完成正式稿编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和侧车报告仅供内部复核。</p>}
+            {!officialAllowed && <p className="text-sm text-[var(--text-primary)]/70 bg-[var(--surface-subtle)] px-4 py-3 rounded-lg border border-[var(--border-subtle)] flex items-center gap-2">正式稿入口已锁定：需先生成正式稿，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。</p>}
             {officialCompileRun?.official_package_hash && (
-              <p className="text-sm text-[var(--text-primary)]/70 bg-[var(--surface-subtle)] px-4 py-3 rounded-lg border border-[var(--border-subtle)] flex items-center gap-2">当前正式稿哈希：{officialCompileRun.official_package_hash.slice(0, 12)}</p>
+              <p className="text-sm text-[var(--text-primary)]/70 bg-[var(--surface-subtle)] px-4 py-3 rounded-lg border border-[var(--border-subtle)] flex items-center gap-2">当前正式稿版本：{officialCompileRun.official_package_hash.slice(0, 12)}</p>
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <a
@@ -3244,7 +3244,7 @@ function DraftCompletionView({
         <div>
           <h3>初稿完善循环</h3>
           <p>
-            警告模式：发现缺口、生成任务和候选补丁，但不把风险判断包装成已验证事实；补丁需人工接受后才进入完善结果。
+            发现缺口、生成任务和候选补丁；补丁需人工接受后才进入完善结果。
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -3397,7 +3397,7 @@ function DraftCompletionView({
                 <span className={`px-2.5 py-0.5 rounded-md border ${ patchStatusClass(patch.status) === "danger" ? "bg-app-danger/10 border-app-danger/45 text-app-danger" : patchStatusClass(patch.status) === "warn" ? "bg-app-warn/10 border-app-warn/45 text-app-warn" : "bg-[var(--surface-raised)] border-[var(--border-subtle)] text-[var(--text-primary)]" }`}>{completionPatchStatusLabel(patch.status)}</span>
                 <span>{completionPatchKindLabel(patch.patch_kind)}</span>
                 <span>{draftSectionLabel(patch.target_section)}</span>
-                <span>{patch.can_enter_official_draft ? "可进入官方稿" : "仅内部侧车"}</span>
+                <span>{patch.can_enter_official_draft ? "可进入官方稿" : "仅内部参考"}</span>
               </div>
               <p><strong>{patch.rationale}</strong></p>
               <p>{patch.risk_delta}</p>
@@ -3495,7 +3495,7 @@ function ExportView({
       <p className="text-sm text-[var(--text-primary)]/70 bg-[var(--surface-subtle)] px-4 py-3 rounded-lg border border-[var(--border-subtle)] flex items-center gap-2">
         {officialAllowed
           ? `正式稿已由成稿会审解锁：${officialCompileRun?.official_package_hash.slice(0, 12)}`
-          : "正式稿需完成编译，并通过匹配当前正式稿哈希的成稿会审；内部稿和侧车报告仅供内部复核。"}
+          : "正式稿需先生成，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。"}
       </p>
       {contaminationMatches.length > 0 && (
         <div
@@ -3605,7 +3605,7 @@ function ExportView({
               type="button"
             >
               <FileText size={18} />
-              <span>导出侧车报告…</span>
+              <span>导出风险说明…</span>
             </button>
           </>
         )}
