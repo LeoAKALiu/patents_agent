@@ -38,14 +38,19 @@ def test_generator_runs_ordered_pipeline_and_records_citations():
 
     package = generator.generate(brief, chunks)
 
-    assert [call.stage for call in llm.calls] == [
+    # claims must be generated before its dependents; the remaining stages run
+    # concurrently so we assert the set of calls and the claims-first invariant
+    # rather than a strict sequential order.
+    assert [call.stage for call in llm.calls[:1]] == ["claims"]
+    assert set(call.stage for call in llm.calls) == {
         "claims",
         "description",
         "abstract",
         "drawings",
         "diagram",
         "image_prompt",
-    ]
+    }
+    assert len(llm.calls) == 6
     assert package.title == "专利撰写辅助"
     assert "权利要求1" in package.claims
     assert package.citations[0].chunk_id == "c1"
