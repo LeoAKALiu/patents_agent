@@ -659,11 +659,12 @@ function App() {
 
   async function loadFilingReports(projectId: string): Promise<boolean> {
     try {
-      const reports = await listFilingReadinessReports(projectId);
+      const { reports, current_source_draft_hash } = await listFilingReadinessReports(projectId);
       if (selectedProjectIdRef.current !== projectId) {
         return false;
       }
       setFilingReports(reports);
+      setCurrentSourceDraftHash(current_source_draft_hash);
       return true;
     } catch {
       if (selectedProjectIdRef.current === projectId) {
@@ -675,11 +676,12 @@ function App() {
 
   async function loadWorksheets(projectId: string): Promise<boolean> {
     try {
-      const nextWorksheets = await listClaimDefenseWorksheets(projectId);
+      const { worksheets: nextWorksheets, current_source_draft_hash } = await listClaimDefenseWorksheets(projectId);
       if (selectedProjectIdRef.current !== projectId) {
         return false;
       }
       setWorksheets(nextWorksheets);
+      setCurrentSourceDraftHash(current_source_draft_hash);
       return true;
     } catch {
       if (selectedProjectIdRef.current === projectId) {
@@ -691,11 +693,12 @@ function App() {
 
   async function loadCompletionRuns(projectId: string): Promise<boolean> {
     try {
-      const runs = await listDraftCompletionRuns(projectId);
+      const { runs, current_source_draft_hash } = await listDraftCompletionRuns(projectId);
       if (selectedProjectIdRef.current !== projectId) {
         return false;
       }
       setCompletionRuns(runs);
+      setCurrentSourceDraftHash(current_source_draft_hash);
       return true;
     } catch {
       if (selectedProjectIdRef.current === projectId) {

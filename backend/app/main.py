@@ -981,12 +981,14 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/filing-readiness")
     def list_filing_readiness_reports(project_id: str) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
+        current_hash = source_draft_hash(project.package) if project.package else ""
         return {
             "reports": [
                 report.model_dump(mode="json")
                 for report in store.list_filing_readiness_reports(project_id)
-            ]
+            ],
+            "current_source_draft_hash": current_hash,
         }
 
     @app.get("/api/projects/{project_id}/filing-readiness/{report_id}/export.md")
@@ -1012,12 +1014,14 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/claim-defense-worksheets")
     def list_claim_defense_worksheets(project_id: str) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
+        current_hash = source_draft_hash(project.package) if project.package else ""
         return {
             "worksheets": [
                 worksheet.model_dump(mode="json")
                 for worksheet in store.list_claim_defense_worksheets(project_id)
-            ]
+            ],
+            "current_source_draft_hash": current_hash,
         }
 
     @app.get("/api/projects/{project_id}/claim-defense-worksheets/{worksheet_id}")
@@ -1046,12 +1050,14 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/completion-runs")
     def list_draft_completion_runs(project_id: str) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
+        current_hash = source_draft_hash(project.package) if project.package else ""
         return {
             "runs": [
                 run.model_dump(mode="json")
                 for run in store.list_draft_completion_runs(project_id)
-            ]
+            ],
+            "current_source_draft_hash": current_hash,
         }
 
     @app.get("/api/projects/{project_id}/completion-runs/{run_id}")

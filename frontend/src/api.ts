@@ -957,9 +957,12 @@ export async function createFilingReadinessReport(projectId: string): Promise<Fi
   return request<FilingReadinessReport>(`/api/projects/${projectId}/filing-readiness`, { method: "POST" });
 }
 
-export async function listFilingReadinessReports(projectId: string): Promise<FilingReadinessReport[]> {
-  const data = await request<{ reports: FilingReadinessReport[] }>(`/api/projects/${projectId}/filing-readiness`);
-  return data.reports;
+export async function listFilingReadinessReports(
+  projectId: string,
+): Promise<{ reports: FilingReadinessReport[]; current_source_draft_hash: string }> {
+  return request<{ reports: FilingReadinessReport[]; current_source_draft_hash: string }>(
+    `/api/projects/${projectId}/filing-readiness`,
+  );
 }
 
 export function filingReadinessReportUrl(projectId: string, reportId: string): string {
@@ -970,11 +973,12 @@ export async function createClaimDefenseWorksheet(projectId: string): Promise<Cl
   return request<ClaimDefenseWorksheet>(`/api/projects/${projectId}/claim-defense-worksheets`, { method: "POST" });
 }
 
-export async function listClaimDefenseWorksheets(projectId: string): Promise<ClaimDefenseWorksheet[]> {
-  const data = await request<{ worksheets: ClaimDefenseWorksheet[] }>(
+export async function listClaimDefenseWorksheets(
+  projectId: string,
+): Promise<{ worksheets: ClaimDefenseWorksheet[]; current_source_draft_hash: string }> {
+  return request<{ worksheets: ClaimDefenseWorksheet[]; current_source_draft_hash: string }>(
     `/api/projects/${projectId}/claim-defense-worksheets`,
   );
-  return data.worksheets;
 }
 
 export async function getClaimDefenseWorksheet(projectId: string, worksheetId: string): Promise<ClaimDefenseWorksheet> {
@@ -985,9 +989,12 @@ export async function createDraftCompletionRun(projectId: string): Promise<Draft
   return request<DraftCompletionRun>(`/api/projects/${projectId}/completion-runs`, { method: "POST" });
 }
 
-export async function listDraftCompletionRuns(projectId: string): Promise<DraftCompletionRun[]> {
-  const data = await request<{ runs: DraftCompletionRun[] }>(`/api/projects/${projectId}/completion-runs`);
-  return data.runs;
+export async function listDraftCompletionRuns(
+  projectId: string,
+): Promise<{ runs: DraftCompletionRun[]; current_source_draft_hash: string }> {
+  return request<{ runs: DraftCompletionRun[]; current_source_draft_hash: string }>(
+    `/api/projects/${projectId}/completion-runs`,
+  );
 }
 
 export function draftCompletionReportUrl(projectId: string, runId: string): string {
