@@ -57,6 +57,39 @@ def test_compiler_moves_trailing_support_gap_appendix_to_sidecar_without_blockin
     assert "航线规划算法的仿真验证" not in run.official_package.description
 
 
+def test_compiler_strips_ai_preface_before_official_description_heading():
+    package = _draft_package(
+        description=(
+            "好的，根据您提供的技术交底书，现为您撰写说明书正文，"
+            "并指明提交前需补强的材料。\n\n"
+            "---\n\n"
+            "**说明书**\n\n"
+            "**一种城市体检指标驱动无人机主动采集方法**\n\n"
+            "**技术领域**\n\n"
+            "本发明涉及无人机任务规划技术领域。\n"
+            "*(**注：** 此贡献矩阵的构建依据需在提交前补充实验数据佐证。)**\n"
+            "本发明能够基于城市体检指标置信度生成采集任务。"
+            "该特征为本发明的一个待验证改进方向，其具体实现效果有待工程验证。"
+        )
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "completed"
+    assert run.official_package is not None
+    assert "好的，根据" not in run.official_package.description
+    assert "提交前需补强" not in run.official_package.description
+    assert "需在提交前补充" not in run.official_package.description
+    assert "待验证改进方向" not in run.official_package.description
+    assert "有待工程验证" not in run.official_package.description
+    assert "说明书" not in run.official_package.description.splitlines()[:1]
+    assert "**" not in run.official_package.description
+    assert "技术领域" in run.official_package.description
+    assert any(item["category"] == "ai_preface" for item in run.contamination_removed)
+    assert any(item["category"] == "official_field_heading" for item in run.contamination_removed)
+    assert any(item["category"] == "support_gap_note" for item in run.sidecar_notes)
+
+
 def test_compiler_blocks_cross_project_title_contamination():
     package = _draft_package(
         description="本说明书还包括：基于边缘端动态推理的无人机飞行中任务调整方法。"

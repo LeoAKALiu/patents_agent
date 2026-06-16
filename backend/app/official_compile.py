@@ -30,7 +30,22 @@ RESIDUAL_INTERNAL_PATTERNS = (
     "system_trace",
     "official_safe_patches",
     "好的，下面",
+    "好的，根据",
+    "待验证改进方向",
+    "有待工程验证",
 )
+AUTO_STRIPPED_CATEGORIES = {
+    "ai_preface",
+    "official_field_heading",
+    "support_gap_appendix",
+    "support_gap_note",
+}
+OFFICIAL_SECTION_HEADINGS = {
+    "abstract": {"摘要"},
+    "claims": {"权利要求书"},
+    "description": {"说明书"},
+    "drawing_description": {"附图说明"},
+}
 INTERNAL_FIELD_RE = re.compile(
     r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs|attorney_memo|system_trace|official_safe_patches)["']?\s*[:：=]""",
     re.IGNORECASE,
@@ -128,7 +143,7 @@ class OfficialDraftCompiler:
         for item in contamination_removed:
             if item["section"] not in HARD_GATED_SECTIONS:
                 continue
-            if item["category"] == "support_gap_appendix":
+            if item["category"] in AUTO_STRIPPED_CATEGORIES:
                 continue
             blocked_items.append(
                 {
@@ -281,6 +296,11 @@ def _clean_section(
     contamination_removed: list[dict[str, str]],
     sidecar_notes: list[dict[str, str]],
 ) -> str:
+    text = _strip_preface_before_official_heading(
+        section=section,
+        text=text,
+        contamination_removed=contamination_removed,
+    )
     text = _strip_support_gap_appendix(
         section=section,
         text=text,
@@ -295,6 +315,16 @@ def _clean_section(
             if kept and kept[-1] != "":
                 kept.append("")
             continue
+        if _is_official_section_heading(section, line):
+            contamination_removed.append(
+                {
+                    "category": "official_field_heading",
+                    "section": section,
+                    "pattern": "official_field_heading",
+                    "text": line,
+                }
+            )
+            continue
         removal = _removal_for_line(line, in_fence)
         if line.startswith("```"):
             in_fence = not in_fence
@@ -306,11 +336,50 @@ def _clean_section(
                 "text": line,
             }
             contamination_removed.append(item)
-            if removal["category"] == "support_gap":
+            if removal["category"] in {"support_gap", "support_gap_note"}:
                 sidecar_notes.append(item.copy())
             continue
-        kept.append(_strip_inline_markdown(line))
+        cleaned_line = _strip_inline_markdown(line)
+        cleaned_line = _strip_support_gap_sentence_fragments(
+            section=section,
+            text=cleaned_line,
+            contamination_removed=contamination_removed,
+            sidecar_notes=sidecar_notes,
+        )
+        if cleaned_line:
+            kept.append(cleaned_line)
     return "\n".join(kept).strip()
+
+
+def _strip_preface_before_official_heading(
+    *,
+    section: str,
+    text: str,
+    contamination_removed: list[dict[str, str]],
+) -> str:
+    lines = text.splitlines(keepends=True)
+    marker_index = next(
+        (
+            index
+            for index, line in enumerate(lines[:12])
+            if _is_official_section_heading(section, line.strip())
+        ),
+        None,
+    )
+    if marker_index is None:
+        return text
+    prefix = "".join(lines[:marker_index]).strip()
+    if not prefix:
+        return text
+    contamination_removed.append(
+        {
+            "category": "ai_preface",
+            "section": section,
+            "pattern": "preface_before_official_heading",
+            "text": prefix,
+        }
+    )
+    return "".join(lines[marker_index:]).lstrip()
 
 
 def _strip_support_gap_appendix(
@@ -352,12 +421,28 @@ def _is_support_gap_appendix_heading(line: str) -> bool:
     return "提交前需补强的实验或工程材料" in line or re.search(r"\(support_gaps?\)", comparable_line) is not None
 
 
+def _is_official_section_heading(section: str, line: str) -> bool:
+    headings = OFFICIAL_SECTION_HEADINGS.get(section)
+    if not headings:
+        return False
+    return _normalize_heading_line(line) in headings
+
+
+def _normalize_heading_line(line: str) -> str:
+    normalized = re.sub(r"^\s*#{1,6}\s*", "", line.strip())
+    for wrapper in (r"\*\*", "__", r"\*"):
+        normalized = re.sub(rf"^{wrapper}(.+?){wrapper}$", r"\1", normalized).strip()
+    return normalized.strip("：: ")
+
+
 def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
     comparable_line = line.lower()
     if in_fence:
         return {"category": "format_pollution", "pattern": "markdown_fence"}
-    if re.search(r"^好的，下面.*撰写", line):
+    if re.search(r"^好的[，,].*(撰写|根据|为您)", line):
         return {"category": "ai_preface", "pattern": "好的，下面"}
+    if _looks_like_support_gap_note(line):
+        return {"category": "support_gap_note", "pattern": "support_gap_note"}
     for pattern in ("support_gap", "support_gaps", "支撑不足提示", "撰写说明"):
         if pattern in comparable_line:
             return {"category": "support_gap", "pattern": pattern}
@@ -399,8 +484,61 @@ def _looks_like_mermaid(line: str) -> bool:
     return bool(re.search(r"\w+\s*(-->|---|==>|-.->)\s*\w+", line))
 
 
+def _strip_support_gap_sentence_fragments(
+    *,
+    section: str,
+    text: str,
+    contamination_removed: list[dict[str, str]],
+    sidecar_notes: list[dict[str, str]],
+) -> str:
+    patterns = (
+        r"(?:(?<=。)|^)[^。]*(?:待验证改进方向|有待工程验证|提交前补充|提交前需补充|需在提交前补充|需要在提交前补充)[^。]*(?:。|$)",
+    )
+    cleaned = text
+    for pattern in patterns:
+        matches = [match.group(0).strip() for match in re.finditer(pattern, cleaned)]
+        if not matches:
+            continue
+        cleaned = re.sub(pattern, "", cleaned).strip()
+        for fragment in matches:
+            if not fragment:
+                continue
+            item = {
+                "category": "support_gap_note",
+                "section": section,
+                "pattern": "support_gap_sentence",
+                "text": fragment,
+            }
+            contamination_removed.append(item)
+            sidecar_notes.append(item.copy())
+    return cleaned
+
+
+def _looks_like_support_gap_note(line: str) -> bool:
+    normalized = line.replace("**", "").replace("__", "").strip()
+    normalized = normalized.strip("*_()（）")
+    note_starts = normalized.startswith("注：") or normalized.startswith("注:")
+    support_language = any(
+        pattern in normalized
+        for pattern in (
+            "提交前补充",
+            "提交前需补充",
+            "需在提交前补充",
+            "需要在提交前补充",
+            "待验证",
+            "内部评估",
+            "支撑材料",
+            "实验数据佐证",
+            "仿真进行验证",
+        )
+    )
+    return note_starts and support_language
+
+
 def _strip_inline_markdown(line: str) -> str:
     line = re.sub(r"^\s*#{1,6}\s*", "", line)
+    line = line.replace("**", "").replace("__", "")
+    line = re.sub(r"`([^`]+)`", r"\1", line)
     return line.strip()
 
 
