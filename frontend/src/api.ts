@@ -250,6 +250,7 @@ export interface DraftCompletionRun {
   id: string;
   project_id: string;
   snapshot_hash: string;
+  draft_package_hash: string;
   status: "completed" | "failed";
   issues: CompletionIssue[];
   tasks: CompletionTask[];

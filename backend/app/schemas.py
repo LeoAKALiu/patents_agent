@@ -395,6 +395,7 @@ class DraftCompletionRun(BaseModel):
     id: str
     project_id: str
     snapshot_hash: str = ""
+    draft_package_hash: str = ""
     status: str = Field(default="completed", pattern="^(completed|failed)$")
     issues: list[CompletionIssue] = Field(default_factory=list)
     tasks: list[CompletionTask] = Field(default_factory=list)
