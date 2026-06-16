@@ -588,6 +588,7 @@ export function guidedBusyLabel(value: string): string {
   if (value === "official-compile") return "正在编译正式稿";
   if (value === "post-draft-review") return "正在运行成稿会审";
   if (value === "knowledge-readiness") return "正在评分知识完备度";
+  if (value === "chair-revision") return "正在应用主席修订";
   if (value === "score-improve") return "正在一键提升分数";
   if (value === "disclosure") return "正在提炼发明点";
   if (value === "generate") return "正在生成专利初稿";
@@ -701,6 +702,14 @@ function operationLogSteps(value: string): Array<{ at: number; text: string }> {
       { at: 12, text: "评估现有技术、技术支撑和撰写依据" },
       { at: 25, text: "等待模型返回评分与补强建议" },
       { at: 45, text: "合并评分，检查是否超过 80 分门槛" },
+    ];
+  }
+  if (value === "chair-revision") {
+    return [
+      { at: 0, text: "读取主席裁定和当前源稿哈希" },
+      { at: 2, text: "应用权利要求、摘要和说明书安全修订" },
+      { at: 5, text: "更新内部工作稿并重新编译正式稿" },
+      { at: 8, text: "刷新正式稿哈希和成稿会审门禁" },
     ];
   }
   if (value === "official-compile") {

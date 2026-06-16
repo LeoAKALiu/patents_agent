@@ -664,6 +664,13 @@ export interface PostDraftReviewRun {
   updated_at: string;
 }
 
+export interface ChairRevisionApplyResult {
+  package: DraftPackage;
+  official_compile_run: OfficialCompileRun;
+  applied_revision_count: number;
+  current_source_draft_hash: string;
+}
+
 export interface CorpusQualityReport {
   total_files: number;
   processed_files: number;
@@ -1131,6 +1138,16 @@ export async function listPostDraftReviews(projectId: string): Promise<{ runs: P
 
 export function postDraftReviewReportUrl(projectId: string, runId: string): string {
   return `/api/projects/${projectId}/post-draft-reviews/${runId}/report.md`;
+}
+
+export async function applyPostDraftReviewRevisions(
+  projectId: string,
+  runId: string,
+): Promise<ChairRevisionApplyResult> {
+  return request<ChairRevisionApplyResult>(
+    `/api/projects/${projectId}/post-draft-reviews/${runId}/apply-revisions`,
+    { method: "POST" },
+  );
 }
 
 export async function startProjectDeliberation(projectId: string, trace = false, providers?: string[]): Promise<DeliberationRun> {

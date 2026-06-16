@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from typing import Any
 
 from backend.app.llm import LLMClient
 from backend.app.schemas import (
     DeliberationLogEntry,
+    DraftPackage,
     OfficialDraftPackage,
     PostDraftReviewChairResult,
     PostDraftReviewRoleResult,
@@ -171,6 +173,71 @@ def post_draft_review_to_markdown(run: PostDraftReviewRun) -> str:
     for log in run.logs:
         lines.append(f"- [{log.level}] {log.phase}/{log.provider_id}: {log.message} {log.detail}")
     return "\n".join(lines).strip() + "\n"
+
+
+def apply_chair_revisions_to_draft(package: DraftPackage, run: PostDraftReviewRun) -> DraftPackage:
+    chair = run.chair_result
+    if not chair:
+        raise ValueError("Post-draft review has no chair result.")
+    updated = package
+    applied: list[str] = []
+    if chair.claim_1_rewrite.strip():
+        updated = updated.model_copy(update={"claims": _replace_first_claim(updated.claims, chair.claim_1_rewrite.strip())})
+        applied.append("claim_1_rewrite")
+    if chair.system_claim_rewrite.strip():
+        updated = updated.model_copy(
+            update={"claims": _append_once(updated.claims, "主席补充系统权利要求", chair.system_claim_rewrite.strip())}
+        )
+        applied.append("system_claim_rewrite")
+    if chair.abstract_rewrite.strip():
+        updated = updated.model_copy(update={"abstract": chair.abstract_rewrite.strip()})
+        applied.append("abstract_rewrite")
+    safe_patches = [patch.strip() for patch in chair.official_safe_patches if patch.strip()]
+    if safe_patches:
+        updated = updated.model_copy(
+            update={"description": _append_once(updated.description, "主席修订补强", "\n".join(safe_patches))}
+        )
+        applied.append("official_text_patches")
+    logs = [
+        *updated.generation_logs,
+        f"post_draft_review: applied chair revisions from run {run.id}",
+    ]
+    if applied:
+        logs.append(f"post_draft_review: applied fields {', '.join(applied)}")
+    if chair.description_rewrite_tasks:
+        logs.append(
+            "post_draft_review: chair description tasks recorded for attorney follow-up: "
+            + "；".join(chair.description_rewrite_tasks)
+        )
+    return updated.model_copy(update={"generation_logs": logs})
+
+
+def chair_revision_count(run: PostDraftReviewRun) -> int:
+    chair = run.chair_result
+    if not chair:
+        return 0
+    count = 0
+    count += 1 if chair.claim_1_rewrite.strip() else 0
+    count += 1 if chair.system_claim_rewrite.strip() else 0
+    count += 1 if chair.abstract_rewrite.strip() else 0
+    count += len([patch for patch in chair.official_safe_patches if patch.strip()])
+    return count
+
+
+def _replace_first_claim(claims: str, rewrite: str) -> str:
+    match = re.search(r"(?m)^\s*1[.、．]\s*", claims)
+    if not match:
+        return _append_once(claims, "主席修订权利要求1", rewrite)
+    next_match = re.search(r"(?m)^\s*2[.、．]\s*", claims[match.end() :])
+    end = match.end() + next_match.start() if next_match else len(claims)
+    suffix = claims[end:].lstrip("\n")
+    return f"{claims[:match.start()]}{rewrite}\n{suffix}".strip()
+
+
+def _append_once(original: str, heading: str, addition: str) -> str:
+    if addition in original:
+        return original
+    return f"{original.rstrip()}\n\n{heading}：\n{addition}\n"
 
 
 def _role_prompt(role: str, package: OfficialDraftPackage, providers: list[str]) -> str:

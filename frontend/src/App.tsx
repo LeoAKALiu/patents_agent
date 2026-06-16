@@ -53,6 +53,7 @@ import {
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
   acceptCompletionPatch,
+  applyPostDraftReviewRevisions,
   confirmExternalDraftIntakeRun,
   createClaimDefenseWorksheet,
   createCorpusJob,
@@ -1184,6 +1185,26 @@ function App() {
     });
   }
 
+  async function handleApplyChairRevision(runId: string) {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("chair-revision", async () => {
+      const result = await applyPostDraftReviewRevisions(projectId, runId);
+      const stillSelected = await refreshProjectsPreservingSelection(projectId);
+      if (!stillSelected) return;
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
+      setFilingReports([]);
+      setWorksheets([]);
+      setCompletionRuns([]);
+      setMessage(
+        result.official_compile_run.status === "completed"
+          ? `已应用主席修订 ${result.applied_revision_count} 项，并重新编译正式稿`
+          : `已应用主席修订 ${result.applied_revision_count} 项，但正式稿编译仍需处理`,
+      );
+    });
+  }
+
   async function handleStartOfficialCompile() {
     if (!selectedProject?.package) return;
     const projectId = selectedProject.id;
@@ -1757,6 +1778,7 @@ function App() {
             onStartFormula={() => void handleStartFormula()}
             onStartOfficialCompile={() => void handleStartOfficialCompile()}
             onStartPostDraftReview={() => void handleStartPostDraftReview()}
+            onApplyChairRevision={(runId) => void handleApplyChairRevision(runId)}
             onToggleDeliberationProvider={handleToggleDeliberationProvider}
             onToggleFormulaProvider={handleToggleFormulaProvider}
             onGenerateDraft={() => void handleGenerate()}

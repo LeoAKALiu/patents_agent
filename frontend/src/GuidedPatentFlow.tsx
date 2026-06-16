@@ -120,6 +120,7 @@ export type GuidedPatentFlowProps = {
   onStartFormula: () => void;
   onStartOfficialCompile: () => void;
   onStartPostDraftReview: () => void;
+  onApplyChairRevision: (runId: string) => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
   onToggleFormulaProvider: (providerId: string, enabled: boolean) => void;
   onGenerateDraft: () => void;
@@ -376,6 +377,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartPostDraftReview={props.onStartPostDraftReview}
+          onApplyChairRevision={props.onApplyChairRevision}
           onToggleProvider={props.onToggleDeliberationProvider}
         />
       )}
@@ -1506,6 +1508,7 @@ function PostDraftReviewPanel({
   busy,
   busyElapsedSeconds,
   onStartPostDraftReview,
+  onApplyChairRevision,
   onToggleProvider,
 }: {
   actionGate: GuidedActionGate;
@@ -1519,10 +1522,12 @@ function PostDraftReviewPanel({
   busy: string;
   busyElapsedSeconds: number;
   onStartPostDraftReview: () => void;
+  onApplyChairRevision: (runId: string) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
 }) {
   const passed = Boolean(review?.status === "completed" && review.export_allowed);
   const blocked = Boolean(review?.status === "completed" && !review.export_allowed);
+  const hasChairRevision = Boolean(review?.chair_result && chairRevisionCount(review) > 0);
   return (
     <section className="guided-panel">
       <div className="guided-panel-heading">
@@ -1575,6 +1580,20 @@ function PostDraftReviewPanel({
           <h4>{passed ? "主席裁决：允许正式导出" : "主席裁决：需要修订"}</h4>
           {review.blocking_issues.length > 0 && <p>阻断项：{review.blocking_issues.slice(0, 3).join("；")}</p>}
           {review.contamination_hits.length > 0 && <p>污染命中：{review.contamination_hits.slice(0, 5).join("；")}</p>}
+          {blocked && hasChairRevision && (
+            <button
+              className="primary"
+              disabled={busy === "chair-revision"}
+              onClick={() => onApplyChairRevision(review.id)}
+              type="button"
+            >
+              {busy === "chair-revision" ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
+              <span>应用主席修订并重新编译</span>
+            </button>
+          )}
+          {blocked && review.chair_result && !hasChairRevision && (
+            <p className="workflow-hint">主席没有给出可直接写入正式文本的修订，请人工处理后重新编译。</p>
+          )}
         </article>
       )}
       {!review && runs.length > 0 && (
@@ -1582,6 +1601,17 @@ function PostDraftReviewPanel({
       )}
     </section>
   );
+}
+
+function chairRevisionCount(review: PostDraftReviewRun): number {
+  const chair = review.chair_result;
+  if (!chair) return 0;
+  return [
+    chair.claim_1_rewrite,
+    chair.system_claim_rewrite,
+    chair.abstract_rewrite,
+    ...chair.official_safe_patches,
+  ].filter((item) => item.trim()).length;
 }
 
 function ExportConfirmationPanel({

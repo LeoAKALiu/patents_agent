@@ -59,6 +59,8 @@ from backend.app.official_compile import (
 from backend.app.patent_mode import is_utility_model_project
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
 from backend.app.post_draft_review import (
+    apply_chair_revisions_to_draft,
+    chair_revision_count,
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
@@ -1207,6 +1209,34 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         return PlainTextResponse(post_draft_review_to_markdown(run), media_type="text/markdown; charset=utf-8")
+
+    @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/apply-revisions")
+    def apply_post_draft_review_chair_revisions(project_id: str, run_id: str) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        run = store.get_post_draft_review_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Post-draft review run not found.")
+        if run.status != "completed":
+            raise HTTPException(status_code=409, detail="Only completed post-draft reviews can be applied.")
+        if run.draft_package_hash != source_draft_hash(package):
+            raise HTTPException(status_code=409, detail="Post-draft review does not match the current draft.")
+        applied_count = chair_revision_count(run)
+        if applied_count <= 0:
+            raise HTTPException(status_code=409, detail="Chair result contains no official-text revisions to apply.")
+        try:
+            revised_package = apply_chair_revisions_to_draft(package, run)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        store.update_project_package(project_id, revised_package)
+        compile_run = OfficialDraftCompiler().compile(project_id=project_id, package=revised_package)
+        stored_compile = store.create_official_compile_run(compile_run)
+        return {
+            "package": revised_package.model_dump(mode="json"),
+            "official_compile_run": stored_compile.model_dump(mode="json"),
+            "applied_revision_count": applied_count,
+            "current_source_draft_hash": source_draft_hash(revised_package),
+        }
 
     @app.post("/api/projects/{project_id}/official-compile-runs")
     def create_official_compile_run(

@@ -167,6 +167,36 @@ def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_pat
     assert "attorney_memo" in report_response.text
 
 
+def test_apply_chair_revision_updates_draft_and_recompiles_official_package(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+
+    review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+    assert review_response.status_code == 200
+    review = review_response.json()
+    assert review["export_allowed"] is False
+
+    apply_response = client.post(f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/apply-revisions")
+
+    assert apply_response.status_code == 200
+    result = apply_response.json()
+    assert result["applied_revision_count"] == 1
+    assert result["package"]["claims"].startswith("1. 一种方法，包括根据置信度增益生成任务包。")
+    assert "applied chair revisions" in "\n".join(result["package"]["generation_logs"])
+    assert result["official_compile_run"]["status"] == "completed"
+    assert result["official_compile_run"]["source_draft_hash"] == result["current_source_draft_hash"]
+
+    project = client.app.state.store.get_project(project_id)
+    assert project.package
+    assert project.package.claims.startswith("1. 一种方法，包括根据置信度增益生成任务包。")
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 409
+    assert "Post-draft multi-agent review is required" in export_response.json()["detail"]
+
+
 def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compile(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
