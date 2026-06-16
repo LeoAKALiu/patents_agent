@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover - optional in old local envs
 
 
 DEFAULT_TASK_TIMEOUT_MS = 180_000
+_PROMPT_ARG = "{prompt}"
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
@@ -182,6 +183,10 @@ def build_provider_command(provider_id: str, workdir: Path, attempt: int) -> tup
         return ("reasonix", ["run", "--model", "deepseek-pro"])
     if provider_id == "gemini":
         return ("gemini", ["--prompt", "", "--approval-mode", "plan", "--output-format", "text"])
+    if provider_id == "kimicode":
+        return ("kimicode", ["-p", _PROMPT_ARG, "--output-format", "text"])
+    if provider_id == "mimo":
+        return ("mimo", ["run", "--format", "default", _PROMPT_ARG])
     return (provider_id, [])
 
 
@@ -193,18 +198,20 @@ async def _spawn_process(
     timeout_ms: int,
 ) -> tuple[int, str, str]:
     executable = resolve_agent_command(command) or command
+    prompt_is_arg = _PROMPT_ARG in args
+    process_args = [prompt if arg == _PROMPT_ARG else arg for arg in args]
     process = await asyncio.create_subprocess_exec(
         executable,
-        *args,
+        *process_args,
         cwd=str(workdir),
         env=agent_subprocess_env(),
-        stdin=asyncio.subprocess.PIPE,
+        stdin=asyncio.subprocess.PIPE if not prompt_is_arg else asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     try:
         stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            process.communicate(prompt.encode("utf-8")),
+            process.communicate(None if prompt_is_arg else prompt.encode("utf-8")),
             timeout=timeout_ms / 1000 if timeout_ms else None,
         )
     except TimeoutError as exc:

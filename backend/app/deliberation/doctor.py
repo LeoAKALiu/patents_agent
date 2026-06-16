@@ -45,6 +45,13 @@ PROVIDERS = {
         "model_version": "kimi-code local",
         "roles": ["deliberation", "formula", "critic"],
     },
+    "mimo": {
+        "label": "MimoCode",
+        "command": "mimo",
+        "required": False,
+        "model_version": "mimo-code local",
+        "roles": ["deliberation", "formula", "critic"],
+    },
 }
 
 # Per-provider auth probes — safe, short, non-destructive.
@@ -273,7 +280,7 @@ def _resolve_auth_status(
     probe_fn = _PROVIDER_AUTH_PROBES.get(provider_id)
     if probe_fn is None:
         # No custom probe → installed but can't verify auth
-        return "unknown", f"命令存在：{path}，但无法验证其可调用状态。", ""
+        return "unknown", "命令已安装，但无法验证其可调用状态。", ""
 
     result = probe_fn(path or command, command_probe, timeout_ms)
     if result is not None:

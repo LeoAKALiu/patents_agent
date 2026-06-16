@@ -7,7 +7,7 @@ import pytest
 from backend.app.deliberation.cli_paths import agent_search_path, resolve_agent_command
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
-from backend.app.deliberation.providers import AgentProviderRunner, ProviderFailure, _extract_json_payload
+from backend.app.deliberation.providers import AgentProviderRunner, ProviderFailure, _extract_json_payload, build_provider_command
 from backend.app.schemas import DeliberationLogEntry, InventionBrief, PatentChunk, SectionType
 
 
@@ -72,6 +72,10 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     assert full.commands["gemini"].required is False
     assert full.commands["gemini"].available is False
     assert full.commands["gemini"].selectable is True
+    assert full.commands["kimicode"].auth_status == "unknown"
+    assert full.commands["kimicode"].selectable is True
+    assert full.commands["mimo"].auth_status == "unknown"
+    assert full.commands["mimo"].selectable is True
     assert full.commands["codex"].auth_status == "ready"
     assert full.commands["deepseek"].command == "reasonix"
     assert full.commands["deepseek"].auth_status == "ready"
@@ -83,7 +87,7 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     )
     assert core_only.status == "ready"
     assert core_only.run_mode == "full"
-    assert core_only.missing_optional == ["gemini", "kimicode"]
+    assert core_only.missing_optional == ["gemini", "kimicode", "mimo"]
     assert core_only.commands["codex"].model_version
     assert "deliberation" in core_only.commands["codex"].roles
     assert core_only.commands["deepseek"].required is True
@@ -114,6 +118,7 @@ def test_agent_command_resolution_survives_desktop_launch_path(
     for command in ("codex", "reasonix", "gemini", "claude"):
         _make_executable(tmp_path / command)
     _make_executable(tmp_path / "kimi")
+    _make_executable(tmp_path / "mimo")
     monkeypatch.setenv("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
     monkeypatch.setenv("PATENTS_AGENT_AGENT_PATH", str(tmp_path))
 
@@ -124,6 +129,7 @@ def test_agent_command_resolution_survives_desktop_launch_path(
     assert resolve_agent_command("gemini") == str(tmp_path / "gemini")
     assert resolve_agent_command("claude") == str(tmp_path / "claude")
     assert resolve_agent_command("kimicode") == str(tmp_path / "kimi")
+    assert resolve_agent_command("mimo") == str(tmp_path / "mimo")
 
     report = inspect_agent_environment(command_probe=_probe_ready)
 
@@ -135,6 +141,8 @@ def test_agent_command_resolution_survives_desktop_launch_path(
     assert report.commands["claude"].installed is True
     assert report.commands["kimicode"].installed is True
     assert report.commands["kimicode"].path == str(tmp_path / "kimi")
+    assert report.commands["mimo"].installed is True
+    assert report.commands["mimo"].path == str(tmp_path / "mimo")
 
 
 def test_doctor_probe_ready_requires_auth_confirmation():
@@ -312,6 +320,16 @@ def test_extract_json_payload_repairs_reasonix_status_and_unescaped_quotes():
     assert payload["claim_scope"][0].startswith("建议暂不要求保护")
     assert payload["risks"] == ['缺少"采集动作与城市体检指标可信度绑定"']
     assert payload["recommendations"] == ["用中文术语边界替代英文双引号"]
+
+
+def test_optional_cli_provider_commands_pass_prompt_non_interactively(tmp_path: Path):
+    kimi_command, kimi_args = build_provider_command("kimicode", tmp_path, 1)
+    mimo_command, mimo_args = build_provider_command("mimo", tmp_path, 1)
+
+    assert kimi_command == "kimicode"
+    assert kimi_args == ["-p", "{prompt}", "--output-format", "text"]
+    assert mimo_command == "mimo"
+    assert mimo_args == ["run", "--format", "default", "{prompt}"]
 
 
 def test_provider_runner_resolves_relative_workdir_for_codex(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

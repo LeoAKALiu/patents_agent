@@ -7,6 +7,7 @@ from pathlib import Path
 
 COMMAND_ALIASES: dict[str, tuple[str, ...]] = {
     "kimicode": ("kimicode", "kimi"),
+    "mimo": ("mimo", "mimocode"),
 }
 
 

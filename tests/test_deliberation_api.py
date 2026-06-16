@@ -245,6 +245,18 @@ def test_selectable_providers_include_optional_unknown_installed_agents():
                 auth_status="unknown",
                 selectable=True,
             ),
+            "mimo": AgentProviderStatus(
+                id="mimo",
+                label="MimoCode",
+                command="mimo",
+                available=False,
+                path="/Users/leo/.mimocode/bin/mimo",
+                installed=True,
+                required=False,
+                auth_status="unknown",
+                selectable=True,
+                roles=["deliberation", "formula", "critic"],
+            ),
         },
         active_provider_ids=["codex", "deepseek", "claude"],
         unknown_required=[],
@@ -259,6 +271,7 @@ def test_selectable_providers_include_optional_unknown_installed_agents():
     assert "claude" in selectable
     assert "gemini" in selectable
     assert "kimicode" in selectable
+    assert "mimo" in selectable
 
 
 class _FakeProviderResult:

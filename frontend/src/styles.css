@@ -1126,6 +1126,7 @@ input:focus, select:focus, textarea:focus {
 .agent-card-main strong { display: block; color: var(--text-primary); font-size: 14px; }
 .agent-card-main span, .agent-card p, .agent-toggle { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
 .agent-card p { margin: 0; overflow-wrap: anywhere; }
+.agent-card-hint { min-height: 30px; }
 .agent-card-meta { justify-content: flex-start; flex-wrap: wrap; }
 .agent-toggle { justify-content: flex-start; font-weight: 600; }
 .agent-toggle input { width: 14px; height: 14px; }

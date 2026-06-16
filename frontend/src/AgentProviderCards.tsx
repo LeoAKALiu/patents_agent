@@ -25,6 +25,15 @@ function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; i
   }
 }
 
+function providerHint(provider: AgentProviderStatus): string {
+  if (!provider.installed) return "未检测到 CLI，安装后可重新扫描。";
+  if (provider.available) return "已就绪，可参与本轮任务。";
+  if (provider.selectable) return "已检测到 CLI，调用状态将在运行时验证。";
+  if (provider.auth_status === "not_authenticated") return "需要完成登录或凭据配置。";
+  if (provider.auth_status === "timeout") return "状态探测超时，可稍后重试。";
+  return "暂不可用于本轮任务。";
+}
+
 export function normalizeAgentSelection(
   doctor: AgentDoctorReport | null,
   selectedProviders: string[],
@@ -114,10 +123,8 @@ export function AgentProviderCards({
                 {provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}
               </span>
             </div>
-            <p className="agent-card-path">
-              {provider.installed ? provider.path : `未找到命令：${provider.command}`}
-            </p>
-            {provider.diagnostic && (
+            <p className="agent-card-hint">{providerHint(provider)}</p>
+            {provider.diagnostic && !provider.selectable && (
               <p className="agent-card-diagnostic">{provider.diagnostic}</p>
             )}
             {provider.repair_suggestion && !provider.selectable && (
