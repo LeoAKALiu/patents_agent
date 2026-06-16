@@ -607,6 +607,24 @@ function App() {
     }
   }
 
+  async function refreshDisclosureRunUntilSettled(projectId: string, runId: string): Promise<void> {
+    const pollDelaysMs = [900, 1500, 2500, 3500, 5000, 7000];
+    for (const delayMs of pollDelaysMs) {
+      await delay(delayMs);
+      if (selectedProjectIdRef.current !== projectId) return;
+      try {
+        const runs = await listProjectDisclosures(projectId);
+        if (selectedProjectIdRef.current !== projectId) return;
+        setDisclosureRuns(runs);
+        await loadPatentPoints(projectId);
+        const current = runs.find((item) => item.id === runId);
+        if (!current || (current.status !== "queued" && current.status !== "running")) return;
+      } catch {
+        return;
+      }
+    }
+  }
+
   async function loadFormulaState(projectId: string): Promise<boolean> {
     try {
       const [requirement, runs] = await Promise.all([getFormulaRequirement(projectId), listFormulaRuns(projectId)]);
@@ -1122,6 +1140,11 @@ function App() {
       const run = await startProjectDisclosure(projectId, trace, disclosureResearchMode);
       const stillSelected = await loadDisclosures(projectId);
       if (!stillSelected) return;
+      if (run.status === "queued" || run.status === "running") {
+        void refreshDisclosureRunUntilSettled(projectId, run.id);
+      } else {
+        await loadPatentPoints(projectId);
+      }
       const modeLabel =
         disclosureResearchMode === "free_deep_research" ? "（免费 Deep Research 补充）" : "";
       setMessage(
@@ -2299,6 +2322,10 @@ function Distribution({ title, values }: { title: string; values: Record<string,
 
 function percent(value: number | undefined): string {
   return `${Math.round((value ?? 0) * 100)}%`;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function latestCompletedDisclosure(runs: DisclosureRun[]): DisclosureRun | null {
