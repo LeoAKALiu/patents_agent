@@ -1219,6 +1219,48 @@ describe("deriveGuidedFlowState", () => {
     expect(state.exportReady).toBe(false);
   });
 
+  it("stays satisfied when only the completion snapshot hash uses a different algorithm", () => {
+    // Regression: PR #78 compared completionRun.snapshot_hash against
+    // currentSourceDraftHash, but the two are computed differently on the
+    // backend (snapshot_hash = sha256(package + points + materials) while
+    // currentSourceDraftHash = sha256(package)), so they can never match.
+    // The gate must rely on filingReport.draft_package_hash (same formula
+    // as currentSourceDraftHash) and ignore the snapshot hash mismatch.
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        package: {
+          title: "一种外立面逆建模方法",
+          abstract: "摘要",
+          claims: "1. 一种方法。",
+          description: "说明书",
+          drawing_description: "附图说明",
+          mermaid: "flowchart TD",
+          image_prompt: "黑白线稿",
+          review_findings: [],
+          citations: [],
+          generation_logs: [],
+        },
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [{ ...filingReport("warning"), draft_package_hash: "draft-hash" }],
+      worksheets: [worksheet],
+      // snapshot_hash deliberately differs — emulates the real backend
+      // algorithm difference and must NOT invalidate the gate.
+      completionRuns: [{ ...completionRun, snapshot_hash: "snapshot-package-points-materials" }],
+      officialCompileRuns: [completedOfficialCompileRun],
+      postDraftReviews: [passedPostDraftReview],
+      currentSourceDraftHash: "draft-hash",
+    });
+
+    expect(state.qualityChecked).toBe(true);
+    expect(state.currentStepId).toBe("export");
+    expect(state.exportReady).toBe(true);
+  });
+
   it("does not advance to export when post-draft review belongs to a different official compile", () => {
     const state = deriveGuidedFlowState({
       project: {
