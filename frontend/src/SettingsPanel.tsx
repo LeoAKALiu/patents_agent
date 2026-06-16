@@ -187,9 +187,8 @@ export function SettingsPanel() {
     <section className="panel wide" data-testid="settings-panel">
       <h3>设置 · LLM 服务</h3>
       <p className="section-copy">
-        在桌面客户端本机存储 LLM 服务参数。密钥仅写在本机
-        <code>desktop-config.json</code> 中，权限 <code>0600</code>；
-        渲染进程只能看到存在标志和指纹，永远不会看到明文。
+        在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限；
+        界面只会显示是否已配置和指纹，不会回显明文。
       </p>
 
       <div className="settings-status-grid">
@@ -284,11 +283,11 @@ export function SettingsPanel() {
           </div>
           {clearRequested ? (
             <small className="settings-hint warn">
-              <AlertTriangle size={12} /> 勾选"保存"后会将已存储的密钥清除
+              <AlertTriangle size={12} /> 点击"保存"后会清除已存储的密钥
             </small>
           ) : (
             <small className="settings-hint">
-              密钥只发往本机后端，渲染进程不会回显明文
+              密钥只发往本机后端，界面不会回显明文
             </small>
           )}
         </label>

@@ -535,7 +535,7 @@ describe("guided flow defaults", () => {
     expect(guidedNextActionLabel("idea")).toBe("填写并创建项目");
     expect(guidedNextActionLabel("quality")).toBe("运行质量检查");
     expect(guidedNextActionLabel("export")).toBe("打开导出工具");
-    expect(guidedNextActionDescription("postReview")).toContain("正式导出前");
+    expect(guidedNextActionDescription("postReview")).toContain("正式提交前");
   });
 });
 

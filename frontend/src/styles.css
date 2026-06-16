@@ -21,12 +21,16 @@
   --color-app-teal-dim: oklch(56% 0.12 170);
   --color-app-teal-pale: oklch(86% 0.06 170);
 
-  --font-display: 'Söhne', 'Avenir Next', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  /* Display + body font stacks both include CJK fallbacks so Chinese
+     characters render with native font hints instead of a Latin-only face. */
+  --font-display: 'Söhne', 'Avenir Next', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC', 'Noto Sans CJK SC', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
 
+  /* Radius scale. md stays 8px for controls; lg = 10px for panels/cards so
+     larger surfaces read as one rounded language. sm = 6px for in-set bits. */
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 8px;
+  --radius-lg: 10px;
 }
 
 /* ── CSS Variables: Light Theme (default) ─────────────────────── */
@@ -119,11 +123,17 @@ body {
   overflow-x: hidden;
   background: var(--surface-base);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC', 'Noto Sans CJK SC', 'Microsoft YaHei', system-ui, sans-serif;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
+  /* Prefer proportional-width CJK glyphs; allow breaking long CJK runs so
+     paragraphs don't overflow on narrow viewports. */
+  font-variant-east-asian: proportional-width;
+  word-break: break-word;
+  overflow-wrap: break-word;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
+  text-spacing-trim: space-all;
 }
 
 button, input, select, textarea { font: inherit; }
@@ -205,8 +215,8 @@ button { cursor: pointer; }
   color: var(--text-soft);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  /* Intentionally no letter-spacing / uppercase: CJK glyphs have no case and
+     added tracking only loosens grouping without aiding legibility. */
 }
 
 .nav-link,
@@ -331,20 +341,12 @@ button.nav-link {
 }
 
 .top-actions .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: var(--radius-md);
+  /* Inherits height/padding/radius/font from the shared button block; only
+     colour + interaction styling are overridden here. Keeping the same
+     min-height means topbar buttons align with panel button rows. */
+  border: 1px solid var(--border-subtle);
   background: var(--surface-subtle);
   color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.35;
-  white-space: nowrap;
   transition: background .12s, color .12s, box-shadow .12s;
 }
 
@@ -365,7 +367,7 @@ button.nav-link {
 }
 
 .top-actions .btn-icon {
-  width: 36px;
+  width: 40px;
   padding: 0;
 }
 
@@ -392,8 +394,8 @@ button.nav-link {
   width: auto;
   min-width: 120px;
   max-width: 220px;
-  min-height: 36px;
-  padding: 6px 10px;
+  min-height: 40px;
+  padding: 8px 10px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
@@ -434,13 +436,13 @@ button.nav-link {
   justify-content: center;
   gap: 6px;
   min-width: min-content;
-  height: 36px;
+  height: 34px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
-  font-weight: 650;
+  font-weight: 600;
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
@@ -525,10 +527,8 @@ button.nav-link {
   display: block;
   margin-bottom: 4px;
   color: var(--text-soft);
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .status-tile strong {
@@ -615,6 +615,8 @@ button.nav-link {
 }
 
 /* ── Buttons ──────────────────────────────────────────────────── */
+/* Shared control sizing — every button class below targets the same
+   height/padding/radius so rows line up regardless of variant. */
 .button-row {
   display: inline-flex;
   gap: 8px;
@@ -625,19 +627,23 @@ button.nav-link {
 .btn,
 .primary,
 .icon-button,
-.export-link {
+.export-link,
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-ghost {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  min-height: 44px;
-  padding: 9px 14px;
+  min-height: 40px;
+  padding: 8px 14px;
   cursor: pointer;
   text-decoration: none;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.35;
   transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
   white-space: nowrap;
@@ -650,35 +656,14 @@ button.nav-link {
 
 .btn:hover { filter: brightness(0.98); }
 
-.btn-primary {
-  background: var(--action-primary);
-  color: var(--action-primary-contrast);
-}
-
-.btn-secondary {
-  background: var(--surface-raised);
-  border-color: var(--border-subtle);
-  color: var(--text-primary);
-}
-
-.btn-secondary:hover {
-  background: var(--surface-subtle);
-  border-color: var(--border-strong);
-}
-
-.btn-danger {
-  background: color-mix(in oklch, var(--danger), transparent 84%);
-  border-color: color-mix(in oklch, var(--danger), var(--border-subtle) 46%);
-  color: var(--danger);
-}
-
 .btn-icon {
-  width: 44px;
+  width: 40px;
   padding: 0;
 }
 
 .btn[disabled], .is-disabled,
-.primary:disabled, .icon-button:disabled, .export-link.disabled {
+.primary:disabled, .icon-button:disabled, .export-link.disabled,
+.btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled, .btn-ghost:disabled {
   cursor: not-allowed;
   opacity: 0.54;
 }
@@ -722,29 +707,8 @@ button.nav-link {
   filter: brightness(1.08);
 }
 
-.primary:disabled, .icon-button:disabled {
-  opacity: 0.4;
-}
-
-/* ── Generic button classes for SettingsPanel + others ────────── */
-.btn-primary,
-.btn-secondary,
-.btn-danger,
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 38px;
-  padding: 8px 14px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
-}
-
+/* ── Variant button classes (SettingsPanel + others) ──────────── */
+/* These reuse the shared sizing block above; only colour differs. */
 .btn-primary {
   background: var(--action-primary);
   color: var(--action-primary-contrast);
@@ -752,7 +716,6 @@ button.nav-link {
 }
 
 .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-secondary {
   background: var(--surface-subtle);
@@ -1035,7 +998,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .score-card span, .score-card strong { display: block; }
-.score-card span { color: var(--text-soft); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.score-card span { color: var(--text-soft); font-size: 11px; font-weight: 600; }
 .score-card strong { margin-top: 3px; color: var(--text-primary); font-size: 20px; }
 
 /* ── Status Pill ──────────────────────────────────────────────── */
@@ -1129,7 +1092,7 @@ input:focus, select:focus, textarea:focus {
 .segmented-control button {
   min-height: 32px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -1259,7 +1222,7 @@ input:focus, select:focus, textarea:focus {
   vertical-align: top;
   font-size: 12px;
 }
-.matrix-table th { color: var(--text-primary); font-size: 11px; text-transform: uppercase; font-weight: 700; }
+.matrix-table th { color: var(--text-primary); font-size: 12px; font-weight: 700; }
 .matrix-table td { color: var(--text-muted); line-height: 1.4; }
 
 /* ── Patch Preview ────────────────────────────────────────────── */
@@ -1322,7 +1285,7 @@ input:focus, select:focus, textarea:focus {
 /* ── Expert Tools ─────────────────────────────────────────────── */
 .expert-tool-panel, .expert-tool-groups { display: grid; gap: 12px; }
 .expert-tool-group { display: grid; gap: 6px; }
-.expert-tool-group p { margin: 0; color: var(--text-soft); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.expert-tool-group p { margin: 0; color: var(--text-soft); font-size: 12px; font-weight: 700; }
 .expert-tool-list { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .expert-tool-button {
@@ -1366,10 +1329,8 @@ input:focus, select:focus, textarea:focus {
 
 .settings-status-tile span {
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .settings-status-tile strong { font-size: 15px; color: var(--text-primary); }
@@ -1389,10 +1350,8 @@ input:focus, select:focus, textarea:focus {
   align-items: center;
   gap: 6px;
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .settings-key-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
@@ -1781,11 +1740,11 @@ input:focus, select:focus, textarea:focus {
 .segment {
   min-height: 36px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   padding: 6px 10px;
   background: transparent;
   color: var(--text-muted);
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
 }
 
