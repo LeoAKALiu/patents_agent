@@ -71,7 +71,7 @@ LABELS: tuple[LabelSpec, ...] = (
     LabelSpec("worker:qwen", "bfd4f2", "Route to the Qwen frontend/profile"),
     LabelSpec("worker:kimi", "bfd4f2", "Route to the Kimi patent-text profile"),
     LabelSpec("desktop", "c5def5", "Desktop runtime or packaging scope"),
-    LabelSpec("electron", "c5def5", "Electron desktop shell scope"),
+    LabelSpec("tauri", "c5def5", "Tauri desktop shell scope"),
     LabelSpec("workflow:external-draft", "c5def5", "External draft intake/polish workflow"),
     LabelSpec("workflow:export", "c5def5", "Official export workflow"),
     LabelSpec("patent-type:invention", "c5def5", "Chinese invention patent workflow"),
@@ -96,7 +96,7 @@ PROFILES: tuple[ProfileSpec, ...] = (
     ),
     ProfileSpec(
         "qwenworker",
-        "React, TypeScript, Vite, Electron UI, and desktop user-experience implementation.",
+        "React, TypeScript, Vite, Tauri UI, and desktop user-experience implementation.",
     ),
     ProfileSpec(
         "kimiworker",
@@ -111,7 +111,7 @@ PROFILES: tuple[ProfileSpec, ...] = (
 BOARD = BoardSpec(
     slug="patents-v1",
     name="PatentAgent v1.0.0",
-    description="Autonomous agent pipeline for PatentAgent v1.0.0 Electron desktop release",
+    description="Autonomous agent pipeline for PatentAgent desktop release work",
 )
 
 SAFE_NEXT_STEPS = (

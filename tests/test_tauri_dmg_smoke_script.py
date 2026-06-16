@@ -94,6 +94,17 @@ def test_spctl_invalid_bundle_message_is_classified_as_assessment_tool_error() -
     assert status == "assessment-tool-error-invalid-bundle"
 
 
+def test_spctl_invalid_resource_directory_is_classified_as_assessment_tool_error() -> None:
+    smoke = load_smoke_script()
+
+    status = smoke.classify_spctl(
+        1,
+        "/tmp/PatentAgent.app: invalid resource directory (directory or signature have been modified)\n",
+    )
+
+    assert status == "assessment-tool-error-invalid-resource-directory"
+
+
 def test_cleanup_attempts_app_quit_after_successful_launch_without_pid() -> None:
     smoke = load_smoke_script()
 

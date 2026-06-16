@@ -71,41 +71,6 @@ ensure_node_runtime() {
   fi
 }
 
-run_electron_smoke_if_feasible() {
-  if [[ "${PATENTAGENT_SKIP_ELECTRON_SMOKE:-0}" == "1" ]]; then
-    log "Skipping Electron launch smoke because PATENTAGENT_SKIP_ELECTRON_SMOKE=1"
-    return
-  fi
-
-  if [[ -z "${PATENTAGENT_ELECTRON_BIN:-}" ]]; then
-    if ! (cd desktop && node - <<'NODE' >/dev/null 2>&1
-const fs = require("node:fs");
-const electron = require("electron");
-if (typeof electron !== "string" || !fs.existsSync(electron)) {
-  process.exit(1);
-}
-NODE
-    ); then
-      log "Skipping Electron launch smoke: Electron binary unavailable (approve/rebuild Electron install scripts, or set PATENTAGENT_ELECTRON_BIN)"
-      return
-    fi
-  fi
-
-  local uname_s
-  uname_s="$(uname -s)"
-  if [[ "$uname_s" == "Linux" && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
-    if command -v xvfb-run >/dev/null 2>&1; then
-      log "Running Electron launch smoke through xvfb-run"
-      (cd desktop && xvfb-run -a npm run smoke)
-    else
-      log "Skipping Electron launch smoke: Linux display server unavailable and xvfb-run not installed"
-    fi
-  else
-    log "Running Electron launch smoke"
-    (cd desktop && npm run smoke)
-  fi
-}
-
 run_tauri_smoke_if_present() {
   if [[ ! -f src-tauri/Cargo.toml ]]; then
     log "Skipping Tauri checks: src-tauri/Cargo.toml not present"
@@ -133,15 +98,6 @@ ensure_node_runtime
 ensure_npm_deps frontend
 run npm --prefix frontend test -- --run
 run npm --prefix frontend run build
-
-if [[ -f desktop/package.json ]]; then
-  ensure_npm_deps desktop
-  run npm --prefix desktop run build
-  run_electron_smoke_if_feasible
-else
-  log "Skipping desktop checks: desktop/package.json not present"
-fi
-
 run_tauri_smoke_if_present
 
 log "v1 smoke completed successfully"

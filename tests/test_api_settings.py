@@ -116,14 +116,14 @@ def test_desktop_config_rejects_untrusted_browser_origin(client: TestClient) -> 
     assert "Forbidden desktop config origin" in response.json()["detail"]
 
 
-def test_desktop_config_allows_electron_file_origin(client: TestClient) -> None:
+def test_desktop_config_rejects_legacy_file_renderer_origin(client: TestClient) -> None:
     response = client.patch(
         "/api/desktop-config",
         json={"model": "deepseek-release-test"},
         headers={"Origin": "null"},
     )
-    assert response.status_code == 200
-    assert response.json()["model"] == "deepseek-release-test"
+    assert response.status_code == 403
+    assert "Forbidden desktop config origin" in response.json()["detail"]
 
 
 @pytest.mark.parametrize(
