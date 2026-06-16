@@ -345,7 +345,9 @@ button.nav-link {
 .top-actions .btn {
   /* Inherits height/padding/radius/font from the shared button block; only
      colour + interaction styling are overridden here. Keeping the same
-     min-height means topbar buttons align with panel button rows. */
+     min-height means topbar buttons align with panel button rows.
+     The subtle border is intentional: it matches .top-actions .select so
+     buttons and the project picker read as one control row. */
   border: 1px solid var(--border-subtle);
   background: var(--surface-subtle);
   color: var(--text-primary);
