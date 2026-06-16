@@ -205,7 +205,7 @@ function filingReport(status: FilingReadinessReport["status"]): FilingReadinessR
   return {
     id: `fr-${status}`,
     project_id: "p1",
-    draft_package_hash: "hash",
+    draft_package_hash: "draft-hash",
     rules_version: "v1",
     status,
     issues: [],
@@ -228,7 +228,7 @@ const worksheet: ClaimDefenseWorksheet = {
 const completionRun: DraftCompletionRun = {
   id: "c1",
   project_id: "p1",
-  snapshot_hash: "hash",
+  snapshot_hash: "draft-hash",
   status: "completed",
   issues: [],
   tasks: [],
@@ -1179,6 +1179,85 @@ describe("deriveGuidedFlowState", () => {
     });
 
     expect(state.currentStepId).toBe("postReview");
+    expect(state.exportReady).toBe(false);
+  });
+
+  it("resets to quality when quality checks are stale after a draft change", () => {
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        package: {
+          title: "一种外立面逆建模方法",
+          abstract: "摘要",
+          claims: "1. 一种方法。",
+          description: "说明书",
+          drawing_description: "附图说明",
+          mermaid: "flowchart TD",
+          image_prompt: "黑白线稿",
+          review_findings: [],
+          citations: [],
+          generation_logs: [],
+        },
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [{ ...filingReport("warning"), draft_package_hash: "draft-hash" }],
+      worksheets: [worksheet],
+      completionRuns: [{ ...completionRun, snapshot_hash: "draft-hash" }],
+      officialCompileRuns: [completedOfficialCompileRun],
+      postDraftReviews: [passedPostDraftReview],
+      currentSourceDraftHash: "new-draft-hash",
+    });
+
+    // Quality checks ran against "draft-hash" but the current source draft
+    // is "new-draft-hash" (e.g., after a chair revision).  The gate should
+    // reset to quality so the user re-runs quality checks before recompiling.
+    expect(state.qualityChecked).toBe(false);
+    expect(state.currentStepId).toBe("quality");
+    expect(state.exportReady).toBe(false);
+  });
+
+  it("does not advance to export when post-draft review belongs to a different official compile", () => {
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        package: {
+          title: "一种外立面逆建模方法",
+          abstract: "摘要",
+          claims: "1. 一种方法。",
+          description: "说明书",
+          drawing_description: "附图说明",
+          mermaid: "flowchart TD",
+          image_prompt: "黑白线稿",
+          review_findings: [],
+          citations: [],
+          generation_logs: [],
+        },
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [filingReport("warning")],
+      worksheets: [worksheet],
+      completionRuns: [completionRun],
+      officialCompileRuns: [completedOfficialCompileRun],
+      postDraftReviews: [
+        {
+          ...passedPostDraftReview,
+          id: "review-for-stale-compile",
+          draft_package_hash: "stale-draft-hash",
+          official_compile_run_id: "stale-compile",
+          official_package_hash: "stale-official-hash",
+        },
+      ],
+    });
+
+    expect(state.currentStepId).toBe("postReview");
+    expect(state.hasCompletedOfficialCompile).toBe(true);
+    expect(state.hasPassedPostDraftReview).toBe(false);
     expect(state.exportReady).toBe(false);
   });
 });

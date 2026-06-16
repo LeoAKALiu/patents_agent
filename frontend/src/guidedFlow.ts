@@ -413,10 +413,11 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   const hasCompletedDeliberation = draftReady || utilityModelLite || Boolean(latestCompletedDeliberation(input.deliberations));
   const formulaRequired = !utilityModelLite && Boolean(input.formulaRequirement?.required);
   const hasCompletedFormula = draftReady || !formulaRequired || Boolean(input.formulaRuns?.some((run) => run.status === "completed" && run.package));
-  const qualityChecked = Boolean(
-    input.filingReports.length
-      && input.worksheets.length
-      && input.completionRuns.some((run) => run.status === "completed"),
+  const qualityChecked = isQualityChecked(
+    input.filingReports,
+    input.worksheets,
+    input.completionRuns,
+    input.currentSourceDraftHash,
   );
   const currentOfficialCompileRun = selectCurrentOfficialCompileRun(
     input.officialCompileRuns ?? [],
@@ -480,6 +481,44 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
     exportReady,
     utilityModelLite,
   };
+}
+
+/**
+ * Returns true when all three quality gates have been completed against
+ * the current source draft.  When currentSourceDraftHash is provided the
+ * latest completion run and filing readiness report must be from the same
+ * draft snapshot — this prevents a stale quality gate from unlocking
+ * official-compile after a chair revision changes the draft.
+ */
+function isQualityChecked(
+  filingReports: FilingReadinessReport[],
+  worksheets: ClaimDefenseWorksheet[],
+  completionRuns: DraftCompletionRun[],
+  currentSourceDraftHash?: string,
+): boolean {
+  if (!filingReports.length || !worksheets.length || !completionRuns.length) {
+    return false;
+  }
+  const latestCompleted = completionRuns.find((run) => run.status === "completed");
+  if (!latestCompleted) {
+    return false;
+  }
+  // If we have a hash baseline, cross-check both the completion snapshot
+  // and the filing readiness report against it.  The snapshot_hash is
+  // sha256(package + points + materials) while source_draft_hash is
+  // sha256(package) — they differ but both are stable per snapshot.
+  // When the draft changes both will mismatch, which is what we want.
+  if (currentSourceDraftHash) {
+    if (latestCompleted.snapshot_hash !== currentSourceDraftHash) {
+      return false;
+    }
+    // Filing readiness carries its own package hash for dedup.
+    const latestReport = filingReports[0];
+    if (latestReport.draft_package_hash !== currentSourceDraftHash) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function isMatchingPostDraftReview(review: PostDraftReviewRun, compile: OfficialCompileRun): boolean {
