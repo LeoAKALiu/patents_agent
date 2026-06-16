@@ -800,7 +800,11 @@ def create_app(
     ) -> dict:
         project = _require_project(store, project_id)
         doctor = inspect_agent_environment()
-        requested = payload.providers or list(STRICT_DELIBERATION_PROVIDERS)
+        requested = _agent_provider_ids_for_role(
+            doctor,
+            payload.providers or list(STRICT_DELIBERATION_PROVIDERS),
+            "deliberation",
+        )
         available = set(doctor.active_provider_ids)
         selectable = _selectable_agent_provider_ids(doctor)
         active_requested_count = len(requested) if app.state.provider_runner is not None else len([provider for provider in requested if provider in available])
@@ -912,19 +916,20 @@ def create_app(
         previous = store.get_deliberation_run(project_id, run_id)
         if not previous:
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
+        providers = _agent_provider_ids_for_role(inspect_agent_environment(), previous.providers, "deliberation")
         retry_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / retry_id
         retry_run = DeliberationRun(
             id=retry_id,
             project_id=project_id,
             status="queued",
-            providers=list(previous.providers),
-            run_mode=previous.run_mode,
+            providers=providers,
+            run_mode=_run_mode(len(providers)),
             round_depth=previous.round_depth,
             trace=previous.trace,
             run_dir=str(run_dir),
             retry_of=previous.id,
-            events=[f"retry requested for deliberation run {previous.id}"],
+            events=[f"retry requested for deliberation run {previous.id}", f"providers normalized: {','.join(providers)}"],
         )
         store.create_deliberation_run(retry_run)
         if app.state.provider_runner is not None:
@@ -2660,6 +2665,24 @@ def _selectable_agent_provider_ids(doctor: AgentDoctorReport) -> set[str]:
         | set(doctor.unknown_required)
         | {provider_id for provider_id, status in doctor.commands.items() if status.selectable}
     )
+
+
+def _agent_provider_ids_for_role(doctor: AgentDoctorReport, requested: list[str], role: str) -> list[str]:
+    provider_role = "deliberation" if role == "post_review" else role
+    normalized: list[str] = []
+    for provider_id in STRICT_DELIBERATION_PROVIDERS:
+        if provider_id not in normalized:
+            normalized.append(provider_id)
+    for provider_id in requested:
+        if provider_id in normalized:
+            continue
+        status = doctor.commands.get(provider_id)
+        if not status or not status.selectable:
+            continue
+        if provider_role not in status.roles:
+            continue
+        normalized.append(provider_id)
+    return normalized
 
 
 def _run_mode(active_count: int) -> str:

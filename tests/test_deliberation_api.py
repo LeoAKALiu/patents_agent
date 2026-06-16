@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.llm import FakeLLMClient
 from backend.app.main import _selectable_agent_provider_ids, create_app
-from backend.app.schemas import AgentDoctorReport, AgentProviderStatus
+from backend.app.schemas import AgentDoctorReport, AgentProviderStatus, DeliberationRun
 
 
 def test_deliberation_api_lifecycle_and_generation_injection(tmp_path):
@@ -93,6 +93,25 @@ def test_failed_deliberation_has_diagnostic_logs_and_cannot_generate(tmp_path):
     assert "strict multi-agent deliberation" in generate_response.json()["detail"]
 
 
+def test_deliberation_create_replaces_deprecated_gemini_request(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_minimal_llm(), provider_runner=_FakeProviderRunner()))
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "旧会审 provider 项目", "draft_text": "一种城市体检指标驱动采集方法。"},
+    ).json()["id"]
+
+    response = client.post(
+        f"/api/projects/{project_id}/deliberations",
+        json={"providers": ["codex", "gemini", "claude"], "trace": False},
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["providers"] == ["codex", "deepseek", "claude"]
+    assert "gemini" not in {stage["provider_id"] for stage in run["stage_results"]}
+    assert not any("gemini" in event for event in run["events"])
+
+
 def test_missing_required_provider_creates_failed_diagnostic_run(tmp_path, monkeypatch):
     def fake_doctor():
         return AgentDoctorReport(
@@ -124,6 +143,46 @@ def test_missing_required_provider_creates_failed_diagnostic_run(tmp_path, monke
     assert run["strategy_brief"] is None
     assert run["failures"][0]["reason"] == "provider_missing"
     assert any(log["provider_id"] == "deepseek" and log["repair_suggestion"] for log in run["logs"])
+
+
+def test_deliberation_retry_normalizes_legacy_gemini_providers(tmp_path, monkeypatch):
+    def fake_doctor():
+        return AgentDoctorReport(
+            status="ready",
+            run_mode="full",
+            commands={
+                "codex": AgentProviderStatus(id="codex", label="Codex", command="codex", available=True, path="/bin/codex", required=True, roles=["deliberation"], installed=True, auth_status="ready", selectable=True),
+                "deepseek": AgentProviderStatus(id="deepseek", label="DeepSeek", command="reasonix", available=True, path="/bin/reasonix", required=True, roles=["deliberation"], installed=True, auth_status="ready", selectable=True),
+                "claude": AgentProviderStatus(id="claude", label="Claude", command="claude", available=True, path="/bin/claude", required=True, roles=["deliberation"], installed=True, auth_status="ready", selectable=True),
+                "gemini": AgentProviderStatus(id="gemini", label="Gemini", command="gemini", available=False, required=False, roles=["deprecated"], installed=True, auth_status="unknown", selectable=True),
+                "kimicode": AgentProviderStatus(id="kimicode", label="KimiCode", command="kimicode", available=False, required=False, roles=["deliberation"], installed=True, auth_status="unknown", selectable=True),
+            },
+            active_provider_ids=["codex", "deepseek", "claude"],
+            missing_required=[],
+            missing_optional=[],
+            unknown_required=[],
+        )
+
+    monkeypatch.setattr("backend.app.main.inspect_agent_environment", fake_doctor)
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_minimal_llm(), provider_runner=_FakeProviderRunner(), load_env_file=False))
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "旧 run 重试项目", "draft_text": "一种城市体检指标驱动采集方法。"},
+    ).json()["id"]
+    previous = DeliberationRun(
+        id="legacy-delib",
+        project_id=project_id,
+        status="failed",
+        providers=["codex", "gemini", "claude", "kimicode"],
+        run_mode="full",
+    )
+    client.app.state.store.create_deliberation_run(previous)
+
+    retry = client.post(f"/api/projects/{project_id}/deliberations/{previous.id}/retry").json()
+
+    assert retry["retry_of"] == previous.id
+    assert retry["providers"] == ["codex", "deepseek", "claude", "kimicode"]
+    assert "gemini" not in {stage["provider_id"] for stage in retry["stage_results"]}
 
 
 def test_selectable_providers_include_optional_unknown_installed_agents():
