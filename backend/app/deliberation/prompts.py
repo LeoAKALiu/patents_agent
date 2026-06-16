@@ -8,7 +8,8 @@ GUARDRAILS = """执行约束：
 - 不要读取仓库、README、AGENTS.md、历史运行留痕目录或任何未在本 prompt 中提供的文件。
 - 不要解释你将如何工作，不要输出元评论。
 - 只基于本 prompt 中给出的 dossier、授权专利片段和前序发言完成任务。
-- 严格返回 JSON object，不要附加额外说明。
+- 严格返回可被 Python json.loads 解析的 JSON object，不要附加额外说明、Markdown 代码围栏、thinking 或前后缀。
+- JSON 字符串内部不要使用英文双引号；引用术语时使用中文引号「」或直接省略引号。若必须使用英文双引号，必须写成 \\"。
 """
 
 

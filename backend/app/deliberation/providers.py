@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,8 +11,14 @@ from typing import Awaitable, Callable
 from backend.app.deliberation.cli_paths import agent_subprocess_env, resolve_agent_command
 from backend.app.schemas import DeliberationLogEntry
 
+try:
+    from json_repair import repair_json as _repair_json
+except ImportError:  # pragma: no cover - optional in old local envs
+    _repair_json = None
+
 
 DEFAULT_TASK_TIMEOUT_MS = 180_000
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 class ProviderFailure(RuntimeError):
@@ -227,23 +234,59 @@ def _read_codex_last_message(args: list[str]) -> str:
 
 
 def _extract_json_payload(text: str) -> dict:
-    stripped = text.strip()
-    candidates = [stripped]
-    if "```" in stripped:
-        parts = stripped.split("```")
-        candidates.extend(part.replace("json", "", 1).strip() for part in parts if "{" in part)
-    first = stripped.find("{")
-    last = stripped.rfind("}")
-    if first >= 0 and last > first:
-        candidates.append(stripped[first : last + 1])
-    for candidate in candidates:
-        try:
-            payload = json.loads(candidate)
-            if isinstance(payload, dict):
-                return payload
-        except json.JSONDecodeError:
-            continue
+    for candidate in _json_payload_candidates(text):
+        payload = _loads_json_object(candidate)
+        if payload is not None:
+            return payload
     raise ProviderFailure("invalid_json", "Provider returned invalid JSON", stdout=text)
+
+
+def _json_payload_candidates(text: str) -> list[str]:
+    candidates: list[str] = []
+
+    def add(candidate: str) -> None:
+        stripped = candidate.strip()
+        if stripped and stripped not in candidates:
+            candidates.append(stripped)
+
+    for source in (text, _strip_ansi(text)):
+        add(source)
+        if "```" in source:
+            for part in source.split("```"):
+                if "{" not in part:
+                    continue
+                stripped = part.strip()
+                if stripped.lower().startswith("json"):
+                    stripped = stripped[4:].lstrip()
+                add(stripped)
+        first = source.find("{")
+        last = source.rfind("}")
+        if first >= 0 and last > first:
+            add(source[first : last + 1])
+    return candidates
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_ESCAPE_RE.sub("", text)
+
+
+def _loads_json_object(candidate: str) -> dict | None:
+    try:
+        payload = json.loads(candidate)
+        if isinstance(payload, dict):
+            return payload
+    except json.JSONDecodeError:
+        pass
+
+    if _repair_json is None:
+        return None
+    try:
+        repaired = _repair_json(candidate, return_objects=True)
+    except Exception:
+        return None
+    if isinstance(repaired, dict):
+        return repaired
+    return None
 
 
 def repair_suggestion_for_failure(reason: str, provider_id: str) -> str:

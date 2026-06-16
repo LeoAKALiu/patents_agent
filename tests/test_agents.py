@@ -7,7 +7,7 @@ import pytest
 from backend.app.deliberation.cli_paths import agent_search_path, resolve_agent_command
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
-from backend.app.deliberation.providers import AgentProviderRunner, ProviderFailure
+from backend.app.deliberation.providers import AgentProviderRunner, ProviderFailure, _extract_json_payload
 from backend.app.schemas import DeliberationLogEntry, InventionBrief, PatentChunk, SectionType
 
 
@@ -294,6 +294,24 @@ def test_provider_runner_retries_invalid_json_and_preserves_trace_outputs(tmp_pa
     assert len(trace_files) == 2
     trace_payload = json.loads(trace_files[-1].read_text(encoding="utf-8"))
     assert trace_payload["stdout"] == '{"ok": true}'
+
+
+def test_extract_json_payload_repairs_reasonix_status_and_unescaped_quotes():
+    raw = (
+        "\x1b[2m  ▎ thinking\x1b[0m\n"
+        '{"stance": "方案核心为"城市体检指标置信度→无人机采集动作"的闭环映射", '
+        '"claim_scope": ["建议暂不要求保护城市体检指标库本身，避免因"城市体检"术语"], '
+        '"risks": ["缺少"采集动作与城市体检指标可信度绑定""], '
+        '"recommendations": ["用中文术语边界替代英文双引号"]}'
+    )
+
+    payload = _extract_json_payload(raw)
+
+    assert payload["stance"].startswith("方案核心为")
+    assert "城市体检指标置信度" in payload["stance"]
+    assert payload["claim_scope"][0].startswith("建议暂不要求保护")
+    assert payload["risks"] == ['缺少"采集动作与城市体检指标可信度绑定"']
+    assert payload["recommendations"] == ["用中文术语边界替代英文双引号"]
 
 
 def test_provider_runner_resolves_relative_workdir_for_codex(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
