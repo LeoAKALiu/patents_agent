@@ -187,6 +187,44 @@ def test_completion_maps_claims_readiness_issue_to_claim_target():
     assert run.scorecard.official_hygiene < 100
 
 
+def test_completion_does_not_create_official_patch_for_leaked_support_gap_meta_text():
+    package = _completion_package()
+    report = FilingReadinessReport(
+        id="fr-support-gap",
+        project_id="project-1",
+        draft_package_hash=hashlib.sha256(package.model_dump_json().encode("utf-8")).hexdigest(),
+        status="high_risk",
+        issues=[
+            FilingReadinessIssue(
+                category="support_gap",
+                severity="high",
+                target="claims",
+                matched_text="support_gap: 需要补矩阵",
+                message="权利要求泄漏内部支撑缺口标记。",
+                suggestion="删除内部标记并回到侧车补强。",
+                can_auto_clean=True,
+            )
+        ],
+    )
+
+    run = run_draft_completion(
+        project_id="project-1",
+        package=package,
+        filing_reports=[report],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[],
+        materials=[],
+    )
+
+    task = next(task for task in run.tasks if task.input_refs == ["filing_readiness:claims"])
+    patch = next(patch for patch in run.patches if patch.task_id == task.id)
+    assert task.task_type == "clean_official_text"
+    assert patch.patch_kind == "sidecar_only"
+    assert patch.can_enter_official_draft is False
+    assert "support_gap" not in patch.after_text
+
+
 def test_completion_support_matrix_preserves_formula_refs():
     package = _completion_package().model_copy(
         update={

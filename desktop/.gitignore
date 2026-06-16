@@ -1,6 +1,0 @@
-node_modules/
-dist-electron/
-*.tsbuildinfo
-.DS_Store
-.cache/
-out/

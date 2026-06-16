@@ -18,6 +18,7 @@ from backend.app.schemas import (
 
 CROSS_PROJECT_TITLE = "基于边缘端动态推理的无人机飞行中任务调整方法"
 REQUIRED_SECTIONS = ("abstract", "claims", "description", "drawing_description")
+HARD_GATED_SECTIONS = ("title", *REQUIRED_SECTIONS)
 RESIDUAL_INTERNAL_PATTERNS = (
     "support_gap",
     "support_gaps",
@@ -124,6 +125,18 @@ class OfficialDraftCompiler:
                 )
 
         all_cleaned_text = {"title": cleaned_title, **cleaned}
+        for item in contamination_removed:
+            if item["section"] not in HARD_GATED_SECTIONS:
+                continue
+            blocked_items.append(
+                {
+                    "category": "official_hygiene_contamination",
+                    "section": item["section"],
+                    "pattern": item["pattern"],
+                    "message": "Official draft field contains generator, format, prompt, memo, support-gap, or process-trace text; revise the source draft and recompile.",
+                }
+            )
+
         for section, text in all_cleaned_text.items():
             comparable_text = text.lower()
             for pattern in RESIDUAL_INTERNAL_PATTERNS:

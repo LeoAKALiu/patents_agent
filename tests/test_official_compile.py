@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 
 from backend.app.official_compile import (
     OfficialDraftCompiler,
-    official_package_to_markdown,
 )
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
@@ -10,7 +9,7 @@ from backend.app.storage import SQLiteStore
 from backend.app.schemas import DraftPackage
 
 
-def test_compiler_removes_internal_pollution_from_official_package():
+def test_compiler_blocks_internal_pollution_in_official_fields():
     package = _draft_package(
         claims="好的，下面撰写权利要求书。\n1. 一种方法。\n\n撰写说明与支撑不足提示 support_gap: 需要补矩阵。",
         description=(
@@ -25,17 +24,11 @@ def test_compiler_removes_internal_pollution_from_official_package():
 
     run = OfficialDraftCompiler().compile(project_id="p1", package=package)
 
-    assert run.status == "completed"
-    assert run.official_package is not None
-    official_text = official_package_to_markdown(run.official_package)
-    assert "好的" not in official_text
-    assert "support_gap" not in official_text
-    assert "```" not in official_text
-    assert "flowchart TD" not in official_text
-    assert "generation_logs" not in official_text
-    assert "image_prompt" not in official_text
-    assert "根据会审策略" not in official_text
+    assert run.status == "blocked"
+    assert run.official_package is None
     assert any(item["pattern"] == "support_gap" for item in run.contamination_removed)
+    assert any(item["pattern"] == "image_prompt" for item in run.contamination_removed)
+    assert any(item["category"] == "official_hygiene_contamination" for item in run.blocked_items)
 
 
 def test_compiler_blocks_cross_project_title_contamination():
@@ -60,22 +53,19 @@ def test_compiler_blocks_when_cleaning_empties_required_section():
     assert any(item["category"] == "empty_required_section" for item in run.blocked_items)
 
 
-def test_compiler_removes_json_style_prompt_internal_field():
+def test_compiler_blocks_json_style_prompt_internal_field():
     package = _draft_package(
         drawing_description='图1为方法流程图。\n"prompt": "黑白线稿"',
     )
 
     run = OfficialDraftCompiler().compile(project_id="p1", package=package)
 
-    assert run.status == "completed"
-    assert run.official_package is not None
-    official_text = official_package_to_markdown(run.official_package)
-    assert "prompt" not in official_text
-    assert "黑白线稿" not in official_text
+    assert run.status == "blocked"
+    assert run.official_package is None
     assert any(item["pattern"] == "prompt" for item in run.contamination_removed)
 
 
-def test_compiler_removes_case_insensitive_internal_labels_and_memos():
+def test_compiler_blocks_case_insensitive_internal_labels_and_memos():
     package = _draft_package(
         description=(
             "本发明涉及无人机任务规划技术领域。\n"
@@ -88,15 +78,8 @@ def test_compiler_removes_case_insensitive_internal_labels_and_memos():
 
     run = OfficialDraftCompiler().compile(project_id="p1", package=package)
 
-    assert run.status == "completed"
-    assert run.official_package is not None
-    official_text = official_package_to_markdown(run.official_package)
-    assert "Prompt" not in official_text
-    assert "黑白线稿" not in official_text
-    assert "attorney_memo" not in official_text
-    assert "代理人复核" not in official_text
-    assert "System_Trace" not in official_text
-    assert "official_safe_patches" not in official_text
+    assert run.status == "blocked"
+    assert run.official_package is None
     assert {item["pattern"] for item in run.contamination_removed} >= {
         "prompt",
         "attorney_memo",
@@ -179,7 +162,7 @@ def test_compiler_blocks_empty_official_section_json_wrapper():
 
 def test_sqlite_store_persists_official_compile_run(tmp_path):
     store = SQLiteStore(tmp_path / "store.sqlite3")
-    package = _draft_package(claims="好的，下面撰写权利要求书。\n1. 一种方法。")
+    package = _draft_package(claims="1. 一种方法。")
     run = OfficialDraftCompiler().compile(project_id="p1", package=package)
     assert run.status == "completed"
     assert run.official_package is not None
@@ -217,7 +200,7 @@ def test_sqlite_store_persists_official_compile_run(tmp_path):
 
 def test_official_compile_api_creates_lists_gets_and_exports_report(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
-    project_id = _create_project_with_package(client, _draft_package(claims="好的，下面撰写权利要求书。\n1. 一种方法。"))
+    project_id = _create_project_with_package(client, _draft_package(claims="1. 一种方法。"))
 
     create_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
 
@@ -225,7 +208,7 @@ def test_official_compile_api_creates_lists_gets_and_exports_report(tmp_path):
     run = create_response.json()
     assert run["status"] == "completed"
     assert run["official_package"]["title"] == "一种城市体检指标驱动无人机主动采集方法"
-    assert "好的" not in run["official_package"]["claims"]
+    assert "1. 一种方法。" in run["official_package"]["claims"]
 
     list_response = client.get(f"/api/projects/{project_id}/official-compile-runs")
     assert list_response.status_code == 200
@@ -270,7 +253,7 @@ def test_post_draft_review_requires_completed_official_compile_for_current_draft
 
 def test_post_draft_review_records_official_package_hash_and_unlocks_export(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
-    project_id = _create_project_with_package(client, _draft_package(claims="好的，下面撰写权利要求书。\n1. 一种方法。"))
+    project_id = _create_project_with_package(client, _draft_package(claims="1. 一种方法。"))
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
     compile_run = compile_response.json()
@@ -293,15 +276,23 @@ def test_post_draft_review_records_official_package_hash_and_unlocks_export(tmp_
 
 def test_official_export_uses_compiled_package_not_raw_draft(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
-    project_id = _create_project_with_package(client, _draft_package(claims="好的，下面撰写权利要求书。\n1. 一种方法，包括生成任务包。"))
+    project_id = _create_project_with_package(
+        client,
+        _draft_package(
+            claims="1. 一种方法，包括生成任务包。",
+            image_prompt="内部绘图提示词。",
+            generation_logs=["generation_logs: internal"],
+        ),
+    )
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
 
     response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert response.status_code == 200
-    assert "好的" not in response.text
     assert "1. 一种方法，包括生成任务包。" in response.text
+    assert "内部绘图提示词" not in response.text
+    assert "generation_logs" not in response.text
 
 
 def test_review_for_previous_compile_run_cannot_unlock_latest_compile(tmp_path):

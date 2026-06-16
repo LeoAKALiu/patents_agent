@@ -98,20 +98,20 @@ const completedDeliberation: DeliberationRun = {
   id: "dr1",
   project_id: "p1",
   status: "completed",
-  providers: ["codex", "gemini", "claude"],
+  providers: ["codex", "deepseek", "claude"],
   run_mode: "full",
   round_depth: "converged_two_round",
   trace: false,
   run_dir: "data/deliberation-runs/p1/dr1",
   stage_results: [
-    ...["codex", "gemini", "claude"].map((provider) => ({
+    ...["codex", "deepseek", "claude"].map((provider) => ({
       phase: "opening",
       provider_id: provider,
       label: `opening ${provider}`,
       payload: {},
       status: "completed" as const,
     })),
-    ...["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"].map((label) => ({
+    ...["pair codex-vs-deepseek", "pair codex-vs-claude", "pair deepseek-vs-claude"].map((label) => ({
       phase: "pair",
       provider_id: "codex",
       label,
@@ -175,7 +175,7 @@ const completedFormulaRun: FormulaRun = {
   id: "fr1",
   project_id: "p1",
   status: "completed",
-  providers: ["codex", "gemini", "claude"],
+  providers: ["codex", "deepseek", "claude"],
   requirement: formulaRequired,
   package: {
     summary: "以指标置信度增益作为核心公式。",
@@ -321,7 +321,7 @@ const passedPostDraftReview: PostDraftReviewRun = {
   id: "pdr1",
   project_id: "p1",
   status: "completed",
-  providers: ["codex", "gemini", "claude"],
+  providers: ["codex", "deepseek", "claude"],
   prompt_pack_version: "post-draft-review-v1",
   draft_package_hash: "draft-hash",
   official_compile_run_id: "ocr1",

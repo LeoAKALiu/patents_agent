@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 HELPER_PATH = Path(__file__).resolve().parents[1] / "scripts" / "bootstrap_v1_agent_pipeline.py"
+RELEASE_HANDOFF_PATH = Path(__file__).resolve().parents[1] / "docs" / "release" / "v1.1.0-release-handoff.md"
 
 
 def load_helper():
@@ -86,3 +87,48 @@ def test_cli_static_dry_run_succeeds(tmp_path):
     assert "DRY-RUN" in result.stdout
     assert "patents-v1" in result.stdout
     assert "no secrets, no auto-merge, no worker dispatch" in result.stdout
+
+
+def test_v1_1_release_handoff_keeps_release_steps_human_only():
+    text = RELEASE_HANDOFF_PATH.read_text(encoding="utf-8")
+
+    assert "HUMAN-ONLY" in text
+    assert "must not be executed by default CI" in text
+    assert "no-auto-release" in text
+    assert "No workflow in this release branch publishes releases, creates tags, uploads artifacts, or enables auto-merge." in text
+    assert "gh release create" in text
+    assert "git tag -a v1.1.0" in text
+    assert "do not run in automation" in text
+
+
+def test_v1_1_release_handoff_lists_all_kanban_tasks_and_current_prs():
+    text = RELEASE_HANDOFF_PATH.read_text(encoding="utf-8")
+
+    for task_id in [
+        "t_67475984",
+        "t_2676c2a6",
+        "t_c56529d6",
+        "t_9bd4c74a",
+        "t_bf6bd756",
+        "t_9bea91f4",
+        "t_b3c01694",
+        "t_8ccd0572",
+    ]:
+        assert task_id in text
+    for pr_ref in ["#44", "#45", "#46", "#47", "#48", "#49", "#50"]:
+        assert pr_ref in text
+
+
+def test_release_automation_does_not_create_tags_releases_or_merges():
+    root = Path(__file__).resolve().parents[1]
+    checked_files = [
+        *sorted((root / ".github" / "workflows").glob("*.yml")),
+        *sorted((root / "scripts").glob("*.py")),
+        *sorted((root / "scripts").glob("*.sh")),
+    ]
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in checked_files)
+
+    assert "gh release create" not in combined
+    assert "git tag -a" not in combined
+    assert "gh pr merge" not in combined
+    assert "git push --tags" not in combined

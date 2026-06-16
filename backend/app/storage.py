@@ -542,12 +542,45 @@ class SQLiteStore:
         with self.connection:
             self.connection.execute(
                 """
-                insert into formula_runs(id, project_id, status, providers_json, requirement_json, package_json, failures_json, events_json)
-                values (?, ?, ?, ?, ?, ?, ?, ?)
+                insert into formula_runs(
+                    id, project_id, status, providers_json, requirement_json, package_json,
+                    failures_json, events_json, runtime_state_json, failure_details_json,
+                    cancel_requested, retry_of
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._formula_run_values(run),
             )
         return run
+
+    def update_formula_run(self, run: FormulaRun) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                update formula_runs
+                set status = ?, providers_json = ?, requirement_json = ?, package_json = ?,
+                    failures_json = ?, events_json = ?, runtime_state_json = ?,
+                    failure_details_json = ?, cancel_requested = ?, retry_of = ?,
+                    updated_at = current_timestamp
+                where id = ? and project_id = ?
+                """,
+                (
+                    run.status,
+                    json.dumps(run.providers, ensure_ascii=False),
+                    json.dumps(run.requirement.model_dump(mode="json"), ensure_ascii=False),
+                    json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False) if run.package else None,
+                    json.dumps(run.failures, ensure_ascii=False),
+                    json.dumps(run.events, ensure_ascii=False),
+                    json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False)
+                    if run.runtime_state
+                    else None,
+                    json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+                    1 if run.cancel_requested else 0,
+                    run.retry_of or "",
+                    run.id,
+                    run.project_id,
+                ),
+            )
 
     def list_formula_runs(self, project_id: str) -> list[FormulaRun]:
         rows = self.connection.execute(
@@ -582,13 +615,51 @@ class SQLiteStore:
                 insert into post_draft_review_runs(
                     id, project_id, status, providers_json, prompt_pack_version, draft_package_hash,
                     official_compile_run_id, official_package_hash, role_results_json, chair_result_json,
-                    export_allowed, blocking_issues_json, contamination_hits_json, logs_json
+                    export_allowed, blocking_issues_json, contamination_hits_json, logs_json,
+                    runtime_state_json, failure_details_json, cancel_requested, retry_of
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._post_draft_review_run_values(run),
             )
         return self.get_post_draft_review_run(run.project_id, run.id) or run
+
+    def update_post_draft_review_run(self, run: PostDraftReviewRun) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                update post_draft_review_runs
+                set status = ?, providers_json = ?, prompt_pack_version = ?, draft_package_hash = ?,
+                    official_compile_run_id = ?, official_package_hash = ?, role_results_json = ?,
+                    chair_result_json = ?, export_allowed = ?, blocking_issues_json = ?,
+                    contamination_hits_json = ?, logs_json = ?, runtime_state_json = ?,
+                    failure_details_json = ?, cancel_requested = ?, retry_of = ?,
+                    updated_at = current_timestamp
+                where id = ? and project_id = ?
+                """,
+                (
+                    run.status,
+                    json.dumps(run.providers, ensure_ascii=False),
+                    run.prompt_pack_version,
+                    run.draft_package_hash,
+                    run.official_compile_run_id,
+                    run.official_package_hash,
+                    json.dumps([result.model_dump(mode="json") for result in run.role_results], ensure_ascii=False),
+                    json.dumps(run.chair_result.model_dump(mode="json"), ensure_ascii=False) if run.chair_result else None,
+                    1 if run.export_allowed else 0,
+                    json.dumps(run.blocking_issues, ensure_ascii=False),
+                    json.dumps(run.contamination_hits, ensure_ascii=False),
+                    json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+                    json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False)
+                    if run.runtime_state
+                    else None,
+                    json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+                    1 if run.cancel_requested else 0,
+                    run.retry_of or "",
+                    run.id,
+                    run.project_id,
+                ),
+            )
 
     def list_post_draft_review_runs(self, project_id: str) -> list[PostDraftReviewRun]:
         rows = self.connection.execute(
@@ -808,9 +879,10 @@ class SQLiteStore:
                 """
                 insert into disclosure_runs(
                     id, project_id, status, trace, max_prior_art_results, research_mode, run_dir,
-                    stage_results_json, package_json, failures_json, events_json
+                    stage_results_json, package_json, failures_json, events_json,
+                    runtime_state_json, failure_details_json, cancel_requested, retry_of
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._disclosure_run_values(run),
             )
@@ -823,7 +895,8 @@ class SQLiteStore:
                 update disclosure_runs
                 set status = ?, trace = ?, max_prior_art_results = ?, research_mode = ?,
                     run_dir = ?, stage_results_json = ?, package_json = ?, failures_json = ?,
-                    events_json = ?, updated_at = current_timestamp
+                    events_json = ?, runtime_state_json = ?, failure_details_json = ?,
+                    cancel_requested = ?, retry_of = ?, updated_at = current_timestamp
                 where id = ? and project_id = ?
                 """,
                 (
@@ -836,6 +909,12 @@ class SQLiteStore:
                     json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False) if run.package else None,
                     json.dumps(run.failures, ensure_ascii=False),
                     json.dumps(run.events, ensure_ascii=False),
+                    json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False)
+                    if run.runtime_state
+                    else None,
+                    json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+                    1 if run.cancel_requested else 0,
+                    run.retry_of or "",
                     run.id,
                     run.project_id,
                 ),
@@ -874,9 +953,9 @@ class SQLiteStore:
                 insert into deliberation_runs(
                     id, project_id, status, providers_json, run_mode, round_depth, trace,
                     run_dir, stage_results_json, strategy_brief_json, failures_json, events_json,
-                    logs_json
+                    logs_json, runtime_state_json, failure_details_json, cancel_requested, retry_of
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._run_values(run),
             )
@@ -889,7 +968,9 @@ class SQLiteStore:
                 update deliberation_runs
                 set status = ?, providers_json = ?, run_mode = ?, round_depth = ?, trace = ?,
                     run_dir = ?, stage_results_json = ?, strategy_brief_json = ?,
-                    failures_json = ?, events_json = ?, logs_json = ?, updated_at = current_timestamp
+                    failures_json = ?, events_json = ?, logs_json = ?, runtime_state_json = ?,
+                    failure_details_json = ?, cancel_requested = ?, retry_of = ?,
+                    updated_at = current_timestamp
                 where id = ? and project_id = ?
                 """,
                 (
@@ -906,6 +987,12 @@ class SQLiteStore:
                     json.dumps([failure.model_dump(mode="json") for failure in run.failures], ensure_ascii=False),
                     json.dumps(run.events, ensure_ascii=False),
                     json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+                    json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False)
+                    if run.runtime_state
+                    else None,
+                    json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+                    1 if run.cancel_requested else 0,
+                    run.retry_of or "",
                     run.id,
                     run.project_id,
                 ),
@@ -985,6 +1072,10 @@ class SQLiteStore:
                     failures_json text not null,
                     events_json text not null,
                     logs_json text not null default '[]',
+                    runtime_state_json text,
+                    failure_details_json text not null default '[]',
+                    cancel_requested integer not null default 0,
+                    retry_of text not null default '',
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
                     foreign key(project_id) references projects(id)
@@ -1117,6 +1208,10 @@ class SQLiteStore:
                     package_json text,
                     failures_json text not null,
                     events_json text not null,
+                    runtime_state_json text,
+                    failure_details_json text not null default '[]',
+                    cancel_requested integer not null default 0,
+                    retry_of text not null default '',
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
                     foreign key(project_id) references projects(id)
@@ -1137,6 +1232,10 @@ class SQLiteStore:
                     blocking_issues_json text not null,
                     contamination_hits_json text not null,
                     logs_json text not null default '[]',
+                    runtime_state_json text,
+                    failure_details_json text not null default '[]',
+                    cancel_requested integer not null default 0,
+                    retry_of text not null default '',
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
                     foreign key(project_id) references projects(id)
@@ -1181,6 +1280,10 @@ class SQLiteStore:
                     package_json text,
                     failures_json text not null,
                     events_json text not null,
+                    runtime_state_json text,
+                    failure_details_json text not null default '[]',
+                    cancel_requested integer not null default 0,
+                    retry_of text not null default '',
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
                     foreign key(project_id) references projects(id)
@@ -1190,10 +1293,26 @@ class SQLiteStore:
             self._migrate_project_patent_points_primary_key()
             self._ensure_column("projects", "patent_type", "text not null default 'invention'")
             self._ensure_column("deliberation_runs", "logs_json", "text not null default '[]'")
+            self._ensure_column("deliberation_runs", "runtime_state_json", "text")
+            self._ensure_column("deliberation_runs", "failure_details_json", "text not null default '[]'")
+            self._ensure_column("deliberation_runs", "cancel_requested", "integer not null default 0")
+            self._ensure_column("deliberation_runs", "retry_of", "text not null default ''")
             self._ensure_column("formula_runs", "providers_json", "text not null default '[]'")
+            self._ensure_column("formula_runs", "runtime_state_json", "text")
+            self._ensure_column("formula_runs", "failure_details_json", "text not null default '[]'")
+            self._ensure_column("formula_runs", "cancel_requested", "integer not null default 0")
+            self._ensure_column("formula_runs", "retry_of", "text not null default ''")
             self._ensure_column("post_draft_review_runs", "official_compile_run_id", "text not null default ''")
             self._ensure_column("post_draft_review_runs", "official_package_hash", "text not null default ''")
+            self._ensure_column("post_draft_review_runs", "runtime_state_json", "text")
+            self._ensure_column("post_draft_review_runs", "failure_details_json", "text not null default '[]'")
+            self._ensure_column("post_draft_review_runs", "cancel_requested", "integer not null default 0")
+            self._ensure_column("post_draft_review_runs", "retry_of", "text not null default ''")
             self._ensure_column("disclosure_runs", "research_mode", "text not null default 'standard'")
+            self._ensure_column("disclosure_runs", "runtime_state_json", "text")
+            self._ensure_column("disclosure_runs", "failure_details_json", "text not null default '[]'")
+            self._ensure_column("disclosure_runs", "cancel_requested", "integer not null default 0")
+            self._ensure_column("disclosure_runs", "retry_of", "text not null default ''")
 
     def _migrate_project_patent_points_primary_key(self) -> None:
         columns = self.connection.execute("pragma table_info(project_patent_points)").fetchall()
@@ -1358,6 +1477,10 @@ class SQLiteStore:
             json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False) if run.package else None,
             json.dumps(run.failures, ensure_ascii=False),
             json.dumps(run.events, ensure_ascii=False),
+            json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False) if run.runtime_state else None,
+            json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+            1 if run.cancel_requested else 0,
+            run.retry_of or "",
         )
 
     def _formula_run_from_row(self, row: sqlite3.Row) -> FormulaRun:
@@ -1371,6 +1494,10 @@ class SQLiteStore:
             package=json.loads(package_json) if package_json else None,
             failures=json.loads(row["failures_json"]),
             events=json.loads(row["events_json"]),
+            runtime_state=json.loads(row["runtime_state_json"]) if row["runtime_state_json"] else None,
+            failure_details=json.loads(row["failure_details_json"] if "failure_details_json" in row.keys() else "[]"),
+            cancel_requested=bool(row["cancel_requested"] if "cancel_requested" in row.keys() else 0),
+            retry_of=(row["retry_of"] if "retry_of" in row.keys() else "") or None,
         )
         return run.model_copy(update={"created_at": row["created_at"], "updated_at": row["updated_at"]})
 
@@ -1390,6 +1517,10 @@ class SQLiteStore:
             json.dumps(run.blocking_issues, ensure_ascii=False),
             json.dumps(run.contamination_hits, ensure_ascii=False),
             json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+            json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False) if run.runtime_state else None,
+            json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+            1 if run.cancel_requested else 0,
+            run.retry_of or "",
         )
 
     def _post_draft_review_run_from_row(self, row: sqlite3.Row) -> PostDraftReviewRun:
@@ -1408,6 +1539,10 @@ class SQLiteStore:
             blocking_issues=json.loads(row["blocking_issues_json"]),
             contamination_hits=json.loads(row["contamination_hits_json"]),
             logs=json.loads(row["logs_json"]),
+            runtime_state=json.loads(row["runtime_state_json"]) if row["runtime_state_json"] else None,
+            failure_details=json.loads(row["failure_details_json"] if "failure_details_json" in row.keys() else "[]"),
+            cancel_requested=bool(row["cancel_requested"] if "cancel_requested" in row.keys() else 0),
+            retry_of=(row["retry_of"] if "retry_of" in row.keys() else "") or None,
         )
         return run.model_copy(update={"created_at": row["created_at"], "updated_at": row["updated_at"]})
 
@@ -1473,6 +1608,10 @@ class SQLiteStore:
             json.dumps([failure.model_dump(mode="json") for failure in run.failures], ensure_ascii=False),
             json.dumps(run.events, ensure_ascii=False),
             json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+            json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False) if run.runtime_state else None,
+            json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+            1 if run.cancel_requested else 0,
+            run.retry_of or "",
         )
 
     def _run_from_row(self, row: sqlite3.Row) -> DeliberationRun:
@@ -1491,6 +1630,10 @@ class SQLiteStore:
             failures=json.loads(row["failures_json"]),
             events=json.loads(row["events_json"]),
             logs=json.loads(logs_json),
+            runtime_state=json.loads(row["runtime_state_json"]) if row["runtime_state_json"] else None,
+            failure_details=json.loads(row["failure_details_json"] if "failure_details_json" in row.keys() else "[]"),
+            cancel_requested=bool(row["cancel_requested"] if "cancel_requested" in row.keys() else 0),
+            retry_of=(row["retry_of"] if "retry_of" in row.keys() else "") or None,
         )
 
     def _disclosure_run_values(self, run: DisclosureRun) -> tuple:
@@ -1506,6 +1649,10 @@ class SQLiteStore:
             json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False) if run.package else None,
             json.dumps(run.failures, ensure_ascii=False),
             json.dumps(run.events, ensure_ascii=False),
+            json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False) if run.runtime_state else None,
+            json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+            1 if run.cancel_requested else 0,
+            run.retry_of or "",
         )
 
     def _disclosure_run_from_row(self, row: sqlite3.Row) -> DisclosureRun:
@@ -1529,6 +1676,10 @@ class SQLiteStore:
             package=json.loads(package_json) if package_json else None,
             failures=json.loads(row["failures_json"]),
             events=json.loads(row["events_json"]),
+            runtime_state=json.loads(row["runtime_state_json"]) if row["runtime_state_json"] else None,
+            failure_details=json.loads(row["failure_details_json"] if "failure_details_json" in row.keys() else "[]"),
+            cancel_requested=bool(row["cancel_requested"] if "cancel_requested" in row.keys() else 0),
+            retry_of=(row["retry_of"] if "retry_of" in row.keys() else "") or None,
         )
 
     def _corpus_job_values(self, job: CorpusImportJob) -> tuple:

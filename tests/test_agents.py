@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from backend.app.deliberation.cli_paths import agent_search_path, resolve_agent_command
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
-from backend.app.deliberation.providers import AgentProviderRunner, ProviderFailure
+from backend.app.deliberation.providers import AgentProviderRunner, ProviderFailure, _extract_json_payload, build_provider_command
 from backend.app.schemas import DeliberationLogEntry, InventionBrief, PatentChunk, SectionType
 
 
@@ -20,6 +21,8 @@ def _probe_ready(command: str, args: list[str], timeout_ms: int) -> tuple[int | 
     args_key = " ".join(args)
     if args_key == "login status":
         return 0, "Logged in using ChatGPT", ""
+    if args_key == "doctor --json":
+        return 0, json.dumps({"providers": [{"name": "deepseek-pro", "model": "deepseek-v4-pro", "base_url_host": "api.deepseek.com", "key_present": True}]}), ""
     if args_key == "auth status":
         return 0, json.dumps({"loggedIn": True, "authMethod": "oauth_token"}), ""
     # gemini --version
@@ -31,6 +34,8 @@ def _probe_not_authenticated(command: str, args: list[str], timeout_ms: int) -> 
     args_key = " ".join(args)
     if args_key == "login status":
         return 1, "", "Not logged in. Run `codex login`."
+    if args_key == "doctor --json":
+        return 0, json.dumps({"providers": [{"name": "deepseek-pro", "model": "deepseek-v4-pro", "base_url_host": "api.deepseek.com", "key_present": False}]}), ""
     if args_key == "auth status":
         return 0, json.dumps({"loggedIn": False}), ""
     # gemini --version
@@ -42,46 +47,59 @@ def _probe_timeout(command: str, args: list[str], timeout_ms: int) -> tuple[int 
     return None, "", ""
 
 
+def _make_executable(path: Path) -> None:
+    path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    path.chmod(0o755)
+
+
 # ---------------------------------------------------------------------------
 # Doctor auth-probe tests
 # ---------------------------------------------------------------------------
 
 
 def test_doctor_reports_core_required_and_optional_provider_metadata():
-    # codex+claude ready via auth probes; gemini has no auth subcommand → unknown.
-    # gemini is installed + required + unknown → unknown_required list (not blocked).
+    # codex+reasonix/deepseek+claude are required and auth-verifiable.
+    # gemini is deprecated optional and stays selectable only if installed.
     full = inspect_agent_environment(
         command_lookup=lambda command: f"/bin/{command}",
         command_probe=_probe_ready,
     )
-    assert full.status == "degraded"
-    assert full.run_mode == "partial"
+    assert full.status == "ready"
+    assert full.run_mode == "full"
     assert full.missing_required == []
-    assert set(full.unknown_required) == {"gemini"}
+    assert full.unknown_required == []
     assert full.commands["gemini"].auth_status == "unknown"
+    assert full.commands["gemini"].required is False
     assert full.commands["gemini"].available is False
     assert full.commands["gemini"].selectable is True
+    assert full.commands["kimicode"].auth_status == "unknown"
+    assert full.commands["kimicode"].selectable is True
+    assert full.commands["mimo"].auth_status == "unknown"
+    assert full.commands["mimo"].selectable is True
     assert full.commands["codex"].auth_status == "ready"
+    assert full.commands["deepseek"].command == "reasonix"
+    assert full.commands["deepseek"].auth_status == "ready"
     assert full.commands["claude"].auth_status == "ready"
 
     core_only = inspect_agent_environment(
-        command_lookup=lambda command: f"/bin/{command}" if command in {"codex", "gemini", "claude"} else "",
+        command_lookup=lambda command: f"/bin/{command}" if command in {"codex", "reasonix", "claude"} else "",
         command_probe=_probe_ready,
     )
-    assert core_only.status == "degraded"  # gemini unknown, not blocked
-    assert core_only.missing_optional == ["kimicode", "deepseek_pi"]
+    assert core_only.status == "ready"
+    assert core_only.run_mode == "full"
+    assert core_only.missing_optional == ["gemini", "kimicode", "mimo"]
     assert core_only.commands["codex"].model_version
     assert "deliberation" in core_only.commands["codex"].roles
-    assert core_only.commands["gemini"].required is True
+    assert core_only.commands["deepseek"].required is True
     assert core_only.commands["claude"].required is True
 
-    missing_claude = inspect_agent_environment(
-        command_lookup=lambda command: f"/bin/{command}" if command in {"codex", "gemini"} else "",
+    missing_deepseek = inspect_agent_environment(
+        command_lookup=lambda command: f"/bin/{command}" if command in {"codex", "claude"} else "",
         command_probe=_probe_ready,
     )
-    assert missing_claude.status == "blocked"
-    assert missing_claude.run_mode == "blocked"
-    assert "claude" in missing_claude.missing_required
+    assert missing_deepseek.status == "blocked"
+    assert missing_deepseek.run_mode == "blocked"
+    assert "deepseek" in missing_deepseek.missing_required
 
     blocked = inspect_agent_environment(
         command_lookup=lambda command: "",
@@ -89,19 +107,55 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     )
     assert blocked.status == "blocked"
     assert blocked.run_mode == "blocked"
-    assert set(blocked.missing_required) == {"codex", "gemini", "claude"}
+    assert set(blocked.missing_required) == {"codex", "deepseek", "claude"}
+
+
+def test_agent_command_resolution_survives_desktop_launch_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """GUI-launched apps should find Homebrew/user agent CLIs outside launchd PATH."""
+    for command in ("codex", "reasonix", "gemini", "claude"):
+        _make_executable(tmp_path / command)
+    _make_executable(tmp_path / "kimi")
+    _make_executable(tmp_path / "mimo")
+    monkeypatch.setenv("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+    monkeypatch.setenv("PATENTS_AGENT_AGENT_PATH", str(tmp_path))
+
+    assert str(tmp_path) in agent_search_path()
+    assert "/opt/homebrew/bin" in agent_search_path()
+    assert resolve_agent_command("codex") == str(tmp_path / "codex")
+    assert resolve_agent_command("reasonix") == str(tmp_path / "reasonix")
+    assert resolve_agent_command("gemini") == str(tmp_path / "gemini")
+    assert resolve_agent_command("claude") == str(tmp_path / "claude")
+    assert resolve_agent_command("kimicode") == str(tmp_path / "kimi")
+    assert resolve_agent_command("mimo") == str(tmp_path / "mimo")
+
+    report = inspect_agent_environment(command_probe=_probe_ready)
+
+    assert report.commands["codex"].installed is True
+    assert report.commands["codex"].path == str(tmp_path / "codex")
+    assert report.commands["deepseek"].installed is True
+    assert report.commands["deepseek"].path == str(tmp_path / "reasonix")
+    assert report.commands["gemini"].installed is True
+    assert report.commands["claude"].installed is True
+    assert report.commands["kimicode"].installed is True
+    assert report.commands["kimicode"].path == str(tmp_path / "kimi")
+    assert report.commands["mimo"].installed is True
+    assert report.commands["mimo"].path == str(tmp_path / "mimo")
 
 
 def test_doctor_probe_ready_requires_auth_confirmation():
-    """Gemini has no auth subcommand — always reports unknown even when binary works."""
+    """Required DeepSeek uses reasonix doctor; deprecated Gemini remains optional unknown."""
     report = inspect_agent_environment(
         command_lookup=lambda c: f"/bin/{c}",
         command_probe=_probe_ready,
         probe_timeout_ms=1000,
     )
-    # codex+claude = ready, gemini = unknown (no auth subcmd)
+    assert report.commands["deepseek"].auth_status == "ready"
     gemini = report.commands["gemini"]
     assert gemini.installed is True
+    assert gemini.required is False
     assert gemini.auth_status == "unknown"
     assert gemini.available is False
     assert gemini.selectable is True
@@ -117,7 +171,7 @@ def test_doctor_probe_not_authenticated_blocks_required():
     )
     assert report.status == "blocked"
     assert report.run_mode == "blocked"
-    for required_id in ("codex", "claude"):
+    for required_id in ("codex", "deepseek", "claude"):
         provider = report.commands[required_id]
         assert provider.installed is True
         assert provider.auth_status == "not_authenticated"
@@ -141,7 +195,7 @@ def test_doctor_probe_timeout_blocked():
     )
     assert report.status == "blocked"
     assert report.run_mode == "blocked"
-    for required_id in ("codex", "gemini", "claude"):
+    for required_id in ("codex", "deepseek", "claude"):
         provider = report.commands[required_id]
         assert provider.auth_status == "timeout"
         assert provider.available is False
@@ -173,6 +227,8 @@ def test_doctor_probe_sanitizes_token_like_strings():
         args_key = " ".join(args)
         if args_key == "login status":
             return 1, "", f"Error: auth failed with token {token_value}"
+        if args_key == "doctor --json":
+            return 1, "", f"Error: auth failed with token {token_value}"
         if args_key == "auth status":
             return 1, "", f"Error: auth failed with token {token_value}"
         return 0, "version", ""
@@ -182,7 +238,7 @@ def test_doctor_probe_sanitizes_token_like_strings():
         command_probe=fake_probe,
         probe_timeout_ms=1000,
     )
-    for required_id in ("codex", "claude"):
+    for required_id in ("codex", "deepseek", "claude"):
         diagnostic = report.commands[required_id].diagnostic
         assert token_value not in diagnostic
         assert "<scrubbed>" in diagnostic or "auth" in diagnostic.lower()
@@ -196,6 +252,8 @@ def test_doctor_probe_truncates_long_diagnostics():
         args_key = " ".join(args)
         if args_key == "login status":
             return 1, "", long_error
+        if args_key == "doctor --json":
+            return 1, "", long_error
         if args_key == "auth status":
             return 1, "", long_error
         return 0, "version", ""
@@ -205,7 +263,7 @@ def test_doctor_probe_truncates_long_diagnostics():
         command_probe=fake_probe,
         probe_timeout_ms=1000,
     )
-    for required_id in ("codex", "claude"):
+    for required_id in ("codex", "deepseek", "claude"):
         diagnostic = report.commands[required_id].diagnostic
         assert len(diagnostic) <= 203  # max_length + "..."
         assert "..." in diagnostic
@@ -244,6 +302,34 @@ def test_provider_runner_retries_invalid_json_and_preserves_trace_outputs(tmp_pa
     assert len(trace_files) == 2
     trace_payload = json.loads(trace_files[-1].read_text(encoding="utf-8"))
     assert trace_payload["stdout"] == '{"ok": true}'
+
+
+def test_extract_json_payload_repairs_reasonix_status_and_unescaped_quotes():
+    raw = (
+        "\x1b[2m  ▎ thinking\x1b[0m\n"
+        '{"stance": "方案核心为"城市体检指标置信度→无人机采集动作"的闭环映射", '
+        '"claim_scope": ["建议暂不要求保护城市体检指标库本身，避免因"城市体检"术语"], '
+        '"risks": ["缺少"采集动作与城市体检指标可信度绑定""], '
+        '"recommendations": ["用中文术语边界替代英文双引号"]}'
+    )
+
+    payload = _extract_json_payload(raw)
+
+    assert payload["stance"].startswith("方案核心为")
+    assert "城市体检指标置信度" in payload["stance"]
+    assert payload["claim_scope"][0].startswith("建议暂不要求保护")
+    assert payload["risks"] == ['缺少"采集动作与城市体检指标可信度绑定"']
+    assert payload["recommendations"] == ["用中文术语边界替代英文双引号"]
+
+
+def test_optional_cli_provider_commands_pass_prompt_non_interactively(tmp_path: Path):
+    kimi_command, kimi_args = build_provider_command("kimicode", tmp_path, 1)
+    mimo_command, mimo_args = build_provider_command("mimo", tmp_path, 1)
+
+    assert kimi_command == "kimicode"
+    assert kimi_args == ["-p", "{prompt}", "--output-format", "text"]
+    assert mimo_command == "mimo"
+    assert mimo_args == ["run", "--format", "default", "{prompt}"]
 
 
 def test_provider_runner_resolves_relative_workdir_for_codex(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -428,7 +514,7 @@ def test_orchestrator_runs_openings_pairs_and_chair_summary(tmp_path: Path):
             project_id="project-1",
             brief=brief,
             context_chunks=chunks,
-            providers=["codex", "gemini", "claude"],
+            providers=["codex", "deepseek", "claude"],
             run_dir=tmp_path,
             trace=False,
             task_timeout_ms=1000,
@@ -437,7 +523,7 @@ def test_orchestrator_runs_openings_pairs_and_chair_summary(tmp_path: Path):
 
     assert [provider for provider, label in calls if label.startswith("opening")] == [
         "codex",
-        "gemini",
+        "deepseek",
         "claude",
     ]
     assert len([label for _, label in calls if label.startswith("pair")]) == 3
@@ -492,7 +578,7 @@ def test_orchestrator_fails_when_any_required_agent_opening_fails(tmp_path: Path
             project_id="project-1",
             brief=brief,
             context_chunks=[],
-            providers=["codex", "gemini", "claude"],
+            providers=["codex", "deepseek", "claude"],
             run_dir=tmp_path,
             trace=False,
             task_timeout_ms=1000,
@@ -501,7 +587,7 @@ def test_orchestrator_fails_when_any_required_agent_opening_fails(tmp_path: Path
 
     assert [call for call in calls if call[1].startswith("opening")] == [
         ("codex", "opening codex"),
-        ("gemini", "opening gemini"),
+        ("deepseek", "opening deepseek"),
         ("claude", "opening claude"),
     ]
     assert not any(label.startswith("pair") or label == "chair synthesis" for _, label in calls)

@@ -102,17 +102,17 @@ describe("latestCompletedDeliberation", () => {
         {
           id: "completed",
           status: "completed",
-          providers: ["codex", "gemini", "claude"],
+          providers: ["codex", "deepseek", "claude"],
           failures: [],
           strategy_brief: {},
           stage_results: [
-            ...["codex", "gemini", "claude"].map((provider) => ({
+            ...["codex", "deepseek", "claude"].map((provider) => ({
               phase: "opening",
               provider_id: provider,
               label: `opening ${provider}`,
               status: "completed",
             })),
-            ...["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"].map((label) => ({
+            ...["pair codex-vs-deepseek", "pair codex-vs-claude", "pair deepseek-vs-claude"].map((label) => ({
               phase: "pair",
               provider_id: "codex",
               label,
