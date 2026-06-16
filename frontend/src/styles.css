@@ -133,6 +133,8 @@ body {
   overflow-wrap: break-word;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
+  /* CSS Text Level 4; Chromium 124+ only. Tauri ships Chromium so this
+     is safe here, but it is not portable to a generic web build. */
   text-spacing-trim: space-all;
 }
 

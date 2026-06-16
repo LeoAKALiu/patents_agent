@@ -818,7 +818,7 @@ function App() {
               format === "docx" ? "docx" : "md",
             );
       if (format === "sidecar" && !latestOfficialCompileRun?.id) {
-        setError("风险说明需要先编译正式稿。");
+        setError("风险说明需要先生成正式稿。");
         return;
       }
       window.location.href = href;
@@ -829,7 +829,7 @@ function App() {
       return;
     }
     if (!latestOfficialCompileRun?.id) {
-      setError("请先完成正式稿编译，再导出官方稿。");
+      setError("请先生成正式稿，再导出官方稿。");
       return;
     }
     if (format === "sidecar") {

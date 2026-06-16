@@ -499,7 +499,7 @@ describe("guided action gates", () => {
     expect(state.currentStepId).toBe("officialCompile");
     const gate = postDraftReviewActionGate(state, "postReview", "postReview");
     expect(gate.allowed).toBe(false);
-    expect(gate.reason).toContain("正式稿编译");
+    expect(gate.reason).toContain("生成正式稿");
   });
 
   it("blocks quality actions without a draft package", () => {
@@ -605,7 +605,7 @@ describe("isUtilityModelProject", () => {
 describe("guidedBusyLabel", () => {
   it("translates internal busy keys into user-facing progress", () => {
     expect(guidedBusyLabel("guided-quality")).toBe("正在运行质量检查");
-    expect(guidedBusyLabel("official-compile")).toBe("正在编译正式稿");
+    expect(guidedBusyLabel("official-compile")).toBe("正在生成正式稿");
     expect(guidedBusyLabel("disclosure")).toBe("正在提炼发明点");
     expect(guidedBusyLabel("generate")).toBe("正在生成专利初稿");
     expect(guidedBusyLabel("external-draft-upload")).toBe("正在上传外部初稿");
@@ -626,7 +626,7 @@ describe("guidedOperationLog", () => {
   it("logs official compile progress without ETA language", () => {
     const log = guidedOperationLog("official-compile", 8);
 
-    expect(log?.label).toBe("正在编译正式稿");
+    expect(log?.label).toBe("正在生成正式稿");
     expect(log?.lines.join("\n")).toContain("生成正式稿包");
     expect(log?.lines.join("\n")).not.toContain("预计剩余");
   });

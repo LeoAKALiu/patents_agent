@@ -327,7 +327,7 @@ export function officialCompileActionGate(
     return { allowed: false, reason: "请先生成专利初稿。" };
   }
   if (!state.qualityChecked) {
-    return { allowed: false, reason: "请先完成质量检查后再编译正式稿。" };
+    return { allowed: false, reason: "请先完成质量检查再生成正式稿。" };
   }
   return { allowed: true, reason: "" };
 }
@@ -345,7 +345,7 @@ export function postDraftReviewActionGate(
     return { allowed: false, reason: "请先生成专利初稿。" };
   }
   if (!state.hasCompletedOfficialCompile) {
-    return { allowed: false, reason: "请先完成正式稿编译后再启动成稿会审。" };
+    return { allowed: false, reason: "请先生成正式稿再启动成稿会审。" };
   }
   return { allowed: true, reason: "" };
 }
@@ -380,7 +380,7 @@ export function guidedNextActionLabel(stepId: GuidedStepId): string {
   if (stepId === "formula") return "凝练核心公式";
   if (stepId === "draft") return "生成专利初稿";
   if (stepId === "quality") return "运行质量检查";
-  if (stepId === "officialCompile") return "编译正式稿";
+  if (stepId === "officialCompile") return "生成正式稿";
   if (stepId === "postReview") return "启动成稿会审";
   return "打开导出工具";
 }
@@ -623,7 +623,7 @@ export function qualitySummaryFromRuns(input: {
 
 export function guidedBusyLabel(value: string): string {
   if (value === "guided-quality") return "正在运行质量检查";
-  if (value === "official-compile") return "正在编译正式稿";
+  if (value === "official-compile") return "正在生成正式稿";
   if (value === "post-draft-review") return "正在运行成稿会审";
   if (value === "score-improve") return "正在一键提升分数";
   if (value === "disclosure") return "正在提炼发明点";
