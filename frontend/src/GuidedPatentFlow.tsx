@@ -72,6 +72,7 @@ import {
   pipelineRunStatusLabel,
 } from "./domain";
 import { runtimeDisplayElapsedSeconds, useRuntimeNow } from "./runtimeDisplay";
+import { OperationConsole } from "./ui/OperationConsole";
 
 export type GuidedPatentFlowProps = {
   project: ProjectRecord | null;
@@ -836,15 +837,7 @@ function GuidedOperationConsole({
 }) {
   const log = active ? guidedOperationLog(busy, elapsedSeconds) : null;
   if (!log) return null;
-  return (
-    <div className="inline-console" role="status" aria-label={log.label}>
-      <div className="console-heading">
-        <span>{log.label}</span>
-        <span>{formatElapsedLabel(log.elapsedSeconds)}</span>
-      </div>
-      <pre>{log.lines.join("\n")}</pre>
-    </div>
-  );
+  return <OperationConsole label={log.label} lines={log.lines} elapsedSeconds={log.elapsedSeconds} />;
 }
 
 function formatElapsedLabel(seconds: number): string {

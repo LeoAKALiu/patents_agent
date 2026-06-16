@@ -13,20 +13,23 @@ function formatElapsed(seconds: number): string {
 }
 
 export function OperationConsole({ label, lines, elapsedSeconds = 0 }: OperationConsoleProps) {
+  const [summaryLine, ...detailLines] = lines;
   return (
-    <div className="rounded-lg border border-slate-700/50 bg-slate-900/80 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-teal-400">
+    <div className="operation-console motion-reveal" role="status" aria-label={label}>
+      <div className="operation-console-heading">
+        <div>
           <Loader2 size={14} className="animate-spin" />
           {label}
         </div>
-        <span className="text-[10px] text-slate-500 tabular-nums font-mono">
-          {formatElapsed(elapsedSeconds)}
-        </span>
+        <span>{formatElapsed(elapsedSeconds)}</span>
       </div>
-      <pre className="text-[11px] leading-relaxed text-slate-400 font-mono whitespace-pre-wrap m-0 max-h-48 overflow-y-auto">
-        {lines.join("\n")}
-      </pre>
+      {summaryLine && <p className="operation-console-summary">{summaryLine}</p>}
+      {detailLines.length > 0 && (
+        <details className="operation-console-details">
+          <summary>技术详情</summary>
+          <pre>{detailLines.join("\n")}</pre>
+        </details>
+      )}
     </div>
   );
 }

@@ -54,6 +54,13 @@
   --warn: oklch(72% 0.16 80);
   --danger: oklch(58% 0.19 28);
   --shadow-raised: 0 8px 24px oklch(20% 0.02 240 / 0.08);
+  --button-height-default: 44px;
+  --button-height-compact: 36px;
+  --button-size-icon: 32px;
+  --button-size-icon-prominent: 40px;
+  --motion-instant: 120ms ease;
+  --motion-guide: 180ms ease;
+  --motion-reveal: 240ms ease-out;
 
   color-scheme: light;
 }
@@ -184,7 +191,7 @@ button { cursor: pointer; }
   display: block;
   font-family: var(--font-display);
   font-size: 15px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .brand span {
@@ -301,7 +308,7 @@ button.nav-link {
   font-family: var(--font-display);
   font-size: clamp(20px, 2vw, 28px);
   line-height: 1.18;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--text-primary);
 }
 
@@ -335,7 +342,7 @@ button.nav-link {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: var(--button-height-compact);
   padding: 6px 12px;
   border: 0;
   border-radius: var(--radius-md);
@@ -345,7 +352,7 @@ button.nav-link {
   font-weight: 600;
   line-height: 1.35;
   white-space: nowrap;
-  transition: background .12s, color .12s, box-shadow .12s;
+  transition: background var(--motion-instant), color var(--motion-instant), box-shadow var(--motion-instant);
 }
 
 .top-actions .btn:hover {
@@ -365,7 +372,7 @@ button.nav-link {
 }
 
 .top-actions .btn-icon {
-  width: 36px;
+  width: var(--button-height-compact);
   padding: 0;
 }
 
@@ -434,7 +441,7 @@ button.nav-link {
   justify-content: center;
   gap: 6px;
   min-width: min-content;
-  height: 36px;
+  height: var(--button-height-compact);
   padding: 0 10px;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -445,7 +452,7 @@ button.nav-link {
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
-  transition: background .12s, color .12s, border-color .12s, box-shadow .12s;
+  transition: background var(--motion-instant), color var(--motion-instant), border-color var(--motion-instant), box-shadow var(--motion-instant);
 }
 
 .theme-segment.is-active {
@@ -594,7 +601,7 @@ button.nav-link {
   font-family: var(--font-display);
   font-size: 16px;
   line-height: 1.25;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--text-primary);
 }
 
@@ -632,14 +639,14 @@ button.nav-link {
   gap: 6px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  min-height: 44px;
+  min-height: var(--button-height-default);
   padding: 9px 14px;
   cursor: pointer;
   text-decoration: none;
   font-size: 13px;
   font-weight: 650;
   line-height: 1.35;
-  transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
+  transition: filter var(--motion-instant), background var(--motion-instant), border-color var(--motion-instant);
   white-space: nowrap;
 }
 
@@ -673,7 +680,8 @@ button.nav-link {
 }
 
 .btn-icon {
-  width: 44px;
+  width: var(--button-size-icon);
+  min-height: var(--button-size-icon);
   padding: 0;
 }
 
@@ -735,14 +743,14 @@ button.nav-link {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 38px;
+  min-height: var(--button-height-compact);
   padding: 8px 14px;
   border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
+  transition: filter var(--motion-instant), background var(--motion-instant), border-color var(--motion-instant);
 }
 
 .btn-primary {
@@ -908,6 +916,56 @@ button.nav-link {
   white-space: pre-wrap;
   word-break: break-word;
   font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text-muted);
+}
+
+.operation-console {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  color: var(--text-muted);
+  padding: 10px 12px;
+}
+
+.operation-console-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--action-primary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.operation-console-heading > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.operation-console-summary {
+  margin: 0;
+  color: var(--text-primary);
+  font: 11px/1.5 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.operation-console-details summary {
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.operation-console-details pre {
+  margin: 6px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 11px/1.6 var(--font-mono);
   color: var(--text-muted);
 }
 
@@ -1305,7 +1363,16 @@ input:focus, select:focus, textarea:focus {
 .claim-chart p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 
 /* ── Workflow ─────────────────────────────────────────────────── */
-.workflow-hint { margin: 0; color: var(--text-muted); line-height: 1.5; font-size: 12px; }
+.workflow-hint {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text-muted);
+  line-height: 1.5;
+  font-size: 12px;
+}
 .workflow-hint-danger {
   color: var(--danger);
   border: 1px solid color-mix(in oklch, var(--danger), transparent 74%);
@@ -1888,6 +1955,38 @@ input:focus, select:focus, textarea:focus {
 
 /* ── Spin ─────────────────────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes reveal-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.motion-reveal,
+.operation-console,
+.guided-panel,
+.guided-choice,
+.start-choice-card {
+  animation: reveal-in var(--motion-reveal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+
+  .motion-reveal,
+  .operation-console,
+  .guided-panel,
+  .guided-choice,
+  .start-choice-card {
+    animation: none;
+  }
+}
 
 /* ── Tab list ─────────────────────────────────────────────────── */
 .tab-list {

@@ -1932,11 +1932,7 @@ function useBusyTimer(busy: string): BusyTimer {
 
 function BusyOperationConsole({ log }: { log: ReturnType<typeof guidedOperationLog> }) {
   if (!log) return null;
-  return (
-    <div className="bg-[var(--surface-inset)] text-[var(--action-primary-contrast)]/90 p-4 rounded-lg font-mono text-xs overflow-auto max-h-32 mt-2 w-full" role="status" aria-label={log.label}>
-      <pre>{log.lines.join("\n")}</pre>
-    </div>
-  );
+  return <OperationConsole label={log.label} lines={log.lines} elapsedSeconds={log.elapsedSeconds} />;
 }
 
 type RuntimeAwareRun = {
