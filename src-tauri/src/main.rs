@@ -133,7 +133,12 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .manage(BackendState::default())
         .setup(move |app| {
-            let repo_root = repo_root();
+            let repo_root = backend_root(app.handle()).map_err(|err| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("failed to resolve backend package: {err}"),
+                )
+            })?;
             let data_dir = app.path().app_data_dir().unwrap_or_else(|_| {
                 std::env::temp_dir()
                     .join("PatentAgent")
@@ -512,15 +517,37 @@ fn open_folder(
     })
 }
 
-fn repo_root() -> PathBuf {
-    std::env::var_os("PATENTAGENT_REPO_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .unwrap()
-                .to_path_buf()
-        })
+fn backend_root(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    if let Some(path) = std::env::var_os("PATENTAGENT_REPO_ROOT").map(PathBuf::from) {
+        return ensure_backend_root(path);
+    }
+
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        if is_backend_root(&resource_dir) {
+            return Ok(resource_dir);
+        }
+    }
+
+    let dev_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .ok_or("CARGO_MANIFEST_DIR has no parent")?
+        .to_path_buf();
+    ensure_backend_root(dev_root)
+}
+
+fn ensure_backend_root(path: PathBuf) -> Result<PathBuf, String> {
+    if is_backend_root(&path) {
+        Ok(path)
+    } else {
+        Err(format!(
+            "{} does not contain backend/app/main.py",
+            path.display()
+        ))
+    }
+}
+
+fn is_backend_root(path: &Path) -> bool {
+    path.join("backend").join("app").join("main.py").is_file()
 }
 
 fn start_backend(
@@ -561,7 +588,14 @@ fn start_backend(
     if let Err(err) = wait_for_health(&health_url, &mut child) {
         let _ = child.kill();
         let _ = child.wait();
-        return Err(err.into());
+        let stdout = read_child_pipe(&mut child.stdout);
+        let stderr = read_child_pipe(&mut child.stderr);
+        return Err(format!(
+            "{err}; backend stdout: {}; backend stderr: {}",
+            summarize_process_output(&stdout),
+            summarize_process_output(&stderr)
+        )
+        .into());
     }
 
     Ok(BackendSupervisor {
@@ -572,6 +606,27 @@ fn start_backend(
             port,
         },
     })
+}
+
+fn read_child_pipe<R: Read>(pipe: &mut Option<R>) -> String {
+    let mut output = String::new();
+    if let Some(reader) = pipe.as_mut() {
+        let _ = reader.read_to_string(&mut output);
+    }
+    output
+}
+
+fn summarize_process_output(output: &str) -> String {
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return "<empty>".to_string();
+    }
+    const MAX_LEN: usize = 2_000;
+    if trimmed.len() > MAX_LEN {
+        format!("{}...[truncated]", &trimmed[..MAX_LEN])
+    } else {
+        trimmed.to_string()
+    }
 }
 
 fn find_available_port() -> Result<u16, std::io::Error> {

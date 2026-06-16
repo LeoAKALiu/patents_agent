@@ -45,11 +45,16 @@ def test_tauri_v2_scaffold_keeps_existing_frontend_and_electron() -> None:
         "icons/icon.icns",
         "icons/icon.ico",
     ]
+    assert tauri_config["bundle"]["resources"] == {"../backend": "backend"}
 
 
 def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     main_rs = read(TAURI_DIR / "src" / "main.rs")
 
+    assert "fn backend_root" in main_rs
+    assert "PATENTAGENT_REPO_ROOT" in main_rs
+    assert ".resource_dir()" in main_rs
+    assert 'path.join("backend").join("app").join("main.py").is_file()' in main_rs
     assert "backend.app.main:app" in main_rs
     assert "python3" in main_rs
     assert "--host" in main_rs
@@ -59,6 +64,8 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     assert "PYTHONPATH" in main_rs
     assert "PYTHONUNBUFFERED" in main_rs
     assert "/api/health" in main_rs
+    assert "backend stdout:" in main_rs
+    assert "backend stderr:" in main_rs
     assert "get_backend_base_url" in main_rs
     assert "kill" in main_rs or "Child" in main_rs
 

@@ -21,6 +21,7 @@ from typing import Any
 APP_BUNDLE_NAME = "PatentAgent.app"
 APP_EXECUTABLE_RELATIVE = Path("Contents/MacOS/patentagent-tauri")
 CODE_SIGNATURE_RELATIVE = Path("Contents/_CodeSignature/CodeResources")
+BUNDLED_BACKEND_RELATIVE = Path("Contents/Resources/backend/app/main.py")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_RE = re.compile(
     r"(?P<command>(?:\S*/)?(?:python(?:3(?:\.\d+)?)?|Python)\s+-m\s+uvicorn\s+"
@@ -402,8 +403,6 @@ def open_app(copied_app: Path, smoke_dir: Path) -> subprocess.CompletedProcess[s
         "--stderr",
         str(smoke_dir / "app_stderr.txt"),
         "--env",
-        f"PATENTAGENT_REPO_ROOT={REPO_ROOT}",
-        "--env",
         f"PATENTAGENT_PYTHON={sys.executable}",
         str(copied_app),
     ]
@@ -439,6 +438,8 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         "keep_artifacts": keep_artifacts,
         "bundle_metadata_ok": False,
         "bundle_metadata": None,
+        "bundled_backend_ok": False,
+        "bundled_backend": None,
         "codesign_strict_ok": False,
         "detach": None,
         "spctl": None,
@@ -474,6 +475,11 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         code_resources = copied_app / CODE_SIGNATURE_RELATIVE
         if not code_resources.is_file():
             raise SmokeError(f"Copied app CodeResources is missing: {code_resources}")
+        bundled_backend = copied_app / BUNDLED_BACKEND_RELATIVE
+        summary["bundled_backend"] = str(bundled_backend)
+        summary["bundled_backend_ok"] = bundled_backend.is_file()
+        if not bundled_backend.is_file():
+            raise SmokeError(f"Copied app bundled backend is missing: {bundled_backend}")
         bundle_metadata = validate_bundle_metadata(copied_app)
         summary["bundle_metadata"] = asdict(bundle_metadata)
         summary["bundle_metadata_ok"] = bundle_metadata.ok

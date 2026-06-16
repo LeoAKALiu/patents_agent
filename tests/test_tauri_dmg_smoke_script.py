@@ -148,3 +148,13 @@ def test_bundle_metadata_validation_checks_executable_and_version(tmp_path: Path
     assert result.info_plist == str(plist_path)
     assert result.executable == str(macos / "patentagent-tauri")
     assert result.version == "1.1.0"
+
+
+def test_smoke_script_requires_bundled_backend_and_does_not_inject_repo_root() -> None:
+    source = SCRIPT_PATH.read_text(encoding="utf-8")
+
+    assert "BUNDLED_BACKEND_RELATIVE" in source
+    assert "Contents/Resources/backend/app/main.py" in source
+    assert "bundled_backend_ok" in source
+    assert "Copied app bundled backend is missing" in source
+    assert "PATENTAGENT_REPO_ROOT" not in source
