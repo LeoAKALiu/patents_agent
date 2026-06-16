@@ -407,6 +407,17 @@ function App() {
   const latestCompletionRun = completionRuns[0] ?? null;
   const latestOfficialCompileRun = selectCurrentOfficialCompileRun(officialCompileRuns, currentSourceDraftHash);
   const latestPostDraftReview = selectLatestMatchingPostDraftReview(postDraftReviews, latestOfficialCompileRun);
+  const selectedProjectIdForRefresh = selectedProject?.id ?? "";
+  const latestOfficialCompileRunId = latestOfficialCompileRun?.id ?? "";
+  const latestPostDraftReviewId = latestPostDraftReview?.id ?? "";
+  const lastExportRefreshKey = lastExport
+    ? [
+        lastExport.format,
+        lastExport.filePath,
+        lastExport.byteCount,
+        lastExport.officialPackageHash ?? "",
+      ].join(":")
+    : "";
   const activeMainSection = mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   const activeExpertToolEntry = expertToolGroups
     .flatMap((group) => group.tools)
@@ -416,12 +427,12 @@ function App() {
   useEffect(() => {
     void refreshAll();
   }, [
-    selectedProject,
-    latestOfficialCompileRun,
-    latestPostDraftReview,
+    selectedProjectIdForRefresh,
+    latestOfficialCompileRunId,
+    latestPostDraftReviewId,
     currentDraftHash,
     currentSourceDraftHash,
-    lastExport,
+    lastExportRefreshKey,
   ]);
 
   useEffect(() => {
