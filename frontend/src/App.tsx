@@ -524,23 +524,36 @@ function App() {
     }
   }, [selectedProject?.id]);
 
+  // Poll run state while any background task is in flight. The effect depends
+  // only on a boolean (isAnyRunning) plus the project id, NOT on the run
+  // arrays themselves: depending on the arrays would tear down and rebuild the
+  // interval on every poll response (each fetch returns a new array reference),
+  // causing needless re-renders. With the boolean, the interval is created when
+  // a run starts and torn down only when all runs leave the in-flight state.
+  const isAnyRunInFlight =
+    deliberationRuns.some((run) => run.status === "queued" || run.status === "running")
+    || disclosureRuns.some((run) => run.status === "queued" || run.status === "running")
+    || formulaRuns.some((run) => run.status === "queued" || run.status === "running")
+    || postDraftReviews.some((run) => run.status === "queued" || run.status === "running");
+
   useEffect(() => {
-    const deliberating = deliberationRuns.some((run) => run.status === "queued" || run.status === "running");
-    const disclosing = disclosureRuns.some((run) => run.status === "queued" || run.status === "running");
-    const formulaRunning = formulaRuns.some((run) => run.status === "queued" || run.status === "running");
-    const postDraftReviewing = postDraftReviews.some((run) => run.status === "queued" || run.status === "running");
-    if (!selectedProject?.id || (!deliberating && !disclosing && !formulaRunning && !postDraftReviewing)) {
+    const projectId = selectedProject?.id;
+    if (!projectId || !isAnyRunInFlight) {
       return;
     }
     const timer = window.setInterval(() => {
-      void loadDeliberations(selectedProject.id);
-      void loadDisclosures(selectedProject.id);
-      void loadFormulaState(selectedProject.id);
-      void loadOfficialCompileRuns(selectedProject.id);
-      void loadPostDraftReviews(selectedProject.id);
+      void loadDeliberations(projectId);
+      void loadDisclosures(projectId);
+      void loadFormulaState(projectId);
+      void loadOfficialCompileRuns(projectId);
+      void loadPostDraftReviews(projectId);
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [selectedProject?.id, deliberationRuns, disclosureRuns, formulaRuns, postDraftReviews]);
+    // loadX functions are stable closures over setState only; they are not
+    // listed because they do not change identity in a way that should reset
+    // the interval. isAnyRunInFlight is the single state-derived signal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject?.id, isAnyRunInFlight]);
 
   async function refreshAll() {
     await withStatus("refresh", async () => {
