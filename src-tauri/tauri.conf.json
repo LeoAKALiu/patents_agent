@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm --prefix ../frontend run dev",
     "devUrl": "http://127.0.0.1:5173",
-    "beforeBuildCommand": "npm --prefix ../frontend run build",
+    "beforeBuildCommand": "find ../backend -type d -name __pycache__ -prune -exec rm -rf {} + && npm --prefix ../frontend run build",
     "frontendDist": "../frontend/dist"
   },
   "app": {

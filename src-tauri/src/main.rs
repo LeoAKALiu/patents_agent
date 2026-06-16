@@ -638,6 +638,7 @@ fn start_backend_with_python(
         .env("DATA_DIR", data_dir)
         .env("PYTHONPATH", pythonpath)
         .env("PYTHONUNBUFFERED", "1")
+        .env("PYTHONDONTWRITEBYTECODE", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

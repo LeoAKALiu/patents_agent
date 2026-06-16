@@ -38,6 +38,7 @@ def test_tauri_v2_scaffold_keeps_existing_frontend_and_electron() -> None:
     assert build["frontendDist"] == "../frontend/dist"
     assert build["devUrl"] == "http://127.0.0.1:5173"
     assert "npm --prefix ../frontend run build" in build["beforeBuildCommand"]
+    assert "__pycache__" in build["beforeBuildCommand"]
     assert tauri_config["bundle"]["icon"] == [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -75,6 +76,7 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     assert "DATA_DIR" in main_rs
     assert "PYTHONPATH" in main_rs
     assert "PYTHONUNBUFFERED" in main_rs
+    assert "PYTHONDONTWRITEBYTECODE" in main_rs
     assert "/api/health" in main_rs
     assert "backend stdout:" in main_rs
     assert "backend stderr:" in main_rs
