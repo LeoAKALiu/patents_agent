@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_text
@@ -34,14 +35,32 @@ class PatentDraftGenerator:
         disclosure_context = _format_disclosure(disclosure)
         formula_context = _format_formula(formula_package)
         system_prompt = _system_prompt(brief)
-        claims = self.llm.complete_stage("claims", system_prompt, _claims_prompt(brief, context, strategy_context, disclosure_context, formula_context))
-        description = self.llm.complete_stage(
-            "description", system_prompt, _description_prompt(brief, claims, context, strategy_context, disclosure_context, formula_context)
-        )
-        abstract = self.llm.complete_stage("abstract", system_prompt, _abstract_prompt(brief, claims, description))
-        drawings = self.llm.complete_stage("drawings", system_prompt, _drawings_prompt(brief, claims))
-        mermaid = self.llm.complete_stage("diagram", system_prompt, _diagram_prompt(brief, claims))
-        image_prompt = self.llm.complete_stage("image_prompt", system_prompt, _image_prompt(brief, mermaid))
+        llm = self.llm
+        # claims must run first: description/drawings/mermaid all depend on it.
+        claims = llm.complete_stage("claims", system_prompt, _claims_prompt(brief, context, strategy_context, disclosure_context, formula_context))
+        # Step 2: description, drawings and mermaid only depend on claims (and
+        # static inputs), so they are dispatched concurrently. Each task is a
+        # blocking LLM call; a thread pool lets them overlap because the OpenAI
+        # client releases the GIL while waiting on the network.
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            description_future = pool.submit(
+                llm.complete_stage,
+                "description",
+                system_prompt,
+                _description_prompt(brief, claims, context, strategy_context, disclosure_context, formula_context),
+            )
+            drawings_future = pool.submit(llm.complete_stage, "drawings", system_prompt, _drawings_prompt(brief, claims))
+            mermaid_future = pool.submit(llm.complete_stage, "diagram", system_prompt, _diagram_prompt(brief, claims))
+            description = description_future.result()
+            drawings = drawings_future.result()
+            mermaid = mermaid_future.result()
+        # Step 3: abstract (needs description) and image_prompt (needs mermaid)
+        # are independent of each other, so they also run concurrently.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            abstract_future = pool.submit(llm.complete_stage, "abstract", system_prompt, _abstract_prompt(brief, claims, description))
+            image_prompt_future = pool.submit(llm.complete_stage, "image_prompt", system_prompt, _image_prompt(brief, mermaid))
+            abstract = abstract_future.result()
+            image_prompt = image_prompt_future.result()
         return DraftPackage(
             title=brief.title,
             abstract=abstract.strip(),
