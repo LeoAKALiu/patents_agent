@@ -31,6 +31,32 @@ def test_compiler_blocks_internal_pollution_in_official_fields():
     assert any(item["category"] == "official_hygiene_contamination" for item in run.blocked_items)
 
 
+def test_compiler_moves_trailing_support_gap_appendix_to_sidecar_without_blocking():
+    appendix = """
+---
+**提交前需补强的实验或工程材料 (support_gaps)**
+
+为满足充分公开要求并增强权利要求稳定性，建议在提交前补充：
+1. 置信度计算模型的具体化。
+2. 航线规划算法的仿真验证。
+"""
+    package = _draft_package(
+        claims="1. 一种基于置信度的无人机主动采集方法。\n2. 根据权利要求1所述的方法。" + appendix,
+        description="本发明涉及无人机主动采集技术。实施例公开完整闭环流程。" + appendix,
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "completed"
+    assert run.official_package is not None
+    assert run.blocked_items == []
+    assert any(item["category"] == "support_gap_appendix" and item["section"] == "claims" for item in run.sidecar_notes)
+    assert any(item["category"] == "support_gap_appendix" and item["section"] == "description" for item in run.sidecar_notes)
+    assert "support_gaps" not in run.official_package.claims
+    assert "提交前需补强" not in run.official_package.claims
+    assert "航线规划算法的仿真验证" not in run.official_package.description
+
+
 def test_compiler_blocks_cross_project_title_contamination():
     package = _draft_package(
         description="本说明书还包括：基于边缘端动态推理的无人机飞行中任务调整方法。"

@@ -128,6 +128,8 @@ class OfficialDraftCompiler:
         for item in contamination_removed:
             if item["section"] not in HARD_GATED_SECTIONS:
                 continue
+            if item["category"] == "support_gap_appendix":
+                continue
             blocked_items.append(
                 {
                     "category": "official_hygiene_contamination",
@@ -279,6 +281,12 @@ def _clean_section(
     contamination_removed: list[dict[str, str]],
     sidecar_notes: list[dict[str, str]],
 ) -> str:
+    text = _strip_support_gap_appendix(
+        section=section,
+        text=text,
+        contamination_removed=contamination_removed,
+        sidecar_notes=sidecar_notes,
+    )
     kept: list[str] = []
     in_fence = False
     for raw_line in text.splitlines():
@@ -303,6 +311,45 @@ def _clean_section(
             continue
         kept.append(_strip_inline_markdown(line))
     return "\n".join(kept).strip()
+
+
+def _strip_support_gap_appendix(
+    *,
+    section: str,
+    text: str,
+    contamination_removed: list[dict[str, str]],
+    sidecar_notes: list[dict[str, str]],
+) -> str:
+    lines = text.splitlines(keepends=True)
+    marker_index = next(
+        (index for index, line in enumerate(lines) if _is_support_gap_appendix_heading(line.strip())),
+        None,
+    )
+    if marker_index is None:
+        return text
+    start_index = marker_index
+    cursor = marker_index - 1
+    while cursor >= 0 and not lines[cursor].strip():
+        cursor -= 1
+    if cursor >= 0 and re.fullmatch(r"\s*-{3,}\s*", lines[cursor]):
+        start_index = cursor
+    appendix = "".join(lines[start_index:]).strip()
+    if not appendix:
+        return text
+    item = {
+        "category": "support_gap_appendix",
+        "section": section,
+        "pattern": "support_gap_appendix",
+        "text": appendix,
+    }
+    contamination_removed.append(item)
+    sidecar_notes.append(item.copy())
+    return "".join(lines[:start_index]).rstrip()
+
+
+def _is_support_gap_appendix_heading(line: str) -> bool:
+    comparable_line = line.lower()
+    return "提交前需补强的实验或工程材料" in line or re.search(r"\(support_gaps?\)", comparable_line) is not None
 
 
 def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
