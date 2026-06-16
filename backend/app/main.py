@@ -887,7 +887,8 @@ def create_app(
     @app.get("/api/projects/{project_id}/deliberations")
     def list_deliberations(project_id: str) -> dict:
         _require_project(store, project_id)
-        return {"runs": [run.model_dump(mode="json") for run in store.list_deliberation_runs(project_id)]}
+        runs = [_reconcile_deliberation_run(store, run) for run in store.list_deliberation_runs(project_id)]
+        return {"runs": [run.model_dump(mode="json") for run in runs]}
 
     @app.get("/api/projects/{project_id}/deliberations/{run_id}")
     def get_deliberation(project_id: str, run_id: str) -> dict:
@@ -895,6 +896,7 @@ def create_app(
         run = store.get_deliberation_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
+        run = _reconcile_deliberation_run(store, run)
         return run.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/deliberations/{run_id}/cancel")
@@ -1524,6 +1526,7 @@ def create_app(
 
 
 _TERMINAL_RUN_STATUSES = {"completed", "failed", "interrupted"}
+_ACTIVE_RUN_STATUSES = {"queued", "running"}
 
 
 def _runtime_failure(
@@ -1546,6 +1549,55 @@ def _runtime_failure(
         repair_suggestion=repair_suggestion,
         partial_artifact_count=int(getattr(state, "partial_artifact_count", 0) or 0),
     )
+
+
+def _with_event_once(events: list[str], event: str) -> list[str]:
+    if event in events:
+        return events
+    return [*events, event]
+
+
+def _cancelled_deliberation_run(run: DeliberationRun) -> DeliberationRun:
+    failure_details = list(run.failure_details)
+    if not any(failure.reason == "cancelled" for failure in failure_details):
+        failure_details.append(
+            _runtime_failure(
+                flow="deliberation",
+                reason="cancelled",
+                message="Deliberation run was cancelled; partial artifacts were preserved for retry.",
+                state=run.runtime_state,
+                repair_suggestion="Review partial stage results, then retry the run when ready.",
+            )
+        )
+    events = _with_event_once(list(run.events), "cancel requested")
+    events = _with_event_once(events, "run cancelled")
+    return run.model_copy(
+        update={
+            "status": "interrupted",
+            "cancel_requested": True,
+            "failure_details": failure_details,
+            "events": events,
+        }
+    )
+
+
+def _reconcile_deliberation_run(store: SQLiteStore, run: DeliberationRun) -> DeliberationRun:
+    if run.status not in _ACTIVE_RUN_STATUSES:
+        return run
+    if run.cancel_requested or any(failure.reason == "cancelled" for failure in run.failure_details):
+        updated = _cancelled_deliberation_run(run)
+        store.update_deliberation_run(updated)
+        return updated
+    if run.failure_details:
+        updated = run.model_copy(
+            update={
+                "status": "failed",
+                "events": _with_event_once(list(run.events), "run failed"),
+            }
+        )
+        store.update_deliberation_run(updated)
+        return updated
+    return run
 
 
 def _mark_disclosure_cancel_requested(store: SQLiteStore, run: DisclosureRun) -> DisclosureRun:
@@ -1580,28 +1632,7 @@ def _mark_disclosure_cancel_requested(store: SQLiteStore, run: DisclosureRun) ->
 def _mark_deliberation_cancel_requested(store: SQLiteStore, run: DeliberationRun) -> DeliberationRun:
     if run.status in _TERMINAL_RUN_STATUSES:
         return run
-    failure_details = list(run.failure_details)
-    events = [*run.events, "cancel requested"]
-    status = run.status
-    if run.status == "queued":
-        status = "interrupted"
-        failure_details.append(
-            _runtime_failure(
-                flow="deliberation",
-                reason="cancelled",
-                message="Deliberation run was cancelled before execution started.",
-                state=run.runtime_state,
-                repair_suggestion="Retry the run when providers are ready.",
-            )
-        )
-    updated = run.model_copy(
-        update={
-            "status": status,
-            "cancel_requested": True,
-            "failure_details": failure_details,
-            "events": events,
-        }
-    )
+    updated = _cancelled_deliberation_run(run)
     store.update_deliberation_run(updated)
     return updated
 
@@ -2308,6 +2339,11 @@ def _execute_deliberation(
     )
 
     def persist_update(updated: DeliberationRun) -> None:
+        current = store.get_deliberation_run(project.id, run.id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            if current.cancel_requested:
+                raise RuntimeCancelled(f"deliberation run {run.id} cancelled")
+            return
         runtime.begin_stage(
             updated.stage_results[-1].phase if updated.stage_results else "deliberation",
             provider=updated.logs[-1].provider_id if updated.logs else ",".join(updated.providers),
@@ -2319,7 +2355,6 @@ def _execute_deliberation(
             partial_artifact_count=len(updated.stage_results),
             warning_count=len(updated.failures),
         )
-        current = store.get_deliberation_run(project.id, run.id) or running
         store.update_deliberation_run(
             updated.model_copy(
                 update={
@@ -2347,6 +2382,11 @@ def _execute_deliberation(
                 on_update=persist_update,
             )
         )
+        current = store.get_deliberation_run(project.id, run.id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            return current
+        if current.cancel_requested:
+            raise RuntimeCancelled(f"deliberation run {run.id} cancelled")
         runtime.begin_stage("deliberation_finalize", provider="system", subtask="strategy brief")
         state = runtime.complete_stage(
             partial_artifact_count=len(completed.stage_results),
@@ -2365,6 +2405,8 @@ def _execute_deliberation(
         return completed
     except RuntimeCancelled:
         current = store.get_deliberation_run(project.id, run.id) or running
+        if current.status == "interrupted" and current.cancel_requested:
+            return current
         failure = runtime.cancelled_failure()
         interrupted = current.model_copy(
             update={

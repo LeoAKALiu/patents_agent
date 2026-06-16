@@ -954,13 +954,26 @@ function GuidedRuntimeFailures({ run }: { run: GuidedRuntimeRun | null }) {
   if (failures.length === 0) return null;
   return (
     <div className="guided-runtime-failures">
-      {failures.slice(-2).map((failure, index) => (
-        <p key={`${run?.id}-failure-${index}`}>
-          {failure.reason} / {guidedRuntimeStageLabel(failure.stage)}：{failure.message}
-        </p>
-      ))}
+      {failures.slice(-2).map((failure, index) => {
+        const provider = failure.provider ? ` / ${agentProviderRuntimeLabel(failure.provider)}` : "";
+        return (
+          <p key={`${run?.id}-failure-${index}`}>
+            {failure.reason} / {guidedRuntimeStageLabel(failure.stage)}{provider}：{failure.message}
+            {failure.repair_suggestion ? ` 建议：${failure.repair_suggestion}` : ""}
+          </p>
+        );
+      })}
     </div>
   );
+}
+
+function agentProviderRuntimeLabel(providerId: string): string {
+  if (providerId === "codex") return "Codex";
+  if (providerId === "deepseek") return "DeepSeek";
+  if (providerId === "claude") return "Claude";
+  if (providerId === "kimicode") return "KimiCode";
+  if (providerId === "mimo") return "Mimo";
+  return providerId;
 }
 
 function guidedRuntimeStageLabel(stage?: string | null): string {

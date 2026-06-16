@@ -86,6 +86,64 @@ def test_deliberation_cancel_marks_queued_run_and_retry_links_previous(tmp_path)
     assert retry["status"] == "completed"
 
 
+def test_deliberation_cancel_marks_running_run_interrupted(tmp_path):
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=FakeLLMClient({}),
+            provider_runner=_FastDeliberationProviderRunner(),
+            load_env_file=False,
+        )
+    )
+    project_id = _create_project(client)
+    run = DeliberationRun(
+        id="running-delib",
+        project_id=project_id,
+        status="running",
+        providers=["codex"],
+        run_mode="minimal",
+        events=["run started"],
+    )
+    client.app.state.store.create_deliberation_run(run)
+
+    cancelled = client.post(f"/api/projects/{project_id}/deliberations/{run.id}/cancel").json()
+
+    assert cancelled["status"] == "interrupted"
+    assert cancelled["cancel_requested"] is True
+    assert cancelled["events"][-1] == "run cancelled"
+    assert cancelled["failure_details"][0]["reason"] == "cancelled"
+
+
+def test_deliberation_list_reconciles_cancelled_active_run(tmp_path):
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=FakeLLMClient({}),
+            provider_runner=_FastDeliberationProviderRunner(),
+            load_env_file=False,
+        )
+    )
+    project_id = _create_project(client)
+    run = DeliberationRun(
+        id="stale-cancelled-delib",
+        project_id=project_id,
+        status="running",
+        providers=["codex"],
+        run_mode="minimal",
+        events=["run started", "cancel requested"],
+        cancel_requested=True,
+    )
+    client.app.state.store.create_deliberation_run(run)
+
+    listed = client.get(f"/api/projects/{project_id}/deliberations").json()["runs"][0]
+    stored = client.app.state.store.get_deliberation_run(project_id, run.id)
+
+    assert listed["status"] == "interrupted"
+    assert listed["failure_details"][0]["reason"] == "cancelled"
+    assert stored is not None
+    assert stored.status == "interrupted"
+
+
 def test_formula_run_records_runtime_state_and_retry_link(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_formula_llm(), load_env_file=False))
     project_id = _create_project(
