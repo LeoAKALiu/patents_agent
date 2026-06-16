@@ -8,14 +8,18 @@ GUARDRAILS = """执行约束：
 - 不要读取仓库、README、AGENTS.md、历史运行留痕目录或任何未在本 prompt 中提供的文件。
 - 不要解释你将如何工作，不要输出元评论。
 - 只基于本 prompt 中给出的 dossier、授权专利片段和前序发言完成任务。
-- 严格返回 JSON object，不要附加额外说明。
+- 严格返回可被 Python json.loads 解析的 JSON object，不要附加额外说明、Markdown 代码围栏、thinking 或前后缀。
+- JSON 字符串内部不要使用英文双引号；引用术语时使用中文引号「」或直接省略引号。若必须使用英文双引号，必须写成 \\"。
 """
 
 
 ROLE_PROMPTS = {
     "codex": "你是 Codex 侧专利工程专家，优先关注技术可交付性、权利要求边界、实施例支撑和失败模式。",
+    "deepseek": "你是 DeepSeek 侧专利审查专家，优先关注现有技术差异、审查稳定性、创造性论证和风险压降。",
     "gemini": "你是 Gemini 侧专利策略专家，优先关注保护范围布局、创新点表达、审查说服力和摘要/附图叙事。",
     "claude": "你是 Claude 侧专利文本专家，优先关注说明书结构、术语一致性、支持性和整体自洽。",
+    "kimicode": "你是 KimiCode 侧专利产品化专家，优先关注中文表达质量、方案可读性、审查员可理解性和权利要求叙事。",
+    "mimo": "你是 MimoCode 侧工程实现专家，优先关注实现路径、模块边界、异常处理、可验证证据和交付风险。",
 }
 
 
@@ -73,7 +77,7 @@ JSON schema:
 
 def chair_prompt(dossier: str, openings: dict, pair_results: list[dict]) -> str:
     return f"""{GUARDRAILS}
-你是 Codex 主席，负责汇总三方会审并生成可注入专利写作流水线的 strategy brief。
+你是 Codex 主席，负责汇总多智能体会审并生成可注入专利写作流水线的 strategy brief。
 
 {dossier}
 

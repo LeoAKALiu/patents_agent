@@ -38,11 +38,28 @@ def disclosure_to_markdown(package: DisclosurePackage) -> str:
         for finding in package.self_check_findings
     )
     logs = "\n".join(f"- {log}" for log in package.generation_logs)
+
+    # ---- V1.1: Research source ledger section ----
+    ledger_section = _format_ledger_section(package)
+
+    # ---- V1.1: Provider diagnostics section ----
+    diagnostics_section = _format_diagnostics_section(package)
+
+    # ---- V1.1: Research confidence badge ----
+    confidence_badges = {"low": "🔴 低", "medium": "🟡 中", "high": "🟢 高"}
+    confidence_badge = confidence_badges.get(package.research_confidence, "⚪ 未知")
+    confidence_note = (
+        "\n> **检索置信度**：{badge}\n>\n"
+        "> 低置信度表示未检索到可引用的公开现有技术文献；交底书不隐含高专利性判断。\n"
+        .format(badge=confidence_badge)
+    )
+
     return f"""# {package.title}
 
 ## 前置材料摘要
 {package.summary}
 
+{confidence_note}
 ## 材料覆盖
 {package.materials_summary}
 
@@ -57,7 +74,8 @@ def disclosure_to_markdown(package: DisclosurePackage) -> str:
 
 ## 现有技术差异
 {package.prior_art_differences}
-
+{ledger_section}
+{diagnostics_section}
 ## 技术交底书
 {package.body_markdown}
 
@@ -87,6 +105,12 @@ def export_disclosure_docx(package: DisclosurePackage, output_path: Path, run_di
 
     doc = Document()
     doc.add_heading(package.title, level=0)
+
+    # ---- V1.1: Research confidence badge ----
+    confidence_badges = {"low": "🔴 低（0 references）", "medium": "🟡 中", "high": "🟢 高"}
+    confidence_label = confidence_badges.get(package.research_confidence, "⚪ 未知")
+    _add_section(doc, "检索置信度", f"{confidence_label}\n\n低置信度表示未检索到可引用的公开现有技术文献；交底书不隐含高专利性判断。")
+
     _add_section(doc, "前置材料摘要", package.summary)
     _add_section(doc, "材料覆盖", package.materials_summary)
     _add_section(
@@ -123,6 +147,8 @@ def export_disclosure_docx(package: DisclosurePackage, output_path: Path, run_di
         or "暂无可用公开检索结果。",
     )
     _add_section(doc, "现有技术差异", package.prior_art_differences)
+    _add_section(doc, "检索来源台账", _format_ledger_section(package).replace("# ", "").replace("## ", ""))
+    _add_section(doc, "检索链路诊断", _format_diagnostics_section(package).replace("# ", "").replace("## ", ""))
     _add_section(doc, "技术交底书", package.body_markdown)
     doc.add_heading("Mermaid 图", level=1)
     if image_path:
@@ -186,3 +212,104 @@ def _add_section(doc: Document, heading: str, text: str) -> None:
     doc.add_heading(heading, level=1)
     for line in text.splitlines() or [""]:
         doc.add_paragraph(line)
+
+
+def _format_ledger_section(package: "DisclosurePackage") -> str:
+    """Format the research source ledger as a markdown section."""
+    ledger = package.research_ledger
+    if not ledger:
+        return ""
+
+    lines = [
+        "## 检索来源台账",
+        "",
+    ]
+    entries = ledger.get("entries", [])
+    if not entries:
+        lines.append("暂无检索记录。")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.extend([
+        f"- 总命中数：{ledger.get('total_hits', 0)}",
+        f"- 总引用数：{ledger.get('total_citations', 0)}",
+        "",
+        "| 来源 | 类型 | 检索词 | 状态 | 命中 | 保留 | 失败原因 |",
+        "|------|------|--------|------|------|------|----------|",
+    ])
+    for entry in entries:
+        provider = entry.get("provider", "")
+        kind = entry.get("kind", "")
+        query = (entry.get("query", "") or "")[:50]
+        status = entry.get("status", "running")
+        hit_count = entry.get("hit_count", 0)
+        retained = entry.get("retained_count", 0)
+        failure = (entry.get("failure_reason", "") or "")[:60]
+
+        status_icon = {"ok": "✅", "failed": "❌", "timeout": "⏰", "skipped": "⏭️", "running": "🔄"}.get(status, "❓")
+        lines.append(
+            f"| {provider} | {kind} | {query} | {status_icon} {status} | {hit_count} | {retained} | {failure} |"
+        )
+
+    # Citation snapshots
+    all_citations: list[dict] = []
+    for entry in entries:
+        citations = entry.get("citations", [])
+        if isinstance(citations, list):
+            all_citations.extend(citations)
+
+    if all_citations:
+        lines.append("")
+        lines.append("### 引用快照")
+        lines.append("")
+        for i, cit in enumerate(all_citations[:20], start=1):
+            pub = cit.get("publication_number", "") or ""
+            title = cit.get("title", "")[:80] or ""
+            source = cit.get("source", "") or ""
+            abstract = cit.get("abstract_snippet", "")[:60] or ""
+            lines.append(f"{i}. [{source}] {pub} {title}")
+            if abstract:
+                lines.append(f"   {abstract}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _format_diagnostics_section(package: "DisclosurePackage") -> str:
+    """Format provider diagnostics as a markdown section."""
+    diagnostics = package.provider_diagnostics
+    if not diagnostics:
+        return ""
+
+    lines = [
+        "## 检索链路诊断",
+        "",
+    ]
+    for diag in diagnostics:
+        phase = diag.get("phase", "unknown")
+        phase_label = "🔍 检索前" if phase == "pre_flight" else "📊 检索后"
+        lines.append(f"### {phase_label}")
+        lines.append("")
+
+        available = diag.get("available_providers", [])
+        if available:
+            lines.append(f"- 可用来源：{'、'.join(available)}")
+        else:
+            lines.append("- 可用来源：无")
+
+        skipped = diag.get("skipped_providers", [])
+        if skipped:
+            lines.append("- 跳过来源：")
+            for skip in skipped:
+                provider = skip.get("provider", "") if isinstance(skip, dict) else str(skip)
+                reason = skip.get("reason", "") if isinstance(skip, dict) else ""
+                lines.append(f"  - {provider}：{reason}")
+
+        warnings_list = diag.get("warnings", [])
+        if warnings_list:
+            lines.append("- 警告：")
+            for w in warnings_list:
+                lines.append(f"  - {w}")
+
+        lines.append("")
+    return "\n".join(lines)

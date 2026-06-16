@@ -41,6 +41,7 @@ from typing import Any, Protocol
 
 from backend.app.disclosure.prior_art import PriorArtProvider
 from backend.app.llm import LLMClient
+from backend.app.runtime import RuntimeContext
 from backend.app.research.evidence import EvidenceLedger, ground_findings
 from backend.app.schemas import (
     DEEP_RESEARCH_CATEGORIES,
@@ -217,6 +218,19 @@ def _obviousness_prompt(project: ProjectRecord, candidates_block: str, refs_bloc
 """
 
 
+def _checkpoint_stage(
+    stage_results: list[dict[str, Any]],
+    runtime: RuntimeContext | None,
+    on_stage_result: Any | None,
+    *,
+    warning_count: int = 0,
+) -> None:
+    if on_stage_result:
+        on_stage_result(list(stage_results))
+    if runtime:
+        runtime.complete_stage(partial_artifact_count=len(stage_results), warning_count=warning_count)
+
+
 # ---------------------------------------------------------------------------
 # Researcher
 # ---------------------------------------------------------------------------
@@ -251,6 +265,8 @@ class PatentDeepResearcher:
         candidates: list[PatentPointCandidate],
         selected_candidate_id: str | None = None,
         seed_terms: list[str] | None = None,
+        runtime: RuntimeContext | None = None,
+        on_stage_result: Any | None = None,
     ) -> tuple[DeepResearchPacket, list[dict[str, Any]]]:
         """Run the loop and return ``(packet, stage_results)``.
 
@@ -270,8 +286,11 @@ class PatentDeepResearcher:
         candidates_block = _candidates_block(focused_candidates, project)
 
         # ---- Phase 1: plan -----------------------------------------------
+        if runtime:
+            runtime.begin_stage("deep_research_plan", provider="llm", subtask="research plan")
         plan = self._plan(project, candidates_block)
         stage_results.append({"phase": "deep_research_plan", "payload": plan})
+        _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(warnings))
         plan_themes = plan.get("search_themes") or []
         logs.append(
             f"deep_research_plan: {len(plan_themes)} themes, max_cycles={plan.get('max_cycles', self._max_cycles)}"
@@ -297,6 +316,12 @@ class PatentDeepResearcher:
 
         for cycle in range(1, max_cycles + 1):
             executed_cycles = cycle
+            if runtime:
+                runtime.begin_stage(
+                    f"deep_research_queries_c{cycle}",
+                    provider="llm",
+                    subtask=f"cycle {cycle} query planning",
+                )
             queries = pending_queries or self._generate_queries(project, plan, cycle, query_plan)
             pending_queries = []
             if not queries:
@@ -306,7 +331,15 @@ class PatentDeepResearcher:
             stage_results.append(
                 {"phase": f"deep_research_queries_c{cycle}", "payload": {"queries": queries}}
             )
+            _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(warnings))
 
+            if runtime:
+                runtime.begin_stage(
+                    f"deep_research_search_c{cycle}",
+                    provider=",".join(self._provider_names) or "research",
+                    query=", ".join(queries[:3]),
+                    subtask=f"cycle {cycle} public search",
+                )
             cycle_hits, provider_warnings = self._search.search(queries, self._hits_per_cycle)
             warnings.extend(provider_warnings)
             # ---- extract: record every hit into the evidence ledger ------
@@ -321,6 +354,7 @@ class PatentDeepResearcher:
                     },
                 }
             )
+            _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(warnings))
             logs.append(
                 f"deep_research_search_c{cycle}: {len(cycle_hits)} hits, {len(provider_warnings)} warnings"
             )
@@ -346,8 +380,16 @@ class PatentDeepResearcher:
                         },
                     }
                 )
+                _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(warnings))
                 break
 
+            if runtime:
+                runtime.begin_stage(
+                    f"deep_research_synthesis_c{cycle}",
+                    provider="llm",
+                    query=", ".join(queries[:3]),
+                    subtask=f"cycle {cycle} synthesis",
+                )
             cycle_findings, cycle_extras = self._synthesize(
                 project,
                 candidates_block,
@@ -379,8 +421,16 @@ class PatentDeepResearcher:
             )
             warnings.extend(_string_list(cycle_extras.get("warnings")))
             logs.append(f"deep_research_synthesis_c{cycle}: {len(cycle_findings)} findings")
+            _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(warnings))
 
             # ---- obviousness attack (examiner combination simulation) ----
+            if runtime:
+                runtime.begin_stage(
+                    f"deep_research_obviousness_c{cycle}",
+                    provider="llm",
+                    query=", ".join(queries[:3]),
+                    subtask=f"cycle {cycle} obviousness attack",
+                )
             cycle_risks, cycle_obv_constraints = self._obviousness_attack(
                 project, candidates_block, ledger, cycle
             )
@@ -398,6 +448,7 @@ class PatentDeepResearcher:
                 logs.append(
                     f"deep_research_obviousness_c{cycle}: {len(cycle_risks)} risks"
                 )
+            _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(warnings))
 
             if not bool(cycle_extras.get("should_continue", False)):
                 logs.append(f"deep_research: stop condition reported by synthesis at cycle {cycle}.")
@@ -405,12 +456,17 @@ class PatentDeepResearcher:
             pending_queries = _string_list(cycle_extras.get("next_queries"))[:6]
 
         # ---- evidence ledger stage --------------------------------------
+        if runtime:
+            runtime.begin_stage("deep_research_evidence", provider="system", subtask="evidence ledger")
         stage_results.append(
             {"phase": "deep_research_evidence", "payload": ledger.to_stage_payload()}
         )
         logs.append(f"deep_research_evidence: {len(ledger)} evidence entries recorded")
+        _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(warnings))
 
         # ---- Phase final: assemble packet -------------------------------
+        if runtime:
+            runtime.begin_stage("deep_research_final", provider="system", subtask="packet assembly")
         novelty = _aggregate(stage_results, "novelty_opportunities")
         differentiators = _aggregate(stage_results, "differentiators")
         constraints = _aggregate(stage_results, "claim_drafting_constraints")
@@ -455,6 +511,7 @@ class PatentDeepResearcher:
                 },
             }
         )
+        _checkpoint_stage(stage_results, runtime, on_stage_result, warning_count=len(warnings))
         return packet, stage_results
 
     # ------------------------------------------------------------------

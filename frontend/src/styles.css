@@ -878,6 +878,22 @@ button.nav-link {
   color: var(--text-muted);
 }
 
+.guided-runtime-failures {
+  display: grid;
+  gap: 8px;
+}
+
+.guided-runtime-failures p {
+  margin: 0;
+  border: 1px solid color-mix(in oklch, var(--danger), transparent 72%);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--danger), transparent 92%);
+  color: var(--danger);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 /* ── Form fields ──────────────────────────────────────────────── */
 .field input,
 .field textarea,
@@ -1077,6 +1093,7 @@ input:focus, select:focus, textarea:focus {
 .agent-card-main strong { display: block; color: var(--text-primary); font-size: 14px; }
 .agent-card-main span, .agent-card p, .agent-toggle { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
 .agent-card p { margin: 0; overflow-wrap: anywhere; }
+.agent-card-hint { min-height: 30px; }
 .agent-card-meta { justify-content: flex-start; flex-wrap: wrap; }
 .agent-toggle { justify-content: flex-start; font-weight: 600; }
 .agent-toggle input { width: 14px; height: 14px; }

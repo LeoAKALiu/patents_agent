@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PatentAgent",
+  "version": "1.1.0",
+  "identifier": "xin.liubo.patentagent",
+  "build": {
+    "beforeDevCommand": "npm --prefix ../frontend run dev",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "find ../backend -type d -name __pycache__ -prune -exec rm -rf {} + && npm --prefix ../frontend run build",
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "PatentAgent",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 640,
+        "backgroundColor": "#0f172a"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../backend": "backend"
+    },
+    "category": "Productivity",
+    "macOS": {
+      "signingIdentity": "-",
+      "hardenedRuntime": false
+    }
+  }
+}

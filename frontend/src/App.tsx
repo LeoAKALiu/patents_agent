@@ -46,12 +46,18 @@ import {
   ProjectMaterial,
   PatentStrategyBrief,
   ProjectRecord,
+  RuntimeFailure,
+  RuntimeStageState,
   SearchResult,
   SectionType,
   type DraftCompletionRun,
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
   acceptCompletionPatch,
+  cancelFormulaRun,
+  cancelPostDraftReview,
+  cancelProjectDeliberation,
+  cancelProjectDisclosure,
   confirmExternalDraftIntakeRun,
   createClaimDefenseWorksheet,
   createCorpusJob,
@@ -91,6 +97,10 @@ import {
   officialExportUrl,
   rejectCompletionPatch,
   reviewProject,
+  retryFormulaRun,
+  retryPostDraftReview,
+  retryProjectDeliberation,
+  retryProjectDisclosure,
   runCorpusJob,
   searchCorpus,
   startProjectDisclosure,
@@ -105,6 +115,7 @@ import {
   uploadProjectMaterial,
 } from "./api";
 import { GuidedPatentFlowView } from "./GuidedPatentFlow";
+import { runtimeDisplayElapsedMs, runtimeDisplayElapsedSeconds, useRuntimeNow } from "./runtimeDisplay";
 import { SettingsPanel } from "./SettingsPanel";
 import {
   canExportPackage,
@@ -147,6 +158,7 @@ import {
   type PatentType,
   type StartChoiceId,
 } from "./guidedFlow";
+import { OperationConsole } from "./ui/OperationConsole";
 
 type DesktopMenuBridge = {
   desktop?: {
@@ -396,6 +408,17 @@ function App() {
   const latestCompletionRun = completionRuns[0] ?? null;
   const latestOfficialCompileRun = selectCurrentOfficialCompileRun(officialCompileRuns, currentSourceDraftHash);
   const latestPostDraftReview = selectLatestMatchingPostDraftReview(postDraftReviews, latestOfficialCompileRun);
+  const selectedProjectIdForRefresh = selectedProject?.id ?? "";
+  const latestOfficialCompileRunId = latestOfficialCompileRun?.id ?? "";
+  const latestPostDraftReviewId = latestPostDraftReview?.id ?? "";
+  const lastExportRefreshKey = lastExport
+    ? [
+        lastExport.format,
+        lastExport.filePath,
+        lastExport.byteCount,
+        lastExport.officialPackageHash ?? "",
+      ].join(":")
+    : "";
   const activeMainSection = mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   const activeExpertToolEntry = expertToolGroups
     .flatMap((group) => group.tools)
@@ -405,12 +428,12 @@ function App() {
   useEffect(() => {
     void refreshAll();
   }, [
-    selectedProject,
-    latestOfficialCompileRun,
-    latestPostDraftReview,
+    selectedProjectIdForRefresh,
+    latestOfficialCompileRunId,
+    latestPostDraftReviewId,
     currentDraftHash,
     currentSourceDraftHash,
-    lastExport,
+    lastExportRefreshKey,
   ]);
 
   useEffect(() => {
@@ -515,7 +538,7 @@ function App() {
       void loadFormulaState(selectedProject.id);
       void loadOfficialCompileRuns(selectedProject.id);
       void loadPostDraftReviews(selectedProject.id);
-    }, 2500);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [selectedProject?.id, deliberationRuns, disclosureRuns, formulaRuns, postDraftReviews]);
 
@@ -582,6 +605,24 @@ function App() {
         setDisclosureRuns([]);
       }
       return false;
+    }
+  }
+
+  async function refreshDisclosureRunUntilSettled(projectId: string, runId: string): Promise<void> {
+    const pollDelaysMs = [900, 1500, 2500, 3500, 5000, 7000];
+    for (const delayMs of pollDelaysMs) {
+      await delay(delayMs);
+      if (selectedProjectIdRef.current !== projectId) return;
+      try {
+        const runs = await listProjectDisclosures(projectId);
+        if (selectedProjectIdRef.current !== projectId) return;
+        setDisclosureRuns(runs);
+        await loadPatentPoints(projectId);
+        const current = runs.find((item) => item.id === runId);
+        if (!current || (current.status !== "queued" && current.status !== "running")) return;
+      } catch {
+        return;
+      }
     }
   }
 
@@ -1103,6 +1144,11 @@ function App() {
       const run = await startProjectDisclosure(projectId, trace, disclosureResearchMode);
       const stillSelected = await loadDisclosures(projectId);
       if (!stillSelected) return;
+      if (run.status === "queued" || run.status === "running") {
+        void refreshDisclosureRunUntilSettled(projectId, run.id);
+      } else {
+        await loadPatentPoints(projectId);
+      }
       const modeLabel =
         disclosureResearchMode === "free_deep_research" ? "（免费 Deep Research 补充）" : "";
       setMessage(
@@ -1159,6 +1205,96 @@ function App() {
       setMessage(
         run.status === "completed" ? "正式稿编译完成" : `正式稿编译${pipelineRunStatusLabel(run.status)}`,
       );
+    });
+  }
+
+  async function handleCancelDisclosureRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-cancel", async () => {
+      const run = await cancelProjectDisclosure(projectId, runId);
+      const stillSelected = await loadDisclosures(projectId);
+      if (!stillSelected) return;
+      setMessage(`已请求取消交底书生成：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleRetryDisclosureRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-retry", async () => {
+      const run = await retryProjectDisclosure(projectId, runId);
+      const stillSelected = await loadDisclosures(projectId);
+      if (!stillSelected) return;
+      setMessage(`已重试交底书生成：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleCancelDeliberationRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-cancel", async () => {
+      const run = await cancelProjectDeliberation(projectId, runId);
+      const stillSelected = await loadDeliberations(projectId);
+      if (!stillSelected) return;
+      await loadFormulaState(projectId);
+      setMessage(`已请求取消会审：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleRetryDeliberationRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-retry", async () => {
+      const run = await retryProjectDeliberation(projectId, runId);
+      const stillSelected = await loadDeliberations(projectId);
+      if (!stillSelected) return;
+      await loadFormulaState(projectId);
+      setMessage(`已重试会审：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleCancelFormulaRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-cancel", async () => {
+      const run = await cancelFormulaRun(projectId, runId);
+      const stillSelected = await loadFormulaState(projectId);
+      if (!stillSelected) return;
+      setMessage(`已请求取消核心公式：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleRetryFormulaRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-retry", async () => {
+      const run = await retryFormulaRun(projectId, runId);
+      const stillSelected = await loadFormulaState(projectId);
+      if (!stillSelected) return;
+      setMessage(`已重试核心公式：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleCancelPostDraftReviewRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-cancel", async () => {
+      const run = await cancelPostDraftReview(projectId, runId);
+      const stillSelected = await loadPostDraftReviews(projectId);
+      if (!stillSelected) return;
+      setMessage(`已请求取消成稿会审：${pipelineRunStatusLabel(run.status)}`);
+    });
+  }
+
+  async function handleRetryPostDraftReviewRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("runtime-retry", async () => {
+      const run = await retryPostDraftReview(projectId, runId);
+      const stillSelected = await loadPostDraftReviews(projectId);
+      if (!stillSelected) return;
+      setMessage(`已重试成稿会审：${pipelineRunStatusLabel(run.status)}`);
     });
   }
 
@@ -1221,7 +1357,6 @@ function App() {
     if (!selectedProject?.package) return;
     const projectId = selectedProject.id;
     await withStatus("guided-quality", async () => {
-      await reviewProject(projectId);
       const report = await createFilingReadinessReport(projectId);
       const worksheet = await createClaimDefenseWorksheet(projectId);
       const completion = await createDraftCompletionRun(projectId);
@@ -1232,8 +1367,13 @@ function App() {
       setFilingReports((current) => [report, ...current.filter((item) => item.id !== report.id)]);
       setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== worksheet.id)]);
       setCompletionRuns((current) => [completion, ...current.filter((item) => item.id !== completion.id)]);
-      await loadOfficialCompileRuns(projectId);
-      await loadPostDraftReviews(projectId);
+      await Promise.all([
+        loadFilingReports(projectId),
+        loadWorksheets(projectId),
+        loadCompletionRuns(projectId),
+        loadOfficialCompileRuns(projectId),
+        loadPostDraftReviews(projectId),
+      ]);
       setMessage(`质量检查完成：整体评分 ${completion.scorecard.overall}/100`);
     });
   }
@@ -1432,6 +1572,8 @@ function App() {
             onUpload={handleUploadMaterial}
             onStart={handleStartDisclosure}
             onRefresh={() => selectedProject && loadDisclosures(selectedProject.id)}
+            onCancelRun={(runId) => void handleCancelDisclosureRun(runId)}
+            onRetryRun={(runId) => void handleRetryDisclosureRun(runId)}
           />
         );
       case "deliberate":
@@ -1446,6 +1588,8 @@ function App() {
             onStart={handleStartDeliberation}
             onToggleProvider={handleToggleDeliberationProvider}
             onRefresh={() => selectedProject && loadDeliberations(selectedProject.id)}
+            onCancelRun={(runId) => void handleCancelDeliberationRun(runId)}
+            onRetryRun={(runId) => void handleRetryDeliberationRun(runId)}
           />
         );
       case "write":
@@ -1715,11 +1859,19 @@ function App() {
             disclosureResearchMode={disclosureResearchMode}
             onChangeDisclosureResearchMode={setDisclosureResearchMode}
             onStartDisclosure={() => void handleStartDisclosure(false)}
+            onCancelDisclosureRun={(runId) => void handleCancelDisclosureRun(runId)}
+            onRetryDisclosureRun={(runId) => void handleRetryDisclosureRun(runId)}
             onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
             onStartDeliberation={() => void handleStartDeliberation(false)}
+            onCancelDeliberationRun={(runId) => void handleCancelDeliberationRun(runId)}
+            onRetryDeliberationRun={(runId) => void handleRetryDeliberationRun(runId)}
             onStartFormula={() => void handleStartFormula()}
+            onCancelFormulaRun={(runId) => void handleCancelFormulaRun(runId)}
+            onRetryFormulaRun={(runId) => void handleRetryFormulaRun(runId)}
             onStartOfficialCompile={() => void handleStartOfficialCompile()}
             onStartPostDraftReview={() => void handleStartPostDraftReview()}
+            onCancelPostDraftReviewRun={(runId) => void handleCancelPostDraftReviewRun(runId)}
+            onRetryPostDraftReviewRun={(runId) => void handleRetryPostDraftReviewRun(runId)}
             onToggleDeliberationProvider={handleToggleDeliberationProvider}
             onToggleFormulaProvider={handleToggleFormulaProvider}
             onGenerateDraft={() => void handleGenerate()}
@@ -1788,6 +1940,178 @@ function BusyOperationConsole({ log }: { log: ReturnType<typeof guidedOperationL
       <pre>{log.lines.join("\n")}</pre>
     </div>
   );
+}
+
+type RuntimeAwareRun = {
+  id: string;
+  status: string;
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  events?: string[];
+  providers?: string[];
+  stage_results?: unknown[];
+  failures?: unknown[];
+  logs?: unknown[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
+};
+
+function isActiveRun(run: RuntimeAwareRun | null | undefined): run is RuntimeAwareRun {
+  return Boolean(run && (run.status === "queued" || run.status === "running"));
+}
+
+function latestActiveRun<T extends RuntimeAwareRun>(runs: T[]): T | null {
+  return runs.find(isActiveRun) ?? null;
+}
+
+function isRetryableRun(run: RuntimeAwareRun): boolean {
+  const active = run.status === "queued" || run.status === "running";
+  return (
+    !active
+    && (run.status === "failed" || run.status === "interrupted" || Boolean(run.failure_details?.some((failure) => failure.retryable)))
+  );
+}
+
+function RuntimeRunActions({
+  run,
+  disabled = false,
+  onCancel,
+  onRetry,
+}: {
+  run: RuntimeAwareRun;
+  disabled?: boolean;
+  onCancel?: (runId: string) => void;
+  onRetry?: (runId: string) => void;
+}) {
+  const canCancel = Boolean(onCancel && isActiveRun(run) && !run.cancel_requested);
+  const canRetry = Boolean(onRetry && isRetryableRun(run));
+  if (!canCancel && !canRetry) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {canCancel && (
+        <button
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-950/40 hover:bg-red-900/50 text-red-100 border border-red-500/30 disabled:opacity-50 px-3 py-2 text-sm transition-colors"
+          disabled={disabled}
+          onClick={() => onCancel?.(run.id)}
+          title="请求取消当前运行"
+          type="button"
+        >
+          <AlertTriangle size={15} />
+          <span>取消运行</span>
+        </button>
+      )}
+      {canRetry && (
+        <button
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0f172a] hover:bg-[#1e293b] text-[#e2e8f0] border border-[#334155] disabled:opacity-50 px-3 py-2 text-sm transition-colors"
+          disabled={disabled}
+          onClick={() => onRetry?.(run.id)}
+          title="按相同输入重试该运行"
+          type="button"
+        >
+          <RefreshCw size={15} />
+          <span>重试</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RuntimeRunConsole({
+  run,
+  title,
+  actionDisabled,
+  onCancel,
+}: {
+  run: RuntimeAwareRun | null;
+  title: string;
+  actionDisabled?: boolean;
+  onCancel?: (runId: string) => void;
+}) {
+  const active = isActiveRun(run);
+  const now = useRuntimeNow(active);
+  if (!run || !active) return null;
+  const state = run.runtime_state ?? null;
+  const elapsedMs = runtimeDisplayElapsedMs(state, now);
+  const elapsedSeconds = runtimeDisplayElapsedSeconds(state, now);
+  const lines = [
+    `run ${run.id.slice(0, 10)} / ${pipelineRunStatusLabel(run.status)}`,
+    `stage ${runtimeStageLabel(state?.current_stage)}`,
+    state?.provider ? `provider ${state.provider}` : "",
+    state?.subtask ? `task ${state.subtask}` : "",
+    state?.query ? `query ${state.query}` : "",
+    state ? `elapsed ${formatRuntimeMs(elapsedMs)}` : "",
+    typeof state?.partial_artifact_count === "number" ? `partials ${state.partial_artifact_count}` : "",
+    typeof state?.warning_count === "number" ? `warnings ${state.warning_count}` : "",
+    state?.timeout_ms ? `stage timeout ${formatRuntimeMs(state.timeout_ms)}` : "",
+    run.events?.at(-1) ? `event ${run.events.at(-1)}` : "",
+  ].filter(Boolean);
+  return (
+    <div className="grid gap-2">
+      <OperationConsole label={title} lines={lines} elapsedSeconds={elapsedSeconds} />
+      <RuntimeRunActions run={run} disabled={actionDisabled} onCancel={onCancel} />
+    </div>
+  );
+}
+
+function RuntimeFailurePanel({ run }: { run: RuntimeAwareRun | null }) {
+  const failures = run?.failure_details ?? [];
+  if (!run || failures.length === 0) return null;
+  return (
+    <div className="grid gap-2">
+      {failures.slice(-3).map((failure, index) => (
+        <article className="rounded-lg border border-red-500/30 bg-red-950/20 p-3 text-sm" key={`${run.id}-runtime-failure-${index}`}>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-red-200/80">
+            <span>{failure.reason}</span>
+            <span>{runtimeStageLabel(failure.stage)}</span>
+            {failure.provider && <span>{failure.provider}</span>}
+            <span>{formatRuntimeMs(failure.elapsed_ms)}</span>
+          </div>
+          <p className="mt-1 text-[#e2e8f0]">{failure.message}</p>
+          {failure.repair_suggestion && <p className="mt-1 text-[#e2e8f0]/60">{failure.repair_suggestion}</p>}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function runtimeStageLabel(stage?: string | null): string {
+  if (!stage) return "等待调度";
+  const labels: Record<string, string> = {
+    queued: "等待调度",
+    disclosure_scan: "扫描材料",
+    patent_points: "提炼专利点",
+    prior_art_terms: "规划检索词",
+    prior_art_search: "检索现有技术",
+    prior_art_relevance: "现有技术对比",
+    disclosure_body: "生成交底正文",
+    disclosure_mermaid: "生成流程图",
+    disclosure_image_prompt: "生成绘图提示",
+    disclosure_self_check: "交底自检",
+    disclosure_package: "整理交底包",
+    deep_research_plan: "Deep Research 规划",
+    deep_research_evidence: "证据账本",
+    deep_research_final: "研究包收尾",
+    deliberation_prepare: "准备会审上下文",
+    deliberation: "多智能体会审",
+    deliberation_finalize: "会审收尾",
+    formula_assessment: "判断公式需求",
+    formula_generation: "凝练核心公式",
+    post_draft_review: "成稿会审",
+  };
+  if (labels[stage]) return labels[stage];
+  if (stage.startsWith("deep_research_queries")) return "Deep Research 检索词";
+  if (stage.startsWith("deep_research_search")) return "Deep Research 检索";
+  if (stage.startsWith("deep_research_synthesis")) return "Deep Research 归纳";
+  if (stage.startsWith("deep_research_obviousness")) return "创造性攻击模拟";
+  return stage.replaceAll("_", " ");
+}
+
+function formatRuntimeMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "00:00";
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function CorpusBuildView({
@@ -2010,6 +2334,10 @@ function Distribution({ title, values }: { title: string; values: Record<string,
 
 function percent(value: number | undefined): string {
   return `${Math.round((value ?? 0) * 100)}%`;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function latestCompletedDisclosure(runs: DisclosureRun[]): DisclosureRun | null {
@@ -2292,6 +2620,8 @@ function DeliberationView({
   onStart,
   onToggleProvider,
   onRefresh,
+  onCancelRun,
+  onRetryRun,
 }: {
   project: ProjectRecord | null;
   doctor: AgentDoctorReport | null;
@@ -2302,9 +2632,13 @@ function DeliberationView({
   onStart: (trace?: boolean) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
   onRefresh: () => void;
+  onCancelRun: (runId: string) => void;
+  onRetryRun: (runId: string) => void;
 }) {
   const latest = runs[0] ?? null;
   const completed = latestCompletedDeliberation(runs);
+  const activeRun = latestActiveRun(runs);
+  const deliberationBusy = busy === "deliberate" || Boolean(activeRun);
   return (
     <div className="flex flex-col gap-4">
       <section className="flex items-center justify-between gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
@@ -2312,7 +2646,7 @@ function DeliberationView({
           <h3>多智能体会审</h3>
           <p>
             {project
-              ? "会审会调用本机 Codex、Gemini、Claude，先讨论保护范围和写作策略，再注入生成流程。"
+              ? "会审会调用本机 Codex、DeepSeek、Claude，先讨论保护范围和写作策略，再注入生成流程。"
               : "先创建项目后再启动会审。"}
           </p>
           <p>{disclosure ? "将默认结合前置交底书。" : "暂无已完成交底书，会审仅基于草稿和检索片段。"}</p>
@@ -2323,15 +2657,16 @@ function DeliberationView({
           </button>
           <button
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[var(--action-primary)] to-[color-mix(in_oklch,var(--action-primary),black_30%)] text-[var(--action-primary-contrast)] font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
-            disabled={!project || busy === "deliberate"}
+            disabled={!project || deliberationBusy}
             onClick={() => onStart(false)}
             type="button"
           >
             <UsersRound size={18} />
-            <span>启动会审</span>
+            <span>{activeRun ? "会审中" : "启动会审"}</span>
           </button>
         </div>
       </section>
+      <RuntimeRunConsole run={activeRun} title="多智能体会审运行中" actionDisabled={Boolean(busy)} onCancel={onCancelRun} />
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="grid gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
@@ -2344,7 +2679,7 @@ function DeliberationView({
             doctor={doctor}
             role="deliberation"
             selectedProviders={selectedProviders}
-            disabled={busy === "deliberate"}
+            disabled={deliberationBusy}
             onToggleProvider={onToggleProvider}
           />
         </div>
@@ -2357,6 +2692,8 @@ function DeliberationView({
                 <div className="flex items-center gap-3 text-xs text-[var(--text-primary)]/60 font-medium mb-1">
                   <span>{pipelineRunStatusLabel(run.status)}</span>
                   <span>{deliberationRunModeLabel(run.run_mode)}</span>
+                  {run.runtime_state && <span>{runtimeStageLabel(run.runtime_state.current_stage)}</span>}
+                  {run.retry_of && <span>重试 {run.retry_of.slice(0, 8)}</span>}
                 </div>
                 <p>{run.providers.join(" / ")}</p>
                 <p>{run.events.at(-1) ?? "暂无事件"}</p>
@@ -2365,6 +2702,8 @@ function DeliberationView({
                   <span>{run.failures.length} 失败</span>
                   <span>{run.logs.length} 日志</span>
                 </div>
+                <RuntimeFailurePanel run={run} />
+                <RuntimeRunActions run={run} disabled={Boolean(busy)} onCancel={onCancelRun} onRetry={onRetryRun} />
                 {run.failures.length > 0 && (
                   <div className="flex flex-col gap-2">
                     {run.failures.map((failure) => (
@@ -2418,6 +2757,8 @@ function DisclosureView({
   onUpload,
   onStart,
   onRefresh,
+  onCancelRun,
+  onRetryRun,
 }: {
   project: ProjectRecord | null;
   materials: ProjectMaterial[];
@@ -2426,9 +2767,13 @@ function DisclosureView({
   onUpload: (event: FormEvent<HTMLFormElement>) => void;
   onStart: (trace?: boolean) => void;
   onRefresh: () => void;
+  onCancelRun: (runId: string) => void;
+  onRetryRun: (runId: string) => void;
 }) {
   const latest = runs[0] ?? null;
   const completed = latestCompletedDisclosure(runs);
+  const activeRun = latestActiveRun(runs);
+  const disclosureBusy = busy === "disclosure" || Boolean(activeRun);
   return (
     <div className="flex flex-col gap-4">
       <section className="flex items-center justify-between gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
@@ -2444,12 +2789,13 @@ function DisclosureView({
           <button className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--surface-subtle)] hover:bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-sm border border-[var(--border-subtle)] disabled:opacity-50 transition-colors" onClick={onRefresh} type="button" title="刷新前置材料">
             <RefreshCw size={17} />
           </button>
-          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[var(--action-primary)] to-[color-mix(in_oklch,var(--action-primary),black_30%)] text-[var(--action-primary-contrast)] font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || busy === "disclosure"} onClick={() => onStart(false)} type="button">
+          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[var(--action-primary)] to-[color-mix(in_oklch,var(--action-primary),black_30%)] text-[var(--action-primary-contrast)] font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || disclosureBusy} onClick={() => onStart(false)} type="button">
             <ClipboardList size={18} />
-            <span>生成交底书</span>
+            <span>{activeRun ? "生成中" : "生成交底书"}</span>
           </button>
         </div>
       </section>
+      <RuntimeRunConsole run={activeRun} title="交底书生成运行中" actionDisabled={Boolean(busy)} onCancel={onCancelRun} />
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="grid gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
@@ -2489,9 +2835,13 @@ function DisclosureView({
                 <div className="flex items-center gap-3 text-xs text-[var(--text-primary)]/60 font-medium mb-1">
                   <span>{pipelineRunStatusLabel(run.status)}</span>
                   <span>{run.package?.prior_art_hits.length ?? 0} 条现有技术</span>
+                  {run.runtime_state && <span>{runtimeStageLabel(run.runtime_state.current_stage)}</span>}
+                  {run.retry_of && <span>重试 {run.retry_of.slice(0, 8)}</span>}
                 </div>
                 <p>{run.package?.title ?? run.events.at(-1) ?? "等待生成"}</p>
                 <p>{run.events.at(-1) ?? "暂无事件"}</p>
+                <RuntimeFailurePanel run={run} />
+                <RuntimeRunActions run={run} disabled={Boolean(busy)} onCancel={onCancelRun} onRetry={onRetryRun} />
               </article>
             ))}
             {runs.length === 0 && <p className="text-sm text-[var(--text-primary)]/50 italic py-4">暂无交底书生成记录。</p>}
@@ -2520,9 +2870,9 @@ function StartChoiceScreen({ onSelect }: { onSelect: (choice: StartChoiceId) => 
     external: Upload,
   };
   return (
-    <section className="start-choice-screen" aria-label="v1.0.0 默认入口">
+    <section className="start-choice-screen" aria-label="v1.1.0 默认入口">
       <div className="start-choice-copy">
-        <span className="status-badge">v1.0.0</span>
+        <span className="status-badge">v1.1.0</span>
         <h3>请选择本次工作的起点</h3>
         <p>普通用户只需要先选一种路径；专家工具已移到二级导航，仍可随时打开。</p>
       </div>
@@ -2865,6 +3215,7 @@ function DisclosurePreview({
           )}
         </div>
       </section>
+      <DisclosureSourceStatus packageValue={packageValue} />
 
       <section className="flex flex-col gap-6">
         {selected && <PreviewBlock title="推荐专利点" text={`${selected.title}\n${selected.innovation}\n${selected.rationale}`} />}
@@ -2882,6 +3233,42 @@ function DisclosurePreview({
       </section>
     </div>
   );
+}
+
+function DisclosureSourceStatus({ packageValue }: { packageValue: DisclosurePackage }) {
+  const diagnostics = packageValue.provider_diagnostics ?? [];
+  const activeChain = diagnostics.flatMap((item) => item.active_chain ?? []);
+  const skipped = diagnostics.flatMap((item) => item.skipped_providers ?? []);
+  const warnings = diagnostics.flatMap((item) => item.warnings ?? []);
+  return (
+    <section className="grid gap-3 border border-[#334155] rounded-lg bg-[#162032] p-4">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-[#e2e8f0]/60 font-medium">
+        <span>研究置信度：{researchConfidenceLabel(packageValue.research_confidence)}</span>
+        <span>检索链：{dedupeStrings(activeChain).join(" / ") || "未记录"}</span>
+        <span>现有技术：{packageValue.prior_art_hits.length} 条</span>
+      </div>
+      {(skipped.length > 0 || warnings.length > 0) && (
+        <div className="grid gap-2 text-sm text-[#e2e8f0]/70">
+          {skipped.slice(0, 4).map((item) => (
+            <p key={`${item.provider}-${item.reason}`}>{item.provider} 跳过：{item.reason}</p>
+          ))}
+          {warnings.slice(0, 3).map((warning, index) => <p key={`provider-warning-${index}`}>告警：{warning}</p>)}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function researchConfidenceLabel(value: DisclosurePackage["research_confidence"]): string {
+  if (value === "high") return "高";
+  if (value === "medium") return "中";
+  if (value === "low") return "低";
+  if (value === "none") return "无";
+  return "未记录";
+}
+
+function dedupeStrings(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
 }
 
 function DisclosureSummaryView({ packageValue }: { packageValue: DisclosurePackage | null }) {

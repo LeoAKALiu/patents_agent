@@ -4,6 +4,7 @@ import re
 import shutil
 import time
 import uuid
+from itertools import combinations
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
@@ -58,6 +59,7 @@ from backend.app.official_compile import (
 from backend.app.patent_mode import is_utility_model_project
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
 from backend.app.post_draft_review import (
+    package_hash_for_review,
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
@@ -67,7 +69,12 @@ from backend.app.research.deep_researcher import (
     PatentDeepResearcher,
     PriorArtProviderAdapter,
 )
+from backend.app.research.ledger import (
+    ProviderDiagnostic,
+    SourceLedger,
+)
 from backend.app.research.providers import ChainedResearchProvider, build_provider_chain
+from backend.app.runtime import RuntimeCancelled, RuntimeContext, RuntimeTimeout
 from backend.app.schemas import (
     AgentFailure,
     DeepResearchPacket,
@@ -89,18 +96,21 @@ from backend.app.schemas import (
     FormulaRunCreate,
     GenerateRequest,
     InventionBrief,
+    OfficialDraftPackage,
     OfficialCompileRunCreate,
     OfficialCompileRun,
     PatentChunk,
     PatentPointCandidate,
     PatentPointCreate,
     PatentPointUpdate,
+    PostDraftReviewRun,
     PostDraftReviewRunCreate,
     ProposedPatch,
     CorpusImportJobCreate,
     ProjectMaterial,
     ProjectCreate,
     ProjectRecord,
+    RuntimeFailure,
     SectionType,
     ScoreImprovementRequest,
     ScoreImprovementResult,
@@ -109,16 +119,17 @@ from backend.app.settings import Settings, build_settings
 from backend.app.storage import SQLiteStore
 
 
-STRICT_DELIBERATION_PROVIDERS = ("codex", "gemini", "claude")
-APP_VERSION = "1.0.0"
+STRICT_DELIBERATION_PROVIDERS = ("codex", "deepseek", "claude")
+APP_VERSION = "1.1.0"
 LOCAL_RENDERER_ORIGINS = frozenset(
     {
-        "null",  # Electron/file:// renderer fetches report Origin: null.
-        "file://",
         "http://127.0.0.1:5173",
         "http://localhost:5173",
         "http://127.0.0.1:5174",
         "http://localhost:5174",
+        "tauri://localhost",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
     }
 )
 
@@ -126,9 +137,9 @@ LOCAL_RENDERER_ORIGINS = frozenset(
 def _enforce_desktop_config_origin(request: Request) -> None:
     """Reject browser-originated config writes from non-renderer origins.
 
-    Electron main-process requests and tests do not send Origin, so absence is
-    allowed. Browser requests from arbitrary sites send Origin and must not be
-    able to read or mutate the local desktop LLM configuration.
+    Tauri command invocations and backend tests do not send Origin, so absence
+    is allowed. Browser requests from arbitrary sites send Origin and must not
+    be able to read or mutate the local desktop LLM configuration.
     """
 
     origin = request.headers.get("origin")
@@ -686,6 +697,8 @@ def create_app(
                 research_search_provider=app.state.research_search_provider,
                 project=project,
                 run=run,
+                stage_timeout_ms=payload.stage_timeout_ms,
+                run_timeout_ms=payload.run_timeout_ms,
             )
             return completed.model_dump(mode="json")
         background_tasks.add_task(
@@ -697,6 +710,8 @@ def create_app(
             app.state.research_search_provider,
             project,
             run,
+            payload.stage_timeout_ms,
+            payload.run_timeout_ms,
         )
         return run.model_dump(mode="json")
 
@@ -713,6 +728,68 @@ def create_app(
             raise HTTPException(status_code=404, detail="Disclosure run not found.")
         return run.model_dump(mode="json")
 
+    @app.post("/api/projects/{project_id}/disclosures/{run_id}/cancel")
+    def cancel_disclosure(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_disclosure_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Disclosure run not found.")
+        updated = _mark_disclosure_cancel_requested(store, run)
+        return updated.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/disclosures/{run_id}/retry")
+    def retry_disclosure(
+        project_id: str,
+        run_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> dict:
+        project = _require_project(store, project_id)
+        previous = store.get_disclosure_run(project_id, run_id)
+        if not previous:
+            raise HTTPException(status_code=404, detail="Disclosure run not found.")
+        if isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating disclosures.")
+        retry_id = uuid.uuid4().hex
+        run_dir = settings.data_dir / "disclosures" / project_id / retry_id
+        retry_run = DisclosureRun(
+            id=retry_id,
+            project_id=project_id,
+            status="queued",
+            trace=previous.trace,
+            max_prior_art_results=previous.max_prior_art_results,
+            research_mode=previous.research_mode,
+            run_dir=str(run_dir),
+            retry_of=previous.id,
+            events=[f"retry requested for disclosure run {previous.id}"],
+        )
+        store.create_disclosure_run(retry_run)
+        if app.state.disclosure_inline:
+            completed = _execute_disclosure(
+                store=store,
+                index=index,
+                llm=app.state.llm,
+                prior_art_provider=app.state.prior_art_provider,
+                research_search_provider=app.state.research_search_provider,
+                project=project,
+                run=retry_run,
+                stage_timeout_ms=None,
+                run_timeout_ms=None,
+            )
+            return completed.model_dump(mode="json")
+        background_tasks.add_task(
+            _execute_disclosure,
+            store,
+            index,
+            app.state.llm,
+            app.state.prior_art_provider,
+            app.state.research_search_provider,
+            project,
+            retry_run,
+            None,
+            None,
+        )
+        return retry_run.model_dump(mode="json")
+
     @app.post("/api/projects/{project_id}/deliberations")
     def create_deliberation(
         project_id: str,
@@ -721,9 +798,13 @@ def create_app(
     ) -> dict:
         project = _require_project(store, project_id)
         doctor = inspect_agent_environment()
-        requested = payload.providers or list(STRICT_DELIBERATION_PROVIDERS)
+        requested = _agent_provider_ids_for_role(
+            doctor,
+            payload.providers or list(STRICT_DELIBERATION_PROVIDERS),
+            "deliberation",
+        )
         available = set(doctor.active_provider_ids)
-        selectable = set(doctor.active_provider_ids) | set(doctor.unknown_required)
+        selectable = _selectable_agent_provider_ids(doctor)
         active_requested_count = len(requested) if app.state.provider_runner is not None else len([provider for provider in requested if provider in available])
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
@@ -785,6 +866,7 @@ def create_app(
                 run=run,
                 trace=payload.trace,
                 task_timeout_ms=payload.task_timeout_ms or 180_000,
+                run_timeout_ms=payload.run_timeout_ms,
             )
             return completed.model_dump(mode="json")
         background_tasks.add_task(
@@ -796,13 +878,15 @@ def create_app(
             run,
             payload.trace,
             payload.task_timeout_ms or 180_000,
+            payload.run_timeout_ms,
         )
         return run.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/deliberations")
     def list_deliberations(project_id: str) -> dict:
         _require_project(store, project_id)
-        return {"runs": [run.model_dump(mode="json") for run in store.list_deliberation_runs(project_id)]}
+        runs = [_reconcile_deliberation_run(store, run) for run in store.list_deliberation_runs(project_id)]
+        return {"runs": [run.model_dump(mode="json") for run in runs]}
 
     @app.get("/api/projects/{project_id}/deliberations/{run_id}")
     def get_deliberation(project_id: str, run_id: str) -> dict:
@@ -810,7 +894,68 @@ def create_app(
         run = store.get_deliberation_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
+        run = _reconcile_deliberation_run(store, run)
         return run.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/deliberations/{run_id}/cancel")
+    def cancel_deliberation(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_deliberation_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Deliberation run not found.")
+        updated = _mark_deliberation_cancel_requested(store, run)
+        return updated.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/deliberations/{run_id}/retry")
+    def retry_deliberation(
+        project_id: str,
+        run_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> dict:
+        project = _require_project(store, project_id)
+        previous = store.get_deliberation_run(project_id, run_id)
+        if not previous:
+            raise HTTPException(status_code=404, detail="Deliberation run not found.")
+        providers = _agent_provider_ids_for_role(inspect_agent_environment(), previous.providers, "deliberation")
+        retry_id = uuid.uuid4().hex
+        run_dir = settings.data_dir / "deliberation-runs" / project_id / retry_id
+        retry_run = DeliberationRun(
+            id=retry_id,
+            project_id=project_id,
+            status="queued",
+            providers=providers,
+            run_mode=_run_mode(len(providers)),
+            round_depth=previous.round_depth,
+            trace=previous.trace,
+            run_dir=str(run_dir),
+            retry_of=previous.id,
+            events=[f"retry requested for deliberation run {previous.id}", f"providers normalized: {','.join(providers)}"],
+        )
+        store.create_deliberation_run(retry_run)
+        if app.state.provider_runner is not None:
+            completed = _execute_deliberation(
+                store=store,
+                index=index,
+                provider_runner=app.state.provider_runner,
+                project=project,
+                run=retry_run,
+                trace=retry_run.trace,
+                task_timeout_ms=180_000,
+                run_timeout_ms=None,
+            )
+            return completed.model_dump(mode="json")
+        background_tasks.add_task(
+            _execute_deliberation,
+            store,
+            index,
+            app.state.provider_runner,
+            project,
+            retry_run,
+            retry_run.trace,
+            180_000,
+            None,
+        )
+        return retry_run.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/formula-requirement")
     def get_formula_requirement(project_id: str) -> dict:
@@ -840,7 +985,8 @@ def create_app(
         )
         if assessment.required and isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating core formulas.")
-        run = generate_formula_run(
+        run = _execute_formula_run(
+            store=store,
             project_id=project_id,
             project=project,
             patent_points=patent_points,
@@ -848,13 +994,59 @@ def create_app(
             strategy_brief=deliberation.strategy_brief if deliberation else None,
             llm=app.state.llm,
             providers=providers,
+            stage_timeout_ms=payload.stage_timeout_ms if payload else None,
+            run_timeout_ms=payload.run_timeout_ms if payload else None,
+            retry_of=None,
         )
-        return store.create_formula_run(run).model_dump(mode="json")
+        return run.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/formula-runs")
     def list_formula_runs(project_id: str) -> dict:
         _require_project(store, project_id)
         return {"runs": [run.model_dump(mode="json") for run in store.list_formula_runs(project_id)]}
+
+    @app.get("/api/projects/{project_id}/formula-runs/{run_id}")
+    def get_formula_run(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_formula_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Formula run not found.")
+        return run.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/formula-runs/{run_id}/cancel")
+    def cancel_formula_run(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_formula_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Formula run not found.")
+        updated = _mark_formula_cancel_requested(store, run)
+        return updated.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/formula-runs/{run_id}/retry")
+    def retry_formula_run(project_id: str, run_id: str) -> dict:
+        project = _require_project(store, project_id)
+        previous = store.get_formula_run(project_id, run_id)
+        if not previous:
+            raise HTTPException(status_code=404, detail="Formula run not found.")
+        disclosure = store.get_latest_completed_disclosure_run(project_id)
+        deliberation = _resolve_deliberation(store, project_id, None)
+        patent_points = store.list_project_patent_points(project_id)
+        if previous.requirement.required and isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating core formulas.")
+        run = _execute_formula_run(
+            store=store,
+            project_id=project_id,
+            project=project,
+            patent_points=patent_points,
+            disclosure=disclosure.package if disclosure else None,
+            strategy_brief=deliberation.strategy_brief if deliberation else None,
+            llm=app.state.llm,
+            providers=list(previous.providers),
+            stage_timeout_ms=None,
+            run_timeout_ms=None,
+            retry_of=previous.id,
+        )
+        return run.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/formula-runs/{run_id}/latex.md")
     def export_formula_markdown(project_id: str, run_id: str) -> PlainTextResponse:
@@ -1145,15 +1337,18 @@ def create_app(
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
         providers = list(payload.providers if payload and payload.providers else STRICT_DELIBERATION_PROVIDERS)
-        run = run_post_draft_review(
+        run = _execute_post_draft_review(
+            store=store,
             project_id=project_id,
             package=compile_run.official_package,
             llm=app.state.llm,
             providers=providers,
             official_compile_run_id=compile_run.id,
+            stage_timeout_ms=payload.stage_timeout_ms if payload else None,
+            run_timeout_ms=payload.run_timeout_ms if payload else None,
+            retry_of=None,
         )
-        stored = store.create_post_draft_review_run(run)
-        return stored.model_dump(mode="json")
+        return run.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/post-draft-reviews")
     def list_post_draft_reviews(project_id: str) -> dict:
@@ -1170,6 +1365,38 @@ def create_app(
         run = store.get_post_draft_review_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
+        return run.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/cancel")
+    def cancel_post_draft_review(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_post_draft_review_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Post-draft review run not found.")
+        updated = _mark_post_draft_cancel_requested(store, run)
+        return updated.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/retry")
+    def retry_post_draft_review(project_id: str, run_id: str) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        compile_run = _require_latest_completed_official_compile(store, project_id, package)
+        previous = store.get_post_draft_review_run(project_id, run_id)
+        if not previous:
+            raise HTTPException(status_code=404, detail="Post-draft review run not found.")
+        if isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
+        run = _execute_post_draft_review(
+            store=store,
+            project_id=project_id,
+            package=compile_run.official_package,
+            llm=app.state.llm,
+            providers=list(previous.providers),
+            official_compile_run_id=compile_run.id,
+            stage_timeout_ms=None,
+            run_timeout_ms=None,
+            retry_of=previous.id,
+        )
         return run.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/post-draft-reviews/{run_id}/report.md")
@@ -1302,6 +1529,411 @@ def create_app(
     return app
 
 
+_TERMINAL_RUN_STATUSES = {"completed", "failed", "interrupted"}
+_ACTIVE_RUN_STATUSES = {"queued", "running"}
+
+
+def _runtime_failure(
+    *,
+    flow: str,
+    reason: str,
+    message: str,
+    state: object | None = None,
+    retryable: bool = True,
+    repair_suggestion: str = "",
+) -> RuntimeFailure:
+    return RuntimeFailure(
+        flow=flow,
+        stage=str(getattr(state, "current_stage", "") or "queued"),
+        provider=str(getattr(state, "provider", "") or ""),
+        reason=reason,
+        message=message,
+        retryable=retryable,
+        elapsed_ms=int(getattr(state, "elapsed_ms", 0) or 0),
+        repair_suggestion=repair_suggestion,
+        partial_artifact_count=int(getattr(state, "partial_artifact_count", 0) or 0),
+    )
+
+
+def _with_event_once(events: list[str], event: str) -> list[str]:
+    if event in events:
+        return events
+    return [*events, event]
+
+
+def _cancelled_deliberation_run(run: DeliberationRun) -> DeliberationRun:
+    failure_details = list(run.failure_details)
+    if not any(failure.reason == "cancelled" for failure in failure_details):
+        failure_details.append(
+            _runtime_failure(
+                flow="deliberation",
+                reason="cancelled",
+                message="Deliberation run was cancelled; partial artifacts were preserved for retry.",
+                state=run.runtime_state,
+                repair_suggestion="Review partial stage results, then retry the run when ready.",
+            )
+        )
+    events = _with_event_once(list(run.events), "cancel requested")
+    events = _with_event_once(events, "run cancelled")
+    return run.model_copy(
+        update={
+            "status": "interrupted",
+            "cancel_requested": True,
+            "failure_details": failure_details,
+            "events": events,
+        }
+    )
+
+
+def _reconcile_deliberation_run(store: SQLiteStore, run: DeliberationRun) -> DeliberationRun:
+    if run.status not in _ACTIVE_RUN_STATUSES:
+        return run
+    if run.cancel_requested or any(failure.reason == "cancelled" for failure in run.failure_details):
+        updated = _cancelled_deliberation_run(run)
+        store.update_deliberation_run(updated)
+        return updated
+    if run.failure_details:
+        updated = run.model_copy(
+            update={
+                "status": "failed",
+                "events": _with_event_once(list(run.events), "run failed"),
+            }
+        )
+        store.update_deliberation_run(updated)
+        return updated
+    return run
+
+
+def _mark_disclosure_cancel_requested(store: SQLiteStore, run: DisclosureRun) -> DisclosureRun:
+    if run.status in _TERMINAL_RUN_STATUSES:
+        return run
+    failure_details = list(run.failure_details)
+    events = [*run.events, "cancel requested"]
+    status = run.status
+    if run.status == "queued":
+        status = "interrupted"
+        failure_details.append(
+            _runtime_failure(
+                flow="disclosure",
+                reason="cancelled",
+                message="Disclosure run was cancelled before execution started.",
+                state=run.runtime_state,
+                repair_suggestion="Retry the run when ready.",
+            )
+        )
+    updated = run.model_copy(
+        update={
+            "status": status,
+            "cancel_requested": True,
+            "failure_details": failure_details,
+            "events": events,
+        }
+    )
+    store.update_disclosure_run(updated)
+    return updated
+
+
+def _mark_deliberation_cancel_requested(store: SQLiteStore, run: DeliberationRun) -> DeliberationRun:
+    if run.status in _TERMINAL_RUN_STATUSES:
+        return run
+    updated = _cancelled_deliberation_run(run)
+    store.update_deliberation_run(updated)
+    return updated
+
+
+def _mark_formula_cancel_requested(store: SQLiteStore, run: FormulaRun) -> FormulaRun:
+    if run.status in _TERMINAL_RUN_STATUSES:
+        return run
+    failure_details = list(run.failure_details)
+    status = run.status
+    if run.status == "queued":
+        status = "interrupted"
+        failure_details.append(
+            _runtime_failure(
+                flow="formula",
+                reason="cancelled",
+                message="Formula run was cancelled before execution started.",
+                state=run.runtime_state,
+                repair_suggestion="Retry the formula run when ready.",
+            )
+        )
+    updated = run.model_copy(
+        update={
+            "status": status,
+            "cancel_requested": True,
+            "failure_details": failure_details,
+            "events": [*run.events, "cancel requested"],
+        }
+    )
+    store.update_formula_run(updated)
+    return updated
+
+
+def _mark_post_draft_cancel_requested(store: SQLiteStore, run: PostDraftReviewRun) -> PostDraftReviewRun:
+    if run.status in _TERMINAL_RUN_STATUSES:
+        return run
+    failure_details = list(run.failure_details)
+    status = run.status
+    if status == "queued":
+        status = "interrupted"
+        failure_details.append(
+            _runtime_failure(
+                flow="post_draft_review",
+                reason="cancelled",
+                message="Post-draft review run was cancelled before execution started.",
+                state=run.runtime_state,
+                repair_suggestion="Retry the review after the official draft is ready.",
+            )
+        )
+    updated = run.model_copy(
+        update={
+            "status": status,
+            "cancel_requested": True,
+            "failure_details": failure_details,
+        }
+    )
+    store.update_post_draft_review_run(updated)
+    return updated
+
+
+def _execute_formula_run(
+    *,
+    store: SQLiteStore,
+    project_id: str,
+    project: ProjectRecord,
+    patent_points: list[PatentPointCandidate],
+    disclosure: DisclosurePackage | None,
+    strategy_brief: object | None,
+    llm: LLMClient,
+    providers: list[str],
+    stage_timeout_ms: int | None,
+    run_timeout_ms: int | None,
+    retry_of: str | None,
+) -> FormulaRun:
+    requirement = assess_formula_need(
+        project=project,
+        patent_points=patent_points,
+        disclosure=disclosure,
+        strategy_brief=strategy_brief,
+    )
+    run_id = uuid.uuid4().hex
+    running = FormulaRun(
+        id=run_id,
+        project_id=project_id,
+        status="running",
+        providers=providers,
+        requirement=requirement,
+        retry_of=retry_of,
+        events=["run started"],
+    )
+    store.create_formula_run(running)
+
+    def is_cancelled() -> bool:
+        current = store.get_formula_run(project_id, run_id)
+        return bool(current and current.cancel_requested)
+
+    def persist_runtime(state: object) -> None:
+        current = store.get_formula_run(project_id, run_id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            return
+        store.update_formula_run(current.model_copy(update={"runtime_state": state}))
+
+    runtime = RuntimeContext(
+        flow="formula",
+        run_id=run_id,
+        stage_timeout_ms=stage_timeout_ms,
+        run_timeout_ms=run_timeout_ms,
+        cancel_check=is_cancelled,
+        on_update=persist_runtime,
+    )
+    try:
+        runtime.begin_stage("formula_assessment", provider="system", subtask="formula requirement")
+        runtime.complete_stage(partial_artifact_count=0, warning_count=0)
+        runtime.begin_stage("formula_generation", provider="llm", subtask="core formula package")
+        generated = generate_formula_run(
+            project_id=project_id,
+            project=project,
+            patent_points=patent_points,
+            disclosure=disclosure,
+            strategy_brief=strategy_brief,
+            llm=llm,
+            providers=providers,
+        )
+        state = runtime.complete_stage(
+            partial_artifact_count=1 if generated.package else 0,
+            warning_count=len(generated.failures),
+        )
+        current = store.get_formula_run(project_id, run_id) or running
+        completed = generated.model_copy(
+            update={
+                "id": run_id,
+                "project_id": project_id,
+                "providers": providers,
+                "runtime_state": state,
+                "cancel_requested": current.cancel_requested,
+                "retry_of": retry_of,
+                "failure_details": [*current.failure_details, *generated.failure_details],
+                "events": [*current.events, *generated.events],
+            }
+        )
+        store.update_formula_run(completed)
+        return completed
+    except RuntimeCancelled:
+        current = store.get_formula_run(project_id, run_id) or running
+        failure = runtime.cancelled_failure()
+        interrupted = current.model_copy(
+            update={
+                "status": "interrupted",
+                "cancel_requested": True,
+                "failure_details": [*current.failure_details, failure],
+                "events": [*current.events, "run cancelled"],
+            }
+        )
+        store.update_formula_run(interrupted)
+        return interrupted
+    except RuntimeTimeout as exc:
+        current = store.get_formula_run(project_id, run_id) or running
+        failure = runtime.timeout_failure(str(exc))
+        failed = current.model_copy(
+            update={
+                "status": "failed",
+                "failure_details": [*current.failure_details, failure],
+                "events": [*current.events, f"run timed out: {exc}"],
+            }
+        )
+        store.update_formula_run(failed)
+        return failed
+    except Exception as exc:
+        current = store.get_formula_run(project_id, run_id) or running
+        failure = runtime.failure(
+            reason="exception",
+            message=str(exc),
+            retryable=True,
+            repair_suggestion="Retry after fixing the formula provider or prompt/schema issue.",
+        )
+        failed = current.model_copy(
+            update={
+                "status": "failed",
+                "failures": [*current.failures, str(exc)],
+                "failure_details": [*current.failure_details, failure],
+                "events": [*current.events, f"run failed: {exc}"],
+            }
+        )
+        store.update_formula_run(failed)
+        return failed
+
+
+def _execute_post_draft_review(
+    *,
+    store: SQLiteStore,
+    project_id: str,
+    package: OfficialDraftPackage,
+    llm: LLMClient,
+    providers: list[str],
+    official_compile_run_id: str,
+    stage_timeout_ms: int | None,
+    run_timeout_ms: int | None,
+    retry_of: str | None,
+) -> PostDraftReviewRun:
+    run_id = uuid.uuid4().hex
+    running = PostDraftReviewRun(
+        id=run_id,
+        project_id=project_id,
+        status="running",
+        providers=providers,
+        draft_package_hash=package.source_draft_hash,
+        official_compile_run_id=official_compile_run_id,
+        official_package_hash=package_hash_for_review(package),
+        retry_of=retry_of,
+    )
+    store.create_post_draft_review_run(running)
+
+    def is_cancelled() -> bool:
+        current = store.get_post_draft_review_run(project_id, run_id)
+        return bool(current and current.cancel_requested)
+
+    def persist_runtime(state: object) -> None:
+        current = store.get_post_draft_review_run(project_id, run_id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            return
+        store.update_post_draft_review_run(current.model_copy(update={"runtime_state": state}))
+
+    runtime = RuntimeContext(
+        flow="post_draft_review",
+        run_id=run_id,
+        stage_timeout_ms=stage_timeout_ms,
+        run_timeout_ms=run_timeout_ms,
+        cancel_check=is_cancelled,
+        on_update=persist_runtime,
+    )
+    try:
+        runtime.begin_stage("post_draft_review", provider="llm", subtask="role review")
+        generated = run_post_draft_review(
+            project_id=project_id,
+            package=package,
+            llm=llm,
+            providers=providers,
+            official_compile_run_id=official_compile_run_id,
+        )
+        state = runtime.complete_stage(
+            partial_artifact_count=len(generated.role_results) + (1 if generated.chair_result else 0),
+            warning_count=len(generated.blocking_issues) + len(generated.contamination_hits),
+        )
+        current = store.get_post_draft_review_run(project_id, run_id) or running
+        completed = generated.model_copy(
+            update={
+                "id": run_id,
+                "project_id": project_id,
+                "providers": providers,
+                "runtime_state": state,
+                "cancel_requested": current.cancel_requested,
+                "retry_of": retry_of,
+                "failure_details": [*current.failure_details, *generated.failure_details],
+            }
+        )
+        store.update_post_draft_review_run(completed)
+        return completed
+    except RuntimeCancelled:
+        current = store.get_post_draft_review_run(project_id, run_id) or running
+        failure = runtime.cancelled_failure()
+        interrupted = current.model_copy(
+            update={
+                "status": "interrupted",
+                "cancel_requested": True,
+                "failure_details": [*current.failure_details, failure],
+            }
+        )
+        store.update_post_draft_review_run(interrupted)
+        return interrupted
+    except RuntimeTimeout as exc:
+        current = store.get_post_draft_review_run(project_id, run_id) or running
+        failure = runtime.timeout_failure(str(exc))
+        failed = current.model_copy(
+            update={
+                "status": "failed",
+                "failure_details": [*current.failure_details, failure],
+            }
+        )
+        store.update_post_draft_review_run(failed)
+        return failed
+    except Exception as exc:
+        current = store.get_post_draft_review_run(project_id, run_id) or running
+        failure = runtime.failure(
+            reason="exception",
+            message=str(exc),
+            retryable=True,
+            repair_suggestion="Retry after fixing the review provider or schema issue.",
+        )
+        failed = current.model_copy(
+            update={
+                "status": "failed",
+                "failure_details": [*current.failure_details, failure],
+            }
+        )
+        store.update_post_draft_review_run(failed)
+        return failed
+
+
 def _execute_disclosure(
     store: SQLiteStore,
     index: LocalVectorIndex,
@@ -1310,12 +1942,49 @@ def _execute_disclosure(
     research_search_provider: DeepResearchSearchProvider | None,
     project: ProjectRecord,
     run: DisclosureRun,
+    stage_timeout_ms: int | None = None,
+    run_timeout_ms: int | None = None,
 ) -> DisclosureRun:
     running = run.model_copy(update={"status": "running", "events": [*run.events, "run started"]})
     store.update_disclosure_run(running)
+    partial_stage_results: list[dict[str, Any]] = list(run.stage_results)
+
+    def is_cancelled() -> bool:
+        current = store.get_disclosure_run(project.id, run.id)
+        return bool(current and current.cancel_requested)
+
+    def persist_runtime(state: object) -> None:
+        current = store.get_disclosure_run(project.id, run.id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            return
+        store.update_disclosure_run(current.model_copy(update={"runtime_state": state}))
+
+    def persist_stage_results(stages: list[dict[str, Any]]) -> None:
+        nonlocal partial_stage_results
+        partial_stage_results = list(stages)
+        current = store.get_disclosure_run(project.id, run.id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            return
+        store.update_disclosure_run(current.model_copy(update={"stage_results": partial_stage_results}))
+
+    runtime = RuntimeContext(
+        flow="disclosure",
+        run_id=run.id,
+        stage_timeout_ms=stage_timeout_ms,
+        run_timeout_ms=run_timeout_ms,
+        cancel_check=is_cancelled,
+        on_update=persist_runtime,
+    )
     materials = store.list_project_materials(project.id)
     brief = _brief_from_draft(project)
     context = _retrieve_generation_context(index, brief)
+
+    # ---- V1.1: pre-flight provider diagnostics ----
+    pre_diagnostics = _collect_provider_diagnostics(
+        prior_art_provider=prior_art_provider,
+        research_search_provider=research_search_provider,
+    )
+
     try:
         generator = DisclosureGenerator(llm, prior_art_provider)
         user_candidates = store.list_project_patent_points(project.id)
@@ -1325,7 +1994,11 @@ def _execute_disclosure(
             context_chunks=context,
             max_prior_art_results=run.max_prior_art_results,
             user_candidates=user_candidates,
+            pre_diagnostics=[d.model_dump(mode="json") for d in pre_diagnostics],
+            runtime=runtime,
+            on_stage_result=persist_stage_results,
         )
+        partial_stage_results = list(stage_results)
         events: list[str] = [
             *running.events,
             "project scan completed",
@@ -1343,31 +2016,179 @@ def _execute_disclosure(
                 research_search_provider=research_search_provider,
                 project=project,
                 package=package,
+                runtime=runtime,
+                on_stage_result=lambda stages: persist_stage_results([*stage_results, *stages]),
             )
             stage_results.extend(deep_stages)
+            partial_stage_results = list(stage_results)
             warnings.extend(deep_warnings)
             events.append("free deep research supplement completed")
-        run_dir = Path(run.run_dir)
-        write_disclosure_artifacts(package, run_dir)
+
+        # ---- V1.1: post-flight provider diagnostics ----
+        post_diagnostics = _collect_provider_diagnostics(
+            prior_art_provider=prior_art_provider,
+            research_search_provider=research_search_provider,
+            ledger=package.research_ledger,
+        )
+        package_with_diagnostics = package.model_copy(
+            update={
+                "provider_diagnostics": [
+                    d.model_dump(mode="json") for d in [*pre_diagnostics, *post_diagnostics]
+                ],
+            }
+        )
         completed = running.model_copy(
             update={
                 "status": "completed",
                 "stage_results": stage_results,
-                "package": package,
+                "package": package_with_diagnostics,
+                "runtime_state": (store.get_disclosure_run(project.id, run.id) or running).runtime_state,
+                "cancel_requested": (store.get_disclosure_run(project.id, run.id) or running).cancel_requested,
                 "events": [
                     *events,
                     *[f"warning: {warning}" for warning in warnings],
                 ],
             }
         )
+        run_dir = Path(run.run_dir)
+        write_disclosure_artifacts(package_with_diagnostics, run_dir)
         store.update_disclosure_run(completed)
         return completed
     except ConfigError:
         raise
-    except Exception as exc:
-        failed = running.model_copy(update={"status": "failed", "failures": [str(exc)], "events": [*running.events, f"run failed: {exc}"]})
+    except RuntimeCancelled:
+        current = store.get_disclosure_run(project.id, run.id) or running
+        failure = runtime.cancelled_failure()
+        interrupted = current.model_copy(
+            update={
+                "status": "interrupted",
+                "stage_results": partial_stage_results or current.stage_results,
+                "cancel_requested": True,
+                "failure_details": [*current.failure_details, failure],
+                "events": [*current.events, "run cancelled"],
+            }
+        )
+        store.update_disclosure_run(interrupted)
+        return interrupted
+    except RuntimeTimeout as exc:
+        current = store.get_disclosure_run(project.id, run.id) or running
+        failure = runtime.timeout_failure(str(exc))
+        failed = current.model_copy(
+            update={
+                "status": "failed",
+                "stage_results": partial_stage_results or current.stage_results,
+                "failure_details": [*current.failure_details, failure],
+                "events": [*current.events, f"run timed out: {exc}"],
+            }
+        )
         store.update_disclosure_run(failed)
         return failed
+    except Exception as exc:
+        current = store.get_disclosure_run(project.id, run.id) or running
+        failure = runtime.failure(
+            reason="exception",
+            message=str(exc),
+            retryable=True,
+            repair_suggestion="Retry after fixing the disclosure provider or prompt/schema issue.",
+        )
+        failed = current.model_copy(
+            update={
+                "status": "failed",
+                "stage_results": partial_stage_results or current.stage_results,
+                "failures": [*current.failures, str(exc)],
+                "failure_details": [*current.failure_details, failure],
+                "events": [*current.events, f"run failed: {exc}"],
+            }
+        )
+        store.update_disclosure_run(failed)
+        return failed
+
+
+def _collect_provider_diagnostics(
+    *,
+    prior_art_provider: object,
+    research_search_provider: DeepResearchSearchProvider | None = None,
+    ledger: dict[str, Any] | None = None,
+) -> list[ProviderDiagnostic]:
+    """Collect pre/post-flight diagnostics about the provider chain.
+
+    Pre-flight (ledger=None): check which prior_art and deep research providers
+    are configured and available.
+
+    Post-flight (ledger populated): summarize what actually happened during search.
+    """
+    diagnostics: list[ProviderDiagnostic] = []
+
+    if ledger is None:
+        # ---- Pre-flight: what is configured ----
+        available: list[str] = []
+        skipped: list[dict[str, str]] = []
+
+        # Check CNIPA EPUB helper
+        cnipa_script = getattr(prior_art_provider, "cnipa_script", None)
+        if cnipa_script is not None and hasattr(cnipa_script, "exists") and cnipa_script.exists():
+            available.append("cnipa")
+        else:
+            skipped.append(
+                {"provider": "cnipa", "reason": "CNIPA EPUB helper is not configured; set CNIPA_EPUB_SEARCH_SCRIPT to enable live CNIPA search."}
+            )
+
+        # Google Patents is always available (stdlib fetch)
+        available.append("google_patents")
+
+        # Deep research providers
+        if research_search_provider is not None:
+            provider_names = list(getattr(research_search_provider, "provider_names", []))
+            available.extend(provider_names)
+        else:
+            # Without a configured chain, only the patent provider is used
+            available.append("patent")
+
+        diagnostics.append(
+            ProviderDiagnostic(
+                phase="pre_flight",
+                available_providers=available,
+                skipped_providers=skipped,
+                active_chain=available,
+                warnings=[],
+            )
+        )
+    else:
+        # ---- Post-flight: what actually happened ----
+        ledger_entries: list[dict] = ledger.get("entries", [])
+        available: list[str] = []
+        skipped: list[dict[str, str]] = []
+        warnings: list[str] = []
+
+        for entry in ledger_entries:
+            provider = entry.get("provider", "")
+            status = entry.get("status", "running")
+            if status == "skipped":
+                skipped.append({"provider": provider, "reason": entry.get("failure_reason", "unknown")})
+            elif status == "failed":
+                warnings.append(f"{provider} failed: {entry.get('failure_reason', 'unknown')}")
+            elif status == "timeout":
+                warnings.append(f"{provider} timed out: {entry.get('failure_reason', 'unknown')}")
+            elif status == "ok":
+                available.append(provider)
+
+        total_hits = ledger.get("total_hits", 0)
+        provider_warnings_list = ledger.get("provider_warnings", [])
+        warnings.extend(provider_warnings_list)
+        if total_hits == 0 and available:
+            warnings.append("0 references collected from active providers; disclosure should not imply high patentability confidence.")
+
+        diagnostics.append(
+            ProviderDiagnostic(
+                phase="post_flight",
+                available_providers=available,
+                skipped_providers=skipped,
+                active_chain=available,
+                warnings=warnings,
+            )
+        )
+
+    return diagnostics
 
 
 def _apply_free_deep_research(
@@ -1377,6 +2198,8 @@ def _apply_free_deep_research(
     research_search_provider: DeepResearchSearchProvider | None = None,
     project: ProjectRecord,
     package: DisclosurePackage,
+    runtime: RuntimeContext | None = None,
+    on_stage_result: object | None = None,
 ) -> tuple[DisclosurePackage, list[dict[str, object]], list[str]]:
     """Run the patent deep researcher and merge supporting outputs into the
     disclosure package.
@@ -1415,6 +2238,8 @@ def _apply_free_deep_research(
             project=project,
             candidates=list(package.candidates),
             selected_candidate_id=package.selected_candidate_id,
+            runtime=runtime,
+            on_stage_result=on_stage_result,
         )
     except Exception as exc:  # pragma: no cover - defensive
         warning = f"free_deep_research failed: {exc}"
@@ -1502,13 +2327,51 @@ def _execute_deliberation(
     run: DeliberationRun,
     trace: bool,
     task_timeout_ms: int,
+    run_timeout_ms: int | None = None,
 ) -> DeliberationRun:
     running = run.model_copy(update={"status": "running", "events": [*run.events, "run started"]})
     store.update_deliberation_run(running)
     disclosure = store.get_latest_completed_disclosure_run(project.id)
     brief = _brief_from_draft(project, disclosure.package if disclosure else None)
     context = _retrieve_generation_context(index, brief)
+    runtime = RuntimeContext(
+        flow="deliberation",
+        run_id=run.id,
+        stage_timeout_ms=task_timeout_ms,
+        run_timeout_ms=run_timeout_ms,
+        cancel_check=lambda: bool((store.get_deliberation_run(project.id, run.id) or running).cancel_requested),
+    )
+
+    def persist_update(updated: DeliberationRun) -> None:
+        current = store.get_deliberation_run(project.id, run.id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            if current.cancel_requested:
+                raise RuntimeCancelled(f"deliberation run {run.id} cancelled")
+            return
+        runtime.begin_stage(
+            updated.stage_results[-1].phase if updated.stage_results else "deliberation",
+            provider=updated.logs[-1].provider_id if updated.logs else ",".join(updated.providers),
+            subtask=updated.logs[-1].message if updated.logs else "",
+            partial_artifact_count=len(updated.stage_results),
+            warning_count=len(updated.failures),
+        )
+        state = runtime.complete_stage(
+            partial_artifact_count=len(updated.stage_results),
+            warning_count=len(updated.failures),
+        )
+        store.update_deliberation_run(
+            updated.model_copy(
+                update={
+                    "runtime_state": state,
+                    "failure_details": current.failure_details,
+                    "cancel_requested": current.cancel_requested,
+                    "retry_of": current.retry_of,
+                }
+            )
+        )
+
     try:
+        runtime.begin_stage("deliberation_prepare", provider="system", subtask="context retrieval")
         orchestrator = DeliberationOrchestrator(provider_runner=provider_runner)
         completed = __import__("asyncio").run(
             orchestrator.run(
@@ -1520,13 +2383,72 @@ def _execute_deliberation(
                 run_dir=Path(run.run_dir),
                 trace=trace,
                 task_timeout_ms=task_timeout_ms,
-                on_update=store.update_deliberation_run,
+                on_update=persist_update,
             )
+        )
+        current = store.get_deliberation_run(project.id, run.id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            return current
+        if current.cancel_requested:
+            raise RuntimeCancelled(f"deliberation run {run.id} cancelled")
+        runtime.begin_stage("deliberation_finalize", provider="system", subtask="strategy brief")
+        state = runtime.complete_stage(
+            partial_artifact_count=len(completed.stage_results),
+            warning_count=len(completed.failures),
+        )
+        current = store.get_deliberation_run(project.id, run.id) or running
+        completed = completed.model_copy(
+            update={
+                "runtime_state": state,
+                "failure_details": current.failure_details,
+                "cancel_requested": current.cancel_requested,
+                "retry_of": current.retry_of,
+            }
         )
         store.update_deliberation_run(completed)
         return completed
+    except RuntimeCancelled:
+        current = store.get_deliberation_run(project.id, run.id) or running
+        if current.status == "interrupted" and current.cancel_requested:
+            return current
+        failure = runtime.cancelled_failure()
+        interrupted = current.model_copy(
+            update={
+                "status": "interrupted",
+                "cancel_requested": True,
+                "failure_details": [*current.failure_details, failure],
+                "events": [*current.events, "run cancelled"],
+            }
+        )
+        store.update_deliberation_run(interrupted)
+        return interrupted
+    except RuntimeTimeout as exc:
+        current = store.get_deliberation_run(project.id, run.id) or running
+        failure = runtime.timeout_failure(str(exc))
+        failed = current.model_copy(
+            update={
+                "status": "failed",
+                "failure_details": [*current.failure_details, failure],
+                "events": [*current.events, f"run timed out: {exc}"],
+            }
+        )
+        store.update_deliberation_run(failed)
+        return failed
     except Exception as exc:
-        failed = running.model_copy(update={"status": "failed", "events": [*running.events, f"run failed: {exc}"]})
+        current = store.get_deliberation_run(project.id, run.id) or running
+        failure = runtime.failure(
+            reason="exception",
+            message=str(exc),
+            retryable=True,
+            repair_suggestion="Retry after fixing provider availability or task output schema.",
+        )
+        failed = current.model_copy(
+            update={
+                "status": "failed",
+                "failure_details": [*current.failure_details, failure],
+                "events": [*current.events, f"run failed: {exc}"],
+            }
+        )
         store.update_deliberation_run(failed)
         return failed
 
@@ -1682,11 +2604,7 @@ def _is_strict_completed_deliberation(run: DeliberationRun) -> bool:
     completed = {(stage.phase, stage.provider_id, stage.label) for stage in run.stage_results if stage.status == "completed"}
     if not all(("opening", provider, f"opening {provider}") in completed for provider in required):
         return False
-    pair_labels = {
-        "pair codex-vs-gemini",
-        "pair codex-vs-claude",
-        "pair gemini-vs-claude",
-    }
+    pair_labels = {f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(STRICT_DELIBERATION_PROVIDERS, 2)}
     if not pair_labels.issubset({label for phase, _provider, label in completed if phase == "pair"}):
         return False
     return any(phase == "chair" and label == "chair synthesis" for phase, _provider, label in completed)
@@ -1785,6 +2703,32 @@ def _retrieve_generation_context(index: LocalVectorIndex, brief: InventionBrief)
                 selected.append(result.chunk)
                 seen.add(result.chunk.id)
     return selected[:8]
+
+
+def _selectable_agent_provider_ids(doctor: AgentDoctorReport) -> set[str]:
+    return (
+        set(doctor.active_provider_ids)
+        | set(doctor.unknown_required)
+        | {provider_id for provider_id, status in doctor.commands.items() if status.selectable}
+    )
+
+
+def _agent_provider_ids_for_role(doctor: AgentDoctorReport, requested: list[str], role: str) -> list[str]:
+    provider_role = "deliberation" if role == "post_review" else role
+    normalized: list[str] = []
+    for provider_id in STRICT_DELIBERATION_PROVIDERS:
+        if provider_id not in normalized:
+            normalized.append(provider_id)
+    for provider_id in requested:
+        if provider_id in normalized:
+            continue
+        status = doctor.commands.get(provider_id)
+        if not status or not status.selectable:
+            continue
+        if provider_role not in status.roles:
+            continue
+        normalized.append(provider_id)
+    return normalized
 
 
 def _run_mode(active_count: int) -> str:

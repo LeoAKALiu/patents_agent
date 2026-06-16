@@ -219,7 +219,7 @@ export function isUtilityModelProject(project: ProjectRecord | null | undefined)
 }
 
 export const mainSections: Array<NavEntry<MainSectionId>> = [
-  { id: "generate", label: "开始", description: "选择一种默认路径进入 v1.0.0 向导", icon: Wand2 },
+  { id: "generate", label: "开始", description: "选择一种默认路径进入 v1.1.0 向导", icon: Wand2 },
   { id: "projects", label: "项目", description: "查看历史项目和运行记录", icon: FolderKanban },
   { id: "settings", label: "设置", description: "本机 LLM 服务参数与 API Key", icon: SettingsIcon },
 ];

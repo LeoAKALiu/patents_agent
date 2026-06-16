@@ -12,6 +12,7 @@ from html import unescape
 from pathlib import Path
 from typing import Protocol
 
+from backend.app.research.ledger import SourceLedger, citation_snapshot
 from backend.app.schemas import PriorArtHit
 
 
@@ -27,12 +28,30 @@ class PublicPriorArtProvider:
         self.timeout_seconds = timeout_seconds
 
     def search(self, terms: list[str], limit: int) -> tuple[list[PriorArtHit], list[str]]:
+        return self._search(terms, limit, ledger=None)
+
+    def search_with_ledger(
+        self, terms: list[str], limit: int, ledger: SourceLedger
+    ) -> tuple[list[PriorArtHit], list[str]]:
+        return self._search(terms, limit, ledger=ledger)
+
+    def _search(
+        self, terms: list[str], limit: int, *, ledger: SourceLedger | None
+    ) -> tuple[list[PriorArtHit], list[str]]:
         warnings: list[str] = []
         hits: list[PriorArtHit] = []
         if limit <= 0:
             return [], warnings
         for term in terms[:8]:
             cnipa_hits, cnipa_warnings = self._search_cnipa(term, max(1, limit - len(hits)))
+            _record_ledger_attempt(
+                ledger,
+                provider="cnipa",
+                kind="patent",
+                query=term,
+                hits=cnipa_hits,
+                warnings=cnipa_warnings,
+            )
             warnings.extend(cnipa_warnings)
             hits.extend(cnipa_hits)
             if len(hits) >= limit:
@@ -40,6 +59,14 @@ class PublicPriorArtProvider:
         if len(hits) < limit:
             for term in terms[:4]:
                 google_hits, google_warnings = self._search_google_patents(term, max(1, limit - len(hits)))
+                _record_ledger_attempt(
+                    ledger,
+                    provider="google_patents",
+                    kind="patent",
+                    query=term,
+                    hits=google_hits,
+                    warnings=google_warnings,
+                )
                 warnings.extend(google_warnings)
                 hits.extend(google_hits)
                 if len(hits) >= limit:
@@ -105,6 +132,20 @@ class StaticPriorArtProvider:
             else:
                 result.append(hit)
         return result, list(self.warnings)
+
+    def search_with_ledger(
+        self, terms: list[str], limit: int, ledger: SourceLedger
+    ) -> tuple[list[PriorArtHit], list[str]]:
+        hits, warnings = self.search(terms, limit)
+        _record_ledger_attempt(
+            ledger,
+            provider="static_prior_art",
+            kind="patent",
+            query="; ".join(terms[:4]),
+            hits=hits,
+            warnings=warnings,
+        )
+        return hits, warnings
 
 
 def parse_cnipa_epub_html(html: str, query: str) -> list[PriorArtHit]:
@@ -220,3 +261,35 @@ def _dedupe_hits(hits: list[PriorArtHit]) -> list[PriorArtHit]:
         out.append(hit)
     return out
 
+
+def _record_ledger_attempt(
+    ledger: SourceLedger | None,
+    *,
+    provider: str,
+    kind: str,
+    query: str,
+    hits: list[PriorArtHit],
+    warnings: list[str],
+) -> None:
+    if ledger is None:
+        return
+
+    entry = ledger.start(provider=provider, kind=kind, query=query)
+    reason = "; ".join(warnings)[:500]
+    lowered_reason = reason.lower()
+    if hits:
+        entry.mark_ok(
+            hit_count=len(hits),
+            parsed_count=len(hits),
+            dedupe_count=0,
+            retained_count=len(hits),
+            citations=[citation_snapshot(hit) for hit in hits],
+        )
+    elif "not configured" in lowered_reason or "executable not found" in lowered_reason:
+        entry.mark_skipped(reason or "provider is not configured")
+    elif "timed out" in lowered_reason or "timeout" in lowered_reason:
+        entry.mark_timeout(reason or "provider timed out")
+    elif "failed" in lowered_reason or "parse" in lowered_reason:
+        entry.mark_failed(reason or "provider failed")
+    else:
+        entry.mark_ok(hit_count=0, parsed_count=0, dedupe_count=0, retained_count=0)

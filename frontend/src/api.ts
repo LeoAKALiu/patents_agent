@@ -417,6 +417,40 @@ export interface DisclosureSelfCheckFinding {
   suggestion: string;
 }
 
+export interface RuntimeStageState {
+  current_stage: string;
+  provider: string;
+  query: string;
+  subtask: string;
+  heartbeat_at: string;
+  elapsed_ms: number;
+  warning_count: number;
+  partial_artifact_count: number;
+  timeout_ms?: number | null;
+  attempt?: number | null;
+}
+
+export interface RuntimeFailure {
+  flow: string;
+  stage: string;
+  provider: string;
+  reason: string;
+  message: string;
+  retryable: boolean;
+  elapsed_ms: number;
+  repair_suggestion: string;
+  partial_artifact_count: number;
+  created_at: string;
+}
+
+export interface ProviderDiagnostic {
+  phase: string;
+  available_providers: string[];
+  skipped_providers: Array<{ provider: string; reason: string }>;
+  active_chain: string[];
+  warnings: string[];
+}
+
 export interface DisclosurePackage {
   title: string;
   summary: string;
@@ -431,6 +465,9 @@ export interface DisclosurePackage {
   self_check_findings: DisclosureSelfCheckFinding[];
   generation_logs: string[];
   export_warnings: string[];
+  research_ledger?: Record<string, unknown>;
+  provider_diagnostics?: ProviderDiagnostic[];
+  research_confidence?: "none" | "low" | "medium" | "high";
 }
 
 export interface DisclosureRun {
@@ -445,6 +482,10 @@ export interface DisclosureRun {
   failures: string[];
   events: string[];
   research_mode?: "standard" | "free_deep_research";
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
 }
 
 export interface Health {
@@ -534,6 +575,10 @@ export interface DeliberationRun {
   }>;
   events: string[];
   logs: DeliberationLogEntry[];
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
 }
 
 export interface DeliberationLogEntry {
@@ -582,12 +627,16 @@ export interface CoreFormulaPackage {
 export interface FormulaRun {
   id: string;
   project_id: string;
-  status: "queued" | "running" | "completed" | "failed";
+  status: "queued" | "running" | "completed" | "failed" | "interrupted";
   providers: string[];
   requirement: FormulaNeedAssessment;
   package: CoreFormulaPackage | null;
   failures: string[];
   events: string[];
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -619,7 +668,7 @@ export interface PostDraftReviewChairResult {
 export interface PostDraftReviewRun {
   id: string;
   project_id: string;
-  status: "queued" | "running" | "completed" | "failed";
+  status: "queued" | "running" | "completed" | "failed" | "interrupted";
   providers: string[];
   prompt_pack_version: string;
   draft_package_hash: string;
@@ -631,6 +680,10 @@ export interface PostDraftReviewRun {
   blocking_issues: string[];
   contamination_hits: string[];
   logs: DeliberationLogEntry[];
+  runtime_state?: RuntimeStageState | null;
+  failure_details?: RuntimeFailure[];
+  cancel_requested?: boolean;
+  retry_of?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -751,8 +804,10 @@ export async function createCorpusJob(payload: {
 export async function uploadCorpusJobFile(jobId: string, file: File): Promise<{ job: CorpusImportJob; file_count: number }> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch(`/api/corpus/jobs/${jobId}/files`, { method: "POST", body: form });
-  return parseResponse(response);
+  return request<{ job: CorpusImportJob; file_count: number }>(`/api/corpus/jobs/${jobId}/files`, {
+    method: "POST",
+    body: form,
+  });
 }
 
 export async function runCorpusJob(jobId: string): Promise<CorpusImportJob> {
@@ -782,8 +837,7 @@ export async function getCorpusDocument(documentId: string): Promise<PatentDocum
 export async function importPatent(file: File): Promise<{ document: PatentDocument; chunks_count: number }> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch("/api/corpus/import", { method: "POST", body: form });
-  return parseResponse(response);
+  return request<{ document: PatentDocument; chunks_count: number }>("/api/corpus/import", { method: "POST", body: form });
 }
 
 export async function searchCorpus(q: string, sectionType: SectionType | "", version?: string): Promise<SearchResult[]> {
@@ -822,8 +876,7 @@ export async function deleteProject(projectId: string): Promise<{ ok: boolean }>
 export async function uploadProjectMaterial(projectId: string, file: File): Promise<ProjectMaterial> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch(`/api/projects/${projectId}/materials`, { method: "POST", body: form });
-  return parseResponse(response);
+  return request<ProjectMaterial>(`/api/projects/${projectId}/materials`, { method: "POST", body: form });
 }
 
 export async function listProjectMaterials(projectId: string): Promise<ProjectMaterial[]> {
@@ -942,6 +995,14 @@ export async function listProjectDisclosures(projectId: string): Promise<Disclos
   return data.runs;
 }
 
+export async function cancelProjectDisclosure(projectId: string, runId: string): Promise<DisclosureRun> {
+  return request<DisclosureRun>(`/api/projects/${projectId}/disclosures/${runId}/cancel`, { method: "POST" });
+}
+
+export async function retryProjectDisclosure(projectId: string, runId: string): Promise<DisclosureRun> {
+  return request<DisclosureRun>(`/api/projects/${projectId}/disclosures/${runId}/retry`, { method: "POST" });
+}
+
 export async function generateProject(projectId: string, deliberationRunId?: string | null, formulaRunId?: string | null): Promise<DraftPackage> {
   return request<DraftPackage>(`/api/projects/${projectId}/generate`, {
     method: "POST",
@@ -1038,6 +1099,14 @@ export async function listProjectDeliberations(projectId: string): Promise<Delib
   return data.runs;
 }
 
+export async function cancelProjectDeliberation(projectId: string, runId: string): Promise<DeliberationRun> {
+  return request<DeliberationRun>(`/api/projects/${projectId}/deliberations/${runId}/cancel`, { method: "POST" });
+}
+
+export async function retryProjectDeliberation(projectId: string, runId: string): Promise<DeliberationRun> {
+  return request<DeliberationRun>(`/api/projects/${projectId}/deliberations/${runId}/retry`, { method: "POST" });
+}
+
 export async function getFormulaRequirement(projectId: string): Promise<FormulaNeedAssessment> {
   return request<FormulaNeedAssessment>(`/api/projects/${projectId}/formula-requirement`);
 }
@@ -1053,6 +1122,14 @@ export async function startFormulaRun(projectId: string, providers?: string[]): 
 export async function listFormulaRuns(projectId: string): Promise<FormulaRun[]> {
   const data = await request<{ runs: FormulaRun[] }>(`/api/projects/${projectId}/formula-runs`);
   return data.runs;
+}
+
+export async function cancelFormulaRun(projectId: string, runId: string): Promise<FormulaRun> {
+  return request<FormulaRun>(`/api/projects/${projectId}/formula-runs/${runId}/cancel`, { method: "POST" });
+}
+
+export async function retryFormulaRun(projectId: string, runId: string): Promise<FormulaRun> {
+  return request<FormulaRun>(`/api/projects/${projectId}/formula-runs/${runId}/retry`, { method: "POST" });
 }
 
 export function formulaMarkdownUrl(projectId: string, runId: string): string {
@@ -1091,6 +1168,14 @@ export async function listPostDraftReviews(projectId: string): Promise<{ runs: P
   return request<{ runs: PostDraftReviewRun[]; current_draft_hash: string }>(`/api/projects/${projectId}/post-draft-reviews`);
 }
 
+export async function cancelPostDraftReview(projectId: string, runId: string): Promise<PostDraftReviewRun> {
+  return request<PostDraftReviewRun>(`/api/projects/${projectId}/post-draft-reviews/${runId}/cancel`, { method: "POST" });
+}
+
+export async function retryPostDraftReview(projectId: string, runId: string): Promise<PostDraftReviewRun> {
+  return request<PostDraftReviewRun>(`/api/projects/${projectId}/post-draft-reviews/${runId}/retry`, { method: "POST" });
+}
+
 export function postDraftReviewReportUrl(projectId: string, runId: string): string {
   return `/api/projects/${projectId}/post-draft-reviews/${runId}/report.md`;
 }
@@ -1125,12 +1210,54 @@ export function disclosureExportUrl(
   return `/api/projects/${projectId}/disclosures/${runId}/image-prompt.md`;
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  return parseResponse<T>(response);
+type TauriInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+
+type TauriGlobal = {
+  __TAURI__?: {
+    core?: {
+      invoke?: TauriInvoke;
+    };
+  };
+};
+
+let tauriBackendBaseUrlPromise: Promise<string | null> | null = null;
+
+function getTauriInvoke(): TauriInvoke | null {
+  const maybeWindow = globalThis as typeof globalThis & TauriGlobal;
+  return maybeWindow.__TAURI__?.core?.invoke ?? null;
 }
 
-async function parseResponse<T>(response: Response): Promise<T> {
+async function getTauriBackendBaseUrl(): Promise<string | null> {
+  const invoke = getTauriInvoke();
+  if (!invoke) return null;
+  if (!tauriBackendBaseUrlPromise) {
+    tauriBackendBaseUrlPromise = invoke<string>("get_backend_base_url")
+      .then((baseUrl: string) => baseUrl.replace(/\/+$/, ""))
+      .catch(() => null);
+  }
+  return tauriBackendBaseUrlPromise;
+}
+
+async function resolveApiUrl(url: string): Promise<string> {
+  if (!url.startsWith("/api/")) return url;
+  const backendBaseUrl = await getTauriBackendBaseUrl();
+  return backendBaseUrl ? `${backendBaseUrl}${url}` : url;
+}
+
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const method = init?.method ?? "GET";
+  const resolvedUrl = await resolveApiUrl(url);
+  let response: Response;
+  try {
+    response = await fetch(resolvedUrl, init);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`${method} ${url} 请求失败：${message}`);
+  }
+  return parseResponse<T>(response, url, method);
+}
+
+async function parseResponse<T>(response: Response, url: string, method: string): Promise<T> {
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -1144,7 +1271,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
     } catch {
       detail = response.statusText;
     }
-    throw new Error(detail);
+    throw new Error(`${method} ${url} 返回 ${response.status}：${detail}`);
   }
   return response.json() as Promise<T>;
 }
