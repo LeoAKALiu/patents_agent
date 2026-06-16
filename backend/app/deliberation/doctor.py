@@ -17,11 +17,11 @@ PROVIDERS = {
         "model_version": "codex-cli default",
         "roles": ["deliberation", "formula", "chair"],
     },
-    "gemini": {
-        "label": "Gemini",
-        "command": "gemini",
+    "deepseek": {
+        "label": "DeepSeek",
+        "command": "reasonix",
         "required": True,
-        "model_version": "gemini-cli default",
+        "model_version": "reasonix deepseek-pro",
         "roles": ["deliberation", "formula", "critic"],
     },
     "claude": {
@@ -31,19 +31,19 @@ PROVIDERS = {
         "model_version": "claude-code default",
         "roles": ["deliberation", "formula", "critic"],
     },
+    "gemini": {
+        "label": "Gemini",
+        "command": "gemini",
+        "required": False,
+        "model_version": "deprecated",
+        "roles": ["deprecated"],
+    },
     "kimicode": {
         "label": "KimiCode",
         "command": "kimicode",
         "required": False,
         "model_version": "kimi-code local",
         "roles": ["deliberation", "formula", "critic"],
-    },
-    "deepseek_pi": {
-        "label": "DeepSeek + PI",
-        "command": "deepseek-pi",
-        "required": False,
-        "model_version": "deepseek-pi route",
-        "roles": ["formula", "critic"],
     },
 }
 
@@ -52,7 +52,7 @@ PROVIDERS = {
 # Provider-specific probe functions interpret the output.
 #
 # Priority order:
-# 1) Dedicated auth/status subcommand (codex login status, claude auth status)
+# 1) Dedicated auth/status subcommand (codex login status, claude auth status, reasonix doctor)
 # 2) Doctor/diagnostic subcommand (codex doctor)
 # 3) Version fallback (gemini: no known auth subcommand)
 #
@@ -153,11 +153,64 @@ def _probe_gemini_auth(
     )
 
 
+def _probe_deepseek_auth(
+    command: str,
+    command_probe: Callable[[str, list[str], int], tuple[int | None, str, str]],
+    timeout_ms: int,
+) -> tuple[str, str, str] | None:
+    """Probe DeepSeek through the official reasonix doctor output."""
+    exit_code, stdout, stderr = command_probe(command, ["doctor", "--json"], timeout_ms)
+    if exit_code is None:
+        return "timeout", _sanitize_diagnostic(f"reasonix doctor --json 超时 ({timeout_ms}ms)"), "探测命令超时，请检查网络连接。"
+    combined = "\n".join([stdout.strip(), stderr.strip()]).strip()
+    if exit_code == 0:
+        try:
+            data = json.loads(stdout)
+            providers = data.get("providers") if isinstance(data, dict) else None
+            if isinstance(providers, list):
+                deepseek_providers = [
+                    provider
+                    for provider in providers
+                    if isinstance(provider, dict)
+                    and (
+                        "deepseek" in str(provider.get("name", "")).lower()
+                        or "deepseek" in str(provider.get("model", "")).lower()
+                        or "deepseek" in str(provider.get("base_url_host", "")).lower()
+                    )
+                ]
+                if any(provider.get("key_present") is True for provider in deepseek_providers):
+                    return "ready", "", ""
+                if deepseek_providers:
+                    return (
+                        "not_authenticated",
+                        "reasonix doctor 报告 DeepSeek provider 已配置但缺少 API key。",
+                        "请运行 `reasonix setup` 或配置 DEEPSEEK_API_KEY。",
+                    )
+                return (
+                    "not_authenticated",
+                    "reasonix doctor 未发现 DeepSeek provider 配置。",
+                    "请运行 `reasonix setup` 并选择 DeepSeek provider。",
+                )
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return (
+            "unknown",
+            _sanitize_diagnostic("reasonix doctor --json 返回无法识别的输出，无法判断 DeepSeek 配置状态。"),
+            "请运行 `reasonix doctor --json` 手动检查配置状态。",
+        )
+    return (
+        "not_authenticated",
+        _sanitize_diagnostic(f"reasonix doctor --json 返回非零退出码：{combined}", 200),
+        "请运行 `reasonix doctor --json` 检查 DeepSeek 配置状态。",
+    )
+
+
 # Map from provider_id to auth probe function.
 _PROVIDER_AUTH_PROBES: dict[str, Callable[..., tuple[str, str, str] | None]] = {
     "codex": _probe_codex_auth,
-    "gemini": _probe_gemini_auth,
+    "deepseek": _probe_deepseek_auth,
     "claude": _probe_claude_auth,
+    "gemini": _probe_gemini_auth,
 }
 
 
@@ -239,8 +292,9 @@ def inspect_agent_environment(
 
     Each provider is probed with a dedicated, non-destructive auth-check command:
     - codex: `login status` (text output)
+    - deepseek: `reasonix doctor --json` (official DeepSeek/Reasonix diagnostic output)
     - claude: `auth status` (JSON output)
-    - gemini: `--version` (no auth subcommand exists — always "unknown")
+    - gemini: legacy/deprecated, `--version` only and not part of required deliberation
 
     Safety: probes never leak tokens, API keys, or config content.
     Diagnostics are token-scrubbed and truncated.

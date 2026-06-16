@@ -4,7 +4,7 @@ import type { AgentDoctorReport, AgentProviderStatus } from "./api";
 
 export type AgentProviderRole = "deliberation" | "formula" | "post_review";
 
-export const requiredAgentProviderIds = ["codex", "gemini", "claude"];
+export const requiredAgentProviderIds = ["codex", "deepseek", "claude"];
 
 function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: string } {
   if (!provider.installed) {

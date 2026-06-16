@@ -253,10 +253,14 @@ export function isStrictCompletedDeliberation(run: {
 }): boolean {
   if (run.status !== "completed" || !run.strategy_brief || (run.failures?.length ?? 0) > 0) return false;
   const providers = new Set(run.providers ?? []);
-  if (!["codex", "gemini", "claude"].every((provider) => providers.has(provider))) return false;
+  const requiredProviders = ["codex", "deepseek", "claude"];
+  if (!requiredProviders.every((provider) => providers.has(provider))) return false;
   const completed = (run.stage_results ?? []).filter((stage) => stage.status === "completed");
   const labels = new Set(completed.map((stage) => stage.label ?? ""));
-  if (!["opening codex", "opening gemini", "opening claude"].every((label) => labels.has(label))) return false;
-  if (!["pair codex-vs-gemini", "pair codex-vs-claude", "pair gemini-vs-claude"].every((label) => labels.has(label))) return false;
+  if (!requiredProviders.map((provider) => `opening ${provider}`).every((label) => labels.has(label))) return false;
+  const pairLabels = requiredProviders.flatMap((provider, index) =>
+    requiredProviders.slice(index + 1).map((otherProvider) => `pair ${provider}-vs-${otherProvider}`),
+  );
+  if (!pairLabels.every((label) => labels.has(label))) return false;
   return completed.some((stage) => stage.phase === "chair" && stage.label === "chair synthesis");
 }

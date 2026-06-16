@@ -4,6 +4,7 @@ import re
 import shutil
 import time
 import uuid
+from itertools import combinations
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
@@ -118,7 +119,7 @@ from backend.app.settings import Settings, build_settings
 from backend.app.storage import SQLiteStore
 
 
-STRICT_DELIBERATION_PROVIDERS = ("codex", "gemini", "claude")
+STRICT_DELIBERATION_PROVIDERS = ("codex", "deepseek", "claude")
 APP_VERSION = "1.1.0"
 LOCAL_RENDERER_ORIGINS = frozenset(
     {
@@ -2552,11 +2553,7 @@ def _is_strict_completed_deliberation(run: DeliberationRun) -> bool:
     completed = {(stage.phase, stage.provider_id, stage.label) for stage in run.stage_results if stage.status == "completed"}
     if not all(("opening", provider, f"opening {provider}") in completed for provider in required):
         return False
-    pair_labels = {
-        "pair codex-vs-gemini",
-        "pair codex-vs-claude",
-        "pair gemini-vs-claude",
-    }
+    pair_labels = {f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(STRICT_DELIBERATION_PROVIDERS, 2)}
     if not pair_labels.issubset({label for phase, _provider, label in completed if phase == "pair"}):
         return False
     return any(phase == "chair" and label == "chair synthesis" for phase, _provider, label in completed)

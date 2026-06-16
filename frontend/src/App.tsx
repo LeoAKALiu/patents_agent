@@ -2639,7 +2639,7 @@ function DeliberationView({
           <h3>多智能体会审</h3>
           <p>
             {project
-              ? "会审会调用本机 Codex、Gemini、Claude，先讨论保护范围和写作策略，再注入生成流程。"
+              ? "会审会调用本机 Codex、DeepSeek、Claude，先讨论保护范围和写作策略，再注入生成流程。"
               : "先创建项目后再启动会审。"}
           </p>
           <p>{disclosure ? `将默认注入交底书 run：${disclosure.id}` : "暂无已完成交底书，会审仅使用 draft 与 RAG 片段。"}</p>

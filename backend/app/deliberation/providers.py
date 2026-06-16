@@ -171,6 +171,8 @@ def build_provider_command(provider_id: str, workdir: Path, attempt: int) -> tup
             "claude",
             ["-p", "--no-chrome", "--disable-slash-commands", "--tools", "", "--output-format", "text", "-"],
         )
+    if provider_id == "deepseek":
+        return ("reasonix", ["run", "--model", "deepseek-pro"])
     if provider_id == "gemini":
         return ("gemini", ["--prompt", "", "--approval-mode", "plan", "--output-format", "text"])
     return (provider_id, [])

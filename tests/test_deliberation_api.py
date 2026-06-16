@@ -37,7 +37,7 @@ def test_deliberation_api_lifecycle_and_generation_injection(tmp_path):
 
     run_response = client.post(
         f"/api/projects/{project_id}/deliberations",
-        json={"providers": ["codex", "gemini", "claude"], "trace": False},
+        json={"providers": ["codex", "deepseek", "claude"], "trace": False},
     )
     assert run_response.status_code == 200
     run = run_response.json()
@@ -78,7 +78,7 @@ def test_failed_deliberation_has_diagnostic_logs_and_cannot_generate(tmp_path):
 
     run_response = client.post(
         f"/api/projects/{project_id}/deliberations",
-        json={"providers": ["codex", "gemini", "claude"], "trace": False},
+        json={"providers": ["codex", "deepseek", "claude"], "trace": False},
     )
 
     assert run_response.status_code == 200
@@ -100,10 +100,12 @@ def test_missing_required_provider_creates_failed_diagnostic_run(tmp_path, monke
             run_mode="partial",
             commands={
                 "codex": AgentProviderStatus(id="codex", label="Codex", command="codex", available=True, path="/bin/codex", required=True),
+                "deepseek": AgentProviderStatus(id="deepseek", label="DeepSeek", command="reasonix", available=False, required=True),
+                "claude": AgentProviderStatus(id="claude", label="Claude", command="claude", available=True, path="/bin/claude", required=True),
                 "gemini": AgentProviderStatus(id="gemini", label="Gemini", command="gemini", available=False, required=False),
-                "claude": AgentProviderStatus(id="claude", label="Claude", command="claude", available=True, path="/bin/claude", required=False),
             },
             active_provider_ids=["codex", "claude"],
+            missing_required=["deepseek"],
             missing_optional=["gemini"],
         )
 
@@ -121,7 +123,7 @@ def test_missing_required_provider_creates_failed_diagnostic_run(tmp_path, monke
     assert run["status"] == "failed"
     assert run["strategy_brief"] is None
     assert run["failures"][0]["reason"] == "provider_missing"
-    assert any(log["provider_id"] == "gemini" and log["repair_suggestion"] for log in run["logs"])
+    assert any(log["provider_id"] == "deepseek" and log["repair_suggestion"] for log in run["logs"])
 
 
 def test_selectable_providers_include_optional_unknown_installed_agents():
@@ -147,8 +149,30 @@ def test_selectable_providers_include_optional_unknown_installed_agents():
                 available=False,
                 path="/opt/homebrew/bin/gemini",
                 installed=True,
-                required=True,
+                required=False,
                 auth_status="unknown",
+                selectable=True,
+            ),
+            "deepseek": AgentProviderStatus(
+                id="deepseek",
+                label="DeepSeek",
+                command="reasonix",
+                available=True,
+                path="/opt/homebrew/bin/reasonix",
+                installed=True,
+                required=True,
+                auth_status="ready",
+                selectable=True,
+            ),
+            "claude": AgentProviderStatus(
+                id="claude",
+                label="Claude",
+                command="claude",
+                available=True,
+                path="/opt/homebrew/bin/claude",
+                installed=True,
+                required=True,
+                auth_status="ready",
                 selectable=True,
             ),
             "kimicode": AgentProviderStatus(
@@ -163,15 +187,17 @@ def test_selectable_providers_include_optional_unknown_installed_agents():
                 selectable=True,
             ),
         },
-        active_provider_ids=["codex"],
-        unknown_required=["gemini"],
+        active_provider_ids=["codex", "deepseek", "claude"],
+        unknown_required=[],
         missing_required=[],
-        missing_optional=["kimicode"],
+        missing_optional=[],
     )
 
     selectable = _selectable_agent_provider_ids(doctor)
 
     assert "codex" in selectable
+    assert "deepseek" in selectable
+    assert "claude" in selectable
     assert "gemini" in selectable
     assert "kimicode" in selectable
 

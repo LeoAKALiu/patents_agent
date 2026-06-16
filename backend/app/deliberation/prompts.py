@@ -14,6 +14,7 @@ GUARDRAILS = """执行约束：
 
 ROLE_PROMPTS = {
     "codex": "你是 Codex 侧专利工程专家，优先关注技术可交付性、权利要求边界、实施例支撑和失败模式。",
+    "deepseek": "你是 DeepSeek 侧专利审查专家，优先关注现有技术差异、审查稳定性、创造性论证和风险压降。",
     "gemini": "你是 Gemini 侧专利策略专家，优先关注保护范围布局、创新点表达、审查说服力和摘要/附图叙事。",
     "claude": "你是 Claude 侧专利文本专家，优先关注说明书结构、术语一致性、支持性和整体自洽。",
 }
@@ -73,7 +74,7 @@ JSON schema:
 
 def chair_prompt(dossier: str, openings: dict, pair_results: list[dict]) -> str:
     return f"""{GUARDRAILS}
-你是 Codex 主席，负责汇总三方会审并生成可注入专利写作流水线的 strategy brief。
+你是 Codex 主席，负责汇总多智能体会审并生成可注入专利写作流水线的 strategy brief。
 
 {dossier}
 
