@@ -5,6 +5,7 @@ import {
   cancelPostDraftReview,
   cancelProjectDeliberation,
   cancelProjectDisclosure,
+  getHealth,
   importPatent,
   retryFormulaRun,
   retryPostDraftReview,
@@ -70,6 +71,14 @@ describe("runtime control API", () => {
     calls.forEach(({ url }, index) => {
       expect(fetchMock).toHaveBeenNthCalledWith(index + 1, url, { method: "POST" });
     });
+  });
+
+  it("includes the endpoint when fetch fails before a response", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Load failed");
+    }));
+
+    await expect(getHealth()).rejects.toThrow("GET /api/health 请求失败：Load failed");
   });
 
   it("routes direct upload fetches through the Tauri backend base URL", async () => {

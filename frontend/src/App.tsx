@@ -1354,7 +1354,6 @@ function App() {
     if (!selectedProject?.package) return;
     const projectId = selectedProject.id;
     await withStatus("guided-quality", async () => {
-      await reviewProject(projectId);
       const report = await createFilingReadinessReport(projectId);
       const worksheet = await createClaimDefenseWorksheet(projectId);
       const completion = await createDraftCompletionRun(projectId);
@@ -1365,8 +1364,13 @@ function App() {
       setFilingReports((current) => [report, ...current.filter((item) => item.id !== report.id)]);
       setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== worksheet.id)]);
       setCompletionRuns((current) => [completion, ...current.filter((item) => item.id !== completion.id)]);
-      await loadOfficialCompileRuns(projectId);
-      await loadPostDraftReviews(projectId);
+      await Promise.all([
+        loadFilingReports(projectId),
+        loadWorksheets(projectId),
+        loadCompletionRuns(projectId),
+        loadOfficialCompileRuns(projectId),
+        loadPostDraftReviews(projectId),
+      ]);
       setMessage(`质量检查完成：整体评分 ${completion.scorecard.overall}/100`);
     });
   }

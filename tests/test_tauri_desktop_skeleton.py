@@ -162,7 +162,8 @@ def test_frontend_api_adapter_preserves_web_and_supports_tauri_backend_base_url(
     assert "getTauriBackendBaseUrl" in api_ts
     assert "__TAURI__" in api_ts
     assert "url.startsWith(\"/api/\")" in api_ts
-    assert "fetch(await resolveApiUrl(url), init)" in api_ts
+    assert "const resolvedUrl = await resolveApiUrl(url)" in api_ts
+    assert "fetch(resolvedUrl, init)" in api_ts
 
 
 def test_tauri_smoke_is_wired_into_release_gate_without_removing_electron_smoke() -> None:
