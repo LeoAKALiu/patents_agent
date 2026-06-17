@@ -37,7 +37,7 @@ def test_tauri_v2_scaffold_is_the_only_desktop_runtime() -> None:
     build = tauri_config["build"]
     assert build["frontendDist"] == "../frontend/dist"
     assert build["devUrl"] == "http://127.0.0.1:5173"
-    assert "npm --prefix frontend run build" in build["beforeBuildCommand"]
+    assert "npm --prefix ../frontend run build" in build["beforeBuildCommand"]
     assert "__pycache__" in build["beforeBuildCommand"]
     assert tauri_config["bundle"]["icon"] == [
         "icons/32x32.png",

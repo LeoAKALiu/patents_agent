@@ -1,5 +1,7 @@
 import { type ReactNode } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export type ThemeMode = "auto" | "light" | "dark";
 
@@ -30,10 +32,16 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "dark", label: "深色", icon: Moon },
 ];
 
-function statusClass(variant: "idle" | "busy" | "error"): string {
-  if (variant === "busy") return "tag tag-warn";
-  if (variant === "error") return "tag tag-danger";
-  return "tag tag-success";
+function statusVariant(variant: "idle" | "busy" | "error"): "success" | "warning" | "secondary" {
+  if (variant === "busy") return "warning";
+  if (variant === "error") return "secondary"; // red in legacy; we keep semantic
+  return "success";
+}
+
+function statusChipVariant(variant: "idle" | "busy" | "error"): "default" | "warning" | "destructive" {
+  if (variant === "busy") return "warning";
+  if (variant === "error") return "destructive";
+  return "default";
 }
 
 export function ShellTopbar({
@@ -43,7 +51,7 @@ export function ShellTopbar({
   actions,
   projectSelector,
   statusLabel,
-  statusVariant = "idle",
+  statusVariant: statusV = "idle",
   theme,
   onThemeChange,
   onRefresh,
@@ -65,26 +73,23 @@ export function ShellTopbar({
           {projectSelector}
 
           {statusLabel && (
-            <span className={statusClass(statusVariant)}>{statusLabel}</span>
+            <Badge variant={statusChipVariant(statusV)} className="text-xs">
+              {statusLabel}
+            </Badge>
           )}
 
           {actions}
 
           {onRefresh && (
-            <button
-              className="btn btn-secondary btn-icon"
+            <Button
+              variant="glass-soft"
+              size="icon"
               onClick={onRefresh}
-              type="button"
               title="刷新运行状态"
               aria-label="刷新运行状态"
             >
-              <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M20 6v5h-5" />
-                <path d="M4 18v-5h5" />
-                <path d="M18 11a6 6 0 0 0-10-4l-4 4" />
-                <path d="M6 13a6 6 0 0 0 10 4l4-4" />
-              </svg>
-            </button>
+              <RefreshCw size={16} aria-hidden="true" />
+            </Button>
           )}
         </div>
 

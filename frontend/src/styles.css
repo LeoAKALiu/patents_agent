@@ -1,153 +1,50 @@
 @import "tailwindcss";
 
-/* ── Tailwind v4 Theme Tokens (maps to CSS variables below) ───── */
+/* ══════════════════════════════════════════════════════════════════
+   PatentAgent stylesheet entry
+   ────────────────────────────────────────────────────────────────
+   Token + base + glass layers live in src/styles/*.css. This file now
+   holds only the Tailwind v4 `@theme` bridge (so utilities like
+   bg-app-surface resolve to our tokens) plus the legacy component
+   classes still in use during the staged refactor.
+
+   Load order matters: tokens → glass → base → component layer.
+   ══════════════════════════════════════════════════════════════════ */
+@import "./styles/tokens.css";
+@import "./styles/glass.css";
+@import "./styles/base.css";
+
+/* ── Tailwind v4 Theme bridge ─────────────────────────────────────
+   Maps semantic tokens → Tailwind utility colors (bg-app-surface,
+   text-app-muted, border-app-border, …). Single source of truth is
+   tokens.css; this only exposes those vars to the Tailwind layer. */
 @theme {
-  --color-app-bg: var(--surface-base);
-  --color-app-surface: var(--surface-raised);
-  --color-app-subtle: var(--surface-subtle);
-  --color-app-inset: var(--surface-inset);
-  --color-app-fg: var(--text-primary);
-  --color-app-muted: var(--text-muted);
-  --color-app-soft: var(--text-soft);
-  --color-app-border: var(--border-subtle);
+  --color-app-bg:           var(--surface-base);
+  --color-app-surface:      var(--surface-raised);
+  --color-app-subtle:       var(--surface-subtle);
+  --color-app-inset:        var(--surface-inset);
+  --color-app-fg:           var(--text-primary);
+  --color-app-muted:        var(--text-muted);
+  --color-app-soft:         var(--text-soft);
+  --color-app-border:       var(--border-subtle);
   --color-app-border-strong: var(--border-strong);
-  --color-app-accent: var(--action-primary);
-  --color-app-accent-fg: var(--action-primary-contrast);
-  --color-app-info: var(--info);
-  --color-app-success: var(--success);
-  --color-app-warn: var(--warn);
-  --color-app-danger: var(--danger);
-  --color-app-teal: oklch(72% 0.15 168);
-  --color-app-teal-dim: oklch(56% 0.12 170);
-  --color-app-teal-pale: oklch(86% 0.06 170);
+  --color-app-accent:       var(--action-primary);
+  --color-app-accent-fg:    var(--action-primary-contrast);
+  --color-app-info:         var(--info);
+  --color-app-success:      var(--success);
+  --color-app-warn:         var(--warn);
+  --color-app-danger:       var(--danger);
+  --color-app-brand:        var(--brand-teal-500);
+  --color-app-brand-soft:   var(--brand-teal-300);
+  --color-app-brand-pale:   var(--brand-teal-50);
 
-  /* Display + body font stacks both include CJK fallbacks so Chinese
-     characters render with native font hints instead of a Latin-only face. */
-  --font-display: 'Söhne', 'Avenir Next', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC', 'Noto Sans CJK SC', 'Microsoft YaHei', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --font-display: var(--font-display);
+  --font-mono:    var(--font-mono);
 
-  /* Radius scale. md stays 8px for controls; lg = 10px for panels/cards so
-     larger surfaces read as one rounded language. sm = 6px for in-set bits. */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
 }
-
-/* ── CSS Variables: Light Theme (default) ─────────────────────── */
-:root {
-  --bg:      oklch(98% 0.004 240);
-  --surface: oklch(100% 0 0);
-  --fg:      oklch(20% 0.02 240);
-  --muted:   oklch(48% 0.022 240);
-  --border:  oklch(82% 0.008 240);
-  --accent:  oklch(56% 0.12 170);
-
-  --surface-base: var(--bg);
-  --surface-raised: var(--surface);
-  --surface-subtle: oklch(96% 0.006 240);
-  --surface-inset: oklch(94% 0.007 240);
-  --text-primary: var(--fg);
-  --text-muted: var(--muted);
-  --text-soft: oklch(60% 0.020 240);
-  --border-subtle: var(--border);
-  --border-strong: oklch(72% 0.012 240);
-  --action-primary: var(--accent);
-  --action-primary-contrast: oklch(16% 0.02 170);
-  --info: oklch(58% 0.14 238);
-  --success: oklch(58% 0.16 145);
-  --warn: oklch(72% 0.16 80);
-  --danger: oklch(58% 0.19 28);
-  --shadow-raised: 0 8px 24px oklch(20% 0.02 240 / 0.08);
-
-  color-scheme: light;
-}
-
-/* ── Dark Theme ────────────────────────────────────────────────── */
-:root[data-theme="dark"] {
-  --surface-base: oklch(12% 0.016 255);
-  --surface-raised: oklch(22% 0.018 258);
-  --surface-subtle: oklch(27% 0.020 256);
-  --surface-inset: oklch(8% 0.012 255);
-  --text-primary: oklch(96% 0.004 250);
-  --text-muted: oklch(72% 0.016 250);
-  --text-soft: oklch(54% 0.022 250);
-  --border-subtle: oklch(35% 0.024 255);
-  --border-strong: oklch(48% 0.024 255);
-  --action-primary: oklch(72% 0.15 168);
-  --action-primary-contrast: oklch(10% 0.02 168);
-  --info: oklch(74% 0.15 238);
-  --success: oklch(72% 0.17 145);
-  --warn: oklch(82% 0.16 80);
-  --danger: oklch(72% 0.19 28);
-  --shadow-raised: 0 12px 40px oklch(0% 0.01 255 / 0.70);
-
-  color-scheme: dark;
-}
-
-/* Auto mode: follow system preference, but explicit theme wins */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --surface-base: oklch(12% 0.016 255);
-    --surface-raised: oklch(22% 0.018 258);
-    --surface-subtle: oklch(27% 0.020 256);
-    --surface-inset: oklch(8% 0.012 255);
-    --text-primary: oklch(96% 0.004 250);
-    --text-muted: oklch(72% 0.016 250);
-    --text-soft: oklch(54% 0.022 250);
-    --border-subtle: oklch(35% 0.024 255);
-    --border-strong: oklch(48% 0.024 255);
-    --action-primary: oklch(72% 0.15 168);
-    --action-primary-contrast: oklch(10% 0.02 168);
-    --info: oklch(74% 0.15 238);
-    --success: oklch(72% 0.17 145);
-    --warn: oklch(82% 0.16 80);
-    --danger: oklch(72% 0.19 28);
-    --shadow-raised: 0 12px 40px oklch(0% 0.01 255 / 0.70);
-
-    color-scheme: dark;
-  }
-}
-
-/* ── Base / Reset ─────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; }
-
-html {
-  min-width: 0;
-  color-scheme: light dark;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  overflow-x: hidden;
-  background: var(--surface-base);
-  color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC', 'Noto Sans CJK SC', 'Microsoft YaHei', system-ui, sans-serif;
-  font-size: 14px;
-  line-height: 1.6;
-  /* Prefer proportional-width CJK glyphs; allow breaking long CJK runs so
-     paragraphs don't overflow on narrow viewports. */
-  font-variant-east-asian: proportional-width;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  text-rendering: geometricPrecision;
-  -webkit-font-smoothing: antialiased;
-  /* CSS Text Level 4; Chromium 124+ only. Tauri ships Chromium so this
-     is safe here, but it is not portable to a generic web build. */
-  text-spacing-trim: space-all;
-}
-
-button, input, select, textarea { font: inherit; }
-button, a { -webkit-tap-highlight-color: transparent; }
-a { color: inherit; text-decoration: none; }
-button { cursor: pointer; }
-
-/* ── Scrollbar ────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-soft); }
 
 /* ══════════════════════════════════════════════════════════════════
    APP SHELL
@@ -167,8 +64,12 @@ button { cursor: pointer; }
   flex-direction: column;
   height: 100vh;
   padding: 18px 14px;
-  border-right: 1px solid var(--border-subtle);
-  background: var(--surface-raised);
+  /* Glass chrome (strong frost): square edges facing the canvas. */
+  background: var(--glass-bg-heavy);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+  border-right: var(--glass-border);
+  box-shadow: var(--glass-hairline);
   overflow-y: auto;
 }
 
@@ -299,9 +200,12 @@ button.nav-link {
   gap: 16px;
   min-height: 64px;
   padding: 12px 24px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: color-mix(in oklch, var(--surface-base), transparent 4%);
-  backdrop-filter: blur(16px);
+  /* Glass chrome (strong frost). */
+  background: var(--glass-bg-heavy);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+  border-bottom: var(--glass-border);
+  box-shadow: var(--glass-hairline);
 }
 
 .page-title {
@@ -993,15 +897,19 @@ input:focus, select:focus, textarea:focus {
 }
 
 .choice-card {
-  border: 1px solid var(--border-subtle);
+  /* Glass surface (default frost tier). */
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
+  backdrop-filter: blur(var(--glass-blur-md));
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  box-shadow: var(--glass-hairline), var(--glass-shadow);
   padding: 14px;
 }
 
 .choice-card.is-selected {
   border-color: var(--action-primary);
-  background: color-mix(in oklch, var(--action-primary), var(--surface-raised) 88%);
+  box-shadow: var(--glass-hairline), 0 0 0 2px var(--brand-blue-500), var(--glass-shadow);
 }
 
 .choice-card strong { display: block; margin-bottom: 5px; font-size: 14px; }
@@ -1011,9 +919,13 @@ input:focus, select:focus, textarea:focus {
 .score-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
 
 .score-card {
-  border: 1px solid var(--border-subtle);
+  /* Glass surface (soft frost for in-set metric tiles). */
+  background: var(--glass-bg-light);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  box-shadow: var(--glass-hairline);
   padding: 10px;
 }
 
@@ -1070,9 +982,13 @@ input:focus, select:focus, textarea:focus {
 .agent-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 12px 0; }
 
 .agent-card {
-  border: 1px solid var(--border-subtle);
+  /* Glass surface (soft frost for provider tiles). */
+  background: var(--glass-bg-light);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  box-shadow: var(--glass-hairline);
   padding: 12px;
   display: grid;
   gap: 8px;
@@ -1157,21 +1073,27 @@ input:focus, select:focus, textarea:focus {
 .project-card {
   display: grid;
   gap: 10px;
-  border: 1px solid var(--border-subtle);
+  /* Glass surface (default frost). */
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
+  backdrop-filter: blur(var(--glass-blur-md));
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  box-shadow: var(--glass-hairline), var(--glass-shadow);
   color: var(--text-primary);
   padding: 14px;
   cursor: pointer;
-  transition: border-color .12s;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 
-.project-card:hover { border-color: var(--border-strong); }
+.project-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glass-hairline), var(--glass-shadow-high);
+}
 
 .project-card.selected {
-  border-color: color-mix(in oklch, var(--action-primary), transparent 66%);
-  background: color-mix(in oklch, var(--action-primary), transparent 94%);
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--action-primary), transparent 86%);
+  border-color: color-mix(in oklch, var(--brand-teal-500), transparent 50%);
+  box-shadow: var(--glass-hairline), 0 0 0 2px var(--brand-teal-500), var(--glass-shadow);
 }
 
 .project-card strong, .project-card span { display: block; }
@@ -1489,20 +1411,23 @@ input:focus, select:focus, textarea:focus {
   align-content: start;
   gap: 10px;
   min-height: 180px;
-  border: 1px solid var(--border-subtle);
+  /* Glass surface (default frost) — the 3 hero entry cards. */
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
+  backdrop-filter: blur(var(--glass-blur-md));
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  box-shadow: var(--glass-hairline), var(--glass-shadow);
   color: var(--text-primary);
   padding: 18px;
   text-align: left;
   cursor: pointer;
-  transition: background .12s, border-color .12s, transform .12s;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .start-choice-card:hover {
-  border-color: color-mix(in oklch, var(--action-primary), transparent 60%);
-  background: var(--surface-raised);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: var(--glass-hairline), var(--glass-shadow-high);
 }
 
 .start-choice-card svg { color: var(--action-primary); }
@@ -1677,26 +1602,28 @@ input:focus, select:focus, textarea:focus {
 .mode-card, .guided-choice {
   display: grid;
   gap: 6px;
-  border: 1px solid var(--border-subtle);
+  /* Glass surface (soft frost for mode/choice chips). */
+  background: var(--glass-bg-light);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  box-shadow: var(--glass-hairline);
   color: var(--text-primary);
   padding: 12px;
   text-align: left;
   font-size: 12px;
   cursor: pointer;
-  transition: border-color .12s, background .12s;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .mode-card:hover, .guided-choice:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-raised);
+  transform: translateY(-1px);
+  box-shadow: var(--glass-hairline), var(--glass-shadow);
 }
 
 .mode-card.selected, .guided-choice.selected {
-  border-color: color-mix(in oklch, var(--action-primary), transparent 66%);
-  background: color-mix(in oklch, var(--action-primary), transparent 94%);
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--action-primary), transparent 86%);
+  box-shadow: var(--glass-hairline), 0 0 0 2px var(--brand-blue-500), var(--glass-shadow);
 }
 
 .guided-summary-list { display: grid; gap: 6px; }
@@ -1717,9 +1644,13 @@ input:focus, select:focus, textarea:focus {
 .boundary-card {
   min-height: 136px;
   padding: 14px;
-  border: 1px solid var(--border-subtle);
+  /* Glass surface (default frost) for export-boundary tiles. */
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
+  backdrop-filter: blur(var(--glass-blur-md));
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  box-shadow: var(--glass-hairline), var(--glass-shadow);
 }
 
 .boundary-card strong { display: block; margin-bottom: 2px; color: var(--text-primary); }

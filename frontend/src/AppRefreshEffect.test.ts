@@ -22,4 +22,15 @@ describe("App refresh effect dependencies", () => {
     expect(dependencies).not.toContain("latestPostDraftReview,");
     expect(dependencies).not.toContain("lastExport,");
   });
+
+  it("App.tsx contains no hard-coded hex colours (M5 visual-consistency guard)", () => {
+    // Every colour must flow through a design token (var(--*)). Strip // line
+    // comments first so palette references in prose don't trip the check.
+    const code = source
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("//"))
+      .join("\n");
+    // Reject #rgb / #rrggbb / #rrggbbaa anywhere in code.
+    expect(code).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
 });

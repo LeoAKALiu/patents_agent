@@ -1,0 +1,219 @@
+/* ──────────────────────────────────────────────────────────────────
+   tokens.css — PatentAgent design tokens (single source of truth)
+
+   Light-first glassmorphism. Company palette (3 brand colours) extended
+   into full ramps via OKLCH. Dark-mode values are DELIBERATELY LEFT
+   PLACEHOLDER (var() fallback to light) — dark is a deferred phase; the
+   variable *names* exist so components can be authored theme-ready, but
+   filling the dark ramp is tracked as a separate milestone.
+
+   Convention:
+     --brand-*  = company palette (teal/blue/green) and their ramps
+     --surface-* / --text-* / --border-* = neutral structural colour
+     --glass-*  = translucency layer (alpha + blur + shadow)
+     --space-* / --fs-* / --lh-* / --zi-* / --dur-* / --ease-* = scale tokens
+   ────────────────────────────────────────────────────────────────── */
+
+/* ── Brand ramps (company three colours, OKLCH) ──────────────────────
+   Each brand hue is a lightness ramp so variants resolve from the same
+   chroma family instead of ad-hoc hex. Lightness steps follow the
+   app's established ~47/72% anchor points. */
+:root {
+  /* Brand teal #016C51 — logo mark, links, selected/active tint,
+     success TEXT (per spec: green fails contrast, use teal for text). */
+  --brand-teal-50:  oklch(96.4% 0.018 168);
+  --brand-teal-100: oklch(91.0% 0.040 168);
+  --brand-teal-300: oklch(72.0% 0.092 168);
+  --brand-teal-500: oklch(47.2% 0.095 168); /* #016C51 — anchor */
+  --brand-teal-600: oklch(40.0% 0.085 168);
+  --brand-teal-700: oklch(33.0% 0.072 168);
+
+  /* Accent deep blue #0B3D91 — trust / professional. RESERVED list per
+     spec: primary CTA, active indicator, focus ring, progress fill,
+     selected ring. Never "all interactive". */
+  --brand-blue-50:  oklch(95.0% 0.020 261);
+  --brand-blue-100: oklch(88.0% 0.045 261);
+  --brand-blue-300: oklch(62.0% 0.130 261);
+  --brand-blue-500: oklch(38.6% 0.148 260.7); /* #0B3D91 — anchor */
+  --brand-blue-600: oklch(33.0% 0.135 261);
+  --brand-blue-700: oklch(27.0% 0.115 261);
+
+  /* Authorisation green #1DBF73 — PASS indicator ONLY (fill / progress
+     / status dot). Contrast ~2.2:1 on light → never use as text/icon.
+     For success TEXT use --brand-teal-500 or --success-strong. */
+  --brand-green-50:  oklch(95.5% 0.040 156);
+  --brand-green-100: oklch(90.0% 0.090 156);
+  --brand-green-300: oklch(80.0% 0.150 156);
+  --brand-green-500: oklch(71.0% 0.167 155.7); /* #1DBF73 — anchor */
+  --success-strong:  oklch(52.7% 0.137 150);   /* #15803D — success TEXT */
+
+  /* Destructive (company card has no red — researcher-added). Irreversible
+     actions only (delete project / delete invention point). */
+  --danger-300: oklch(70.0% 0.165 29);
+  --danger-500: oklch(57.6% 0.209 29.5); /* #D92D20 — anchor */
+  --danger-700: oklch(45.0% 0.190 29);
+
+  /* Semantic aliases (theme-ready; dark fills these later). */
+  --action-primary:         var(--brand-blue-500);
+  --action-primary-hover:   var(--brand-blue-600);
+  --action-primary-active:  var(--brand-blue-700);
+  --action-primary-contrast: oklch(99% 0.005 261); /* white-on-blue ≈ 10:1 */
+  --brand:            var(--brand-teal-500);
+  --brand-soft:       var(--brand-teal-300);
+  --brand-pale:       var(--brand-teal-50);
+  --info:             var(--brand-blue-500);
+  --success:          var(--brand-green-500);
+  --success-text:     var(--brand-teal-500);
+  --warn:             oklch(78% 0.150 75);
+  --danger:           var(--danger-500);
+
+  /* ── Surfaces / text / borders (light; neutral tinted toward brand) ──
+     Canvas is a warm-green-tinted near-white (#F3F5F3 → oklch 96.8% .003 145).
+     Neutrals carry a faint blue-toward-250 tint to sit beside the blue
+     accent without clashing; kept very low-chroma. */
+  --canvas:           oklch(96.8% 0.003 145.5);
+  --surface-base:     var(--canvas);
+  --surface-raised:   oklch(99.4% 0.002 250);
+  --surface-subtle:   oklch(96.5% 0.004 250);
+  --surface-inset:    oklch(94.0% 0.005 250);
+
+  --text-primary:     oklch(21.7% 0.038 250.0); /* #0B1B2B ≈14:1 on glass */
+  --text-muted:       oklch(45.3% 0.038 250.1); /* #46586B ≈6.5:1 */
+  --text-soft:        oklch(57.3% 0.029 248.3); /* #6B7A89 ≈4.6:1 */
+  --text-on-action:   var(--action-primary-contrast);
+  --text-on-brand:    oklch(99% 0.005 168);
+
+  --border-subtle:    oklch(90.0% 0.004 250);
+  --border-strong:    oklch(78.0% 0.008 250);
+  --border-input:     oklch(72.0% 0.010 250); /* hard border reserved for inputs */
+
+  --focus-ring:       var(--brand-blue-500);
+  --focus-ring-offset: 2px;
+
+  /* Legacy aliases kept so existing rules resolve during migration. */
+  --bg:      var(--surface-base);
+  --surface: var(--surface-raised);
+  --fg:      var(--text-primary);
+  --muted:   var(--text-muted);
+  --border:  var(--border-subtle);
+  --accent:  var(--action-primary);
+
+  /* ── shadcn/ui token bridge (maps app tokens → shadcn var names) ──
+     shadcn components reference --primary/--card/--ring/etc.; we resolve
+     them to the same company-palette tokens so shadcn + hand-rolled UI
+     share one source of truth. */
+  --background:           var(--surface-base);
+  --foreground:           var(--text-primary);
+  --card:                 var(--surface-raised);
+  --card-foreground:      var(--text-primary);
+  --popover:              var(--surface-raised);
+  --popover-foreground:   var(--text-primary);
+  --primary:              var(--action-primary);
+  --primary-foreground:   var(--action-primary-contrast);
+  --secondary:            var(--surface-subtle);
+  --secondary-foreground: var(--text-primary);
+  --muted-foreground:     var(--text-muted);
+  --accent-foreground:    var(--action-primary);
+  --destructive:          var(--danger);
+  --destructive-foreground: oklch(99% 0.005 261);
+  --input:                var(--border-input);
+  --ring:                 var(--focus-ring);
+  --radius:               0.5rem;
+
+  /* ── Shadows ───────────────────────────────────────────────────── */
+  --shadow-sm:      0 1px 2px oklch(11% 0.04 261 / 0.06);
+  --shadow-raised:  0 4px 24px oklch(11% 0.04 261 / 0.08);
+  --shadow-high:    0 12px 40px oklch(11% 0.04 261 / 0.12);
+
+  /* ── Glass layer (light-tuned; standard kit is dark-tuned) ────────
+     Higher white opacity than the dark-tuned default so text stays
+     legible over the light mesh canvas. */
+  --glass-bg-light: oklch(99% 0.002 250 / 0.45);
+  --glass-bg:       oklch(99% 0.002 250 / 0.60);
+  --glass-bg-heavy: oklch(99% 0.002 250 / 0.72);
+  --glass-fallback: oklch(99% 0.002 250 / 0.92); /* no backdrop-filter */
+
+  --glass-blur-sm:   8px;
+  --glass-blur-md:   16px;
+  --glass-blur-lg:   28px;
+
+  /* Glass edges: top highlight + hairline definition on light. */
+  --glass-border:    1px solid oklch(99% 0.002 250 / 0.55);
+  --glass-hairline:  inset 0 0 0 1px oklch(15% 0.04 250 / 0.06);
+  /* Brand-tinted shadows reinforce cohesion. */
+  --glass-shadow:      0 4px 24px oklch(38.6% 0.148 260.7 / 0.08);
+  --glass-shadow-high: 0 12px 40px oklch(38.6% 0.148 260.7 / 0.12);
+
+  /* Canvas mesh (the backdrop the frost refracts). Soft/desaturated so
+     text contrast holds. Applied on body in base.css. */
+  --mesh-1: color-mix(in oklch, var(--brand-blue-500) 16%, transparent);
+  --mesh-2: color-mix(in oklch, var(--brand-teal-500) 14%, transparent);
+  --mesh-3: color-mix(in oklch, var(--brand-green-500) 8%, transparent);
+
+  /* ── Spacing scale (4pt grid; off-grid 9/10/14/18 cleaned up) ──── */
+  --space-xs:   4px;
+  --space-sm:   8px;
+  --space-md:   12px;
+  --space-base: 16px;
+  --space-lg:   24px;
+  --space-xl:   32px;
+  --space-2xl:  48px;
+  --space-3xl:  64px;
+
+  /* Control sizing (multiples of 4). */
+  --control-h:     40px;
+  --control-touch: 44px;
+
+  /* ── Typography scale (4 sizes · 2 weights · CJK line-height) ───── */
+  --fs-body:    15px;
+  --fs-label:   13px;
+  --fs-heading: 20px;
+  --fs-display: 28px;
+  --fw-regular: 400;
+  --fw-bold:    600;
+  --lh-tight:   1.2;
+  --lh-heading: 1.3;
+  --lh-label:   1.4;
+  --lh-body:    1.6; /* CJK-friendly */
+
+  /* Display + body stacks both carry CJK fallbacks so Chinese glyphs
+     render with native hints. Söhne (licensed) → Avenir Next (macOS
+     system, free, high distinctiveness) → CJK. Inter deliberately NOT
+     used (overused, AI-slop fingerprint per design skill). */
+  --font-display: 'Söhne', 'Avenir Next', -apple-system, BlinkMacSystemFont,
+                   'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC',
+                   'Noto Sans CJK SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+  /* ── Radius ────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ── z-index scale ─────────────────────────────────────────────── */
+  --zi-base:    1;
+  --zi-sticky:  20;   /* sidebar / topbar */
+  --zi-overlay: 1000; /* dropdowns / tooltips */
+  --zi-modal:   1100;
+  --zi-toast:   1200;
+
+  /* ── Motion ────────────────────────────────────────────────────── */
+  --dur-fast:   120ms;
+  --dur-normal: 200ms;
+  --dur-slow:   320ms;
+  /* Exponential ease-out family (ease-out-quart / quint) — no bounce/elastic. */
+  --ease-out:   cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1); /* gentle, not bouncy */
+
+  color-scheme: light;
+}
+
+/* ── Dark theme (DEFERRED — names reserved, values fall back to light) ──
+   Dark is a separate phase. When activated, override the brand/surface/
+   text/glass blocks here. Leaving the block present + commented keeps the
+   selector chain intact so useTheme.ts already works. */
+:root[data-theme="dark"] {
+  /* TODO(dark-phase): fill --surface-*, --text-*, --glass-bg-*,
+     --border-*, shadow ramps, and re-verify contrast on glass. */
+}
