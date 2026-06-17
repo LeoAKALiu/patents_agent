@@ -345,7 +345,18 @@ def _normalize_status(value: object) -> object:
         return value
     text = _coerce_text(value).strip()
     key = _enum_key(text)
-    return STATUS_ALIASES.get(key, text.lower())
+    mapped = STATUS_ALIASES.get(key)
+    if mapped is not None:
+        return mapped
+    # The LLM sometimes returns a status outside the known aliases (e.g. a
+    # free-form phrase or a Chinese label). Passing it through verbatim makes
+    # model_validate reject the whole payload and fail the review. Fall back to
+    # the safe "needs_revision" bucket so the review completes and surfaces the
+    # reviewer's blocking_issues instead of crashing on schema validation.
+    lower = text.lower()
+    if lower in {"passed", "needs_revision", "blocked"}:
+        return lower
+    return "needs_revision"
 
 
 def _enum_key(text: str) -> str:
