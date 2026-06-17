@@ -1,0 +1,156 @@
+/* ──────────────────────────────────────────────────────────────────
+   glass.css — Liquid Glass component layer
+
+   Every value resolves to a token from tokens.css. No hard-coded hex,
+   blur, or shadow. The glass surface IS the separator — replace the
+   old "1px border + subtle fill on everything" pattern; reserve hard
+   borders for inputs and thin dividers only.
+
+   Surface tiers (from spec):
+     .glass-soft   ghost buttons / chips         (--glass-bg-light, blur-sm)
+     .glass        panels / cards                (--glass-bg, blur-md)
+     .glass-strong sidebar / topbar / modals     (--glass-bg-heavy, blur-lg)
+   ────────────────────────────────────────────────────────────────── */
+
+/* Shared frost base — paired with -webkit- for portability (Tauri ships
+   Chromium but keep it portable). */
+.glass,
+.glass-soft,
+.glass-strong {
+  position: relative;
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
+  backdrop-filter: blur(var(--glass-blur-md));
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-hairline), var(--glass-shadow);
+}
+
+/* Tier: ghost buttons / chips */
+.glass-soft {
+  background: var(--glass-bg-light);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  box-shadow: var(--glass-hairline);
+}
+
+/* Tier: panels / cards (default .glass) */
+.glass {
+  background: var(--glass-bg);
+}
+
+/* Tier: sidebar / topbar / modals — heavy frost, sticky surfaces */
+.glass-strong {
+  background: var(--glass-bg-heavy);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-hairline), var(--glass-shadow-high);
+}
+
+/* Sticky chrome (topbar/sidebar): squared on the canvas-facing edge,
+   rounded on inner edges. Kept as modifier so base tier is reusable. */
+.glass-strong.is-chrome {
+  border-radius: 0;
+}
+
+/* ── Interactive lift (cards / choice cards) ────────────────────────
+   Motion uses transform/opacity only — never width/height/padding.
+   Exponential ease-out; no bounce. */
+.glass.is-interactive {
+  cursor: pointer;
+  transition:
+    transform var(--dur-normal) var(--ease-out),
+    box-shadow var(--dur-normal) var(--ease-out);
+}
+.glass.is-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glass-hairline), var(--glass-shadow-high);
+}
+.glass.is-interactive:active {
+  transform: translateY(0);
+  transition-duration: var(--dur-fast);
+}
+
+/* Selected-state ring on choice cards (accent-blue per reserved list). */
+.glass.is-selected {
+  box-shadow:
+    var(--glass-hairline),
+    0 0 0 2px var(--brand-blue-500),
+    var(--glass-shadow);
+}
+
+/* ── Glass button skin (shadcn <Button> variant hook) ───────────────
+   Applied as a variant; the shadcn button keeps its Radix behaviour,
+   this supplies the frosted surface for ghost/secondary variants. */
+.glass-btn {
+  background: var(--glass-bg-light);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  border: var(--glass-border);
+  border-radius: var(--radius-md);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.glass-btn:hover { background: var(--glass-bg); }
+.glass-btn:active {
+  transform: scale(0.97);
+  background: var(--glass-bg-heavy);
+}
+
+/* ── Overlay / scrim / modal ──────────────────────────────────────── */
+.glass-overlay {
+  background: oklch(11% 0.03 250 / 0.32);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
+  backdrop-filter: blur(var(--glass-blur-lg));
+}
+.glass-modal {
+  background: var(--glass-bg-heavy);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.5);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.5);
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-hairline), var(--glass-shadow-high);
+}
+
+/* ── Entry animation (opacity + transform only) ───────────────────── */
+@keyframes glass-enter {
+  from { opacity: 0; transform: scale(0.98) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
+}
+.glass-enter {
+  animation: glass-enter var(--dur-normal) var(--ease-out) both;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Mandatory accessibility fallbacks (from glassmorphism a11y spec):
+   1. No backdrop-filter support → near-opaque surface
+   2. prefers-reduced-transparency → solid, no blur
+   3. prefers-contrast: more → higher-opacity + visible border
+   ────────────────────────────────────────────────────────────────── */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass, .glass-soft, .glass-strong,
+  .glass-btn, .glass-modal {
+    background: var(--glass-fallback);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass, .glass-soft, .glass-strong,
+  .glass-btn, .glass-modal, .glass-overlay {
+    background: var(--glass-fallback);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .glass-overlay { background: oklch(11% 0.03 250 / 0.55); }
+}
+
+@media (prefers-contrast: more) {
+  .glass, .glass-soft, .glass-strong,
+  .glass-btn, .glass-modal {
+    background: var(--glass-fallback);
+    border: 1px solid oklch(15% 0.04 250 / 0.30);
+  }
+}

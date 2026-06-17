@@ -1,0 +1,96 @@
+/* ──────────────────────────────────────────────────────────────────
+   base.css — reset, document surface, typography defaults, scrollbar
+
+   Migrated out of styles.css. Changes vs the old block:
+   • body font-family now var(--font-display) — was a hard-coded
+     -apple-system/SF Pro stack that diverged from --font-display.
+   • body font-size now var(--fs-body) (15px) — was 14px; spec bumps
+     the cramped 13–14px base. line-height stays CJK-friendly 1.6.
+   • Canvas is the brand mesh (the backdrop the glass refracts); was a
+     flat --surface-base fill.
+   CJK handling (proportional-width, break-word, text-spacing-trim) kept.
+   ────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  min-width: 0;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+
+  /* Mesh canvas: brand-tinted radial gradients over a warm near-white.
+     The frost layers (.glass*) refract this, so keep tints soft. */
+  background-color: var(--canvas);
+  background-image:
+    radial-gradient(at 0% 0%,    var(--mesh-1) 0, transparent 55%),
+    radial-gradient(at 100% 0%,  var(--mesh-2) 0, transparent 55%),
+    radial-gradient(at 50% 100%, var(--mesh-3) 0, transparent 60%);
+  background-attachment: fixed;
+
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  /* Prefer proportional-width CJK glyphs; allow breaking long CJK runs so
+     paragraphs don't overflow on narrow viewports. */
+  font-variant-east-asian: proportional-width;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  /* CSS Text Level 4; Chromium 124+ only. Tauri ships Chromium so this
+     is safe here, but it is not portable to a generic web build. */
+  text-spacing-trim: space-all;
+}
+
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: var(--brand-teal-500); text-decoration: none; }
+a:hover { color: var(--brand-teal-600); }
+button { cursor: pointer; }
+
+/* Default heading scale (4 sizes · 2 weights). Components may override
+   locally, but the document baseline matches the type contract. */
+h1, h2, h3 {
+  margin: 0;
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-heading);
+}
+h1 { font-size: var(--fs-display); }
+h2 { font-size: var(--fs-heading); }
+
+/* Mono runs (hashes, diffs, code) — single canonical stack. */
+code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-soft); }
+
+/* ── Focus ring (accent-blue per reserved list) ───────────────── */
+:focus-visible {
+  outline: var(--focus-ring-offset) solid var(--canvas);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+/* ── Reduced motion: opacity-only, no transforms/blur animation ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .glass.is-interactive:hover,
+  .glass-btn:active { transform: none; }
+}

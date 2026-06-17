@@ -156,7 +156,7 @@ export function SettingsPanel() {
 
   if (loading) {
     return (
-      <section className="panel wide">
+      <section className="p-5 rounded-lg border border-app-border bg-app-surface max-w-[1120px]">
         <h3>设置</h3>
         <p className="section-copy">正在加载当前 LLM 配置…</p>
         <Loader2 className="animate-spin" size={18} />
@@ -166,7 +166,7 @@ export function SettingsPanel() {
 
   if (loadError) {
     return (
-      <section className="panel wide">
+      <section className="p-5 rounded-lg border border-app-border bg-app-surface max-w-[1120px]">
         <h3>设置</h3>
         <p className="section-copy">加载失败：{loadError}</p>
         <button
@@ -184,7 +184,7 @@ export function SettingsPanel() {
   const fingerprint = view?.api_key_fingerprint ?? "";
 
   return (
-    <section className="panel wide" data-testid="settings-panel">
+    <section className="p-5 rounded-lg border border-app-border bg-app-surface max-w-[1120px]" data-testid="settings-panel">
       <h3>设置 · LLM 服务</h3>
       <p className="section-copy">
         在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限；

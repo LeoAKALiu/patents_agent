@@ -1,27 +1,28 @@
 import { AlertTriangle, CheckCircle2, CircleSlash, Clock, HelpCircle, LockKeyhole, XCircle } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import type { AgentDoctorReport, AgentProviderStatus } from "./api";
 
 export type AgentProviderRole = "deliberation" | "formula" | "post_review";
 
 export const requiredAgentProviderIds = ["codex", "deepseek", "claude"];
 
-function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: string } {
+function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: "success" | "warning" | "secondary" } {
   if (!provider.installed) {
-    return { label: "未安装", icon: <XCircle size={14} />, variant: "warn" };
+    return { label: "未安装", icon: <XCircle size={14} />, variant: "warning" };
   }
   switch (provider.auth_status) {
     case "ready":
-      return { label: "可用", icon: <CheckCircle2 size={14} />, variant: "ok" };
+      return { label: "可用", icon: <CheckCircle2 size={14} />, variant: "success" };
     case "not_authenticated":
-      return { label: "未登录/需认证", icon: <AlertTriangle size={14} />, variant: "warn" };
+      return { label: "未登录/需认证", icon: <AlertTriangle size={14} />, variant: "warning" };
     case "timeout":
-      return { label: "探测超时", icon: <Clock size={14} />, variant: "warn" };
+      return { label: "探测超时", icon: <Clock size={14} />, variant: "warning" };
     case "unavailable":
-      return { label: "不可用", icon: <XCircle size={14} />, variant: "warn" };
+      return { label: "不可用", icon: <XCircle size={14} />, variant: "warning" };
     case "unknown":
     default:
-      return { label: "状态未知", icon: <HelpCircle size={14} />, variant: "muted" };
+      return { label: "状态未知", icon: <HelpCircle size={14} />, variant: "secondary" };
   }
 }
 
@@ -82,11 +83,11 @@ export function AgentProviderCards({
   onToggleProvider: (providerId: string, enabled: boolean) => void;
 }) {
   const providers = providerListForRole(doctor, role);
-  if (!doctor) {
+  if (providers.length === 0) {
     return <p className="workflow-hint">智能体诊断尚未刷新，请稍候或点击刷新。</p>;
   }
   return (
-    <div className="agent-card-grid">
+    <div className="grid gap-2.5 my-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
       {providers.map((provider) => {
         const enabled = provider.required || selectedProviders.includes(provider.id);
         const canToggle = !provider.required && provider.selectable && !disabled;
@@ -94,17 +95,17 @@ export function AgentProviderCards({
         return (
           <article
             className={[
-              "agent-card",
-              enabled ? "enabled" : "",
-              provider.required ? "required" : "",
-              provider.available ? "available" : "missing",
+              "grid gap-2 p-3 rounded-lg border bg-app-subtle",
+              enabled
+                ? "border-app-accent/40 shadow-[inset_3px_0_0_var(--action-primary)]"
+                : "border-app-border",
             ].filter(Boolean).join(" ")}
             key={`${role}-${provider.id}`}
           >
-            <div className="agent-card-main">
+            <div className="flex items-center justify-between gap-2">
               <div>
-                <strong>{provider.label}</strong>
-                <span>{provider.model_version || "模型版本未声明"}</span>
+                <strong className="block text-app-fg text-sm">{provider.label}</strong>
+                <span className="text-app-muted text-[11px]">{provider.model_version || "模型版本未声明"}</span>
               </div>
               {provider.required ? (
                 <LockKeyhole size={18} />
@@ -114,28 +115,29 @@ export function AgentProviderCards({
                 <AlertTriangle size={18} />
               )}
             </div>
-            <div className="agent-card-meta">
-              <span className={`status-badge ${authDisplay.variant}`}>
+            <div className="flex items-center justify-between gap-2">
+              <Badge variant={authDisplay.variant} className="text-xs">
                 {authDisplay.icon}
                 {authDisplay.label}
-              </span>
-              <span className={enabled ? "status-badge" : "status-badge muted"}>
+              </Badge>
+              <Badge variant={enabled ? "success" : "secondary"} className="text-xs">
                 {provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}
-              </span>
+              </Badge>
             </div>
-            <p className="agent-card-hint">{providerHint(provider)}</p>
+            <p className="text-app-muted text-[11px] leading-snug min-h-[30px] m-0">{providerHint(provider)}</p>
             {provider.diagnostic && !provider.selectable && (
-              <p className="agent-card-diagnostic">{provider.diagnostic}</p>
+              <p className="text-app-muted text-[11px] m-0">{provider.diagnostic}</p>
             )}
             {provider.repair_suggestion && !provider.selectable && (
-              <p className="agent-card-repair">{provider.repair_suggestion}</p>
+              <p className="text-app-muted text-[11px] m-0">{provider.repair_suggestion}</p>
             )}
-            <label className={canToggle ? "agent-toggle" : "agent-toggle disabled"}>
+            <label className={`flex items-center gap-2 font-semibold text-xs ${canToggle ? "" : "opacity-50 cursor-not-allowed"}`}>
               <input
                 checked={enabled}
                 disabled={!canToggle}
                 onChange={(event) => onToggleProvider(provider.id, event.currentTarget.checked)}
                 type="checkbox"
+                size={14}
               />
               <span>{provider.required ? "必选席不可关闭" : provider.selectable ? "加入本轮" : "不可用"}</span>
               {!provider.selectable && <CircleSlash size={15} />}
@@ -143,7 +145,6 @@ export function AgentProviderCards({
           </article>
         );
       })}
-      {providers.length === 0 && <p className="workflow-hint">暂无可用于该环节的智能体。</p>}
     </div>
   );
 }
