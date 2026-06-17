@@ -405,3 +405,79 @@ def _schema_drift_llm() -> FakeLLMClient:
 """,
         }
     )
+
+
+def _unknown_status_llm() -> FakeLLMClient:
+    """LLM whose technical_hardness role returns a status outside the known
+    alias table (the failure mode observed in production run e9b7484d)."""
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "revision_needed",
+  "blocking_issues": ["技术贡献矩阵缺失量化指标。"],
+  "contamination_hits": [],
+  "rewrite_suggestions": ["补充增益计算的实施细节。"],
+  "official_safe_patches": [],
+  "attorney_memo": ["硬度需代理人复核。"]
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "needs_revision",
+  "export_allowed": false,
+  "blocking_issues": ["技术贡献矩阵缺失。"],
+  "contamination_hits": [],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": ["补充实施例。"],
+  "official_safe_patches": [],
+  "attorney_memo": ["主席综合意见。"],
+  "next_actions": ["修复后重新会审。"]
+}
+""",
+        }
+    )
+
+
+def test_post_draft_review_unknown_status_falls_back_to_needs_revision(tmp_path):
+    """An unmapped role status must fall back to needs_revision instead of
+    failing the whole review with schema_validation."""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_unknown_status_llm(), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "completed", f"review should complete, not crash; got {run.get('status')}"
+    technical = next(r for r in run["role_results"] if r["role"] == "technical_hardness")
+    assert technical["status"] == "needs_revision"
+    assert technical["blocking_issues"] == ["技术贡献矩阵缺失量化指标。"]
+    assert run["chair_result"]["status"] == "needs_revision"
+    assert run["export_allowed"] is False

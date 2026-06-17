@@ -297,7 +297,11 @@ def _repair_status(payload: dict[str, Any], notes: list[str]) -> None:
     raw_status = payload["status"]
     normalized = _normalize_status(raw_status)
     if normalized != raw_status:
-        notes.append(f"status {raw_status!r}->{normalized!r}")
+        # Flag unknown statuses so new LLM output patterns are visible and the
+        # alias table can be extended; known-alias mappings stay terse.
+        is_alias = isinstance(raw_status, str) and _enum_key(raw_status) in STATUS_ALIASES
+        marker = "" if is_alias else " (unknown status, fell back to default)"
+        notes.append(f"status {raw_status!r}->{normalized!r}{marker}")
         payload["status"] = normalized
 
 
@@ -345,7 +349,18 @@ def _normalize_status(value: object) -> object:
         return value
     text = _coerce_text(value).strip()
     key = _enum_key(text)
-    return STATUS_ALIASES.get(key, text.lower())
+    mapped = STATUS_ALIASES.get(key)
+    if mapped is not None:
+        return mapped
+    # The LLM sometimes returns a status outside the known aliases (e.g. a
+    # free-form phrase or a Chinese label). Passing it through verbatim makes
+    # model_validate reject the whole payload and fail the review. Fall back to
+    # the safe "needs_revision" bucket so the review completes and surfaces the
+    # reviewer's blocking_issues instead of crashing on schema validation.
+    # `key` is already lower-cased/normalized by _enum_key.
+    if key in {"passed", "needs_revision", "blocked"}:
+        return key
+    return "needs_revision"
 
 
 def _enum_key(text: str) -> str:
