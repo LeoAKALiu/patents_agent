@@ -208,7 +208,7 @@ def test_invalid_json_post_draft_review_downgrades_role_and_completes(tmp_path):
     technical = next(r for r in run["role_results"] if r["role"] == "technical_hardness")
     assert technical["status"] == "blocked"
     assert any(
-        log["level"] == "error" and "unparseable" in log["message"] and log["provider_id"] == "technical_hardness"
+        log["level"] == "error" and "downgraded to blocked" in log["message"] and log["provider_id"] == "technical_hardness"
         for log in run["logs"]
     )
 
@@ -352,6 +352,29 @@ def _review_llm(*, export_allowed: bool) -> FakeLLMClient:
 }}
 """.replace("'", '"'),
         }
+    )
+
+
+
+def test_post_draft_review_chair_invalid_json_downgrades_and_completes(tmp_path):
+    """Chair synthesis returning non-JSON is downgraded to a blocked chair; the
+    review completes fail-closed. Reviewer findings are still surfaced."""
+    base = _review_llm(export_allowed=False)
+    base.responses["post_draft_chair_synthesis"] = "chair returned plain text"
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=base, load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "completed", f"review should complete, not crash; logs={run.get('logs')}"
+    assert run["export_allowed"] is False
+    assert run["chair_result"]["status"] == "blocked"
+    assert any(
+        log["level"] == "error" and log["provider_id"] == "chair" and "downgraded" in log["message"]
+        for log in run["logs"]
     )
 
 

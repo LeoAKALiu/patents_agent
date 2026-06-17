@@ -99,31 +99,32 @@ def run_post_draft_review(
     try:
         for role, stage in ROLE_STAGES:
             current_stage = stage
-            raw = llm.complete_stage(stage, SYSTEM_PROMPT, _role_prompt(role, package, providers))
             try:
+                raw = llm.complete_stage(stage, SYSTEM_PROMPT, _role_prompt(role, package, providers))
                 payload = _extract_json(raw)
                 payload, repair_notes = _repair_role_payload(payload, expected_role=role)
                 if repair_notes:
                     logs.append(_schema_repair_log(provider_id=role, notes=repair_notes))
                 result = PostDraftReviewRoleResult.model_validate(payload)
-            except (ValueError, ValidationError) as role_exc:
-                # A single reviewer returning unparseable/invalid output must
-                # not crash the whole review. Downgrade that role to a blocked
-                # result so the review completes (fail-closed: export stays
-                # blocked) and the other reviewers' findings are preserved.
+            except Exception as role_exc:
+                # A single reviewer that errors at any point — LLM call failure
+                # (ConfigError/RuntimeError/timeout), unparseable JSON, or a
+                # schema mismatch the repair pass cannot fix — is downgraded to
+                # a blocked result so the review completes (fail-closed: export
+                # stays blocked) and the other reviewers' findings are preserved.
                 logs.append(
                     DeliberationLogEntry(
                         level="error",
                         phase="post_draft_review",
                         provider_id=role,
-                        message=f"{role} output unparseable, downgraded to blocked",
+                        message=f"{role} failed, downgraded to blocked",
                         detail=_failure_detail(role_exc, stage),
                     )
                 )
                 result = PostDraftReviewRoleResult(
                     role=role,
                     status="blocked",
-                    blocking_issues=[f"{role} 角色输出无法解析（{role_exc}），已降级为 blocked。"],
+                    blocking_issues=[f"{role} 角色执行失败（{role_exc}），已降级为 blocked。"],
                 )
             role_results.append(result)
             logs.append(
@@ -136,15 +137,35 @@ def run_post_draft_review(
                 )
             )
         current_stage = "post_draft_chair_synthesis"
-        chair_raw = llm.complete_stage(
-            "post_draft_chair_synthesis",
-            SYSTEM_PROMPT,
-            _chair_prompt(package, providers, role_results),
-        )
-        chair_payload, repair_notes = _repair_chair_payload(_extract_json(chair_raw))
-        if repair_notes:
-            logs.append(_schema_repair_log(provider_id="chair", notes=repair_notes))
-        chair = PostDraftReviewChairResult.model_validate(chair_payload)
+        try:
+            chair_raw = llm.complete_stage(
+                "post_draft_chair_synthesis",
+                SYSTEM_PROMPT,
+                _chair_prompt(package, providers, role_results),
+            )
+            chair_payload, repair_notes = _repair_chair_payload(_extract_json(chair_raw))
+            if repair_notes:
+                logs.append(_schema_repair_log(provider_id="chair", notes=repair_notes))
+            chair = PostDraftReviewChairResult.model_validate(chair_payload)
+        except Exception as chair_exc:
+            # Chair synthesis is guarded the same way as reviewer roles: an LLM
+            # error, unparseable JSON, or schema mismatch downgrades to a blocked
+            # chair so the run completes fail-closed instead of crashing. The
+            # reviewer findings already collected are still surfaced.
+            logs.append(
+                DeliberationLogEntry(
+                    level="error",
+                    phase="post_draft_chair_synthesis",
+                    provider_id="chair",
+                    message="chair synthesis failed, downgraded to blocked",
+                    detail=_failure_detail(chair_exc, "post_draft_chair_synthesis"),
+                )
+            )
+            chair = PostDraftReviewChairResult(
+                status="blocked",
+                export_allowed=False,
+                blocking_issues=["主席综合裁决执行失败，已降级为 blocked，请重试。"],
+            )
         blocking_issues = _dedupe([*chair.blocking_issues, *[issue for result in role_results for issue in result.blocking_issues]])
         contamination_hits = _dedupe([*chair.contamination_hits, *[hit for result in role_results for hit in result.contamination_hits]])
         export_allowed = bool(chair.export_allowed and not blocking_issues and not contamination_hits and chair.status == "passed")
