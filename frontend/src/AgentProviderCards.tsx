@@ -87,7 +87,7 @@ export function AgentProviderCards({
     return <p className="workflow-hint">智能体诊断尚未刷新，请稍候或点击刷新。</p>;
   }
   return (
-    <div className="agent-provider-grid my-3">
+    <div className="agent-provider-scroll my-3">
       {providers.map((provider) => {
         const enabled = provider.required || selectedProviders.includes(provider.id);
         const canToggle = !provider.required && provider.selectable && !disabled;
@@ -95,7 +95,7 @@ export function AgentProviderCards({
         return (
           <article
             className={[
-              "agent-card grid gap-2 p-3 rounded-lg border bg-app-subtle",
+              "agent-provider-card grid gap-2 p-3 rounded-lg border bg-app-subtle",
               enabled
                 ? "border-app-accent/40 shadow-[inset_3px_0_0_var(--action-primary)]"
                 : "border-app-border",

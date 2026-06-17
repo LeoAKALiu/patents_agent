@@ -1605,24 +1605,27 @@ input:focus, select:focus, textarea:focus {
   gap: 10px;
 }
 
-/* Multi-agent provider cards: explicit 2/3/4/5 columns by viewport width,
-   so a trailing card never stretches across a whole row (auto-fit would do
-   that when the 5th card is alone on its row). Tracks use minmax(0, 1fr) so
-   card content can shrink instead of overflowing. */
-.agent-provider-grid {
-  display: grid;
+/* Multi-agent provider cards: each card keeps a comfortable fixed width and
+   the row scrolls horizontally instead of squeezing cards into N columns.
+   Cards never wrap to a ragged 3+2 layout and never shrink below their
+   content size. Scrollbar styling is slim so it stays out of the way. */
+.agent-provider-scroll {
+  display: flex;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
 }
-@media (min-width: 720px) {
-  .agent-provider-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.agent-provider-card {
+  flex: 0 0 220px;
+  scroll-snap-align: start;
 }
-@media (min-width: 1040px) {
-  .agent-provider-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.agent-provider-scroll::-webkit-scrollbar { height: 6px; }
+.agent-provider-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
 }
-@media (min-width: 1360px) {
-  .agent-provider-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-}
+.agent-provider-scroll::-webkit-scrollbar-track { background: transparent; }
 
 .mode-card, .guided-choice {
   display: grid;
