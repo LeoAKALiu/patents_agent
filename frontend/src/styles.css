@@ -158,29 +158,6 @@ button.nav-link {
   margin-top: auto;
 }
 
-.health-card {
-  padding: 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-subtle);
-}
-
-.health-card h3 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.health-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
 /* ── Main area ────────────────────────────────────────────────── */
 .main-area {
   min-width: 0;
@@ -1259,38 +1236,6 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ── Settings ─────────────────────────────────────────────────── */
-.settings-status-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.settings-status-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: var(--surface-base);
-}
-
-.settings-status-tile span {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.settings-status-tile strong { font-size: 15px; color: var(--text-primary); }
-
-.settings-status-tile code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  color: var(--text-muted);
-  word-break: break-all;
-}
-
 .settings-form { display: grid; gap: 14px; margin-bottom: 14px; }
 .settings-field { display: grid; gap: 6px; }
 

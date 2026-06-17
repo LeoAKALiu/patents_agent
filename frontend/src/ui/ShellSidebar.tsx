@@ -1,6 +1,5 @@
 import { type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { GlassCard, CardContent } from "@/components/ui/glass-card";
 
 export interface ShellNavSection {
   id: string;
