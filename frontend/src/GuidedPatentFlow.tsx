@@ -1655,6 +1655,11 @@ function PostDraftReviewPanel({
           <h4>{passed ? "综合裁决：允许正式导出" : "综合裁决：需要修订"}</h4>
           {review.blocking_issues.length > 0 && <p>阻断项：{review.blocking_issues.slice(0, 3).join("；")}</p>}
           {review.contamination_hits.length > 0 && <p>问题项：{review.contamination_hits.slice(0, 5).join("；")}</p>}
+          {blocked && (
+            <p className="workflow-hint">
+              导出已锁定：请根据上方阻断项修改初稿，重新编译正式稿后再「重新成稿会审」，通过后即可导出。完整阻断项请查看会审报告。
+            </p>
+          )}
         </article>
       )}
       {!review && runs.length > 0 && (
