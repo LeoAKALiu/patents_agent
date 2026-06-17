@@ -15,11 +15,16 @@ import {
   EyeOff,
   KeyRound,
   Loader2,
+  Monitor,
+  Moon,
   RefreshCw,
   Save,
+  Sun,
   Trash2,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { DARK_MODE_ENABLED, type ThemeMode } from "./ui/useTheme";
 import {
   DesktopConfigHealthResult,
   DesktopConfigView,
@@ -48,7 +53,18 @@ function apiKeySourceLabel(source: DesktopConfigView["api_key_source"]): string 
   return "未配置";
 }
 
-export function SettingsPanel() {
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
+  { value: "auto", label: "自动", icon: Monitor },
+  { value: "light", label: "浅色", icon: Sun },
+  { value: "dark", label: "深色", icon: Moon },
+];
+
+export interface SettingsPanelProps {
+  theme: ThemeMode;
+  onThemeChange: (theme: ThemeMode) => void;
+}
+
+export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
   const [view, setView] = useState<DesktopConfigView | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -169,13 +185,13 @@ export function SettingsPanel() {
       <section className="p-5 rounded-lg border border-app-border bg-app-surface max-w-[1120px]">
         <h3>设置</h3>
         <p className="section-copy">加载失败：{loadError}</p>
-        <button
-          className="btn-secondary"
+        <Button
+          variant="outline"
           onClick={() => void load()}
           type="button"
         >
           <RefreshCw size={16} /> 重试
-        </button>
+        </Button>
       </section>
     );
   }
@@ -191,32 +207,44 @@ export function SettingsPanel() {
         界面只会显示是否已配置和指纹，不会回显明文。
       </p>
 
-      <div className="settings-status-grid">
-        <div className="settings-status-tile">
-          <span>状态</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="flex flex-col gap-1 p-3 rounded-lg border border-app-border bg-app-surface min-h-[88px]">
+          <span className="text-xs font-semibold text-app-muted">状态</span>
           <strong
-            className={
+            className={`text-sm font-medium truncate ${
               present || view?.api_key_source === "env"
-                ? "text-emerald-400"
-                : "text-amber-400"
-            }
+                ? "text-app-success"
+                : "text-app-warn"
+            }`}
+            title={apiKeySourceLabel(view?.api_key_source ?? "none")}
           >
             {apiKeySourceLabel(view?.api_key_source ?? "none")}
           </strong>
         </div>
-        <div className="settings-status-tile">
-          <span>密钥指纹</span>
-          <code data-testid="api-key-fingerprint">
+        <div className="flex flex-col gap-1 p-3 rounded-lg border border-app-border bg-app-surface min-h-[88px]">
+          <span className="text-xs font-semibold text-app-muted">密钥指纹</span>
+          <code
+            className="text-sm text-app-fg truncate font-mono"
+            data-testid="api-key-fingerprint"
+            title={present ? fingerprint : undefined}
+          >
             {present ? fingerprint : "（未配置）"}
           </code>
         </div>
-        <div className="settings-status-tile">
-          <span>模型</span>
-          <code>{view?.model ?? "—"}</code>
+        <div className="flex flex-col gap-1 p-3 rounded-lg border border-app-border bg-app-surface min-h-[88px]">
+          <span className="text-xs font-semibold text-app-muted">模型</span>
+          <code className="text-sm text-app-fg truncate font-mono" title={view?.model ?? undefined}>
+            {view?.model ?? "—"}
+          </code>
         </div>
-        <div className="settings-status-tile">
-          <span>Base URL</span>
-          <code className="break-all">{view?.base_url ?? "—"}</code>
+        <div className="flex flex-col gap-1 p-3 rounded-lg border border-app-border bg-app-surface min-h-[88px]">
+          <span className="text-xs font-semibold text-app-muted">Base URL</span>
+          <code
+            className="text-sm text-app-fg truncate font-mono"
+            title={view?.base_url ?? undefined}
+          >
+            {view?.base_url ?? "—"}
+          </code>
         </div>
       </div>
 
@@ -272,14 +300,15 @@ export function SettingsPanel() {
               type={showKey ? "text" : "password"}
               value={apiKeyInput}
             />
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               aria-label={showKey ? "隐藏密钥" : "显示密钥"}
-              className="btn-ghost"
               onClick={() => setShowKey((prev) => !prev)}
               type="button"
             >
               {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
+            </Button>
           </div>
           {clearRequested ? (
             <small className="settings-hint warn">
@@ -293,8 +322,7 @@ export function SettingsPanel() {
         </label>
 
         <div className="settings-actions">
-          <button
-            className="btn-primary"
+          <Button
             data-testid="settings-save"
             disabled={saveStatus.kind === "saving"}
             type="submit"
@@ -305,9 +333,9 @@ export function SettingsPanel() {
               <Save size={16} />
             )}
             保存
-          </button>
-          <button
-            className="btn-secondary"
+          </Button>
+          <Button
+            variant="outline"
             data-testid="settings-health"
             disabled={healthStatus.kind === "checking"}
             onClick={() => void runHealth()}
@@ -319,9 +347,9 @@ export function SettingsPanel() {
               <RefreshCw size={16} />
             )}
             测试连通
-          </button>
-          <button
-            className="btn-danger"
+          </Button>
+          <Button
+            variant="destructive"
             data-testid="settings-clear"
             disabled={!present || saveStatus.kind === "saving"}
             onClick={() => {
@@ -332,7 +360,7 @@ export function SettingsPanel() {
             type="button"
           >
             <Trash2 size={16} /> 清除密钥
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -364,6 +392,36 @@ export function SettingsPanel() {
           <AlertTriangle size={14} /> {healthStatus.result.error || "连通失败"}
         </p>
       )}
+
+      <div className="mt-6 pt-6 border-t border-app-border">
+        <h4 className="text-sm font-semibold text-app-fg mb-3">外观</h4>
+        <div className="theme-set" aria-label="主题" role="radiogroup">
+          {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
+            const disabled = !DARK_MODE_ENABLED && value !== "light";
+            return (
+              <button
+                className={`theme-segment${theme === value ? " is-active" : ""}`}
+                key={value}
+                onClick={() => {
+                  if (!disabled) onThemeChange(value);
+                }}
+                type="button"
+                role="radio"
+                aria-checked={theme === value}
+                aria-disabled={disabled || undefined}
+                disabled={disabled}
+                title={disabled ? `${label}主题（暗色模式即将推出）` : `${label}主题`}
+              >
+                <Icon size={16} aria-hidden="true" />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-app-soft mt-2">
+          暗色模式正在开发中，当前仅浅色模式可用。
+        </p>
+      </div>
     </section>
   );
 }

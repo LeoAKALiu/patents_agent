@@ -158,29 +158,6 @@ button.nav-link {
   margin-top: auto;
 }
 
-.health-card {
-  padding: 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-subtle);
-}
-
-.health-card h3 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.health-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
 /* ── Main area ────────────────────────────────────────────────── */
 .main-area {
   min-width: 0;
@@ -206,25 +183,6 @@ button.nav-link {
   backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
   border-bottom: var(--glass-border);
   box-shadow: var(--glass-hairline);
-}
-
-.page-title {
-  min-width: 0;
-}
-
-.page-title h1 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(20px, 2vw, 28px);
-  line-height: 1.18;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
-}
-
-.page-title p {
-  margin: 3px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
 }
 
 .top-actions {
@@ -368,6 +326,12 @@ button.nav-link {
 .theme-segment:focus-visible {
   outline: 2px solid color-mix(in oklch, var(--action-primary), transparent 46%);
   outline-offset: 2px;
+}
+
+/* Deferred theme modes (auto/dark) render disabled while dark is unshipped. */
+.theme-segment:disabled {
+  opacity: .4;
+  cursor: not-allowed;
 }
 
 .theme-segment svg {
@@ -683,7 +647,7 @@ button.nav-link {
 }
 
 .tag-success {
-  color: var(--success);
+  color: var(--success-text);
   background: color-mix(in oklch, var(--success), transparent 88%);
   border-color: color-mix(in oklch, var(--success), var(--border-subtle) 45%);
 }
@@ -713,7 +677,7 @@ button.nav-link {
   min-height: 22px;
   border-radius: 999px;
   background: color-mix(in oklch, var(--success), transparent 86%);
-  color: var(--success);
+  color: var(--success-text);
   padding: 0 8px;
   white-space: nowrap;
   font-size: 11px;
@@ -954,7 +918,7 @@ input:focus, select:focus, textarea:focus {
   min-height: 26px;
   border-radius: 999px;
   background: color-mix(in oklch, var(--success), transparent 86%);
-  color: var(--success);
+  color: var(--success-text);
   padding: 0 10px;
   font-size: 11px;
   font-weight: 600;
@@ -974,7 +938,7 @@ input:focus, select:focus, textarea:focus {
   font-size: 12px;
 }
 
-.finding.low > span { background: var(--success); }
+.finding.low > span { background: var(--success-strong); }
 .finding.medium > span { background: var(--warn); }
 .finding.high > span { background: var(--danger); }
 
@@ -1253,38 +1217,6 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ── Settings ─────────────────────────────────────────────────── */
-.settings-status-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.settings-status-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: var(--surface-base);
-}
-
-.settings-status-tile span {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.settings-status-tile strong { font-size: 15px; color: var(--text-primary); }
-
-.settings-status-tile code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  color: var(--text-muted);
-  word-break: break-all;
-}
-
 .settings-form { display: grid; gap: 14px; margin-bottom: 14px; }
 .settings-field { display: grid; gap: 6px; }
 
@@ -1311,7 +1243,7 @@ input:focus, select:focus, textarea:focus {
   font-weight: 600;
 }
 
-.settings-feedback.ok { color: var(--success); }
+.settings-feedback.ok { color: var(--success-text); }
 .settings-feedback.warn { color: var(--warn); }
 .settings-feedback.err { color: var(--danger); }
 
@@ -1599,6 +1531,28 @@ input:focus, select:focus, textarea:focus {
   gap: 10px;
 }
 
+/* Multi-agent provider cards: each card keeps a comfortable fixed width and
+   the row scrolls horizontally instead of squeezing cards into N columns.
+   Cards never wrap to a ragged 3+2 layout and never shrink below their
+   content size. Scrollbar styling is slim so it stays out of the way. */
+.agent-provider-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+}
+.agent-provider-card {
+  flex: 0 0 220px;
+  scroll-snap-align: start;
+}
+.agent-provider-scroll::-webkit-scrollbar { height: 6px; }
+.agent-provider-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+.agent-provider-scroll::-webkit-scrollbar-track { background: transparent; }
+
 .mode-card, .guided-choice {
   display: grid;
   gap: 6px;
@@ -1848,8 +1802,6 @@ input:focus, select:focus, textarea:focus {
     flex-wrap: wrap;
     overflow-x: visible;
   }
-  .page-title { min-width: 0; }
-  .page-title h1 { font-size: 18px; }
   .mobile-nav {
     display: flex;
     gap: 4px;

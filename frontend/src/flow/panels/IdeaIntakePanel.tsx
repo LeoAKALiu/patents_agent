@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { FileText, Upload, Wand2 } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
 import type {
   ExternalDraftIntakeRun,
   ExternalDraftSource,
@@ -73,8 +74,8 @@ export function IdeaIntakePanel({
   }, [initialIntakeMode]);
 
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
+      <div className="flex items-start justify-between gap-3.5">
         <div>
           <h3>{intakeMode === "idea" ? "把你的想法写成一段话" : "导入外部专利初稿"}</h3>
           <p>
@@ -152,10 +153,10 @@ export function IdeaIntakePanel({
                 ))}
               </div>
             )}
-            <button className="primary" disabled={!canSubmit || busy === "guided-create"} type="submit">
+            <Button variant="glass-primary" disabled={!canSubmit || busy === "guided-create"} type="submit">
               <FileText size={17} />
               <span>{project ? "已创建想法" : "创建并继续"}</span>
-            </button>
+            </Button>
             <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "guided-create"} />
           </form>
           {project && (
@@ -166,10 +167,10 @@ export function IdeaIntakePanel({
                 type="file"
                 accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
               />
-              <button className="primary" disabled={busy === "material-upload"} type="submit">
+              <Button variant="glass-primary" disabled={busy === "material-upload"} type="submit">
                 <Upload size={17} />
                 <span>上传补充材料</span>
-              </button>
+              </Button>
               <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "material-upload"} />
             </form>
           )}

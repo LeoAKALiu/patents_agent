@@ -8,6 +8,7 @@
  * the same shape.
  */
 import { FileText, Loader2, Wand2 } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
 import type {
   DeliberationRun,
   DisclosureRun,
@@ -40,8 +41,8 @@ export function DraftGenerationPanel({
 }: DraftGenerationPanelProps) {
   const formulaReady = !formulaRequirement?.required || Boolean(formulaRun?.package);
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
+      <div className="flex items-start justify-between gap-3.5">
         <div>
           <h3>生成专利初稿</h3>
           <p>
@@ -55,10 +56,10 @@ export function DraftGenerationPanel({
         </div>
         <FileText size={24} />
       </div>
-      <button className="primary" disabled={!project || !deliberation || !formulaReady || busy === "generate"} onClick={onGenerateDraft} type="button">
+      <Button variant="glass-primary" disabled={!project || !deliberation || !formulaReady || busy === "generate"} onClick={onGenerateDraft} type="button">
         {busy === "generate" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
         <span>生成初稿</span>
-      </button>
+      </Button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "generate"} />
       {project?.package && <pre className="guided-preview">{project.package.claims.slice(0, 1200)}</pre>}
     </section>

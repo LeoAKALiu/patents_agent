@@ -17,10 +17,12 @@ import {
   Wand2,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { AgentProviderCards, normalizeAgentSelection, requiredAgentProviderIds } from "./AgentProviderCards";
 import { ShellSidebar } from "./ui/ShellSidebar";
 import { ShellTopbar } from "./ui/ShellTopbar";
-import { useTheme, type ThemeMode } from "./ui/useTheme";
+import { SystemStatusPanel } from "./ui/SystemStatusPanel";
+import { useTheme } from "./ui/useTheme";
 import {
   AgentDoctorReport,
   ClaimDefenseWorksheet,
@@ -1662,62 +1664,18 @@ function App() {
         }
         onSelectKeySection={(id) => handleKeySectionSelect(id as "idea" | "moat" | "deliberate")}
         footer={
-          <>
-            <div className="health-card">
-              <h3>当前项目</h3>
-              <div className="health-line">
-                <span>{selectedProject?.name ?? "未选择"}</span>
-                <span className={selectedProject ? "tag tag-info" : "tag"}>
-                  {selectedProject?.package ? "已有初稿" : "新建中"}
-                </span>
-              </div>
-            </div>
-            <div className="health-card">
-              <h3>模型与智能体</h3>
-              <div className="health-line">
-                <span>基础模型</span>
-                <span className={health?.llm_configured ? "tag tag-success" : "tag tag-danger"}>
-                  {health?.llm_configured ? "可用" : "未配置"}
-                </span>
-              </div>
-              <div className="health-line">
-                <span>智能体</span>
-                <span className={agentDoctor?.status === "blocked" ? "tag tag-warn" : "tag tag-success"}>
-                  {agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}
-                </span>
-              </div>
-              <div className="health-line">
-                <span>内部痕迹检查</span>
-                <span className="tag tag-success">可用</span>
-              </div>
-            </div>
-            <button
-              className="btn btn-secondary"
-              onClick={refreshAll}
-              type="button"
-              title="刷新"
-            >
-              <RefreshCw size={14} />
-              <span>刷新运行状态</span>
-            </button>
-          </>
+          <SystemStatusPanel
+            selectedProject={selectedProject}
+            health={health}
+            agentDoctor={agentDoctor}
+            agentRunModeLabel={agentRunModeLabel}
+            onRefresh={refreshAll}
+          />
         }
       />
 
       <main className="main-area">
         <ShellTopbar
-          title={
-            activeSection === "expert"
-              ? activeExpertToolEntry?.label ?? "专家工具"
-              : activeMainSection.label
-          }
-          subtitle={
-            activeSection === "expert"
-              ? activeExpertToolEntry?.description ?? "进入旧工作台和高级检查"
-              : activeMainSection.description
-          }
-          theme={theme}
-          onThemeChange={setTheme}
           onRefresh={refreshAll}
           statusLabel={busy ? "处理中" : "空闲"}
           statusVariant={busy ? "busy" : "idle"}
@@ -1733,22 +1691,22 @@ function App() {
               {!(activeSection === "generate" && !selectedProject && !startChoice) && (
                 <>
                   {activeSection !== "expert" && (
-                    <button className="btn btn-secondary" onClick={() => setActiveSection("expert")} type="button">
+                    <Button variant="outline" onClick={() => setActiveSection("expert")} type="button">
                       <Gauge size={16} />
                       <span>专家工具</span>
-                    </button>
+                    </Button>
                   )}
                   {activeSection === "expert" && (
-                    <button className="btn btn-secondary" onClick={() => setActiveSection("generate")} type="button">
+                    <Button variant="outline" onClick={() => setActiveSection("generate")} type="button">
                       <Wand2 size={16} />
                       <span>返回向导</span>
-                    </button>
+                    </Button>
                   )}
                   {(startChoice || activeSection === "expert") && (
-                    <button className="btn btn-secondary" onClick={returnToStartChoices} type="button">
+                    <Button variant="outline" onClick={returnToStartChoices} type="button">
                       <ClipboardList size={16} />
                       <span>返回三选一</span>
-                    </button>
+                    </Button>
                   )}
                 </>
               )}
@@ -1860,7 +1818,7 @@ function App() {
         )}
         {activeSection === "settings" && (
           <div className="px-4 md:px-8 py-4 md:py-6">
-            <SettingsPanel />
+            <SettingsPanel theme={theme} onThemeChange={setTheme} />
           </div>
         )}
         {activeSection === "expert" && (

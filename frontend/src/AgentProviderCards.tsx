@@ -1,28 +1,28 @@
 import { AlertTriangle, CheckCircle2, CircleSlash, Clock, HelpCircle, LockKeyhole, XCircle } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/primitives/Badge";
 import type { AgentDoctorReport, AgentProviderStatus } from "./api";
 
 export type AgentProviderRole = "deliberation" | "formula" | "post_review";
 
 export const requiredAgentProviderIds = ["codex", "deepseek", "claude"];
 
-function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: "success" | "warning" | "secondary" } {
+function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: "success" | "warn" | "neutral" } {
   if (!provider.installed) {
-    return { label: "未安装", icon: <XCircle size={14} />, variant: "warning" };
+    return { label: "未安装", icon: <XCircle size={14} />, variant: "warn" };
   }
   switch (provider.auth_status) {
     case "ready":
       return { label: "可用", icon: <CheckCircle2 size={14} />, variant: "success" };
     case "not_authenticated":
-      return { label: "未登录/需认证", icon: <AlertTriangle size={14} />, variant: "warning" };
+      return { label: "未登录/需认证", icon: <AlertTriangle size={14} />, variant: "warn" };
     case "timeout":
-      return { label: "探测超时", icon: <Clock size={14} />, variant: "warning" };
+      return { label: "探测超时", icon: <Clock size={14} />, variant: "warn" };
     case "unavailable":
-      return { label: "不可用", icon: <XCircle size={14} />, variant: "warning" };
+      return { label: "不可用", icon: <XCircle size={14} />, variant: "warn" };
     case "unknown":
     default:
-      return { label: "状态未知", icon: <HelpCircle size={14} />, variant: "secondary" };
+      return { label: "状态未知", icon: <HelpCircle size={14} />, variant: "neutral" };
   }
 }
 
@@ -87,7 +87,7 @@ export function AgentProviderCards({
     return <p className="workflow-hint">智能体诊断尚未刷新，请稍候或点击刷新。</p>;
   }
   return (
-    <div className="grid gap-2.5 my-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+    <div className="agent-provider-scroll my-3">
       {providers.map((provider) => {
         const enabled = provider.required || selectedProviders.includes(provider.id);
         const canToggle = !provider.required && provider.selectable && !disabled;
@@ -95,7 +95,7 @@ export function AgentProviderCards({
         return (
           <article
             className={[
-              "grid gap-2 p-3 rounded-lg border bg-app-subtle",
+              "agent-provider-card grid gap-2 p-3 rounded-lg border bg-app-subtle",
               enabled
                 ? "border-app-accent/40 shadow-[inset_3px_0_0_var(--action-primary)]"
                 : "border-app-border",
@@ -103,28 +103,28 @@ export function AgentProviderCards({
             key={`${role}-${provider.id}`}
           >
             <div className="flex items-center justify-between gap-2">
-              <div>
-                <strong className="block text-app-fg text-sm">{provider.label}</strong>
-                <span className="text-app-muted text-[11px]">{provider.model_version || "模型版本未声明"}</span>
+              <div className="min-w-0">
+                <strong className="block text-app-fg text-sm truncate">{provider.label}</strong>
+                <span className="block text-app-muted text-[11px] truncate">{provider.model_version || "模型版本未声明"}</span>
               </div>
               {provider.required ? (
-                <LockKeyhole size={18} />
+                <LockKeyhole size={18} className="shrink-0" />
               ) : provider.available ? (
-                <CheckCircle2 size={18} />
+                <CheckCircle2 size={18} className="shrink-0" />
               ) : (
-                <AlertTriangle size={18} />
+                <AlertTriangle size={18} className="shrink-0" />
               )}
             </div>
-            <div className="flex items-center justify-between gap-2">
-              <Badge variant={authDisplay.variant} className="text-xs">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant={authDisplay.variant}>
                 {authDisplay.icon}
                 {authDisplay.label}
               </Badge>
-              <Badge variant={enabled ? "success" : "secondary"} className="text-xs">
+              <Badge variant={enabled ? "success" : "neutral"}>
                 {provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}
               </Badge>
             </div>
-            <p className="text-app-muted text-[11px] leading-snug min-h-[30px] m-0">{providerHint(provider)}</p>
+            <p className="text-app-muted text-[11px] leading-snug m-0">{providerHint(provider)}</p>
             {provider.diagnostic && !provider.selectable && (
               <p className="text-app-muted text-[11px] m-0">{provider.diagnostic}</p>
             )}

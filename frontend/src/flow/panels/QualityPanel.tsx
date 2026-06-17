@@ -1,4 +1,6 @@
 import { Gauge, Loader2, Wand2 } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type {
   ClaimDefenseWorksheet,
   DraftCompletionRun,
@@ -36,8 +38,8 @@ export function QualityPanel({
   const summary = qualitySummaryFromRuns({ filingReport, worksheet, completionRun });
   const actionsDisabled = !actionGate.allowed || Boolean(busy);
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
+      <div className="flex items-start justify-between gap-3.5">
         <div>
           <h3>质量检查与补强</h3>
           <p>依次运行提交成熟度、权利要求防线、初稿完善和审查意见。</p>
@@ -48,20 +50,20 @@ export function QualityPanel({
         <p className="workflow-hint">已获得部分检查结果。可以继续补强，也可以重新运行质量检查。</p>
       )}
       <div className="button-row">
-        <button className="icon-button" onClick={() => onOpenExpertTool("readiness")} type="button">
+        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("readiness")} type="button">
           查看提交成熟度
-        </button>
-        <button className="icon-button" onClick={() => onOpenExpertTool("claimDefense")} type="button">
+        </Button>
+        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("claimDefense")} type="button">
           查看权利要求防线
-        </button>
-        <button className="icon-button" onClick={() => onOpenExpertTool("completion")} type="button">
+        </Button>
+        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("completion")} type="button">
           查看初稿完善
-        </button>
+        </Button>
       </div>
       <ActionGateHint gate={actionGate} />
       <div className="button-row">
-        <button
-          className="primary"
+        <Button
+          variant="glass-primary"
           disabled={actionsDisabled}
           onClick={onRunQualityChecks}
           title={actionGate.reason || undefined}
@@ -69,9 +71,9 @@ export function QualityPanel({
         >
           {busy === "guided-quality" ? <Loader2 className="spin" size={17} /> : <Gauge size={17} />}
           <span>运行质量检查</span>
-        </button>
-        <button
-          className="primary"
+        </Button>
+        <Button
+          variant="glass-primary"
           disabled={actionsDisabled}
           onClick={onImproveScore}
           title={actionGate.reason || undefined}
@@ -79,7 +81,7 @@ export function QualityPanel({
         >
           {busy === "score-improve" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
           <span>一键提升分数</span>
-        </button>
+        </Button>
       </div>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "guided-quality"} />
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "score-improve"} />
@@ -110,9 +112,9 @@ export function QualityPanel({
             <h4>{patch.rationale}</h4>
             <p>{patch.risk_delta}</p>
             <pre className="patch-preview">{patch.after_text}</pre>
-            <button className="primary" onClick={() => onAcceptPatch(completionRun.id, patch.id)} type="button">
+            <Button variant="glass-primary" onClick={() => onAcceptPatch(completionRun.id, patch.id)} type="button">
               接受补强建议
-            </button>
+            </Button>
           </article>
         ))}
     </section>
