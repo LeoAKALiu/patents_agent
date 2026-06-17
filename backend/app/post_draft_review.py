@@ -100,11 +100,31 @@ def run_post_draft_review(
         for role, stage in ROLE_STAGES:
             current_stage = stage
             raw = llm.complete_stage(stage, SYSTEM_PROMPT, _role_prompt(role, package, providers))
-            payload = _extract_json(raw)
-            payload, repair_notes = _repair_role_payload(payload, expected_role=role)
-            if repair_notes:
-                logs.append(_schema_repair_log(provider_id=role, notes=repair_notes))
-            result = PostDraftReviewRoleResult.model_validate(payload)
+            try:
+                payload = _extract_json(raw)
+                payload, repair_notes = _repair_role_payload(payload, expected_role=role)
+                if repair_notes:
+                    logs.append(_schema_repair_log(provider_id=role, notes=repair_notes))
+                result = PostDraftReviewRoleResult.model_validate(payload)
+            except (ValueError, ValidationError) as role_exc:
+                # A single reviewer returning unparseable/invalid output must
+                # not crash the whole review. Downgrade that role to a blocked
+                # result so the review completes (fail-closed: export stays
+                # blocked) and the other reviewers' findings are preserved.
+                logs.append(
+                    DeliberationLogEntry(
+                        level="error",
+                        phase="post_draft_review",
+                        provider_id=role,
+                        message=f"{role} output unparseable, downgraded to blocked",
+                        detail=_failure_detail(role_exc, stage),
+                    )
+                )
+                result = PostDraftReviewRoleResult(
+                    role=role,
+                    status="blocked",
+                    blocking_issues=[f"{role} 角色输出无法解析（{role_exc}），已降级为 blocked。"],
+                )
             role_results.append(result)
             logs.append(
                 DeliberationLogEntry(
@@ -293,6 +313,8 @@ def _repair_chair_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], list
 
 def _repair_status(payload: dict[str, Any], notes: list[str]) -> None:
     if "status" not in payload:
+        payload["status"] = "needs_revision"
+        notes.append("status missing, defaulted to 'needs_revision'")
         return
     raw_status = payload["status"]
     normalized = _normalize_status(raw_status)
@@ -346,8 +368,10 @@ def _normalize_role(value: object, expected_role: str) -> str:
 
 def _normalize_status(value: object) -> object:
     if value is None:
-        return value
+        return "needs_revision"
     text = _coerce_text(value).strip()
+    if text == "":
+        return "needs_revision"
     key = _enum_key(text)
     mapped = STATUS_ALIASES.get(key)
     if mapped is not None:

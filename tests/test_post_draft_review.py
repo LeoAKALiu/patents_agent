@@ -189,26 +189,28 @@ def test_post_draft_review_hash_mismatch_invalidates_export_gate(tmp_path):
     assert "current draft" in export_response.json()["detail"]
 
 
-def test_invalid_json_post_draft_review_fails_with_diagnostic_log(tmp_path):
-    client = TestClient(
-        create_app(
-            data_dir=tmp_path,
-            llm_client=FakeLLMClient({"post_draft_claims_reviewer": "not-json"}),
-            load_env_file=False,
-        )
-    )
+def test_invalid_json_post_draft_review_downgrades_role_and_completes(tmp_path):
+    """One reviewer returning non-JSON is downgraded to blocked (not a whole-run
+    crash); the review completes fail-closed. Other reviewers run normally."""
+    base = _review_llm(export_allowed=False)
+    # Override technical_hardness to return non-JSON (the production failure).
+    base.responses["post_draft_technical_hardness"] = "this is plain text, not json"
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=base, load_env_file=False))
     project_id = _create_project_with_package(client, _package())
-    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
-    assert compile_response.status_code == 200
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
 
     response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
 
     assert response.status_code == 200
     run = response.json()
-    assert run["status"] == "failed"
+    assert run["status"] == "completed", f"review should complete, not crash; logs={run.get('logs')}"
     assert run["export_allowed"] is False
-    assert run["logs"][0]["level"] == "error"
-    assert "invalid_json" in run["logs"][0]["message"]
+    technical = next(r for r in run["role_results"] if r["role"] == "technical_hardness")
+    assert technical["status"] == "blocked"
+    assert any(
+        log["level"] == "error" and "unparseable" in log["message"] and log["provider_id"] == "technical_hardness"
+        for log in run["logs"]
+    )
 
 
 def test_post_draft_review_repairs_common_schema_drift_and_stays_fail_closed(tmp_path):
@@ -232,13 +234,15 @@ def test_post_draft_review_repairs_common_schema_drift_and_stays_fail_closed(tmp
     assert export_response.status_code == 409
 
 
-def test_post_draft_review_schema_failure_reports_exact_paths(tmp_path):
-    client = TestClient(
-        create_app(
-            data_dir=tmp_path,
-            llm_client=FakeLLMClient(
-                {
-                    "post_draft_claims_reviewer": """
+def test_post_draft_review_schema_failure_downgrades_role_and_completes(tmp_path):
+    """A reviewer returning an invalid schema (missing required enum) is
+    downgraded to blocked; the review completes fail-closed. Other reviewers
+    run normally."""
+    base = _review_llm(export_allowed=False)
+    # claims_reviewer missing the required `status` field -> repair fills it in
+    # as needs_revision; the review completes without triggering the downgrade
+    # path (no "downgraded" error log).
+    base.responses["post_draft_claims_reviewer"] = """
 {
   "role": "claims_reviewer",
   "blocking_issues": [],
@@ -247,12 +251,8 @@ def test_post_draft_review_schema_failure_reports_exact_paths(tmp_path):
   "official_safe_patches": [],
   "attorney_memo": []
 }
-""",
-                }
-            ),
-            load_env_file=False,
-        )
-    )
+"""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=base, load_env_file=False))
     project_id = _create_project_with_package(client, _package())
     assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
 
@@ -260,11 +260,14 @@ def test_post_draft_review_schema_failure_reports_exact_paths(tmp_path):
 
     assert response.status_code == 200
     run = response.json()
-    assert run["status"] == "failed"
+    assert run["status"] == "completed", f"review should complete, not crash; logs={run.get('logs')}"
     assert run["export_allowed"] is False
-    assert run["logs"][0]["level"] == "error"
-    assert "schema_validation" in run["logs"][0]["message"]
-    assert "post_draft_claims_reviewer.status" in run["logs"][0]["detail"]
+    claims = next(r for r in run["role_results"] if r["role"] == "claims_reviewer")
+    assert claims["status"] == "needs_revision"
+    # Repair must be logged, but no catastrophic downgrade should occur.
+    repair_logs = [log for log in run["logs"] if log["level"] == "warn" and "schema repair" in log["message"]]
+    assert repair_logs
+    assert not any(log["level"] == "error" and "downgraded" in log["message"] for log in run["logs"])
 
 
 def _create_project_with_package(client: TestClient, package: DraftPackage) -> str:
@@ -481,3 +484,143 @@ def test_post_draft_review_unknown_status_falls_back_to_needs_revision(tmp_path)
     assert technical["blocking_issues"] == ["技术贡献矩阵缺失量化指标。"]
     assert run["chair_result"]["status"] == "needs_revision"
     assert run["export_allowed"] is False
+
+
+def _missing_status_llm() -> FakeLLMClient:
+    """LLM whose claims_reviewer output omits the status key entirely."""
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "passed",
+  "export_allowed": true,
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [],
+  "attorney_memo": [],
+  "next_actions": []
+}
+""",
+        }
+    )
+
+
+def test_post_draft_review_missing_status_defaults_to_needs_revision(tmp_path):
+    """A role result that omits status entirely must not crash the review."""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_missing_status_llm(), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "completed", f"review should complete, not crash; got {run.get('status')}"
+    claims = next(r for r in run["role_results"] if r["role"] == "claims_reviewer")
+    assert claims["status"] == "needs_revision"
+
+
+def _null_status_llm() -> FakeLLMClient:
+    """LLM whose chair synthesis returns status: null."""
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": null,
+  "export_allowed": true,
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [],
+  "attorney_memo": [],
+  "next_actions": []
+}
+""",
+        }
+    )
+
+
+def test_post_draft_review_null_status_defaults_to_needs_revision(tmp_path):
+    """A chair synthesis with status: null must fall back instead of rejecting None as str."""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_null_status_llm(), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "completed", f"review should complete, not crash; got {run.get('status')}"
+    assert run["chair_result"]["status"] == "needs_revision"
