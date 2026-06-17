@@ -1599,6 +1599,25 @@ input:focus, select:focus, textarea:focus {
   gap: 10px;
 }
 
+/* Multi-agent provider cards: explicit 2/3/4/5 columns by viewport width,
+   so a trailing card never stretches across a whole row (auto-fit would do
+   that when the 5th card is alone on its row). Tracks use minmax(0, 1fr) so
+   card content can shrink instead of overflowing. */
+.agent-provider-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 720px) {
+  .agent-provider-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1040px) {
+  .agent-provider-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 1360px) {
+  .agent-provider-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
 .mode-card, .guided-choice {
   display: grid;
   gap: 6px;

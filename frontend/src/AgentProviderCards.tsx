@@ -87,7 +87,7 @@ export function AgentProviderCards({
     return <p className="workflow-hint">智能体诊断尚未刷新，请稍候或点击刷新。</p>;
   }
   return (
-    <div className="grid gap-2.5 my-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+    <div className="agent-provider-grid my-3">
       {providers.map((provider) => {
         const enabled = provider.required || selectedProviders.includes(provider.id);
         const canToggle = !provider.required && provider.selectable && !disabled;
@@ -95,7 +95,7 @@ export function AgentProviderCards({
         return (
           <article
             className={[
-              "grid gap-2 p-3 rounded-lg border bg-app-subtle",
+              "agent-card grid gap-2 p-3 rounded-lg border bg-app-subtle",
               enabled
                 ? "border-app-accent/40 shadow-[inset_3px_0_0_var(--action-primary)]"
                 : "border-app-border",
@@ -103,19 +103,19 @@ export function AgentProviderCards({
             key={`${role}-${provider.id}`}
           >
             <div className="flex items-center justify-between gap-2">
-              <div>
-                <strong className="block text-app-fg text-sm">{provider.label}</strong>
-                <span className="text-app-muted text-[11px]">{provider.model_version || "模型版本未声明"}</span>
+              <div className="min-w-0">
+                <strong className="block text-app-fg text-sm truncate">{provider.label}</strong>
+                <span className="block text-app-muted text-[11px] truncate">{provider.model_version || "模型版本未声明"}</span>
               </div>
               {provider.required ? (
-                <LockKeyhole size={18} />
+                <LockKeyhole size={18} className="shrink-0" />
               ) : provider.available ? (
-                <CheckCircle2 size={18} />
+                <CheckCircle2 size={18} className="shrink-0" />
               ) : (
-                <AlertTriangle size={18} />
+                <AlertTriangle size={18} className="shrink-0" />
               )}
             </div>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <Badge variant={authDisplay.variant} className="text-xs">
                 {authDisplay.icon}
                 {authDisplay.label}
@@ -124,7 +124,7 @@ export function AgentProviderCards({
                 {provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}
               </Badge>
             </div>
-            <p className="text-app-muted text-[11px] leading-snug min-h-[30px] m-0">{providerHint(provider)}</p>
+            <p className="text-app-muted text-[11px] leading-snug m-0">{providerHint(provider)}</p>
             {provider.diagnostic && !provider.selectable && (
               <p className="text-app-muted text-[11px] m-0">{provider.diagnostic}</p>
             )}
