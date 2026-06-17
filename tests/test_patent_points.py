@@ -157,6 +157,75 @@ def test_project_patent_point_patch_merges_partial_moat_scores(tmp_path):
     assert moat_scores["strategic_value"] == 0.6
 
 
+def test_evaluate_moat_persists_llm_scores_and_rationale(tmp_path):
+    llm = FakeLLMClient(
+        {
+            "moat_scoring": json.dumps(
+                {
+                    "scope_width": 0.82,
+                    "designaround_difficulty": 0.7,
+                    "feasibility": 0.6,
+                    "support_strength": 0.45,
+                    "prior_art_distance": 0.78,
+                    "strategic_value": 0.88,
+                    "rationale": "权利要求覆盖多视角互证，绕开需复刻整套流程；说明书提供了点云与图像证据。",
+                },
+                ensure_ascii=False,
+            )
+        }
+    )
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm, load_env_file=False))
+    project_id = _create_project(client)
+    point = _create_patent_point(client, project_id)
+
+    evaluate_response = client.post(
+        f"/api/projects/{project_id}/patent-points/{point['id']}/evaluate-moat"
+    )
+
+    assert evaluate_response.status_code == 200
+    updated = evaluate_response.json()
+    assert updated["moat_scores"]["scope_width"] == 0.82
+    assert updated["moat_scores"]["strategic_value"] == 0.88
+    assert "多视角互证" in updated["moat_rationale"]
+
+    listed = client.get(f"/api/projects/{project_id}/patent-points").json()["points"][0]
+    assert listed["moat_scores"]["prior_art_distance"] == 0.78
+    assert listed["moat_rationale"] == updated["moat_rationale"]
+
+    moat_call = next(call for call in llm.calls if call.stage == "moat_scoring")
+    assert point["title"] in moat_call.user_prompt
+
+
+def test_evaluate_moat_clamps_out_of_range_and_falls_back_on_garbage(tmp_path):
+    llm = FakeLLMClient(
+        {
+            "moat_scoring": "这不是合法 JSON，模型偶尔会这样返回。"
+        }
+    )
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm, load_env_file=False))
+    project_id = _create_project(client)
+    point = _create_patent_point(client, project_id)
+
+    evaluate_response = client.post(
+        f"/api/projects/{project_id}/patent-points/{point['id']}/evaluate-moat"
+    )
+
+    assert evaluate_response.status_code == 200
+    fallback = evaluate_response.json()
+    assert fallback["moat_scores"]["feasibility"] == 0.5
+    assert fallback["moat_scores"]["strategic_value"] == 0.5
+    assert "占位分" in fallback["moat_rationale"]
+
+
+def test_evaluate_moat_returns_404_for_unknown_point(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False))
+    project_id = _create_project(client)
+
+    response = client.post(f"/api/projects/{project_id}/patent-points/does-not-exist/evaluate-moat")
+
+    assert response.status_code == 404
+
+
 def test_project_patent_point_cross_project_patch_returns_404(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False))
     project_a = _create_project(client, name="项目A")

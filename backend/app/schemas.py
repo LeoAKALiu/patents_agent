@@ -719,6 +719,7 @@ class PatentPointCreate(BaseModel):
     moat_scores: MoatScores = Field(
         default_factory=lambda: MoatScores(feasibility=0.5, support_strength=0.2, strategic_value=0.6)
     )
+    moat_rationale: str = ""
     claim_chart: list[ClaimChartItem] = Field(default_factory=list)
     selected: bool = False
     rationale: str = ""
@@ -741,6 +742,7 @@ class PatentPointCreate(BaseModel):
             support_gaps=gaps,
             experiment_needed=self.experiment_needed,
             moat_scores=self.moat_scores,
+            moat_rationale=self.moat_rationale,
             claim_chart=self.claim_chart,
             selected=self.selected,
             rationale=self.rationale,
@@ -763,6 +765,7 @@ class PatentPointUpdate(BaseModel):
     support_gaps: list[str] | None = None
     experiment_needed: list[str] | None = None
     moat_scores: MoatScores | None = None
+    moat_rationale: str | None = None
     claim_chart: list[ClaimChartItem] | None = None
     selected: bool | None = None
     rationale: str | None = None
@@ -784,6 +787,7 @@ class PatentPointCandidate(BaseModel):
     support_gaps: list[str] = Field(default_factory=list)
     experiment_needed: list[str] = Field(default_factory=list)
     moat_scores: MoatScores = Field(default_factory=MoatScores)
+    moat_rationale: str = ""
     claim_chart: list[ClaimChartItem] = Field(default_factory=list)
     selected: bool = False
 

@@ -375,6 +375,7 @@ export interface PatentPointCandidate {
   support_gaps: string[];
   experiment_needed: string[];
   moat_scores: MoatScores;
+  moat_rationale?: string;
   claim_chart: ClaimChartItem[];
   selected: boolean;
 }
@@ -974,6 +975,16 @@ export async function updateProjectPatentPoint(
 
 export async function deleteProjectPatentPoint(projectId: string, pointId: string): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>(`/api/projects/${projectId}/patent-points/${pointId}`, { method: "DELETE" });
+}
+
+export async function evaluateProjectPatentPointMoat(
+  projectId: string,
+  pointId: string,
+): Promise<PatentPointCandidate> {
+  return request<PatentPointCandidate>(
+    `/api/projects/${projectId}/patent-points/${pointId}/evaluate-moat`,
+    { method: "POST" },
+  );
 }
 
 export type DisclosureResearchMode = "standard" | "free_deep_research";
