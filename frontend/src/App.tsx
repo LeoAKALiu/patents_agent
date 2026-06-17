@@ -70,6 +70,7 @@ import {
   deleteProject,
   deleteProjectPatentPoint,
   disclosureExportUrl,
+  evaluateProjectPatentPointMoat,
   draftCompletionReportUrl,
   exportUrl,
   filingReadinessReportUrl,
@@ -1452,6 +1453,21 @@ function App() {
     });
   }
 
+  async function handleEvaluatePatentPointMoat() {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    const targets = visiblePatentPoints;
+    if (!targets.length) return;
+    await withStatus("patent-point-evaluate-moat", async () => {
+      for (let i = 0; i < targets.length; i++) {
+        setMessage(`正在评测护城河（${i + 1}/${targets.length}）：${targets[i].title}`);
+        await evaluateProjectPatentPointMoat(projectId, targets[i].id);
+        await loadPatentPoints(projectId);
+      }
+      setMessage(`已完成 ${targets.length} 个专利点的护城河评测`);
+    });
+  }
+
   async function handleDeleteProject(project: ProjectRecord) {
     if (!window.confirm(`确认删除项目“${project.name}”？该项目的运行记录和专利点也会删除。`)) {
       return;
@@ -1526,6 +1542,7 @@ function App() {
             onCreate={handleCreatePatentPoint}
             onSelect={handleSelectPatentPoint}
             onDelete={handleDeletePatentPoint}
+            onEvaluateMoat={handleEvaluatePatentPointMoat}
           />
         );
       case "materials":

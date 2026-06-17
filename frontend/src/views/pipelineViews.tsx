@@ -78,6 +78,7 @@ export function MoatView({
   onCreate,
   onSelect,
   onDelete,
+  onEvaluateMoat,
 }: {
   project: ProjectRecord | null;
   points: PatentPointCandidate[];
@@ -85,6 +86,7 @@ export function MoatView({
   onCreate: (payload: PatentPointCreatePayload) => Promise<boolean>;
   onSelect: (point: PatentPointCandidate) => Promise<void>;
   onDelete: (point: PatentPointCandidate) => Promise<void>;
+  onEvaluateMoat: () => Promise<void>;
 }) {
   const [form, setForm] = useState<MoatForm>({
     title: "",
@@ -215,7 +217,19 @@ export function MoatView({
         </div>
 
         <div className="grid gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
-          <h3>专利点列表</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3>专利点列表</h3>
+            <button
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-br from-[var(--action-primary)] to-[color-mix(in_oklch,var(--action-primary),black_30%)] text-[var(--action-primary-contrast)] text-sm font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
+              disabled={!points.length || busy === "patent-point-evaluate-moat"}
+              onClick={() => void onEvaluateMoat()}
+              type="button"
+              title="调用模型对所有专利点的护城河六维打分"
+            >
+              <RefreshCw size={16} className={busy === "patent-point-evaluate-moat" ? "animate-spin" : ""} />
+              <span>{busy === "patent-point-evaluate-moat" ? "评测中…" : "评测全部"}</span>
+            </button>
+          </div>
           <div className="flex flex-col gap-3">
             {points.map((point) => {
               const total = moatScoreTotal(point.moat_scores);
@@ -239,6 +253,12 @@ export function MoatView({
                     <StatusPill label="现有技术距离" value={percent(point.moat_scores.prior_art_distance)} />
                     <StatusPill label="战略价值" value={percent(point.moat_scores.strategic_value)} />
                   </div>
+                  {point.moat_rationale && (
+                    <details className="text-xs text-[var(--text-primary)]/70 bg-[var(--surface-base)] px-3 py-2 rounded-lg border border-[var(--border-subtle)]">
+                      <summary className="cursor-pointer select-none font-medium">评测依据</summary>
+                      <p className="mt-2 whitespace-pre-wrap leading-relaxed">{point.moat_rationale}</p>
+                    </details>
+                  )}
                   {point.claim_chart.length > 0 && (
                     <div className="flex flex-col gap-2 mt-2 p-3 bg-[var(--surface-base)] rounded-lg text-sm border border-[var(--border-subtle)]">
                       {point.claim_chart.slice(0, 2).map((item) => (

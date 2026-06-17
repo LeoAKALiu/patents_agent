@@ -49,6 +49,7 @@ from backend.app.desktop_config import (
     save_desktop_config,
 )
 from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
+from backend.app.moat import score_moat
 from backend.app.official_compile import (
     OfficialDraftCompiler,
     export_official_package_docx,
@@ -666,6 +667,19 @@ def create_app(
         if not deleted:
             raise HTTPException(status_code=404, detail="Patent point not found.")
         return {"ok": True}
+
+    @app.post("/api/projects/{project_id}/patent-points/{point_id}/evaluate-moat")
+    def evaluate_patent_point_moat(project_id: str, point_id: str) -> dict:
+        project = _require_project(store, project_id)
+        if isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before evaluating moat scores.")
+        existing = store.get_project_patent_point(project_id, point_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Patent point not found.")
+        scores, rationale = score_moat(llm=app.state.llm, project=project, point=existing)
+        updated = existing.model_copy(update={"moat_scores": scores, "moat_rationale": rationale})
+        stored = store.add_project_patent_point(project_id, updated)
+        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/disclosures")
     def create_disclosure(
