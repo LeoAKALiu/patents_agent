@@ -1,5 +1,7 @@
 import { Loader2, Sigma } from "@/lib/icons";
 import { AgentProviderCards } from "@/AgentProviderCards";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   formulaMarkdownUrl,
   type AgentDoctorReport,
@@ -49,8 +51,8 @@ export function FormulaPanel({
   const activeRun = guidedActiveRun(runs);
   const formulaBusy = busy === "formula" || Boolean(activeRun);
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
+      <div className="flex items-start justify-between gap-3.5">
         <div>
           <h3>核心公式</h3>
           <p>{required ? "本项目含公式型信号，需先凝练公式。" : "本项目未检测到必须凝练的公式信号。"}</p>
@@ -59,7 +61,7 @@ export function FormulaPanel({
       </div>
       {requirement && (
         <div className="result-meta">
-          <span className={required ? "status-badge warn" : "status-badge"}>{required ? "需要公式" : "无需公式"}</span>
+          {required ? <Badge variant="warning" className="text-xs">需要公式</Badge> : <Badge variant="success" className="text-xs">无需公式</Badge>}
           <span>{requirement.signals.join(" / ") || "无公式信号"}</span>
         </div>
       )}
@@ -71,10 +73,10 @@ export function FormulaPanel({
         onToggleProvider={onToggleProvider}
       />
       {required && (
-        <button className="primary" disabled={!project || formulaBusy} onClick={onStartFormula} type="button">
+        <Button variant="glass-primary" disabled={!project || formulaBusy} onClick={onStartFormula} type="button">
           {formulaBusy ? <Loader2 className="spin" size={17} /> : <Sigma size={17} />}
           <span>{activeRun ? "公式凝练中" : formulaRun ? "重新凝练核心公式" : "凝练核心公式"}</span>
-        </button>
+        </Button>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "formula"} />
       <GuidedRuntimeConsole run={activeRun} label="核心公式运行中" busy={busy} onCancel={onCancelRun} />
@@ -83,7 +85,7 @@ export function FormulaPanel({
       {formulaRun?.package && (
         <article className="guided-choice selected">
           <div className="result-meta">
-            <span className="status-badge">{pipelineRunStatusLabel(formulaRun.status)}</span>
+            <Badge variant="success" className="text-xs">{pipelineRunStatusLabel(formulaRun.status)}</Badge>
             <span>{formulaRun.package.formula_blocks.length} 个公式</span>
             {formulaRun.providers.length > 0 && <span>{formulaRun.providers.join(" / ")}</span>}
             {project && (

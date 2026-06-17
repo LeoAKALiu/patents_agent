@@ -202,6 +202,7 @@ import {
   type StartChoiceId,
 } from "./guidedFlow";
 import { OperationConsole } from "./ui/OperationConsole";
+import { Badge } from "@/components/ui/badge";
 
 type DesktopMenuBridge = {
   desktop?: {
@@ -1667,28 +1668,22 @@ function App() {
               <h3>当前项目</h3>
               <div className="health-line">
                 <span>{selectedProject?.name ?? "未选择"}</span>
-                <span className={selectedProject ? "tag tag-info" : "tag"}>
-                  {selectedProject?.package ? "已有初稿" : "新建中"}
-                </span>
+                {selectedProject?.package ? <Badge variant="info">已有初稿</Badge> : <Badge variant="secondary">新建中</Badge>}
               </div>
             </div>
             <div className="health-card">
               <h3>模型与智能体</h3>
               <div className="health-line">
                 <span>基础模型</span>
-                <span className={health?.llm_configured ? "tag tag-success" : "tag tag-danger"}>
-                  {health?.llm_configured ? "可用" : "未配置"}
-                </span>
+                {health?.llm_configured ? <Badge variant="success">可用</Badge> : <Badge variant="destructive">未配置</Badge>}
               </div>
               <div className="health-line">
                 <span>智能体</span>
-                <span className={agentDoctor?.status === "blocked" ? "tag tag-warn" : "tag tag-success"}>
-                  {agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}
-                </span>
+                {agentDoctor?.status === "blocked" ? <Badge variant="warning">{agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}</Badge> : <Badge variant="success">{agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}</Badge>}
               </div>
               <div className="health-line">
                 <span>内部痕迹检查</span>
-                <span className="tag tag-success">可用</span>
+                <Badge variant="success">可用</Badge>
               </div>
             </div>
             <button

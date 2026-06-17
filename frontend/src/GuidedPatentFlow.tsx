@@ -99,6 +99,8 @@ import {
   InventionPointConfirmation,
   MaterialSummary,
 } from "./flow/panels";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 
 export type GuidedPatentFlowProps = {
@@ -423,7 +425,7 @@ function GuidedProgressBanner({
   return (
     <section className="guided-progress-banner" aria-label="流程进度和下一步">
       <div className="guided-progress-copy">
-        <span className="status-badge">{completedStepCount}/{totalStepCount} 已完成</span>
+        <Badge variant="success" className="text-xs">{completedStepCount}/{totalStepCount} 已完成</Badge>
         <div>
           <h3>当前进度：{percent}%</h3>
           <p>{guidedNextActionDescription(currentStepId)}</p>
@@ -432,15 +434,15 @@ function GuidedProgressBanner({
       <div className="guided-progress-meter" aria-hidden="true">
         <span style={{ width: `${percent}%` }} />
       </div>
-      <button
-        className="primary"
+      <Button
+        variant="glass-primary"
         disabled={Boolean(busy) || actionIsFormOnly}
         onClick={onNext}
         type="button"
       >
         {busy ? <Loader2 className="spin" size={17} /> : <PlayCircle size={17} />}
         <span>{isBrowsingPastStep ? "回到当前步骤" : guidedNextActionLabel(currentStepId)}</span>
-      </button>
+      </Button>
       {actionIsFormOnly && (
         <p className="workflow-hint">请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。</p>
       )}

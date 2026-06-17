@@ -1,28 +1,28 @@
 import { AlertTriangle, CheckCircle2, CircleSlash, Clock, HelpCircle, LockKeyhole, XCircle } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/primitives/Badge";
 import type { AgentDoctorReport, AgentProviderStatus } from "./api";
 
 export type AgentProviderRole = "deliberation" | "formula" | "post_review";
 
 export const requiredAgentProviderIds = ["codex", "deepseek", "claude"];
 
-function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: "success" | "warning" | "secondary" } {
+function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: "success" | "warn" | "neutral" } {
   if (!provider.installed) {
-    return { label: "未安装", icon: <XCircle size={14} />, variant: "warning" };
+    return { label: "未安装", icon: <XCircle size={14} />, variant: "warn" };
   }
   switch (provider.auth_status) {
     case "ready":
       return { label: "可用", icon: <CheckCircle2 size={14} />, variant: "success" };
     case "not_authenticated":
-      return { label: "未登录/需认证", icon: <AlertTriangle size={14} />, variant: "warning" };
+      return { label: "未登录/需认证", icon: <AlertTriangle size={14} />, variant: "warn" };
     case "timeout":
-      return { label: "探测超时", icon: <Clock size={14} />, variant: "warning" };
+      return { label: "探测超时", icon: <Clock size={14} />, variant: "warn" };
     case "unavailable":
-      return { label: "不可用", icon: <XCircle size={14} />, variant: "warning" };
+      return { label: "不可用", icon: <XCircle size={14} />, variant: "warn" };
     case "unknown":
     default:
-      return { label: "状态未知", icon: <HelpCircle size={14} />, variant: "secondary" };
+      return { label: "状态未知", icon: <HelpCircle size={14} />, variant: "neutral" };
   }
 }
 
@@ -116,11 +116,11 @@ export function AgentProviderCards({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant={authDisplay.variant} className="text-xs">
+              <Badge variant={authDisplay.variant}>
                 {authDisplay.icon}
                 {authDisplay.label}
               </Badge>
-              <Badge variant={enabled ? "success" : "secondary"} className="text-xs">
+              <Badge variant={enabled ? "success" : "neutral"}>
                 {provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}
               </Badge>
             </div>

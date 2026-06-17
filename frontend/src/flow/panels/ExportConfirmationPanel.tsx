@@ -1,4 +1,5 @@
 import { Download } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
 import {
   draftCompletionReportUrl,
   exportUrl,
@@ -33,7 +34,7 @@ export function ExportConfirmationPanel({
 }: ExportConfirmationPanelProps) {
   if (!project?.package) {
     return (
-      <section className="guided-panel">
+      <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
         <p className="empty">生成初稿后才能导出。</p>
       </section>
     );
@@ -45,8 +46,8 @@ export function ExportConfirmationPanel({
   );
 
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
+      <div className="flex items-start justify-between gap-3.5">
         <div>
           <h3>导出前确认</h3>
           <p>正式稿只在正式稿编译完成、成稿会审通过且哈希匹配后放行；导出文件仍需专利代理师或律师复核后再提交。</p>
@@ -71,9 +72,9 @@ export function ExportConfirmationPanel({
           <span>阻断项会锁定正式稿；风险说明用于解释风险来源，不替代最终人工审查。</span>
         </article>
       </div>
-      <button className="icon-button" onClick={() => onOpenExpertTool("export")} type="button">
+      <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("export")} type="button">
         查看专家导出工具
-      </button>
+      </Button>
       <div className="export-grid">
         <a
           aria-disabled={!officialAllowed}

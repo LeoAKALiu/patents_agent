@@ -1,4 +1,6 @@
 import { Loader2, ShieldCheck, Upload, Wand2 } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type {
   DisclosureRun,
   PatentPointCandidate,
@@ -67,8 +69,8 @@ export function InventionPointConfirmation({
   const showingPartialCandidates = Boolean(activeRun && activeRunCandidates.length > 0 && !activeRun.package);
 
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
+      <div className="flex items-start justify-between gap-3.5">
         <div>
           <h3>确认发明点与护城河</h3>
           <p>确认主线后，才会进入初稿生成。</p>
@@ -76,12 +78,12 @@ export function InventionPointConfirmation({
         <ShieldCheck size={24} />
       </div>
       <div className="button-row">
-        <button className="icon-button" onClick={() => onOpenExpertTool("materials")} type="button">
+        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("materials")} type="button">
           查看前置材料详情
-        </button>
-        <button className="icon-button" onClick={() => onOpenExpertTool("moat")} type="button">
+        </Button>
+        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("moat")} type="button">
           查看护城河地图
-        </button>
+        </Button>
       </div>
       <form className="guided-upload" onSubmit={onUploadMaterial}>
         <input
@@ -90,10 +92,10 @@ export function InventionPointConfirmation({
           type="file"
           accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
         />
-        <button className="primary" disabled={busy === "material-upload"} type="submit">
+        <Button variant="glass-primary" disabled={busy === "material-upload"} type="submit">
           <Upload size={17} />
           <span>上传补充材料</span>
-        </button>
+        </Button>
         <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "material-upload"} />
       </form>
       <MaterialSummary materials={materials} />
@@ -120,10 +122,10 @@ export function InventionPointConfirmation({
         </div>
       )}
       {needsGeneration && (
-        <button className="primary" disabled={busy === "disclosure"} onClick={onStartDisclosure} type="button">
+        <Button variant="glass-primary" disabled={busy === "disclosure"} onClick={onStartDisclosure} type="button">
           {busy === "disclosure" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
           <span>{researchMode === "free_deep_research" ? "提炼发明点（免费 Deep Research）" : "提炼发明点"}</span>
-        </button>
+        </Button>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "disclosure"} />
       <GuidedRuntimeConsole run={activeRun} label="发明点提炼运行中" busy={busy} onCancel={onCancelRun} />
@@ -138,15 +140,15 @@ export function InventionPointConfirmation({
         {candidates.map((point) => (
           <article className={point.selected ? "guided-choice selected" : "guided-choice"} key={point.id}>
             <div className="result-meta">
-              <span className="status-badge">{evidenceStatusText(point.evidence_status)}</span>
+              <Badge variant="success" className="text-xs">{evidenceStatusText(point.evidence_status)}</Badge>
               <span>{point.protection_focus.join(" / ") || "方法 / 系统"}</span>
             </div>
             <h4>{point.title}</h4>
             <p>{point.innovation || point.technical_solution}</p>
             {point.support_gaps.length > 0 && <p className="workflow-hint">支撑缺口：{point.support_gaps.join("；")}</p>}
-            <button className="icon-button" onClick={() => onSelectPatentPoint(point, candidates)} type="button">
+            <Button variant="glass-soft" size="icon" onClick={() => onSelectPatentPoint(point, candidates)} type="button">
               选为主线并保存后备路线
-            </button>
+            </Button>
           </article>
         ))}
         {candidates.length === 0 && <p className="empty">点击“提炼发明点”后显示候选主线。</p>}

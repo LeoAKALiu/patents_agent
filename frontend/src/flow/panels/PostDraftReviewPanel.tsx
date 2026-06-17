@@ -1,5 +1,7 @@
 import { ClipboardCheck, Loader2 } from "@/lib/icons";
 import { AgentProviderCards } from "@/AgentProviderCards";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   postDraftReviewReportUrl,
   type AgentDoctorReport,
@@ -56,8 +58,8 @@ export function PostDraftReviewPanel({
   const activeRun = guidedActiveRun(runs);
   const reviewBusy = busy === "post-draft-review" || Boolean(activeRun);
   return (
-    <section className="guided-panel">
-      <div className="guided-panel-heading">
+    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
+      <div className="flex items-start justify-between gap-3.5">
         <div>
           <h3>成稿后多智能体会审</h3>
           <p>正式导出前必选。多智能体会审权利要求质量、说明书清洁度、技术硬度，再综合裁决。</p>
@@ -65,9 +67,7 @@ export function PostDraftReviewPanel({
         <ClipboardCheck size={24} />
       </div>
       <div className="result-meta">
-        <span className={passed ? "status-badge" : blocked ? "status-badge danger" : "status-badge warn"}>
-          {passed ? "已通过" : blocked ? "阻止正式导出" : "等待会审"}
-        </span>
+        {passed ? <Badge variant="success" className="text-xs">已通过</Badge> : blocked ? <Badge variant="destructive" className="text-xs">阻止正式导出</Badge> : <Badge variant="warning" className="text-xs">等待会审</Badge>}
         <span>当前成稿：{currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成"}</span>
         <span>正式稿：{officialCompileRun?.official_package_hash.slice(0, 12) ?? "未编译"}</span>
       </div>
@@ -79,8 +79,8 @@ export function PostDraftReviewPanel({
         onToggleProvider={onToggleProvider}
       />
       <ActionGateHint gate={actionGate} />
-      <button
-        className="primary"
+      <Button
+        variant="glass-primary"
         disabled={!actionGate.allowed || reviewBusy}
         onClick={onStartPostDraftReview}
         title={actionGate.reason || undefined}
@@ -88,7 +88,7 @@ export function PostDraftReviewPanel({
       >
         {reviewBusy ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
         <span>{activeRun ? "成稿会审中" : review ? "重新成稿会审" : "启动成稿会审"}</span>
-      </button>
+      </Button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "post-draft-review"} />
       <GuidedRuntimeConsole run={activeRun} label="成稿会审运行中" busy={busy} onCancel={onCancelRun} />
       <GuidedRuntimeFailures run={runs[0] ?? null} />
@@ -96,7 +96,7 @@ export function PostDraftReviewPanel({
       {review && (
         <article className={passed ? "guided-choice selected" : "guided-choice"}>
           <div className="result-meta">
-            <span className={passed ? "status-badge" : "status-badge danger"}>{pipelineRunStatusLabel(review.status)}</span>
+            {passed ? <Badge variant="success" className="text-xs">{pipelineRunStatusLabel(review.status)}</Badge> : <Badge variant="destructive" className="text-xs">{pipelineRunStatusLabel(review.status)}</Badge>}
             <span>{review.providers.join(" / ") || "默认三方"}</span>
             <span>会审版本：{review.draft_package_hash.slice(0, 12)}</span>
             {review.official_package_hash && <span>正式稿版本：{review.official_package_hash.slice(0, 12)}</span>}

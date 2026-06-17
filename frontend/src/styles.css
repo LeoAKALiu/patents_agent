@@ -370,6 +370,12 @@ button.nav-link {
   outline-offset: 2px;
 }
 
+/* Deferred theme modes (auto/dark) render disabled while dark is unshipped. */
+.theme-segment:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
 .theme-segment svg {
   width: 16px;
   height: 16px;
@@ -683,7 +689,7 @@ button.nav-link {
 }
 
 .tag-success {
-  color: var(--success);
+  color: var(--success-text);
   background: color-mix(in oklch, var(--success), transparent 88%);
   border-color: color-mix(in oklch, var(--success), var(--border-subtle) 45%);
 }
@@ -713,7 +719,7 @@ button.nav-link {
   min-height: 22px;
   border-radius: 999px;
   background: color-mix(in oklch, var(--success), transparent 86%);
-  color: var(--success);
+  color: var(--success-text);
   padding: 0 8px;
   white-space: nowrap;
   font-size: 11px;
@@ -954,7 +960,7 @@ input:focus, select:focus, textarea:focus {
   min-height: 26px;
   border-radius: 999px;
   background: color-mix(in oklch, var(--success), transparent 86%);
-  color: var(--success);
+  color: var(--success-text);
   padding: 0 10px;
   font-size: 11px;
   font-weight: 600;
@@ -974,7 +980,7 @@ input:focus, select:focus, textarea:focus {
   font-size: 12px;
 }
 
-.finding.low > span { background: var(--success); }
+.finding.low > span { background: var(--success-strong); }
 .finding.medium > span { background: var(--warn); }
 .finding.high > span { background: var(--danger); }
 
@@ -1311,7 +1317,7 @@ input:focus, select:focus, textarea:focus {
   font-weight: 600;
 }
 
-.settings-feedback.ok { color: var(--success); }
+.settings-feedback.ok { color: var(--success-text); }
 .settings-feedback.warn { color: var(--warn); }
 .settings-feedback.err { color: var(--danger); }
 

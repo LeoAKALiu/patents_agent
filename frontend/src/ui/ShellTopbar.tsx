@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { Monitor, Moon, Sun, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DARK_MODE_ENABLED } from "./useTheme";
 
 export type ThemeMode = "auto" | "light" | "dark";
 
@@ -94,20 +95,29 @@ export function ShellTopbar({
         </div>
 
         <div className="theme-set" aria-label="主题" role="radiogroup">
-          {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
-            <button
-              className={`theme-segment${theme === value ? " is-active" : ""}`}
-              key={value}
-              onClick={() => onThemeChange(value)}
-              type="button"
-              role="radio"
-              aria-checked={theme === value}
-              title={`${label}主题`}
-            >
-              <Icon size={16} aria-hidden="true" />
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
+          {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
+            // Dark is a deferred phase — auto/dark resolve to light today, so we
+            // disable them rather than ship a control that silently does nothing.
+            const disabled = !DARK_MODE_ENABLED && value !== "light";
+            return (
+              <button
+                className={`theme-segment${theme === value ? " is-active" : ""}`}
+                key={value}
+                onClick={() => {
+                  if (!disabled) onThemeChange(value);
+                }}
+                type="button"
+                role="radio"
+                aria-checked={theme === value}
+                aria-disabled={disabled || undefined}
+                disabled={disabled}
+                title={disabled ? `${label}主题（暗色模式即将推出）` : `${label}主题`}
+              >
+                <Icon size={16} aria-hidden="true" />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {extraActions}

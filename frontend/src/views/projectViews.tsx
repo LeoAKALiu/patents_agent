@@ -4,6 +4,7 @@
  */
 import type { FormEvent } from "react";
 import { CheckCircle2, FileText, Search, ShieldCheck, Trash2, Upload, Wand2 } from "@/lib/icons";
+import { Badge } from "@/components/ui/badge";
 import {
   v1StartChoices,
   type StartChoiceId,
@@ -53,7 +54,7 @@ export function StartChoiceScreen({ onSelect }: { onSelect: (choice: StartChoice
   return (
     <section className="start-choice-screen" aria-label="v1.1.0 默认入口">
       <div className="start-choice-copy">
-        <span className="status-badge">v1.1.0</span>
+        <Badge variant="success" className="text-xs">v1.1.0</Badge>
         <h3>请选择本次工作的起点</h3>
         <p>普通用户只需要先选一种路径；专家工具已移到二级导航，仍可随时打开。</p>
       </div>

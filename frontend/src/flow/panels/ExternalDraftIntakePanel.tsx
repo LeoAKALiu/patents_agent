@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, FileText, Upload } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type {
   ExternalDraftIntakeRun,
   ExternalDraftSource,
@@ -87,10 +89,10 @@ export function ExternalDraftIntakePanel({
             onChange={(event) => setSelectedUploadFileName(event.target.files?.[0]?.name ?? "")}
           />
         </label>
-        <button className="primary" disabled={!project || !selectedUploadFileName || busy === "external-draft-upload"} type="submit">
+        <Button variant="glass-primary" disabled={!project || !selectedUploadFileName || busy === "external-draft-upload"} type="submit">
           <Upload size={17} />
           <span>上传外部初稿</span>
-        </button>
+        </Button>
       </form>
       <form className="guided-intake" onSubmit={handleCreate}>
         <label>
@@ -106,10 +108,10 @@ export function ExternalDraftIntakePanel({
             placeholder="粘贴发明名称、摘要、权利要求书、说明书和附图说明。"
           />
         </label>
-        <button className="primary" disabled={!project || !text.trim() || busy === "external-draft-create"} type="submit">
+        <Button variant="glass-primary" disabled={!project || !text.trim() || busy === "external-draft-create"} type="submit">
           <FileText size={17} />
           <span>保存原始外部稿</span>
-        </button>
+        </Button>
       </form>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy.startsWith("external-draft")} />
       <div className="guided-summary-list">
@@ -122,14 +124,15 @@ export function ExternalDraftIntakePanel({
                 {sourceTypeLabel(source.source_type)} · {source.content_hash.slice(0, 12)}
               </span>
             </div>
-            <button
-              className="icon-button"
+            <Button
+              variant="glass-soft"
+              size="icon"
               disabled={busy === "external-draft-intake"}
               onClick={() => onStartExternalDraftIntake(source.id)}
               type="button"
             >
               解析章节
-            </button>
+            </Button>
           </article>
         ))}
         {sources.length === 0 && <p className="empty">保存外部稿后，系统会解析章节并生成内部工作稿。</p>}
@@ -137,9 +140,7 @@ export function ExternalDraftIntakePanel({
       {latestRun && (
         <article className="guided-choice selected external-draft-result">
           <div className="result-meta">
-            <span className={latestRun.status === "needs_review" ? "status-badge warn" : "status-badge"}>
-              {latestRun.status === "completed" ? "解析完成" : latestRun.status === "needs_review" ? "需要确认" : "解析失败"}
-            </span>
+            {latestRun.status === "completed" ? <Badge variant="success" className="text-xs">解析完成</Badge> : latestRun.status === "needs_review" ? <Badge variant="warning" className="text-xs">需要确认</Badge> : <Badge variant="secondary" className="text-xs">解析失败</Badge>}
             <span>工作稿：{latestRun.working_draft_hash.slice(0, 12) || "尚未生成"}</span>
           </div>
           <h4>{draft?.title || "外部初稿解析结果"}</h4>
@@ -151,15 +152,15 @@ export function ExternalDraftIntakePanel({
             </div>
           )}
           {draft && (
-            <button
-              className="primary"
+            <Button
+              variant="glass-primary"
               disabled={!confirmable || busy === "external-draft-confirm"}
               onClick={handleConfirm}
               type="button"
             >
               <CheckCircle2 size={17} />
               <span>确认为内部工作稿</span>
-            </button>
+            </Button>
           )}
           {draft && !confirmable && <p className="workflow-hint">请补齐权利要求书和说明书后重新保存并解析。</p>}
         </article>

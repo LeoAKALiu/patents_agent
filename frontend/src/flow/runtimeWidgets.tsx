@@ -10,6 +10,7 @@
  * No closure over GuidedPatentFlowView props — explicit props only.
  */
 import { AlertTriangle, RefreshCw } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
 import type { RuntimeFailure, RuntimeStageState } from "@/api";
 import { pipelineRunStatusLabel } from "@/domain";
 import { runtimeDisplayElapsedSeconds, useRuntimeNow } from "@/runtimeDisplay";
@@ -114,16 +115,16 @@ export function GuidedRuntimeActions({
   return (
     <div className="button-row">
       {canCancel && (
-        <button className="icon-button danger" disabled={disabled} onClick={() => onCancel?.(run.id)} type="button">
+        <Button variant="destructive" size="icon" disabled={disabled} onClick={() => onCancel?.(run.id)} type="button">
           <AlertTriangle size={16} />
           <span>取消运行</span>
-        </button>
+        </Button>
       )}
       {canRetry && (
-        <button className="icon-button" disabled={disabled} onClick={() => onRetry?.(run.id)} type="button">
+        <Button variant="glass-soft" size="icon" disabled={disabled} onClick={() => onRetry?.(run.id)} type="button">
           <RefreshCw size={16} />
           <span>重试</span>
-        </button>
+        </Button>
       )}
     </div>
   );
