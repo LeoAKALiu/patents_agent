@@ -100,7 +100,10 @@ class ChromaVectorIndex:
         return results
 
 
-def create_vector_index(persist_dir: Path) -> LocalVectorIndex | ChromaVectorIndex:
+VectorIndex = LocalVectorIndex | ChromaVectorIndex
+
+
+def create_vector_index(persist_dir: Path) -> VectorIndex:
     try:
         return ChromaVectorIndex(persist_dir)
     except Exception:

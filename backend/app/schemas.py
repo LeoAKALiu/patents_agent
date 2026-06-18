@@ -594,8 +594,34 @@ class ScoreImprovementResult(BaseModel):
 
 
 class GenerateRequest(BaseModel):
+    """deprecated — use GenerateRunCreate + POST /generate-runs instead."""
+
     deliberation_run_id: str | None = None
     formula_run_id: str | None = None
+
+
+class GenerateRunCreate(BaseModel):
+    deliberation_run_id: str | None = None
+    formula_run_id: str | None = None
+    run_timeout_ms: int | None = None
+
+
+class GenerateRun(BaseModel):
+    id: str
+    project_id: str
+    status: str = Field(pattern="^(queued|running|completed|failed|interrupted)$")
+    providers: list[str] = Field(default_factory=list)
+    deliberation_run_id: str | None = None
+    formula_run_id: str | None = None
+    package: DraftPackage | None = None
+    failures: list[str] = Field(default_factory=list)
+    failure_details: list[RuntimeFailure] = Field(default_factory=list)
+    events: list[str] = Field(default_factory=list)
+    runtime_state: RuntimeStageState | None = None
+    cancel_requested: bool = False
+    retry_of: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
 
 
 class FormulaNeedAssessment(BaseModel):

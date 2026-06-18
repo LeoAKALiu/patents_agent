@@ -19,6 +19,7 @@ from backend.app.schemas import (
     ExternalDraftSource,
     FilingReadinessReport,
     FormulaRun,
+    GenerateRun,
     OfficialCompileRun,
     OfficialDraftPackage,
     PatentAsset,
@@ -319,6 +320,7 @@ class SQLiteStore:
                 "disclosure_runs",
                 "deliberation_runs",
                 "formula_runs",
+                "generate_runs",
                 "external_draft_intake_runs",
                 "external_draft_sources",
                 "official_compile_runs",
@@ -680,6 +682,91 @@ class SQLiteStore:
             (project_id,),
         ).fetchone()
         return self._formula_run_from_row(row) if row else None
+
+    def create_generate_run(self, run: GenerateRun) -> GenerateRun:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into generate_runs(
+                    id, project_id, status, providers_json, deliberation_run_id, formula_run_id,
+                    package_json, failures_json, events_json, runtime_state_json,
+                    failure_details_json, cancel_requested, retry_of
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                self._generate_run_values(run),
+            )
+        return self.get_generate_run(run.project_id, run.id) or run
+
+    def update_generate_run(self, run: GenerateRun) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                update generate_runs
+                set status = ?, providers_json = ?, deliberation_run_id = ?, formula_run_id = ?,
+                    package_json = ?, failures_json = ?, events_json = ?, runtime_state_json = ?,
+                    failure_details_json = ?, cancel_requested = ?, retry_of = ?,
+                    updated_at = current_timestamp
+                where id = ? and project_id = ?
+                """,
+                (
+                    run.status,
+                    json.dumps(run.providers, ensure_ascii=False),
+                    run.deliberation_run_id or "",
+                    run.formula_run_id or "",
+                    json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False)
+                    if run.package
+                    else None,
+                    json.dumps(run.failures, ensure_ascii=False),
+                    json.dumps(run.events, ensure_ascii=False),
+                    json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False)
+                    if run.runtime_state
+                    else None,
+                    json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+                    1 if run.cancel_requested else 0,
+                    run.retry_of or "",
+                    run.id,
+                    run.project_id,
+                ),
+            )
+
+    def list_generate_runs(self, project_id: str) -> list[GenerateRun]:
+        rows = self.connection.execute(
+            "select * from generate_runs where project_id = ? order by created_at desc, rowid desc",
+            (project_id,),
+        ).fetchall()
+        return [self._generate_run_from_row(row) for row in rows]
+
+    def get_generate_run(self, project_id: str, run_id: str) -> GenerateRun | None:
+        row = self.connection.execute(
+            "select * from generate_runs where project_id = ? and id = ?",
+            (project_id, run_id),
+        ).fetchone()
+        return self._generate_run_from_row(row) if row else None
+
+    def get_active_generate_run(self, project_id: str) -> GenerateRun | None:
+        row = self.connection.execute(
+            """
+            select * from generate_runs
+            where project_id = ? and status in ('queued', 'running')
+            order by updated_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return self._generate_run_from_row(row) if row else None
+
+    def get_latest_completed_generate_run(self, project_id: str) -> GenerateRun | None:
+        row = self.connection.execute(
+            """
+            select * from generate_runs
+            where project_id = ? and status = 'completed'
+            order by updated_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return self._generate_run_from_row(row) if row else None
 
     def create_post_draft_review_run(self, run: PostDraftReviewRun) -> PostDraftReviewRun:
         with self.connection:
@@ -1305,6 +1392,25 @@ class SQLiteStore:
                     foreign key(project_id) references projects(id)
                 );
 
+                create table if not exists generate_runs (
+                    id text primary key,
+                    project_id text not null,
+                    status text not null,
+                    providers_json text not null default '[]',
+                    deliberation_run_id text not null default '',
+                    formula_run_id text not null default '',
+                    package_json text,
+                    failures_json text not null default '[]',
+                    events_json text not null default '[]',
+                    runtime_state_json text,
+                    failure_details_json text not null default '[]',
+                    cancel_requested integer not null default 0,
+                    retry_of text not null default '',
+                    created_at text not null default current_timestamp,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
                 create table if not exists post_draft_review_runs (
                     id text primary key,
                     project_id text not null,
@@ -1582,6 +1688,42 @@ class SQLiteStore:
             package=json.loads(package_json) if package_json else None,
             failures=json.loads(row["failures_json"]),
             events=json.loads(row["events_json"]),
+            runtime_state=json.loads(row["runtime_state_json"]) if row["runtime_state_json"] else None,
+            failure_details=json.loads(row["failure_details_json"] if "failure_details_json" in row.keys() else "[]"),
+            cancel_requested=bool(row["cancel_requested"] if "cancel_requested" in row.keys() else 0),
+            retry_of=(row["retry_of"] if "retry_of" in row.keys() else "") or None,
+        )
+        return run.model_copy(update={"created_at": row["created_at"], "updated_at": row["updated_at"]})
+
+    def _generate_run_values(self, run: GenerateRun) -> tuple:
+        return (
+            run.id,
+            run.project_id,
+            run.status,
+            json.dumps(run.providers, ensure_ascii=False),
+            run.deliberation_run_id or "",
+            run.formula_run_id or "",
+            json.dumps(run.package.model_dump(mode="json"), ensure_ascii=False) if run.package else None,
+            json.dumps(run.failures, ensure_ascii=False),
+            json.dumps(run.events, ensure_ascii=False),
+            json.dumps(run.runtime_state.model_dump(mode="json"), ensure_ascii=False) if run.runtime_state else None,
+            json.dumps([failure.model_dump(mode="json") for failure in run.failure_details], ensure_ascii=False),
+            1 if run.cancel_requested else 0,
+            run.retry_of or "",
+        )
+
+    def _generate_run_from_row(self, row: sqlite3.Row) -> GenerateRun:
+        package_json: str | None = row["package_json"]
+        run = GenerateRun(
+            id=row["id"],
+            project_id=row["project_id"],
+            status=row["status"],
+            providers=json.loads(row["providers_json"] if "providers_json" in row.keys() else "[]"),
+            deliberation_run_id=(row["deliberation_run_id"] if "deliberation_run_id" in row.keys() else "") or None,
+            formula_run_id=(row["formula_run_id"] if "formula_run_id" in row.keys() else "") or None,
+            package=DraftPackage.model_validate(json.loads(package_json)) if package_json else None,
+            failures=json.loads(row["failures_json"] if "failures_json" in row.keys() else "[]"),
+            events=json.loads(row["events_json"] if "events_json" in row.keys() else "[]"),
             runtime_state=json.loads(row["runtime_state_json"]) if row["runtime_state_json"] else None,
             failure_details=json.loads(row["failure_details_json"] if "failure_details_json" in row.keys() else "[]"),
             cancel_requested=bool(row["cancel_requested"] if "cancel_requested" in row.keys() else 0),

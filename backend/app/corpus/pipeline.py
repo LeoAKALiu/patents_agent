@@ -10,7 +10,9 @@ from typing import Any
 from backend.app.corpus.filters import is_ai_software_invention
 from backend.app.corpus.metadata import parse_metadata_table
 from backend.app.patent_parser import chunk_document, extract_claims, make_patent_document, read_document_text
-from backend.app.rag import LocalVectorIndex
+from backend.app.rag import ChromaVectorIndex, LocalVectorIndex
+
+VectorIndex = LocalVectorIndex | ChromaVectorIndex
 from backend.app.schemas import CorpusImportJob, CorpusQualityReport, CorpusVersion, PatentAsset, PatentChunk, SectionType
 from backend.app.storage import SQLiteStore
 
@@ -20,7 +22,7 @@ METADATA_SUFFIXES = {".csv", ".xlsx", ".xlsm"}
 
 
 class CorpusImportService:
-    def __init__(self, store: SQLiteStore, index: LocalVectorIndex, data_dir: Path) -> None:
+    def __init__(self, store: SQLiteStore, index: VectorIndex, data_dir: Path) -> None:
         self.store = store
         self.index = index
         self.data_dir = Path(data_dir)

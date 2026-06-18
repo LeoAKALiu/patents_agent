@@ -8,6 +8,7 @@ import time
 import uuid
 from itertools import combinations
 from pathlib import Path
+from typing import Any
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,7 +76,7 @@ from backend.app.post_draft_review import (
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
-from backend.app.rag import LocalVectorIndex, create_vector_index
+from backend.app.rag import VectorIndex, create_vector_index
 from backend.app.research.deep_researcher import (
     DeepResearchSearchProvider,
     PatentDeepResearcher,
@@ -88,6 +89,7 @@ from backend.app.research.ledger import (
 from backend.app.research.providers import ChainedResearchProvider, build_provider_chain
 from backend.app.runtime import RuntimeCancelled, RuntimeContext, RuntimeTimeout
 from backend.app.schemas import (
+    AgentDoctorReport,
     AgentFailure,
     DeepResearchPacket,
     DeliberationRun,
@@ -108,6 +110,8 @@ from backend.app.schemas import (
     FormulaRun,
     FormulaRunCreate,
     GenerateRequest,
+    GenerateRun,
+    GenerateRunCreate,
     InventionBrief,
     OfficialDraftPackage,
     OfficialCompileRunCreate,
@@ -199,6 +203,7 @@ def create_app(
     app.state.prior_art_provider = prior_art_provider or PublicPriorArtProvider()
     app.state.research_search_provider = research_search_provider
     app.state.disclosure_inline = prior_art_provider is not None
+    app.state.generate_inline = llm_client is not None
     app.state.corpus_service = CorpusImportService(store=store, index=index, data_dir=settings.data_dir)
 
     @app.get("/api/health")
@@ -1086,99 +1091,160 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/generate")
     def generate_project(project_id: str, payload: GenerateRequest | None = None) -> dict:
+        # Legacy sync endpoint. Internally uses the same builder as /generate-runs
+        # so behavior stays identical; new clients should prefer /generate-runs
+        # for polling/cancel/retry semantics.
         project = _require_project(store, project_id)
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating drafts.")
-        deliberation = _resolve_deliberation(store, project_id, payload.deliberation_run_id if payload else None)
-        if deliberation is None and not is_utility_model_project(project):
-            raise HTTPException(status_code=409, detail="Multi-agent deliberation is required before generating a patent draft.")
-        disclosure = store.get_latest_completed_disclosure_run(project_id)
-        disclosure_package = disclosure.package if disclosure else None
-        user_candidates = store.list_project_patent_points(project_id)
-        selected_user_candidates = [candidate for candidate in user_candidates if candidate.selected]
-        if not disclosure_package and selected_user_candidates:
-            selected_candidate = selected_user_candidates[0]
-            disclosure_package = DisclosurePackage(
-                title=selected_candidate.title,
-                summary=f"用户指定护城河专利点：{selected_candidate.title}",
-                materials_summary=selected_candidate.feasibility_basis,
-                candidates=selected_user_candidates,
-                selected_candidate_id=selected_candidate.id,
-                prior_art_hits=[],
-                prior_art_differences="尚未完成公开现有技术差异分析。",
-                body_markdown=selected_candidate.technical_solution,
-                mermaid=(
-                    "flowchart TD\nA[用户指定结构方案] --> B[部件连接关系待补充]"
-                    if is_utility_model_project(project)
-                    else "flowchart TD\nA[用户指定技术方案] --> B[待补充验证]"
-                ),
-                image_prompt=(
-                    "黑白线稿，展示用户指定结构方案的部件组成、连接关系和安装位置。"
-                    if is_utility_model_project(project)
-                    else "黑白线稿，展示用户指定技术方案的数据流和模块关系。"
-                ),
-                self_check_findings=[],
-                generation_logs=["disclosure: synthesized from selected user patent point"],
-            )
-        formula_run = _resolve_formula_run(
+        package, _run_summary = _build_draft_package(
+            app=app,
             store=store,
+            index=index,
             project=project,
             project_id=project_id,
+            deliberation_run_id=payload.deliberation_run_id if payload else None,
             formula_run_id=payload.formula_run_id if payload else None,
-            patent_points=user_candidates,
-            disclosure_package=disclosure_package,
-            strategy_brief=deliberation.strategy_brief if deliberation else None,
         )
-        brief = _brief_from_draft(project, disclosure_package)
-        context = _retrieve_generation_context(index, brief)
-        cached_llm = _cached_llm(
-            store=store,
-            project_id=project_id,
-            source_hash_value=_draft_generation_source_hash(project, deliberation, disclosure, formula_run, user_candidates),
-            llm=app.state.llm,
-        )
-        generator = PatentDraftGenerator(cached_llm)
-        try:
-            package = generator.generate(
-                brief,
-                context,
-                strategy_brief=deliberation.strategy_brief if deliberation else None,
-                disclosure=disclosure_package,
-                formula_package=formula_run.package if formula_run else None,
-            )
-        except ConfigError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
-        if deliberation:
-            package.deliberation_run_id = deliberation.id
-            package.strategy_brief = deliberation.strategy_brief
-            package.agent_consensus = deliberation.strategy_brief.agent_consensus if deliberation.strategy_brief else None
-            package.generation_logs.append(f"deliberation: injected strategy brief from run {deliberation.id}")
-        else:
-            package.generation_logs.append("deliberation: no completed multi-agent deliberation injected")
-        if disclosure and disclosure_package:
-            package.disclosure_run_id = disclosure.id
-            package.disclosure_summary = disclosure_package.summary
-            selected = disclosure_package.selected_candidate
-            package.patent_point_summary = selected.title if selected else None
-            package.generation_logs.append(f"disclosure: injected pre-filing materials from run {disclosure.id}")
-        elif disclosure_package:
-            package.disclosure_summary = disclosure_package.summary
-            selected = disclosure_package.selected_candidate
-            package.patent_point_summary = selected.title if selected else None
-            package.generation_logs.append("disclosure: injected selected user patent point without completed disclosure")
-        else:
-            package.generation_logs.append("disclosure: no completed pre-filing disclosure injected")
-        if formula_run and formula_run.package:
-            package.formula_run_id = formula_run.id
-            package.core_formula_summary = formula_run.package.summary
-            package.generation_logs.append(f"formula: injected core formula package from run {formula_run.id}")
-        else:
-            package.generation_logs.append("formula: no core formula package required")
-        # ── PR-10: strip/sidecar non-patent content before persisting ────
-        package, sidecar = clean_draft_package(package)
-        package.generation_logs.append(f"hygiene: cleaned {sum(len(v) for v in sidecar.values())} contamination items before save")
         store.update_project_package(project_id, package)
         return package.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/generate-runs")
+    def create_generate_run(
+        project_id: str,
+        payload: GenerateRunCreate | None = None,
+        background_tasks: BackgroundTasks = BackgroundTasks(),
+    ) -> dict:
+        project = _require_project(store, project_id)
+        if isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating drafts.")
+        active = store.get_active_generate_run(project_id)
+        if active is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A generate run is already {active.status} for this project (id={active.id}).",
+            )
+        run_id = uuid.uuid4().hex
+        queued = GenerateRun(
+            id=run_id,
+            project_id=project_id,
+            status="queued",
+            providers=[str(getattr(app.state.llm, "name", "llm"))],
+            deliberation_run_id=payload.deliberation_run_id if payload else None,
+            formula_run_id=payload.formula_run_id if payload else None,
+            retry_of=None,
+            events=["run created"],
+        )
+        store.create_generate_run(queued)
+        if app.state.generate_inline:
+            _execute_generate_run(
+                app=app,
+                store=store,
+                index=index,
+                project=project,
+                project_id=project_id,
+                run_id=run_id,
+                deliberation_run_id=payload.deliberation_run_id if payload else None,
+                formula_run_id=payload.formula_run_id if payload else None,
+                run_timeout_ms=payload.run_timeout_ms if payload else None,
+                retry_of=None,
+            )
+            return store.get_generate_run(project_id, run_id).model_dump(mode="json")
+        background_tasks.add_task(
+            _execute_generate_run,
+            app=app,
+            store=store,
+            index=index,
+            project=project,
+            project_id=project_id,
+            run_id=run_id,
+            deliberation_run_id=payload.deliberation_run_id if payload else None,
+            formula_run_id=payload.formula_run_id if payload else None,
+            run_timeout_ms=payload.run_timeout_ms if payload else None,
+            retry_of=None,
+        )
+        return queued.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/generate-runs")
+    def list_generate_runs(project_id: str) -> dict:
+        _require_project(store, project_id)
+        return {"runs": [run.model_dump(mode="json") for run in store.list_generate_runs(project_id)]}
+
+    @app.get("/api/projects/{project_id}/generate-runs/{run_id}")
+    def get_generate_run(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_generate_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Generate run not found.")
+        return run.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/generate-runs/{run_id}/cancel")
+    def cancel_generate_run(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_generate_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Generate run not found.")
+        updated = _mark_generate_cancel_requested(store, run)
+        return updated.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/generate-runs/{run_id}/retry")
+    def retry_generate_run(
+        project_id: str,
+        run_id: str,
+        background_tasks: BackgroundTasks = BackgroundTasks(),
+    ) -> dict:
+        project = _require_project(store, project_id)
+        if isinstance(app.state.llm, MissingLLMClient):
+            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating drafts.")
+        previous = store.get_generate_run(project_id, run_id)
+        if not previous:
+            raise HTTPException(status_code=404, detail="Generate run not found.")
+        active = store.get_active_generate_run(project_id)
+        if active is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A generate run is already {active.status} for this project (id={active.id}).",
+            )
+        retry_id = uuid.uuid4().hex
+        queued = GenerateRun(
+            id=retry_id,
+            project_id=project_id,
+            status="queued",
+            providers=[str(getattr(app.state.llm, "name", "llm"))],
+            deliberation_run_id=previous.deliberation_run_id,
+            formula_run_id=previous.formula_run_id,
+            retry_of=previous.id,
+            events=[f"retry requested for generate run {previous.id}"],
+        )
+        store.create_generate_run(queued)
+        if app.state.generate_inline:
+            _execute_generate_run(
+                app=app,
+                store=store,
+                index=index,
+                project=project,
+                project_id=project_id,
+                run_id=retry_id,
+                deliberation_run_id=previous.deliberation_run_id,
+                formula_run_id=previous.formula_run_id,
+                run_timeout_ms=None,
+                retry_of=previous.id,
+            )
+            return store.get_generate_run(project_id, retry_id).model_dump(mode="json")
+        background_tasks.add_task(
+            _execute_generate_run,
+            app=app,
+            store=store,
+            index=index,
+            project=project,
+            project_id=project_id,
+            run_id=retry_id,
+            deliberation_run_id=previous.deliberation_run_id,
+            formula_run_id=previous.formula_run_id,
+            run_timeout_ms=None,
+            retry_of=previous.id,
+        )
+        return queued.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/review")
     def review_project(project_id: str) -> dict:
@@ -1794,6 +1860,310 @@ def _mark_post_draft_cancel_requested(store: SQLiteStore, run: PostDraftReviewRu
     return updated
 
 
+def _build_draft_package(
+    *,
+    app: FastAPI,
+    store: SQLiteStore,
+    index: VectorIndex,
+    project: ProjectRecord,
+    project_id: str,
+    deliberation_run_id: str | None = None,
+    formula_run_id: str | None = None,
+) -> tuple[DraftPackage, dict]:
+    """Build a DraftPackage by combining deliberation/disclosure/formula context.
+
+    Shared between the legacy sync /generate endpoint and the new
+    /generate-runs lifecycle. Returns the package plus a small summary dict
+    referencing which upstream runs were injected.
+    """
+    deliberation = _resolve_deliberation(store, project_id, deliberation_run_id)
+    if deliberation is None and not is_utility_model_project(project):
+        raise HTTPException(status_code=409, detail="Multi-agent deliberation is required before generating a patent draft.")
+    disclosure = store.get_latest_completed_disclosure_run(project_id)
+    disclosure_package = disclosure.package if disclosure else None
+    user_candidates = store.list_project_patent_points(project_id)
+    selected_user_candidates = [candidate for candidate in user_candidates if candidate.selected]
+    if not disclosure_package and selected_user_candidates:
+        selected_candidate = selected_user_candidates[0]
+        disclosure_package = DisclosurePackage(
+            title=selected_candidate.title,
+            summary=f"用户指定护城河专利点：{selected_candidate.title}",
+            materials_summary=selected_candidate.feasibility_basis,
+            candidates=selected_user_candidates,
+            selected_candidate_id=selected_candidate.id,
+            prior_art_hits=[],
+            prior_art_differences="尚未完成公开现有技术差异分析。",
+            body_markdown=selected_candidate.technical_solution,
+            mermaid=(
+                "flowchart TD\nA[用户指定结构方案] --> B[部件连接关系待补充]"
+                if is_utility_model_project(project)
+                else "flowchart TD\nA[用户指定技术方案] --> B[待补充验证]"
+            ),
+            image_prompt=(
+                "黑白线稿，展示用户指定结构方案的部件组成、连接关系和安装位置。"
+                if is_utility_model_project(project)
+                else "黑白线稿，展示用户指定技术方案的数据流和模块关系。"
+            ),
+            self_check_findings=[],
+            generation_logs=["disclosure: synthesized from selected user patent point"],
+        )
+    formula_run = _resolve_formula_run(
+        store=store,
+        project=project,
+        project_id=project_id,
+        formula_run_id=formula_run_id,
+        patent_points=user_candidates,
+        disclosure_package=disclosure_package,
+        strategy_brief=deliberation.strategy_brief if deliberation else None,
+    )
+    brief = _brief_from_draft(project, disclosure_package)
+    context = _retrieve_generation_context(index, brief)
+    cached_llm = _cached_llm(
+        store=store,
+        project_id=project_id,
+        source_hash_value=_draft_generation_source_hash(project, deliberation, disclosure, formula_run, user_candidates),
+        llm=app.state.llm,
+    )
+    generator = PatentDraftGenerator(cached_llm)
+    try:
+        package = generator.generate(
+            brief,
+            context,
+            strategy_brief=deliberation.strategy_brief if deliberation else None,
+            disclosure=disclosure_package,
+            formula_package=formula_run.package if formula_run else None,
+        )
+    except ConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if deliberation:
+        package.deliberation_run_id = deliberation.id
+        package.strategy_brief = deliberation.strategy_brief
+        package.agent_consensus = deliberation.strategy_brief.agent_consensus if deliberation.strategy_brief else None
+        package.generation_logs.append(f"deliberation: injected strategy brief from run {deliberation.id}")
+    else:
+        package.generation_logs.append("deliberation: no completed multi-agent deliberation injected")
+    if disclosure and disclosure_package:
+        package.disclosure_run_id = disclosure.id
+        package.disclosure_summary = disclosure_package.summary
+        selected = disclosure_package.selected_candidate
+        package.patent_point_summary = selected.title if selected else None
+        package.generation_logs.append(f"disclosure: injected pre-filing materials from run {disclosure.id}")
+    elif disclosure_package:
+        package.disclosure_summary = disclosure_package.summary
+        selected = disclosure_package.selected_candidate
+        package.patent_point_summary = selected.title if selected else None
+        package.generation_logs.append("disclosure: injected selected user patent point without completed disclosure")
+    else:
+        package.generation_logs.append("disclosure: no completed pre-filing disclosure injected")
+    if formula_run and formula_run.package:
+        package.formula_run_id = formula_run.id
+        package.core_formula_summary = formula_run.package.summary
+        package.generation_logs.append(f"formula: injected core formula package from run {formula_run.id}")
+    else:
+        package.generation_logs.append("formula: no core formula package required")
+    package, sidecar = clean_draft_package(package)
+    package.generation_logs.append(f"hygiene: cleaned {sum(len(v) for v in sidecar.values())} contamination items before save")
+    summary = {
+        "deliberation_run_id": deliberation.id if deliberation else None,
+        "formula_run_id": formula_run.id if formula_run and formula_run.package else None,
+        "disclosure_run_id": disclosure.id if disclosure and disclosure_package else None,
+    }
+    return package, summary
+
+
+def _mark_generate_cancel_requested(store: SQLiteStore, run: GenerateRun) -> GenerateRun:
+    if run.status in _TERMINAL_RUN_STATUSES:
+        return run
+    failure_details = list(run.failure_details)
+    status = run.status
+    if status == "queued":
+        status = "interrupted"
+        failure_details.append(
+            _runtime_failure(
+                flow="generate",
+                reason="cancelled",
+                message="Generate run was cancelled before execution started.",
+                state=run.runtime_state,
+                repair_suggestion="Retry the generate run when ready.",
+            )
+        )
+    elif status == "running":
+        # For running runs, just set the cancel_requested flag.
+        # The background task will check this flag and transition to interrupted.
+        pass
+    updated = run.model_copy(
+        update={
+            "status": status,
+            "cancel_requested": True,
+            "failure_details": failure_details,
+            "events": [*run.events, "cancel requested"],
+        }
+    )
+    store.update_generate_run(updated)
+    return updated
+
+
+def _execute_generate_run(
+    *,
+    app: FastAPI,
+    store: SQLiteStore,
+    index: VectorIndex,
+    project: ProjectRecord,
+    project_id: str,
+    run_id: str,
+    deliberation_run_id: str | None,
+    formula_run_id: str | None,
+    run_timeout_ms: int | None,
+    retry_of: str | None,
+) -> None:
+    """Execute a generate run asynchronously (called via BackgroundTasks).
+
+    Lifecycle: queued (already persisted) → running → completed/failed/interrupted.
+    The run_id is pre-assigned by the caller so the queued record already exists.
+    """
+    # Load the queued run and transition to running
+    current = store.get_generate_run(project_id, run_id)
+    if current is None:
+        return  # Run was deleted or never created
+    running = current.model_copy(
+        update={
+            "status": "running",
+            "events": [*current.events, "run started"],
+        }
+    )
+    store.update_generate_run(running)
+
+    # Execute with optional timeout
+    try:
+        if run_timeout_ms is not None and run_timeout_ms > 0:
+            import threading
+
+            result_holder: dict = {"package": None, "exc": None}
+
+            def _build() -> None:
+                try:
+                    result_holder["package"], _ = _build_draft_package(
+                        app=app,
+                        store=store,
+                        index=index,
+                        project=project,
+                        project_id=project_id,
+                        deliberation_run_id=deliberation_run_id,
+                        formula_run_id=formula_run_id,
+                    )
+                except Exception as exc:
+                    result_holder["exc"] = exc
+
+            thread = threading.Thread(target=_build, daemon=True)
+            thread.start()
+            thread.join(timeout=run_timeout_ms / 1000.0)
+            if thread.is_alive():
+                raise RuntimeTimeout(
+                    f"Generate run timed out after {run_timeout_ms}ms"
+                )
+            if result_holder["exc"] is not None:
+                raise result_holder["exc"]
+            package = result_holder["package"]
+            if package is None:
+                raise RuntimeError("Generate run produced no package")
+        else:
+            package, _summary = _build_draft_package(
+                app=app,
+                store=store,
+                index=index,
+                project=project,
+                project_id=project_id,
+                deliberation_run_id=deliberation_run_id,
+                formula_run_id=formula_run_id,
+            )
+    except HTTPException as exc:
+        failure = _runtime_failure(
+            flow="generate",
+            reason="http_error",
+            message=str(exc.detail),
+            retryable=True,
+            repair_suggestion="Check upstream deliberation/formula gates, then retry.",
+        )
+        failed = running.model_copy(
+            update={
+                "status": "failed",
+                "failures": [str(exc.detail)],
+                "failure_details": [*running.failure_details, failure],
+                "events": [*running.events, f"run failed: {exc.detail}"],
+            }
+        )
+        store.update_generate_run(failed)
+        return
+    except RuntimeTimeout:
+        failure = _runtime_failure(
+            flow="generate",
+            reason="timeout",
+            message=f"Generate run exceeded its {run_timeout_ms}ms time budget.",
+            retryable=True,
+            repair_suggestion="Retry with a larger timeout or reduce LLM scope.",
+        )
+        failed = running.model_copy(
+            update={
+                "status": "failed",
+                "failures": [f"timeout after {run_timeout_ms}ms"],
+                "failure_details": [*running.failure_details, failure],
+                "events": [*running.events, f"run timed out after {run_timeout_ms}ms"],
+            }
+        )
+        store.update_generate_run(failed)
+        return
+    except Exception as exc:
+        failure = _runtime_failure(
+            flow="generate",
+            reason="exception",
+            message=str(exc),
+            retryable=True,
+            repair_suggestion="Retry after fixing the LLM provider or prompt/schema issue.",
+        )
+        failed = running.model_copy(
+            update={
+                "status": "failed",
+                "failures": [str(exc)],
+                "failure_details": [*running.failure_details, failure],
+                "events": [*running.events, f"run failed: {exc}"],
+            }
+        )
+        store.update_generate_run(failed)
+        return
+
+    # After execution: check if cancel was requested during the run
+    current = store.get_generate_run(project_id, run_id) or running
+    if current.cancel_requested:
+        interrupted = current.model_copy(
+            update={
+                "status": "interrupted",
+                "failure_details": [
+                    *current.failure_details,
+                    _runtime_failure(
+                        flow="generate",
+                        reason="cancelled",
+                        message="Generate run was cancelled during execution; partial artifacts were not persisted.",
+                        state=current.runtime_state,
+                        repair_suggestion="Retry the generate run when ready.",
+                    ),
+                ],
+                "events": [*current.events, "run cancelled before completion"],
+            }
+        )
+        store.update_generate_run(interrupted)
+        return
+
+    completed = current.model_copy(
+        update={
+            "status": "completed",
+            "package": package,
+            "events": [*current.events, "run completed"],
+        }
+    )
+    store.update_generate_run(completed)
+    store.update_project_package(project_id, package)
+
+
 def _execute_formula_run(
     *,
     store: SQLiteStore,
@@ -2102,7 +2472,7 @@ def _persist_disclosure_candidates(
 
 def _execute_disclosure(
     store: SQLiteStore,
-    index: LocalVectorIndex,
+    index: VectorIndex,
     llm: LLMClient,
     prior_art_provider: object,
     research_search_provider: DeepResearchSearchProvider | None,
@@ -2513,7 +2883,7 @@ def _apply_free_deep_research(
 
 def _execute_deliberation(
     store: SQLiteStore,
-    index: LocalVectorIndex,
+    index: VectorIndex,
     provider_runner: object | None,
     project: ProjectRecord,
     run: DeliberationRun,
@@ -3024,7 +3394,7 @@ def _infer_structure_features(draft: str) -> list[str]:
     return candidates or ["部件组成", "连接关系", "安装位置"]
 
 
-def _retrieve_generation_context(index: LocalVectorIndex, brief: InventionBrief) -> list[PatentChunk]:
+def _retrieve_generation_context(index: VectorIndex, brief: InventionBrief) -> list[PatentChunk]:
     query = " ".join([brief.title, brief.technical_field, brief.technical_problem, brief.technical_solution])
     selected: list[PatentChunk] = []
     seen: set[str] = set()
