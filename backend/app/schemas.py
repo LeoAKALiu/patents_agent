@@ -364,18 +364,51 @@ class OfficialExportReadiness(BaseModel):
 
 class ProjectCreate(BaseModel):
     name: str
-    draft_text: str
+    draft_text: str = ""
     patent_type: PatentType = PatentType.INVENTION
+    applicant: str = ""
+    inventors: str = ""
+    technical_field: str = ""
+    background: str = ""
+    pain_point: str = ""
+    technical_solution: str = ""
+    innovation: str = ""
+    embodiments: str = ""
+    beneficial_effects: str = ""
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    draft_text: str | None = None
+    patent_type: PatentType | None = None
+    applicant: str | None = None
+    inventors: str | None = None
+    technical_field: str | None = None
+    background: str | None = None
+    pain_point: str | None = None
+    technical_solution: str | None = None
+    innovation: str | None = None
+    embodiments: str | None = None
+    beneficial_effects: str | None = None
 
 
 class ProjectRecord(BaseModel):
     id: str
     name: str
-    draft_text: str
+    draft_text: str = ""
     patent_type: PatentType = PatentType.INVENTION
     package: DraftPackage | None = None
     created_at: str = ""
     updated_at: str = ""
+    applicant: str = ""
+    inventors: str = ""
+    technical_field: str = ""
+    background: str = ""
+    pain_point: str = ""
+    technical_solution: str = ""
+    innovation: str = ""
+    embodiments: str = ""
+    beneficial_effects: str = ""
 
 
 class FilingReadinessIssue(BaseModel):

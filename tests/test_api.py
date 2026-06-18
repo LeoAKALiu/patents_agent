@@ -404,3 +404,247 @@ def _assert_content_disposition_absent(response):
     """Verify the response does NOT carry a Content-Disposition header."""
     cd = response.headers.get("content-disposition", "")
     assert cd == "", f"Expected no Content-Disposition, got: {cd!r}"
+
+
+def test_create_project_with_all_metadata_fields_and_persist(tmp_path):
+    """Create project with all structured metadata fields and verify persistence across store instances."""
+    from backend.app.storage import SQLiteStore
+
+    client = _test_app_without_env(tmp_path)
+
+    # Create project with ALL metadata fields populated
+    payload = {
+        "name": "完整元数据项目",
+        "draft_text": "一种基于多模态传感器的城市道路病害检测方法。",
+        "patent_type": "invention",
+        "applicant": "焕城智慧科技（济南）有限公司",
+        "inventors": "刘博",
+        "technical_field": "计算机视觉、市政工程检测",
+        "background": "现有道路病害检测依赖人工巡检，效率低、漏检率高。",
+        "pain_point": "道路裂缝和坑槽的自动化检测在光照变化下误检率高。",
+        "technical_solution": "通过多模态传感器融合（可见光+红外+激光雷达）实现全天候道路病害检测。",
+        "innovation": "提出一种跨模态特征对齐方法，将红外热像与可见光图像的裂缝特征在嵌入空间对齐。",
+        "embodiments": "实施例一：车载多传感器巡检系统在济南市经十路的部署测试。",
+        "beneficial_effects": "检测效率提升80%，夜间检测准确率从65%提升至92%。",
+    }
+    resp = client.post("/api/projects", json=payload)
+    assert resp.status_code == 200
+    project = resp.json()
+
+    # Verify all fields are returned
+    assert project["name"] == payload["name"]
+    assert project["draft_text"] == payload["draft_text"]
+    assert project["applicant"] == payload["applicant"]
+    assert project["inventors"] == payload["inventors"]
+    assert project["technical_field"] == payload["technical_field"]
+    assert project["background"] == payload["background"]
+    assert project["pain_point"] == payload["pain_point"]
+    assert project["technical_solution"] == payload["technical_solution"]
+    assert project["innovation"] == payload["innovation"]
+    assert project["embodiments"] == payload["embodiments"]
+    assert project["beneficial_effects"] == payload["beneficial_effects"]
+
+    project_id = project["id"]
+
+    # Verify fields survive GET
+    got = client.get(f"/api/projects/{project_id}").json()
+    assert got["applicant"] == payload["applicant"]
+    assert got["inventors"] == payload["inventors"]
+
+    # Update some fields via PUT
+    update_payload = {
+        "applicant": "焕城智慧科技（济南）有限公司（更新）",
+        "technical_field": "计算机视觉、市政工程检测、道路养护",
+    }
+    put_resp = client.put(f"/api/projects/{project_id}", json=update_payload)
+    assert put_resp.status_code == 200
+    updated = put_resp.json()
+    assert updated["applicant"] == update_payload["applicant"]
+    assert updated["technical_field"] == update_payload["technical_field"]
+    # Fields not in the update should remain unchanged
+    assert updated["inventors"] == payload["inventors"]
+    assert updated["innovation"] == payload["innovation"]
+
+    # Verify persistence: re-open store from the same data_dir
+    db_path = tmp_path / "patents_agent.sqlite3"
+    reopened = SQLiteStore(db_path)
+    persisted = reopened.get_project(project_id)
+    assert persisted is not None
+    assert persisted.applicant == update_payload["applicant"]
+    assert persisted.technical_field == update_payload["technical_field"]
+    assert persisted.inventors == payload["inventors"]
+    assert persisted.innovation == payload["innovation"]
+
+    # Verify restart: create a new app on the same data_dir
+    client2 = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project2 = client2.get(f"/api/projects/{project_id}").json()
+    assert project2["applicant"] == update_payload["applicant"]
+    assert project2["inventors"] == payload["inventors"]
+    assert project2["beneficial_effects"] == payload["beneficial_effects"]
+
+
+def test_create_project_with_empty_metadata_defaults_and_no_update(tmp_path):
+    """Projects created without metadata fields get empty defaults and can be updated later."""
+    client = _test_app_without_env(tmp_path)
+
+    # Create with only name + draft_text (no metadata)
+    resp = client.post(
+        "/api/projects",
+        json={"name": "最小项目", "draft_text": "一种简单的技术方案。"},
+    )
+    assert resp.status_code == 200
+    project = resp.json()
+
+    # All metadata fields should default to ""
+    for field in ["applicant", "inventors", "technical_field", "background",
+                  "pain_point", "technical_solution", "innovation", "embodiments",
+                  "beneficial_effects"]:
+        assert project[field] == "", f"Field {field} should default to empty string"
+
+    project_id = project["id"]
+
+    # Later update with metadata
+    client.put(
+        f"/api/projects/{project_id}",
+        json={
+            "applicant": "创乐科技",
+            "inventors": "王五、赵六",
+            "innovation": "后端补齐的创新点。",
+        },
+    )
+
+    updated = client.get(f"/api/projects/{project_id}").json()
+    assert updated["applicant"] == "创乐科技"
+    assert updated["inventors"] == "王五、赵六"
+    assert updated["innovation"] == "后端补齐的创新点。"
+    # Still empty
+    assert updated["beneficial_effects"] == ""
+
+
+def test_export_draft_omits_applicant_and_inventor_per_product_spec(tmp_path):
+    """Draft export does NOT include applicant/inventor — per product spec these are metadata only."""
+    from backend.app.storage import SQLiteStore
+
+    client = _test_app_without_env(tmp_path)
+
+    # Create project with applicant/inventor
+    resp = client.post(
+        "/api/projects",
+        json={
+            "name": "导出测试项目",
+            "draft_text": "一种基于AI的专利撰写方法。",
+            "applicant": "焕城智慧科技（济南）有限公司",
+            "inventors": "刘博",
+        },
+    )
+    project_id = resp.json()["id"]
+
+    # Inject a minimal draft package directly (simulating generation)
+    store = client.app.state.store
+    from backend.app.schemas import DraftPackage
+    store.update_project_package(
+        project_id,
+        DraftPackage(
+            claims="1. 一种方法。",
+            description="技术领域\n本发明涉及AI技术。",
+            abstract="本发明公开了一种方法。",
+            title="导出测试",
+            drawing_description="",
+            mermaid="",
+            image_prompt="",
+        ),
+    )
+
+    # Export markdown — should NOT contain applicant/inventor
+    md_resp = client.get(f"/api/projects/{project_id}/export.md")
+    assert md_resp.status_code == 200
+    md_text = md_resp.text
+    assert "焕城智慧科技" not in md_text, "applicant should not appear in draft export"
+    assert "刘博" not in md_text, "inventor should not appear in draft export"
+
+    # Export DOCX — should NOT contain applicant/inventor
+    docx_resp = client.get(f"/api/projects/{project_id}/export.docx")
+    assert docx_resp.status_code == 200
+    # Basic check: the DOCX bytes can be inspected roughly
+    docx_bytes = docx_resp.content
+    assert "焕城智慧科技".encode("utf-8") not in docx_bytes, "applicant should not appear in draft DOCX export"
+    assert "刘博".encode("utf-8") not in docx_bytes, "inventor should not appear in draft DOCX export"
+
+    # Also verify the project metadata API still returns the fields
+    got = client.get(f"/api/projects/{project_id}").json()
+    assert got["applicant"] == "焕城智慧科技（济南）有限公司"
+    assert got["inventors"] == "刘博"
+
+
+def test_old_database_without_metadata_columns_migrates_with_safe_defaults(tmp_path):
+    """A pre-migration database (projects table without the 9 metadata columns) is
+    opened by the new code: _ensure_column adds the columns with default '' and
+    existing rows read back with empty-string defaults for every metadata field.
+    This proves backward compatibility for real upgrades."""
+    import sqlite3
+
+    from backend.app.storage import SQLiteStore
+
+    db_path = tmp_path / "patents_agent.sqlite3"
+
+    # Hand-build an OLD-SCHEMA projects table (no metadata columns at all),
+    # mimicking a database created by a previous app version.
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        create table projects (
+            id text primary key,
+            name text not null,
+            draft_text text not null,
+            patent_type text not null default 'invention',
+            package_json text,
+            created_at text not null default current_timestamp,
+            updated_at text not null default current_timestamp
+        )
+        """
+    )
+    conn.execute(
+        "insert into projects(id, name, draft_text, patent_type) values (?, ?, ?, ?)",
+        ("legacy-001", "历史遗留项目", "一种早期录入的技术方案。", "invention"),
+    )
+    conn.commit()
+    conn.close()
+
+    # Opening with the new store triggers the _ensure_column migrations.
+    store = SQLiteStore(db_path)
+    legacy = store.get_project("legacy-001")
+    assert legacy is not None, "legacy row must still be readable after migration"
+    assert legacy.name == "历史遗留项目"
+    assert legacy.draft_text == "一种早期录入的技术方案。"
+    # Every metadata column must default to empty string, never None / KeyError.
+    for field in (
+        "applicant",
+        "inventors",
+        "technical_field",
+        "background",
+        "pain_point",
+        "technical_solution",
+        "innovation",
+        "embodiments",
+        "beneficial_effects",
+    ):
+        assert getattr(legacy, field) == "", f"legacy {field} should default to ''"
+
+    # The old row can be partially updated via the new update path and persists.
+    updated = store.update_project("legacy-001", {"applicant": "迁移后申请人", "inventors": "张三"})
+    assert updated is not None
+    assert updated.applicant == "迁移后申请人"
+    assert updated.inventors == "张三"
+
+    # list_projects must also work on the migrated table.
+    listed = store.list_projects()
+    assert any(p.id == "legacy-001" for p in listed)
+
+    # New projects can coexist with the legacy row on the same migrated DB.
+    from backend.app.schemas import ProjectCreate, ProjectRecord
+
+    new_proj = ProjectCreate(name="新建项目", draft_text="新方案。", applicant="新申请人")
+    created = store.create_project(ProjectRecord(id="new-001", **new_proj.model_dump()))
+    assert created is not None
+    assert created.applicant == "新申请人"
+    assert store.get_project("new-001").applicant == "新申请人"

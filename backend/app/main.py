@@ -134,6 +134,7 @@ from backend.app.schemas import (
     CorpusImportJobCreate,
     ProjectMaterial,
     ProjectCreate,
+    ProjectUpdate,
     ProjectRecord,
     RuntimeFailure,
     SectionType,
@@ -484,6 +485,15 @@ def create_app(
             name=payload.name,
             draft_text=payload.draft_text,
             patent_type=payload.patent_type,
+            applicant=payload.applicant,
+            inventors=payload.inventors,
+            technical_field=payload.technical_field,
+            background=payload.background,
+            pain_point=payload.pain_point,
+            technical_solution=payload.technical_solution,
+            innovation=payload.innovation,
+            embodiments=payload.embodiments,
+            beneficial_effects=payload.beneficial_effects,
         )
         stored = store.create_project(project)
         return stored.model_dump(mode="json")
@@ -492,6 +502,17 @@ def create_app(
     def get_project(project_id: str) -> dict:
         project = _require_project(store, project_id)
         return project.model_dump(mode="json")
+
+    @app.put("/api/projects/{project_id}")
+    def update_project(project_id: str, payload: ProjectUpdate) -> dict:
+        project = _require_project(store, project_id)
+        updates = payload.model_dump(exclude_unset=True)
+        if not updates:
+            return project.model_dump(mode="json")
+        updated = store.update_project(project_id, updates)
+        if updated is None:
+            raise HTTPException(status_code=404, detail="Project not found.")
+        return updated.model_dump(mode="json")
 
     @app.delete("/api/projects/{project_id}")
     def delete_project(project_id: str) -> dict:
