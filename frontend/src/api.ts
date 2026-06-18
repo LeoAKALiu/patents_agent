@@ -1053,12 +1053,18 @@ export async function deleteProject(projectId: string): Promise<{ ok: boolean }>
   return request<{ ok: boolean }>(`/api/projects/${projectId}`, { method: "DELETE" });
 }
 
-export async function updateProject(projectId: string, payload: ProjectUpdate): Promise<ProjectRecord> {
+export function projectUpdateRequestBody(payload: ProjectUpdate): Record<string, unknown> {
   const body = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
-  // Remove null values so they are treated as "unset" by exclude_unset on the backend
+  // ``null`` means "leave unset" for optional partial updates. Empty strings
+  // are preserved so users can intentionally clear text metadata fields.
   for (const key of Object.keys(body)) {
     if (body[key] === null) delete body[key];
   }
+  return body;
+}
+
+export async function updateProject(projectId: string, payload: ProjectUpdate): Promise<ProjectRecord> {
+  const body = projectUpdateRequestBody(payload);
   return request<ProjectRecord>(`/api/projects/${projectId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

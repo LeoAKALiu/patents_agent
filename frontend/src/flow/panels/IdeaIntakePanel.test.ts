@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultProjectRecord } from "@/api";
+import { defaultProjectRecord, projectUpdateRequestBody } from "@/api";
 import { emptyMetadata, metadataFromProject } from "./IdeaIntakePanel";
 
 describe("emptyMetadata", () => {
@@ -113,6 +113,20 @@ describe("ProjectRecord structured field defaults", () => {
     expect(record.updated_at).toBe("");
     // Structured fields default to empty
     expect(record.technical_field).toBe("");
+  });
+});
+
+describe("project metadata update serialization", () => {
+  it("preserves empty strings so saved metadata fields can be cleared", () => {
+    const body = projectUpdateRequestBody({
+      applicant: "",
+      inventors: null,
+      technical_field: "计算机视觉",
+    });
+    expect(body).toEqual({
+      applicant: "",
+      technical_field: "计算机视觉",
+    });
   });
 });
 

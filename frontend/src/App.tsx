@@ -1115,15 +1115,15 @@ function App() {
     if (!selectedProject) return;
     await withStatus("guided-save-metadata", async () => {
       const updated = await updateProject(selectedProject.id, {
-        applicant: metadata.applicant || null,
-        inventors: metadata.inventors || null,
-        technical_field: metadata.technical_field || null,
-        background: metadata.background || null,
-        pain_point: metadata.pain_point || null,
-        technical_solution: metadata.technical_solution || null,
-        innovation: metadata.innovation || null,
-        embodiments: metadata.embodiments || null,
-        beneficial_effects: metadata.beneficial_effects || null,
+        applicant: metadata.applicant,
+        inventors: metadata.inventors,
+        technical_field: metadata.technical_field,
+        background: metadata.background,
+        pain_point: metadata.pain_point,
+        technical_solution: metadata.technical_solution,
+        innovation: metadata.innovation,
+        embodiments: metadata.embodiments,
+        beneficial_effects: metadata.beneficial_effects,
       });
       const nextProjects = await listProjects();
       setProjects(nextProjects);
