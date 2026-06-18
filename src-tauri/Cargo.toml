@@ -4,6 +4,16 @@ version = "1.1.0"
 description = "Tauri v2 desktop runtime for PatentAgent"
 edition = "2021"
 
+[features]
+# Forces the packaged binary to serve the embedded frontend (frontendDist) via the
+# tauri://localhost asset protocol instead of the dev server URL (devUrl).
+# `tauri build` already injects `tauri/custom-protocol`, but declaring the feature
+# here also lets a plain `cargo build --features custom-protocol` produce a
+# self-contained, runnable binary. Without it a non-custom-protocol build loads the
+# dev URL, where no dev server is running in a packaged DMG, and the window stays
+# black. DO NOT REMOVE.
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

@@ -28,6 +28,10 @@ APP_DATA_DIR = Path.home() / "Library" / "Application Support" / APP_BUNDLE_IDEN
 BACKEND_STARTUP_LOG = APP_DATA_DIR / "backend-startup.log"
 BACKEND_STARTUP_ERROR = APP_DATA_DIR / "backend-startup-error.txt"
 LAUNCHPAD_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
+RENDERER_DOM_SMOKE_REPORT_NAME = "renderer_dom_smoke_report.json"
+RENDERER_DOM_SMOKE_ENV = "PATENTAGENT_TAURI_DOM_SMOKE"
+RENDERER_DOM_SMOKE_NOEXIT_ENV = "PATENTAGENT_TAURI_DOM_SMOKE_NOEXIT"
+RENDERER_DOM_SMOKE_REPORT_ENV = "PATENTAGENT_TAURI_DOM_SMOKE_REPORT"
 SPCTL_TRANSIENT_STATUSES = {
     "assessment-tool-error-too-many-open-files",
     "assessment-tool-error-invalid-bundle",
@@ -426,6 +430,36 @@ def wait_for_backend_startup_diagnostics(
     return diagnostics
 
 
+def wait_for_renderer_dom_smoke(smoke_dir: Path, timeout: float = 20.0) -> dict[str, Any]:
+    """Read the in-app renderer DOM smoke verdict, polling until it appears.
+
+    The packaged app is launched with PATENTAGENT_TAURI_DOM_SMOKE +
+    PATENTAGENT_TAURI_DOM_SMOKE_NOEXIT, so it probes its own webview for the React
+    app-shell/sidebar/topbar and writes a JSON verdict to the report path without
+    exiting. A truthy ``ok`` proves the bundled binary actually embedded and served
+    the frontend (tauri://localhost) instead of shipping a black window, which is
+    the original PR-14 regression.
+    """
+    report_path = smoke_dir / RENDERER_DOM_SMOKE_REPORT_NAME
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if report_path.is_file():
+            text = report_path.read_text(encoding="utf-8", errors="replace")
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                return {
+                    "ok": False,
+                    "error": "renderer DOM smoke report was not valid JSON",
+                    "raw": text,
+                }
+        time.sleep(0.5)
+    return {
+        "ok": False,
+        "error": "renderer DOM smoke report was not written before timeout",
+    }
+
+
 def dismiss_restore_prompt(app_pid: int, smoke_dir: Path, timeout: float = 8.0) -> bool:
     deadline = time.monotonic() + timeout
     attempt = 0
@@ -517,6 +551,7 @@ def quit_app(smoke_dir: Path) -> subprocess.CompletedProcess[str]:
 
 
 def open_app(copied_app: Path, smoke_dir: Path) -> subprocess.CompletedProcess[str]:
+    renderer_report_path = smoke_dir / RENDERER_DOM_SMOKE_REPORT_NAME
     args = [
         "open",
         "-n",
@@ -526,6 +561,12 @@ def open_app(copied_app: Path, smoke_dir: Path) -> subprocess.CompletedProcess[s
         str(smoke_dir / "app_stderr.txt"),
         "--env",
         f"PATH={LAUNCHPAD_PATH}",
+        "--env",
+        f"{RENDERER_DOM_SMOKE_ENV}=1",
+        "--env",
+        f"{RENDERER_DOM_SMOKE_NOEXIT_ENV}=1",
+        "--env",
+        f"{RENDERER_DOM_SMOKE_REPORT_ENV}={renderer_report_path}",
         str(copied_app),
     ]
     return run_text_command(args, smoke_dir / "open.txt", check=True)
@@ -570,6 +611,7 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         "spctl": None,
         "app_alive_after_quit": None,
         "backend_alive_after_quit": None,
+        "renderer_dom_smoke": None,
         "health": {
             "ok": None,
             "model": None,
@@ -664,6 +706,14 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         }
         if health.get("ok") is not True:
             raise SmokeError(f"Health endpoint did not return ok=true: {health!r}")
+
+        renderer = wait_for_renderer_dom_smoke(smoke_dir)
+        summary["renderer_dom_smoke"] = renderer
+        if renderer.get("ok") is not True:
+            raise SmokeError(
+                "renderer DOM smoke did not confirm a nonblank UI — the bundled "
+                f"frontend assets did not render: {renderer!r}"
+            )
 
         quit_app(smoke_dir)
         summary["app_alive_after_quit"] = wait_until_gone(app_pid)

@@ -258,6 +258,14 @@ fn dom_smoke_report_path() -> Option<PathBuf> {
     std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE_REPORT").map(PathBuf::from)
 }
 
+/// When set, the renderer DOM smoke writes its report but does not shut the
+/// backend down or exit the app. This lets the DMG packaging smoke observe the
+/// renderer verdict in-process while it still validates the bundled backend
+/// and health endpoint in the same launch.
+fn dom_smoke_noexit() -> bool {
+    std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE_NOEXIT").is_some()
+}
+
 fn start_dom_smoke_timeout(app_handle: AppHandle, done: Arc<AtomicBool>) {
     thread::spawn(move || {
         thread::sleep(Duration::from_millis(DOM_SMOKE_TIMEOUT_MS));
@@ -270,8 +278,10 @@ fn start_dom_smoke_timeout(app_handle: AppHandle, done: Arc<AtomicBool>) {
         });
         write_dom_smoke_report(&report);
         eprintln!("TAURI_DOM_SMOKE {}", report);
-        shutdown_backend(&app_handle);
-        app_handle.exit(4);
+        if !dom_smoke_noexit() {
+            shutdown_backend(&app_handle);
+            app_handle.exit(4);
+        }
     });
 }
 
@@ -305,8 +315,10 @@ fn run_renderer_dom_smoke(webview: &tauri::Webview, done: Arc<AtomicBool>) {
                 });
                 write_dom_smoke_report(&report);
                 eprintln!("TAURI_DOM_SMOKE {}", report);
-                shutdown_backend(&app_handle);
-                app_handle.exit(3);
+                if !dom_smoke_noexit() {
+                    shutdown_backend(&app_handle);
+                    app_handle.exit(3);
+                }
                 return;
             }
         }
@@ -361,8 +373,10 @@ fn run_renderer_dom_smoke_probe(
         }
         write_dom_smoke_report(&parsed);
         println!("TAURI_DOM_SMOKE {}", parsed);
-        shutdown_backend(&app_handle_for_callback);
-        app_handle_for_callback.exit(if ok { 0 } else { 2 });
+        if !dom_smoke_noexit() {
+            shutdown_backend(&app_handle_for_callback);
+            app_handle_for_callback.exit(if ok { 0 } else { 2 });
+        }
     });
     if let Err(err) = eval_result {
         if done.swap(true, Ordering::SeqCst) {
@@ -374,8 +388,10 @@ fn run_renderer_dom_smoke_probe(
         });
         write_dom_smoke_report(&report);
         eprintln!("TAURI_DOM_SMOKE {}", report);
-        shutdown_backend(&app_handle);
-        app_handle.exit(3);
+        if !dom_smoke_noexit() {
+            shutdown_backend(&app_handle);
+            app_handle.exit(3);
+        }
     }
 }
 
