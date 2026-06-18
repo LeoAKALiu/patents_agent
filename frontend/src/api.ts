@@ -1131,12 +1131,68 @@ export async function retryProjectDisclosure(projectId: string, runId: string): 
   return request<DisclosureRun>(`/api/projects/${projectId}/disclosures/${runId}/retry`, { method: "POST" });
 }
 
+export interface GenerateRunCreate {
+  deliberation_run_id?: string | null;
+  formula_run_id?: string | null;
+  run_timeout_ms?: number | null;
+}
+
+export interface GenerateRun {
+  id: string;
+  project_id: string;
+  status: "queued" | "running" | "completed" | "failed" | "interrupted";
+  providers: string[];
+  deliberation_run_id?: string | null;
+  formula_run_id?: string | null;
+  package: DraftPackage | null;
+  failures: string[];
+  failure_details: RuntimeFailure[];
+  events: string[];
+  runtime_state?: RuntimeStageState | null;
+  cancel_requested?: boolean;
+  retry_of?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function generateProject(projectId: string, deliberationRunId?: string | null, formulaRunId?: string | null): Promise<DraftPackage> {
   return request<DraftPackage>(`/api/projects/${projectId}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ deliberation_run_id: deliberationRunId ?? null, formula_run_id: formulaRunId ?? null }),
   });
+}
+
+export async function createGenerateRun(
+  projectId: string,
+  deliberationRunId?: string | null,
+  formulaRunId?: string | null,
+): Promise<GenerateRun> {
+  return request<GenerateRun>(`/api/projects/${projectId}/generate-runs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      deliberation_run_id: deliberationRunId ?? null,
+      formula_run_id: formulaRunId ?? null,
+    }),
+  });
+}
+
+export async function getGenerateRun(projectId: string, runId: string): Promise<GenerateRun> {
+  return request<GenerateRun>(`/api/projects/${projectId}/generate-runs/${runId}`);
+}
+
+export async function listGenerateRuns(projectId: string): Promise<GenerateRun[]> {
+  const data = await request<{ runs: GenerateRun[] }>(`/api/projects/${projectId}/generate-runs`);
+  return data.runs;
+}
+
+export async function cancelGenerateRun(projectId: string, runId: string): Promise<GenerateRun> {
+  return request<GenerateRun>(`/api/projects/${projectId}/generate-runs/${runId}/cancel`, { method: "POST" });
+}
+
+export async function retryGenerateRun(projectId: string, runId: string): Promise<GenerateRun> {
+  return request<GenerateRun>(`/api/projects/${projectId}/generate-runs/${runId}/retry`, { method: "POST" });
 }
 
 export async function reviewProject(projectId: string): Promise<DraftPackage> {

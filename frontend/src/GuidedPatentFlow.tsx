@@ -32,6 +32,7 @@ import {
   type DraftCompletionRun,
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
+  type GenerateRun,
   type FilingReadinessReport,
   type FormulaNeedAssessment,
   type FormulaRun,
@@ -110,6 +111,7 @@ export type GuidedPatentFlowProps = {
   patentPoints: PatentPointCandidate[];
   formulaRequirement: FormulaNeedAssessment | null;
   formulaRuns: FormulaRun[];
+  generateRuns: GenerateRun[];
   officialCompileRuns: OfficialCompileRun[];
   currentSourceDraftHash: string;
   postDraftReviews: PostDraftReviewRun[];
@@ -160,6 +162,8 @@ export type GuidedPatentFlowProps = {
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
   onToggleFormulaProvider: (providerId: string, enabled: boolean) => void;
   onGenerateDraft: () => void;
+  onCancelGenerateRun: (runId: string) => void;
+  onRetryGenerateRun: (runId: string) => void;
   onRunQualityChecks: () => void;
   onImproveScore: () => void;
   onAcceptPatch: (runId: string, patchId: string) => void;
@@ -318,9 +322,12 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           deliberation={latestDeliberation}
           formulaRequirement={props.formulaRequirement}
           formulaRun={latestFormulaRun}
+          generateRuns={props.generateRuns}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onGenerateDraft={props.onGenerateDraft}
+          onCancelGenerateRun={props.onCancelGenerateRun}
+          onRetryGenerateRun={props.onRetryGenerateRun}
         />
       )}
       {displayedStepId === "deliberation" && (

@@ -13,6 +13,10 @@ import inventionPointSource from "./flow/panels/InventionPointConfirmation.tsx?r
 // exists, reloads patent points, and App.tsx still wires it — wherever the
 // code now lives, rather than pinning it to a literal location in App.tsx.
 import projectDataSource from "./store/projectData.ts?raw";
+// PR-11B: generate-run polling guards.
+import draftGenPanelSource from "./flow/panels/DraftGenerationPanel.tsx?raw";
+import runtimeWidgetsSource from "./flow/runtimeWidgets.tsx?raw";
+import apiSource from "./api.ts?raw";
 
 describe("Guided patent flow UI regressions", () => {
   it("does not render the external draft intake as a side entry in downstream guided steps", () => {
@@ -71,5 +75,47 @@ describe("Guided patent flow UI regressions", () => {
     expect(appSource).toContain("onRetryHealthCheck={() => void (async () => {");
     expect(appSource).toContain("const h = await getHealth();");
     expect(appSource).toContain("setHealth(h);");
+  });
+
+  // PR-11B: generate-run polling — verify the frontend wiring exists.
+  it("exposes generate-run Create/List/Get/Cancel/Retry in api.ts", () => {
+    expect(apiSource).toContain("function createGenerateRun");
+    expect(apiSource).toContain("function getGenerateRun");
+    expect(apiSource).toContain("function listGenerateRuns");
+    expect(apiSource).toContain("function cancelGenerateRun");
+    expect(apiSource).toContain("function retryGenerateRun");
+    expect(apiSource).toContain("interface GenerateRun");
+    expect(apiSource).toContain("interface GenerateRunCreate");
+  });
+
+  it("wires generate-run polling into the draft generation handler", () => {
+    // App.tsx handler uses createGenerateRun + polling loop.
+    expect(appSource).toContain("createGenerateRun(");
+    expect(appSource).toContain("getGenerateRun(");
+    // Legacy fallback should remain for backends without the new endpoint.
+    expect(appSource).toContain("generateProject(");
+    // DraftGenerationPanel shows busy state label during generation.
+    expect(draftGenPanelSource).toContain('busy === "generate"');
+  });
+
+  it("passes generateRuns + cancel/retry handlers through GuidedPatentFlowView", () => {
+    expect(appSource).toContain("generateRuns={generateRuns}");
+    expect(appSource).toContain("onCancelGenerateRun=");
+    expect(appSource).toContain("onRetryGenerateRun=");
+    expect(guidedSource).toContain("generateRuns: GenerateRun[]");
+    expect(guidedSource).toContain("onCancelGenerateRun: (runId: string) => void");
+    expect(guidedSource).toContain("onRetryGenerateRun: (runId: string) => void");
+  });
+
+  it("surfaces generate-run status + cancel/retry in DraftGenerationPanel", () => {
+    // Panel shows runtime console and actions for generate runs.
+    expect(draftGenPanelSource).toContain("GuidedRuntimeConsole");
+    expect(draftGenPanelSource).toContain("GuidedRuntimeActions");
+    expect(draftGenPanelSource).toContain("GuidedRuntimeFailures");
+    expect(draftGenPanelSource).toContain("guidedActiveRun(generateRuns)");
+    expect(draftGenPanelSource).toContain("onCancelGenerateRun");
+    expect(draftGenPanelSource).toContain("onRetryGenerateRun");
+    // Button shows "运行中..." when active run exists.
+    expect(draftGenPanelSource).toContain('"运行中..."');
   });
 });

@@ -2,12 +2,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   cancelFormulaRun,
+  cancelGenerateRun,
   cancelPostDraftReview,
   cancelProjectDeliberation,
   cancelProjectDisclosure,
+  createGenerateRun,
+  getGenerateRun,
   getHealth,
   importPatent,
+  listGenerateRuns,
   retryFormulaRun,
+  retryGenerateRun,
   retryPostDraftReview,
   retryProjectDeliberation,
   retryProjectDisclosure,
@@ -115,5 +120,111 @@ describe("runtime control API", () => {
       "http://127.0.0.1:18234/api/projects/project-1/materials",
       expect.objectContaining({ method: "POST", body: expect.any(FormData) }),
     );
+  });
+});
+
+describe("generate run API", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const generateRunResp = (id: string, status: string) => ({
+    id,
+    project_id: "project-1",
+    status,
+    providers: ["deepseek"],
+    failures: [],
+    failure_details: [],
+    events: [],
+    created_at: "2026-06-18T12:00:00Z",
+    updated_at: "2026-06-18T12:00:00Z",
+  });
+
+  it("POSTs create and returns a queued run", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (typeof url === "string" && url.includes("/generate-runs") && init?.method === "POST") {
+        return new Response(JSON.stringify(generateRunResp("gr-1", "queued")), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const run = await createGenerateRun("project-1", "d-1", "f-1");
+    expect(run.id).toBe("gr-1");
+    expect(run.status).toBe("queued");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/projects/project-1/generate-runs"),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("GETs a single generate run by id", async () => {
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify(generateRunResp("gr-2", "running")), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const run = await getGenerateRun("project-1", "gr-2");
+    expect(run.status).toBe("running");
+    // GET requests pass no init options; fetch receives undefined.
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/projects/project-1/generate-runs/gr-2"),
+      undefined,
+    );
+  });
+
+  it("lists generate runs", async () => {
+    const runs = [generateRunResp("gr-1", "completed"), generateRunResp("gr-2", "queued")];
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify({ runs }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await listGenerateRuns("project-1");
+    expect(result).toHaveLength(2);
+    expect(result[0].status).toBe("completed");
+  });
+
+  it("POSTs cancel for a running generate run", async () => {
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify(generateRunResp("gr-3", "failed")), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const run = await cancelGenerateRun("project-1", "gr-3");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/projects/project-1/generate-runs/gr-3/cancel"),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(run.status).toBe("failed");
+  });
+
+  it("POSTs retry for a failed generate run", async () => {
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify(generateRunResp("gr-4", "queued")), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const run = await retryGenerateRun("project-1", "gr-4");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/projects/project-1/generate-runs/gr-4/retry"),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(run.status).toBe("queued");
   });
 });

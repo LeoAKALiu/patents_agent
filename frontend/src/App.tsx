@@ -39,6 +39,7 @@ import {
   FilingReadinessReport,
   FormulaNeedAssessment,
   FormulaRun,
+  type GenerateRun,
   Health,
   OfficialCompileRun,
   type OfficialDraftPackage,
@@ -62,12 +63,14 @@ import {
   cancelPostDraftReview,
   cancelProjectDeliberation,
   cancelProjectDisclosure,
+  cancelGenerateRun,
   confirmExternalDraftIntakeRun,
   createClaimDefenseWorksheet,
   createCorpusJob,
   createDraftCompletionRun,
   createExternalDraftSource,
   createFilingReadinessReport,
+  createGenerateRun,
   createProject,
   createProjectPatentPoint,
   deleteProject,
@@ -81,6 +84,7 @@ import {
   getFormulaRequirement,
   getAgentDoctor,
   getCorpusStats,
+  getGenerateRun,
   getHealth,
   getRuntimeDiagnostics,
   improveProjectScore,
@@ -92,6 +96,7 @@ import {
   listExternalDraftIntakeRuns,
   listExternalDraftSources,
   listFilingReadinessReports,
+  listGenerateRuns,
   listProjectDisclosures,
   listProjectDeliberations,
   listFormulaRuns,
@@ -104,6 +109,7 @@ import {
   rejectCompletionPatch,
   reviewProject,
   retryFormulaRun,
+  retryGenerateRun,
   retryPostDraftReview,
   retryProjectDeliberation,
   retryProjectDisclosure,
@@ -402,6 +408,7 @@ function App() {
   const [patentPoints, setPatentPoints] = useState<PatentPointCandidate[]>([]);
   const [formulaRequirement, setFormulaRequirement] = useState<FormulaNeedAssessment | null>(null);
   const [formulaRuns, setFormulaRuns] = useState<FormulaRun[]>([]);
+  const [generateRuns, setGenerateRuns] = useState<GenerateRun[]>([]);
   const [officialCompileRuns, setOfficialCompileRuns] = useState<OfficialCompileRun[]>([]);
   const [currentSourceDraftHash, setCurrentSourceDraftHash] = useState("");
   const [postDraftReviews, setPostDraftReviews] = useState<PostDraftReviewRun[]>([]);
@@ -583,6 +590,7 @@ function App() {
       void loadDisclosures(selectedProject.id);
       void loadFormulaState(selectedProject.id);
       void loadOfficialCompileRuns(selectedProject.id);
+      void loadGenerateRuns(selectedProject.id);
       void loadPostDraftReviews(selectedProject.id);
       void refreshExternalDrafts(selectedProject.id);
       setPatentPoints([]);
@@ -600,6 +608,7 @@ function App() {
       setDisclosureRuns([]);
       setFormulaRequirement(null);
       setFormulaRuns([]);
+      setGenerateRuns([]);
       setPatentPoints([]);
       setFilingReports([]);
       setWorksheets([]);
@@ -617,10 +626,11 @@ function App() {
   // causing needless re-renders. With the boolean, the interval is created when
   // a run starts and torn down only when all runs leave the in-flight state.
   const isAnyRunInFlight =
-    deliberationRuns.some((run) => run.status === "queued" || run.status === "running")
-    || disclosureRuns.some((run) => run.status === "queued" || run.status === "running")
-    || formulaRuns.some((run) => run.status === "queued" || run.status === "running")
-    || postDraftReviews.some((run) => run.status === "queued" || run.status === "running");
+  deliberationRuns.some((run) => run.status === "queued" || run.status === "running")
+  || disclosureRuns.some((run) => run.status === "queued" || run.status === "running")
+  || formulaRuns.some((run) => run.status === "queued" || run.status === "running")
+  || generateRuns.some((run) => run.status === "queued" || run.status === "running")
+  || postDraftReviews.some((run) => run.status === "queued" || run.status === "running");
 
   useEffect(() => {
     const projectId = selectedProject?.id;
@@ -632,6 +642,7 @@ function App() {
       void loadDisclosures(projectId);
       void loadFormulaState(projectId);
       void loadOfficialCompileRuns(projectId);
+      void loadGenerateRuns(projectId);
       void loadPostDraftReviews(projectId);
     }, 1000);
     return () => window.clearInterval(timer);
@@ -692,6 +703,18 @@ function App() {
 
   async function loadOfficialCompileRuns(projectId: string): Promise<boolean> {
     return projectDataLoadOfficialCompileRuns(projectId, projectDataDeps);
+  }
+
+  async function loadGenerateRuns(projectId: string): Promise<boolean> {
+    try {
+      const runs = await listGenerateRuns(projectId);
+      if (selectedProjectIdRef.current !== projectId) return false;
+      setGenerateRuns(runs);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) setGenerateRuns([]);
+      return false;
+    }
   }
 
   async function loadPatentPoints(projectId: string): Promise<boolean> {
@@ -1333,14 +1356,162 @@ function App() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     await withStatus("generate", async () => {
-      await generateProject(projectId, currentDeliberation?.id ?? null, currentFormulaRun?.id ?? null);
-      const nextProjects = await listProjects();
+      // PR-11B: use the async generate-run endpoint + polling instead of the
+      // legacy sync /generate call. The backend at commit 6e9d6db supports
+      // POST /generate-runs, GET /generate-runs/{id}, POST /cancel, POST /retry.
+      let queued: GenerateRun;
+      try {
+        queued = await createGenerateRun(
+          projectId,
+          currentDeliberation?.id ?? null,
+          currentFormulaRun?.id ?? null,
+        );
+      } catch (err) {
+        // If the backend lacks the generate-runs endpoint (404), fall back to
+        // the legacy sync /generate call.
+        const message = err instanceof Error ? err.message : String(err);
+        if (message.includes("404") || message.includes("405")) {
+          await generateProject(
+            projectId,
+            currentDeliberation?.id ?? null,
+            currentFormulaRun?.id ?? null,
+          );
+          const nextProjects = await listProjects();
+          if (selectedProjectIdRef.current !== projectId) return;
+          setProjects(nextProjects);
+          setSelectedProjectId(projectId);
+          await loadOfficialCompileRuns(projectId);
+          await loadPostDraftReviews(projectId);
+          setMessage("申请文本已生成");
+          return;
+        }
+        throw err;
+      }
+      setGenerateRuns((current) => [queued, ...current.filter((item) => item.id !== queued.id)]);
       if (selectedProjectIdRef.current !== projectId) return;
-      setProjects(nextProjects);
-      setSelectedProjectId(projectId);
-      await loadOfficialCompileRuns(projectId);
-      await loadPostDraftReviews(projectId);
-      setMessage("申请文本已生成");
+
+      // Poll until terminal status (completed/failed/interrupted).
+      // Same back-off schedule as disclosure refresh (900/1500/2500/3500/5000/7000 ms).
+      const pollDelaysMs = [900, 1500, 2500, 3500, 5000, 7000];
+      let terminal = false;
+      let finalRun: GenerateRun | null = null;
+
+      for (const delayMs of pollDelaysMs) {
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+        if (selectedProjectIdRef.current !== projectId) return;
+
+        try {
+          finalRun = await getGenerateRun(projectId, queued.id);
+        } catch {
+          // If the endpoint returns an error (e.g. 404), stop polling.
+          break;
+        }
+        if (!finalRun) break;
+
+        setGenerateRuns((current) =>
+          current.map((item) => (item.id === finalRun!.id ? finalRun! : item)),
+        );
+        if (
+          finalRun.status === "completed" ||
+          finalRun.status === "failed" ||
+          finalRun.status === "interrupted"
+        ) {
+          terminal = true;
+          break;
+        }
+      }
+
+      if (!finalRun || !terminal) {
+        // Polling exhausted without terminal status or error — leave the run
+        // in state so the user can inspect/cancel/retry.
+        setMessage("生成运行仍在进行中，请在下方查看状态。");
+        return;
+      }
+
+      if (finalRun.status === "completed") {
+        // Refresh project list to get the updated package.
+        const nextProjects = await listProjects();
+        if (selectedProjectIdRef.current !== projectId) return;
+        setProjects(nextProjects);
+        setSelectedProjectId(projectId);
+        await loadOfficialCompileRuns(projectId);
+        await loadPostDraftReviews(projectId);
+        setMessage("申请文本已生成");
+      } else if (finalRun.status === "failed" || finalRun.status === "interrupted") {
+        const failureDetail =
+          finalRun.failure_details?.at(-1)?.message ?? finalRun.failures?.at(-1) ?? "未知错误";
+        setError(`生成运行失败（${finalRun.status}）：${failureDetail}`);
+      }
+    });
+  }
+
+  async function handleCancelGenerateRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("cancel-generate-run", async () => {
+      const updated = await cancelGenerateRun(projectId, runId);
+      setGenerateRuns((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setMessage("已请求取消生成运行。");
+    });
+  }
+
+  async function handleRetryGenerateRun(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("generate", async () => {
+      // Retry creates a new run. Poll in the same way as handleGenerate.
+      const retried = await retryGenerateRun(projectId, runId);
+      setGenerateRuns((current) => [retried, ...current.filter((item) => item.id !== retried.id)]);
+      if (selectedProjectIdRef.current !== projectId) return;
+
+      const pollDelaysMs = [900, 1500, 2500, 3500, 5000, 7000];
+      let terminal = false;
+      let finalRun: GenerateRun | null = null;
+
+      for (const delayMs of pollDelaysMs) {
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+        if (selectedProjectIdRef.current !== projectId) return;
+
+        try {
+          finalRun = await getGenerateRun(projectId, retried.id);
+        } catch {
+          break;
+        }
+        if (!finalRun) break;
+
+        setGenerateRuns((current) =>
+          current.map((item) => (item.id === finalRun!.id ? finalRun! : item)),
+        );
+        if (
+          finalRun.status === "completed" ||
+          finalRun.status === "failed" ||
+          finalRun.status === "interrupted"
+        ) {
+          terminal = true;
+          break;
+        }
+      }
+
+      if (!finalRun || !terminal) {
+        setMessage("重试生成运行仍在进行中。");
+        return;
+      }
+
+      if (finalRun.status === "completed") {
+        const nextProjects = await listProjects();
+        if (selectedProjectIdRef.current !== projectId) return;
+        setProjects(nextProjects);
+        setSelectedProjectId(projectId);
+        await loadOfficialCompileRuns(projectId);
+        await loadPostDraftReviews(projectId);
+        setMessage("申请文本已重新生成。");
+      } else {
+        const failureDetail =
+          finalRun.failure_details?.at(-1)?.message ?? finalRun.failures?.at(-1) ?? "未知错误";
+        setError(`重试生成运行失败（${finalRun.status}）：${failureDetail}`);
+      }
     });
   }
 
@@ -1836,6 +2007,7 @@ function App() {
             patentPoints={visiblePatentPoints}
             formulaRequirement={formulaRequirement}
             formulaRuns={formulaRuns}
+            generateRuns={generateRuns}
             officialCompileRuns={officialCompileRuns}
             currentSourceDraftHash={currentSourceDraftHash}
             postDraftReviews={postDraftReviews}
@@ -1877,6 +2049,8 @@ function App() {
             onToggleDeliberationProvider={handleToggleDeliberationProvider}
             onToggleFormulaProvider={handleToggleFormulaProvider}
             onGenerateDraft={() => void handleGenerate()}
+            onCancelGenerateRun={(runId) => void handleCancelGenerateRun(runId)}
+            onRetryGenerateRun={(runId) => void handleRetryGenerateRun(runId)}
             onRunQualityChecks={() => void handleRunGuidedQualityChecks()}
             onImproveScore={() => void handleImproveScore()}
             onAcceptPatch={(runId, patchId) => void handleCompletionPatch(runId, patchId, "accept")}
