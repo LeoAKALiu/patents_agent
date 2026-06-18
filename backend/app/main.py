@@ -148,6 +148,13 @@ def _enforce_desktop_config_origin(request: Request) -> None:
         raise HTTPException(status_code=403, detail="Forbidden desktop config origin.")
 
 
+def _content_disposition_header(filename: str) -> dict[str, str]:
+    """Build a Content-Disposition header dict with UTF-8 encoded filename."""
+    safe = filename.replace("/", "_").replace("\\", "_").strip()
+    encoded = quote(safe)
+    return {"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"}
+
+
 def create_app(
     data_dir: Path | None = None,
     llm_client: LLMClient | None = None,
