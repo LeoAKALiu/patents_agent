@@ -99,7 +99,6 @@ import {
   InventionPointConfirmation,
   MaterialSummary,
 } from "./flow/panels";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 
@@ -434,17 +433,23 @@ function GuidedProgressBanner({
       <div className="guided-progress-meter" aria-hidden="true">
         <span style={{ width: `${percent}%` }} />
       </div>
-      <Button
-        variant="glass-primary"
+      <button
+        className="btn btn-primary"
         disabled={Boolean(busy) || actionIsFormOnly}
         onClick={onNext}
         type="button"
       >
         {busy ? <Loader2 className="spin" size={17} /> : <PlayCircle size={17} />}
         <span>{isBrowsingPastStep ? "回到当前步骤" : guidedNextActionLabel(currentStepId)}</span>
-      </Button>
+      </button>
       {actionIsFormOnly && (
-        <p className="workflow-hint">请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。</p>
+        <div className="callout guided-progress-callout">
+          <AlertTriangle size={17} aria-hidden="true" />
+          <div>
+            <strong>等待首 Mile 输入</strong>
+            <p>请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。</p>
+          </div>
+        </div>
       )}
     </section>
   );
