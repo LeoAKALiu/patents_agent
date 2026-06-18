@@ -118,6 +118,86 @@ def test_removes_fence_content():
     assert any(item["category"] == "markdown_fence" for item in sidecar)
 
 
+def test_removes_opening_fence_marker():
+    """Regression: opening ```mermaid fence line must NOT leak into the
+    patent field. The opening fence toggle itself is part of the pollution
+    and must be recorded in the sidecar so the audit trail is complete.
+    """
+    text, sidecar = _clean_text(
+        "正常文本。\n"
+        "```mermaid\n"
+        "flowchart TD\n"
+        "A --> B\n"
+        "```\n"
+        "继续文本。"
+    )
+
+    # No fence marker of any kind should survive
+    assert "```" not in text
+    assert "mermaid" not in text
+    assert "flowchart" not in text
+    assert "A --> B" not in text
+
+    # Patent prose preserved
+    assert "正常文本。" in text
+    assert "继续文本。" in text
+
+    # Sidecar must include the opening fence toggle itself
+    fence_items = [item for item in sidecar if item["category"] == "markdown_fence"]
+    assert len(fence_items) >= 3  # opening, flowchart, A-->B, closing
+    assert any(item["text"] == "```mermaid" for item in fence_items)
+    assert any(item["text"] == "```" for item in fence_items)
+
+
+def test_preserves_normal_prose_with_support_gap_phrase():
+    """Regression: normal background prose that merely *mentions* the
+    phrase 支撑不足提示 must NOT be dropped as a support_gap annotation.
+    Only label-style markers (支撑不足提示：, support_gap:, 撰写说明：, etc.)
+    are removed. Coordinate with the PR-5 scanner precision work.
+    """
+    prose_lines = (
+        "背景技术中存在传感器数据支撑不足提示的问题。",
+        "本发明解决该问题。",
+        "现有系统中存在 支撑不足提示 现象，但并非注释行。",
+        "传感器数据 支撑不足提示：仍是描述，不应被识别。",  # 'still description'—内嵌的不是label
+    )
+
+    for prose in prose_lines:
+        cleaned, sidecar = _clean_text(prose)
+        assert prose in cleaned, (
+            f"PROSE FALSE POSITIVE: normal prose dropped — input: {prose!r}\n"
+            f"got: {cleaned!r}"
+        )
+        # None of the lines above is a label-style support_gap marker
+        assert not any(
+            item["category"] == "support_gap" for item in sidecar
+        ), f"false positive on: {prose!r}"
+
+
+def test_clean_draft_package_does_not_mutate_input():
+    """Regression: clean_draft_package must return a NEW DraftPackage
+    instance and leave the caller's package untouched. Mutating in place
+    was a reviewer-flagged anti-pattern.
+    """
+    package = _make_package(
+        title="QA-测试标题",
+        abstract="本发明涉及传感器数据支撑不足提示的处理。",
+    )
+    original_title = package.title
+    original_abstract = package.abstract
+
+    cleaned, sidecar = clean_draft_package(package)
+
+    # Input package is untouched
+    assert package.title == original_title
+    assert package.abstract == original_abstract
+
+    # Cleaned package is a separate instance
+    assert cleaned is not package
+    assert cleaned.title != original_title  # QA prefix stripped
+    assert cleaned.abstract == original_abstract  # background prose preserved
+
+
 def test_cleans_complex_polluted_text():
     """Simulate a real LLM output that leaked conversational text and metadata."""
     polluted = (

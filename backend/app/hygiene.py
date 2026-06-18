@@ -21,11 +21,20 @@ from backend.app.schemas import DraftPackage, ReviewFinding
 # ── patterns carried forward from official_compile.py ────────────────────────
 _CONVERSATIONAL_PREFACE_RE = re.compile(r"^好的[，,]下面.*撰写")
 
-_SUPPORT_GAP_PATTERNS = (
-    "support_gap",
-    "support_gaps",
-    "支撑不足提示",
-    "撰写说明",
+# Annotation-style support-gap markers. Each entry is a (label, require_separator)
+# pair where ``require_separator`` means the label must be followed by a label
+# separator (``[:：=]``) on the same line to count as a marker. The English
+# ``support_gap(s)`` label is always required to have a separator (it is a JSON
+# key form); the Chinese labels only count as a marker when they appear as
+# the leading label of the line — background prose that merely *mentions*
+# 支撑不足提示/撰写说明 must survive.
+_SUPPORT_GAP_ANNOTATION_PATTERNS = (
+    re.compile(
+        r"""^\s*["']?(?:support_gaps?)["']?\s*[:：=]""",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^\s*撰写说明(?:\s*[:：]|\s*与\s*支撑不足提示\b)"),
+    re.compile(r"^\s*支撑不足提示\s*[:：]"),
 )
 
 _INTERNAL_FIELD_PATTERNS = (
@@ -104,8 +113,20 @@ def _is_conversational(line: str) -> bool:
 
 
 def _is_support_gap_line(line: str) -> bool:
-    lower = line.lower()
-    return any(pattern in lower for pattern in _SUPPORT_GAP_PATTERNS)
+    """Return True when ``line`` is an annotation-style support-gap marker.
+
+    A line counts as a marker only when the label appears in label/key
+    position:
+
+    - ``support_gap:`` / ``support_gaps:`` (English key form, including the
+      quoted JSON form ``"support_gap":``)
+    - ``撰写说明：`` / ``撰写说明与支撑不足提示 …`` (Chinese label form)
+    - ``支撑不足提示：`` (Chinese label form)
+
+    Normal background prose that happens to mention 支撑不足提示/撰写说明
+    (e.g. "背景技术中存在传感器数据支撑不足提示的问题。") must NOT match.
+    """
+    return any(pattern.search(line) for pattern in _SUPPORT_GAP_ANNOTATION_PATTERNS)
 
 
 def _is_internal_field_line(line: str) -> bool:
@@ -182,6 +203,13 @@ def _clean_text(text: str) -> tuple[str, list[dict[str, str]]]:
 
     Returns ``(cleaned_text, sidecar_items)``.  ``sidecar_items`` record every
     removed line for auditability.
+
+    Fence handling: a line that starts with ```` ``` ```` is a fence toggle and
+    is ALWAYS removed (both the opening ```` ```mermaid ```` line and the
+    closing ```` ``` ```` line). The state flips on each toggle, so any
+    content between toggles is also removed as ``markdown_fence`` pollution.
+    This prevents the opening fence marker from leaking into patent fields
+    when an LLM emits a fenced code block (mermaid, json, etc.) inline.
     """
     kept: list[str] = []
     sidecar: list[dict[str, str]] = []
@@ -191,13 +219,39 @@ def _clean_text(text: str) -> tuple[str, list[dict[str, str]]]:
         line = raw_line.rstrip()
         stripped = line.strip()
 
-        # Track markdown fence state before evaluating removal
-        is_fence_toggle = stripped.startswith("```")
-        remove, category = _should_remove_line(stripped, in_fence=in_fence)
-
-        if is_fence_toggle:
+        # Fence toggles take priority over all other checks. A line that
+        # starts with ``` is never patent content — it is the wrapper for
+        # either a fenced code block or a closing marker. Remove it and
+        # flip the in-fence state for subsequent lines.
+        if stripped.startswith("```"):
             in_fence = not in_fence
+            sidecar.append(
+                {
+                    "category": "markdown_fence",
+                    "text": stripped[:200],
+                    "pattern": "markdown_fence",
+                }
+            )
+            continue
 
+        if not stripped:
+            if kept and kept[-1] != "":
+                kept.append("")
+            continue
+
+        # If we are inside a fence block (between toggles), drop the line
+        # as fence pollution. This catches mermaid/json/python bodies.
+        if in_fence:
+            sidecar.append(
+                {
+                    "category": "markdown_fence",
+                    "text": stripped[:200],
+                    "pattern": "markdown_fence",
+                }
+            )
+            continue
+
+        remove, category = _should_remove_line(stripped, in_fence=False)
         if remove:
             sidecar.append(
                 {"category": category, "text": stripped[:200], "pattern": category}
@@ -296,31 +350,38 @@ def clean_draft_package(package: DraftPackage) -> tuple[DraftPackage, dict]:
     """Normalise a DraftPackage before saving, removing obvious LLM
     contamination from patent-body fields.
 
+    This function is intentionally non-mutating: it returns a new
+    ``DraftPackage`` instance (via ``model_copy``) so callers can keep the
+    original around for auditing / retries. Mutating in-place made the
+    function surprising to reason about and was a reviewer-flagged
+    regression on PR-10.
+
     Returns ``(cleaned_package, sidecar)`` where ``sidecar`` is a dict of
     audit records keyed by field.
     """
     all_sidecar: dict[str, list[dict[str, str]]] = {}
 
     title, title_sidecar = _clean_title(package.title)
-    package.title = title
     if title_sidecar:
         all_sidecar["title"] = title_sidecar
 
     body_sidecar: dict[str, list[dict[str, str]]] = {}
+    field_updates: dict[str, str] = {}
     for field in ("abstract", "claims", "description", "drawing_description"):
         original = getattr(package, field)
         cleaned, sidecar = _clean_text(original)
         if sidecar:
             body_sidecar[field] = sidecar
-        setattr(package, field, cleaned)
+        if cleaned != original:
+            field_updates[field] = cleaned
 
     if body_sidecar:
         all_sidecar.update(body_sidecar)
 
     # If title became empty after cleaning, use a fallback placeholder so the
     # package remains loadable.
-    if not package.title.strip():
-        package.title = "(未命名发明)"
+    if not title.strip():
+        field_updates["title"] = "(未命名发明)"
         all_sidecar.setdefault("title", []).append(
             {
                 "category": "empty_title_fallback",
@@ -328,5 +389,10 @@ def clean_draft_package(package: DraftPackage) -> tuple[DraftPackage, dict]:
                 "pattern": "fallback",
             }
         )
+    elif title != package.title:
+        field_updates["title"] = title
+
+    if field_updates:
+        package = package.model_copy(update=field_updates)
 
     return package, all_sidecar
