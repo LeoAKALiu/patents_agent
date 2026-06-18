@@ -380,6 +380,55 @@ export interface ProjectRecord {
   package: DraftPackage | null;
   created_at: string;
   updated_at: string;
+  applicant?: string;
+  inventors?: string;
+  technical_field?: string;
+  background?: string;
+  pain_point?: string;
+  technical_solution?: string;
+  innovation?: string;
+  embodiments?: string;
+  beneficial_effects?: string;
+}
+
+/** Create a fully valid ProjectRecord with sensible defaults for every required field.
+ *  Structured fields (applicant, inventors, …) default to empty strings.
+ *  Use for test fixtures and API response normalization. */
+export function defaultProjectRecord(overrides: {
+  id: string;
+  name: string;
+  draft_text?: string;
+  patent_type?: PatentType;
+  package?: DraftPackage | null;
+  created_at?: string;
+  updated_at?: string;
+  applicant?: string;
+  inventors?: string;
+  technical_field?: string;
+  background?: string;
+  pain_point?: string;
+  technical_solution?: string;
+  innovation?: string;
+  embodiments?: string;
+  beneficial_effects?: string;
+}): ProjectRecord {
+  return {
+    draft_text: "",
+    patent_type: PATENT_TYPE_INVENTION,
+    package: null,
+    created_at: "",
+    updated_at: "",
+    applicant: "",
+    inventors: "",
+    technical_field: "",
+    background: "",
+    pain_point: "",
+    technical_solution: "",
+    innovation: "",
+    embodiments: "",
+    beneficial_effects: "",
+    ...overrides,
+  };
 }
 
 export interface ProjectMaterial {
