@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import uuid
@@ -94,48 +95,15 @@ def run_post_draft_review(
     package_hash = package_hash_for_review(package)
     source_hash = package.source_draft_hash
     logs: list[DeliberationLogEntry] = []
-    role_results: list[PostDraftReviewRoleResult] = []
     current_stage = "post_draft_review"
     try:
-        for role, stage in ROLE_STAGES:
-            current_stage = stage
-            try:
-                raw = llm.complete_stage(stage, SYSTEM_PROMPT, _role_prompt(role, package, providers))
-                payload = _extract_json(raw)
-                payload, repair_notes = _repair_role_payload(payload, expected_role=role)
-                if repair_notes:
-                    logs.append(_schema_repair_log(provider_id=role, notes=repair_notes))
-                result = PostDraftReviewRoleResult.model_validate(payload)
-            except Exception as role_exc:
-                # A single reviewer that errors at any point — LLM call failure
-                # (ConfigError/RuntimeError/timeout), unparseable JSON, or a
-                # schema mismatch the repair pass cannot fix — is downgraded to
-                # a blocked result so the review completes (fail-closed: export
-                # stays blocked) and the other reviewers' findings are preserved.
-                logs.append(
-                    DeliberationLogEntry(
-                        level="error",
-                        phase="post_draft_review",
-                        provider_id=role,
-                        message=f"{role} failed, downgraded to blocked",
-                        detail=_failure_detail(role_exc, stage),
-                    )
-                )
-                result = PostDraftReviewRoleResult(
-                    role=role,
-                    status="blocked",
-                    blocking_issues=[f"{role} 角色执行失败（{role_exc}），已降级为 blocked。"],
-                )
-            role_results.append(result)
-            logs.append(
-                DeliberationLogEntry(
-                    level="info",
-                    phase="post_draft_review",
-                    provider_id=role,
-                    message=f"{role} completed",
-                    detail=json.dumps(result.model_dump(mode="json"), ensure_ascii=False)[:1200],
-                )
-            )
+        current_stage = "post_draft_role_reviews"
+        role_results, role_logs = _run_role_reviews_parallel(
+            llm=llm,
+            package=package,
+            providers=providers,
+        )
+        logs.extend(role_logs)
         current_stage = "post_draft_chair_synthesis"
         try:
             chair_raw = llm.complete_stage(
@@ -210,6 +178,65 @@ def run_post_draft_review(
             export_allowed=False,
             logs=logs,
         )
+
+
+def _run_role_reviews_parallel(
+    *,
+    llm: LLMClient,
+    package: OfficialDraftPackage,
+    providers: list[str],
+) -> tuple[list[PostDraftReviewRoleResult], list[DeliberationLogEntry]]:
+    def run_one(role: str, stage: str) -> tuple[str, PostDraftReviewRoleResult, list[DeliberationLogEntry]]:
+        local_logs: list[DeliberationLogEntry] = []
+        try:
+            raw = llm.complete_stage(stage, SYSTEM_PROMPT, _role_prompt(role, package, providers))
+            payload = _extract_json(raw)
+            payload, repair_notes = _repair_role_payload(payload, expected_role=role)
+            if repair_notes:
+                local_logs.append(_schema_repair_log(provider_id=role, notes=repair_notes))
+            result = PostDraftReviewRoleResult.model_validate(payload)
+        except Exception as role_exc:
+            # A single reviewer that errors at any point — LLM call failure
+            # (ConfigError/RuntimeError/timeout), unparseable JSON, or a schema
+            # mismatch the repair pass cannot fix — is downgraded to a blocked
+            # result so the review completes fail-closed and preserves the
+            # other reviewers' findings.
+            local_logs.append(
+                DeliberationLogEntry(
+                    level="error",
+                    phase="post_draft_review",
+                    provider_id=role,
+                    message=f"{role} failed, downgraded to blocked",
+                    detail=_failure_detail(role_exc, stage),
+                )
+            )
+            result = PostDraftReviewRoleResult(
+                role=role,
+                status="blocked",
+                blocking_issues=[f"{role} 角色执行失败（{role_exc}），已降级为 blocked。"],
+            )
+        local_logs.append(
+            DeliberationLogEntry(
+                level="info",
+                phase="post_draft_review",
+                provider_id=role,
+                message=f"{role} completed",
+                detail=json.dumps(result.model_dump(mode="json"), ensure_ascii=False)[:1200],
+            )
+        )
+        return role, result, local_logs
+
+    with ThreadPoolExecutor(max_workers=len(ROLE_STAGES)) as executor:
+        futures = {executor.submit(run_one, role, stage): role for role, stage in ROLE_STAGES}
+        completed = {futures[future]: future.result() for future in as_completed(futures)}
+
+    role_results: list[PostDraftReviewRoleResult] = []
+    logs: list[DeliberationLogEntry] = []
+    for role, _stage in ROLE_STAGES:
+        _role, result, role_logs = completed[role]
+        role_results.append(result)
+        logs.extend(role_logs)
+    return role_results, logs
 
 
 def post_draft_review_to_markdown(run: PostDraftReviewRun) -> str:

@@ -1,9 +1,13 @@
+import time
+
 from fastapi.testclient import TestClient
 from docx import Document
 
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
-from backend.app.schemas import DraftPackage
+from backend.app.official_compile import OfficialDraftCompiler
+from backend.app.post_draft_review import run_post_draft_review
+from backend.app.schemas import DraftPackage, OfficialDraftPackage
 
 
 def test_post_draft_review_pass_unlocks_official_export(tmp_path):
@@ -333,6 +337,45 @@ def test_post_draft_review_schema_failure_downgrades_role_and_completes(tmp_path
     assert not any(log["level"] == "error" and "downgraded" in log["message"] for log in run["logs"])
 
 
+class SlowReviewLLM(FakeLLMClient):
+    def __init__(self):
+        super().__init__(_review_llm(export_allowed=True).responses)
+        self.started: list[str] = []
+
+    def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
+        if stage in {
+            "post_draft_claims_reviewer",
+            "post_draft_spec_cleaner",
+            "post_draft_technical_hardness",
+        }:
+            self.started.append(stage)
+            time.sleep(0.15)
+        return super().complete_stage(stage, system_prompt, user_prompt)
+
+
+def test_post_draft_review_runs_independent_roles_in_parallel():
+    llm = SlowReviewLLM()
+    package = _official_package_for_review(_package())
+
+    started_at = time.monotonic()
+    run = run_post_draft_review(
+        project_id="p1",
+        package=package,
+        llm=llm,
+        providers=[],
+        official_compile_run_id="compile-1",
+    )
+    elapsed = time.monotonic() - started_at
+
+    assert run.status == "completed"
+    assert [result.role for result in run.role_results] == [
+        "claims_reviewer",
+        "spec_cleaner",
+        "technical_hardness",
+    ]
+    assert elapsed < 0.35
+
+
 def _create_project_with_package(client: TestClient, package: DraftPackage) -> str:
     project_id = client.post(
         "/api/projects",
@@ -340,6 +383,13 @@ def _create_project_with_package(client: TestClient, package: DraftPackage) -> s
     ).json()["id"]
     client.app.state.store.update_project_package(project_id, package)
     return project_id
+
+
+def _official_package_for_review(package: DraftPackage) -> OfficialDraftPackage:
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+    assert run.status == "completed"
+    assert run.official_package is not None
+    return run.official_package
 
 
 def _package(**overrides) -> DraftPackage:
