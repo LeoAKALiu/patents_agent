@@ -88,6 +88,42 @@ def test_compiler_blocks_case_insensitive_internal_labels_and_memos():
     }
 
 
+def test_compiler_allows_prompt_as_claimed_user_input_term():
+    package = _draft_package(
+        claims="1. 一种交互方法，包括接收用户prompt输入并生成控制参数。",
+        description="用户prompt输入框用于接收自然语言控制指令，该术语为被保护对象的一部分。",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "completed"
+    assert not any(item["category"] == "residual_internal_text" for item in run.blocked_items)
+
+
+def test_compiler_allows_diagram_as_technical_english_term():
+    package = _draft_package(
+        description="控制器生成block diagram数据，用于描述模块之间的连接关系。",
+        drawing_description="图1为系统block diagram示意图。",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "completed"
+    assert not any(item["pattern"] == "diagram" for item in run.blocked_items)
+
+
+def test_compiler_still_blocks_prompt_field_label_and_ai_preface():
+    package = _draft_package(
+        title="好的，下面撰写一种控制方法",
+        drawing_description="prompt: 黑白线稿",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert any(item["category"] == "residual_internal_text" for item in run.blocked_items)
+
+
 def test_compiler_blocks_ai_preface_title_contamination():
     package = _draft_package(title="好的，下面撰写一种方法")
 

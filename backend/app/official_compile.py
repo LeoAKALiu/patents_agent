@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import uuid
 from pathlib import Path
@@ -16,7 +17,10 @@ from backend.app.schemas import (
 )
 
 
-CROSS_PROJECT_TITLE = "基于边缘端动态推理的无人机飞行中任务调整方法"
+CROSS_PROJECT_TITLE = os.getenv(
+    "PATENT_AGENT_CROSS_PROJECT_TITLE_CHECK",
+    "基于边缘端动态推理的无人机飞行中任务调整方法",
+)
 REQUIRED_SECTIONS = ("abstract", "claims", "description", "drawing_description")
 HARD_GATED_SECTIONS = ("title", *REQUIRED_SECTIONS)
 RESIDUAL_INTERNAL_PATTERNS = (
@@ -24,12 +28,14 @@ RESIDUAL_INTERNAL_PATTERNS = (
     "support_gaps",
     "generation_logs",
     "image_prompt",
-    "prompt",
-    "diagram",
     "attorney_memo",
     "system_trace",
     "official_safe_patches",
-    "好的，下面",
+)
+RESIDUAL_INTERNAL_REGEXES = (
+    ("prompt", re.compile(r"(^|[\n。；;]|\s)\s*prompt\s*[:：=]", re.IGNORECASE)),
+    ("diagram", re.compile(r"(^|[\n。；;]|\s)\s*diagram\s*[:：=]", re.IGNORECASE)),
+    ("好的，下面", re.compile(r"(^|[\n。；;])\s*好的，下面.*(撰写|生成|输出)", re.IGNORECASE)),
 )
 INTERNAL_FIELD_RE = re.compile(
     r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs|attorney_memo|system_trace|official_safe_patches)["']?\s*[:：=]""",
@@ -77,7 +83,7 @@ class OfficialDraftCompiler:
                 package.drawing_description,
             ]
         )
-        if CROSS_PROJECT_TITLE in source_text:
+        if CROSS_PROJECT_TITLE and CROSS_PROJECT_TITLE in source_text:
             blocked_items.append(
                 {
                     "category": "cross_project_contamination",
@@ -138,9 +144,19 @@ class OfficialDraftCompiler:
             )
 
         for section, text in all_cleaned_text.items():
-            comparable_text = text.lower()
+            lower_text = text.lower()
             for pattern in RESIDUAL_INTERNAL_PATTERNS:
-                if pattern in comparable_text:
+                if pattern.lower() in lower_text:
+                    blocked_items.append(
+                        {
+                            "category": "residual_internal_text",
+                            "section": section,
+                            "pattern": pattern,
+                            "message": "Cleaned official text still contains internal drafting text.",
+                        }
+                    )
+            for pattern, regex in RESIDUAL_INTERNAL_REGEXES:
+                if regex.search(text):
                     blocked_items.append(
                         {
                             "category": "residual_internal_text",
@@ -309,8 +325,6 @@ def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
     comparable_line = line.lower()
     if in_fence:
         return {"category": "format_pollution", "pattern": "markdown_fence"}
-    if re.search(r"^好的，下面.*撰写", line):
-        return {"category": "ai_preface", "pattern": "好的，下面"}
     for pattern in ("support_gap", "support_gaps", "支撑不足提示", "撰写说明"):
         if pattern in comparable_line:
             return {"category": "support_gap", "pattern": pattern}
