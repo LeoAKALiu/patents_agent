@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from backend.app.corpus.pipeline import CorpusImportService
 from backend.app.claim_defense import generate_claim_defense_worksheet
+from backend.app.content_disposition import make_content_disposition
 from backend.app.core_formula import assess_formula_need, formula_package_to_markdown, generate_formula_run
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
@@ -672,7 +673,7 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/external-draft-review-bundle/report.md")
     def export_external_draft_review_bundle(project_id: str) -> PlainTextResponse:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         sources = store.list_external_draft_sources(project_id)
         intake_runs = store.list_external_draft_intake_runs(project_id)
         completion_runs = store.list_draft_completion_runs(project_id)
@@ -702,9 +703,11 @@ def create_app(
             export_allowed=bool(latest_review and latest_review.export_allowed),
         )
         bundle = bundle.model_copy(update={"report_hash": review_bundle_hash(bundle)})
+        cd_header = make_content_disposition(f"{project.name}-审查包报告.md")
         return PlainTextResponse(
             external_draft_review_bundle_to_markdown(bundle),
             media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": cd_header},
         )
 
     @app.get("/api/projects/{project_id}/patent-points")
@@ -1661,11 +1664,16 @@ def create_app(
 
     @app.get("/api/projects/{project_id}/official-compile-runs/{run_id}/report.md")
     def export_official_compile_report(project_id: str, run_id: str) -> PlainTextResponse:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         run = store.get_official_compile_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Official compile run not found.")
-        return PlainTextResponse(official_compile_run_to_markdown(run), media_type="text/markdown; charset=utf-8")
+        cd_header = make_content_disposition(f"{project.name}-正式编译报告.md")
+        return PlainTextResponse(
+            official_compile_run_to_markdown(run),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": cd_header},
+        )
 
     @app.get("/api/projects/{project_id}/official-export.docx")
     def export_project_official_docx(project_id: str) -> FileResponse:
@@ -1676,18 +1684,26 @@ def create_app(
             compile_run.official_package,
             settings.data_dir / "exports" / f"{project.id}-official.docx",
         )
-        return FileResponse(
+        filename = f"{project.name}-正式提交稿.docx"
+        response = FileResponse(
             output_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=f"{project.name}-正式提交稿.docx",
+            filename=filename,
         )
+        response.headers["Content-Disposition"] = make_content_disposition(filename)
+        return response
 
     @app.get("/api/projects/{project_id}/official-export.md")
     def export_project_official_markdown(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
         compile_run = _require_official_export_gate(store, project_id, package)
-        return PlainTextResponse(official_package_to_markdown(compile_run.official_package), media_type="text/markdown; charset=utf-8")
+        cd_header = make_content_disposition(f"{project.name}-正式提交稿.md")
+        return PlainTextResponse(
+            official_package_to_markdown(compile_run.official_package),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": cd_header},
+        )
 
     @app.get("/api/projects/{project_id}/export.docx")
     def export_project_docx(project_id: str) -> FileResponse:
@@ -1696,32 +1712,47 @@ def create_app(
         output_path = export_internal_docx(
             package, settings.data_dir / "exports" / f"{project.id}-internal.docx"
         )
-        return FileResponse(
+        filename = f"{project.name}-内部工作稿.docx"
+        response = FileResponse(
             output_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=f"{project.name}-内部工作稿.docx",
+            filename=filename,
         )
+        response.headers["Content-Disposition"] = make_content_disposition(filename)
+        return response
 
     @app.get("/api/projects/{project_id}/export.md")
     def export_project_markdown(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
+        cd_header = make_content_disposition(f"{project.name}-内部工作稿.md")
         return PlainTextResponse(
             internal_package_to_markdown(package),
             media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": cd_header},
         )
 
     @app.get("/api/projects/{project_id}/diagram.mmd")
     def export_project_mermaid(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        return PlainTextResponse(package.mermaid, media_type="text/plain; charset=utf-8")
+        cd_header = make_content_disposition(f"{project.name}-diagram.mmd")
+        return PlainTextResponse(
+            package.mermaid,
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": cd_header},
+        )
 
     @app.get("/api/projects/{project_id}/image-prompt.md")
     def export_project_image_prompt(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        return PlainTextResponse(package.image_prompt, media_type="text/markdown; charset=utf-8")
+        cd_header = make_content_disposition(f"{project.name}-image-prompt.md")
+        return PlainTextResponse(
+            package.image_prompt,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": cd_header},
+        )
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/export.docx")
     def export_disclosure_run_docx(project_id: str, run_id: str) -> FileResponse:
@@ -1729,32 +1760,50 @@ def create_app(
         run = _require_disclosure_run(store, project_id, run_id)
         package = _require_disclosure_package(run)
         output_path = export_disclosure_docx(package, Path(run.run_dir) / "disclosure.docx", Path(run.run_dir))
-        return FileResponse(
+        filename = f"{project.name}-技术交底书.docx"
+        response = FileResponse(
             output_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=f"{project.name}-技术交底书.docx",
+            filename=filename,
         )
+        response.headers["Content-Disposition"] = make_content_disposition(filename)
+        return response
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/export.md")
     def export_disclosure_run_markdown(project_id: str, run_id: str) -> PlainTextResponse:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         run = _require_disclosure_run(store, project_id, run_id)
         package = _require_disclosure_package(run)
-        return PlainTextResponse(disclosure_to_markdown(package), media_type="text/markdown; charset=utf-8")
+        cd_header = make_content_disposition(f"{project.name}-技术交底书.md")
+        return PlainTextResponse(
+            disclosure_to_markdown(package),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": cd_header},
+        )
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/diagram.mmd")
     def export_disclosure_run_mermaid(project_id: str, run_id: str) -> PlainTextResponse:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         run = _require_disclosure_run(store, project_id, run_id)
         package = _require_disclosure_package(run)
-        return PlainTextResponse(package.mermaid, media_type="text/plain; charset=utf-8")
+        cd_header = make_content_disposition(f"{project.name}-技术交底书-diagram.mmd")
+        return PlainTextResponse(
+            package.mermaid,
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": cd_header},
+        )
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/image-prompt.md")
     def export_disclosure_run_image_prompt(project_id: str, run_id: str) -> PlainTextResponse:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         run = _require_disclosure_run(store, project_id, run_id)
         package = _require_disclosure_package(run)
-        return PlainTextResponse(package.image_prompt, media_type="text/markdown; charset=utf-8")
+        cd_header = make_content_disposition(f"{project.name}-技术交底书-image-prompt.md")
+        return PlainTextResponse(
+            package.image_prompt,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": cd_header},
+        )
 
     return app
 

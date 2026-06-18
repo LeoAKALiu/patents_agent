@@ -69,6 +69,11 @@ def test_api_corpus_project_generation_review_and_export(tmp_path):
     assert export_response.headers["content-type"].startswith(
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
+    _assert_content_disposition_present(export_response)
+
+    md_response = client.get(f"/api/projects/{project_id}/export.md")
+    assert md_response.status_code == 200
+    _assert_content_disposition_present(md_response)
 
 
 def test_generate_fails_closed_without_llm_configuration(tmp_path, monkeypatch):
@@ -386,3 +391,16 @@ def _create_completed_deliberation(client: TestClient, project_id: str) -> None:
             events=["test deliberation completed"],
         )
     )
+
+
+def _assert_content_disposition_present(response):
+    """Verify the response carries a Content-Disposition: attachment header."""
+    cd = response.headers.get("content-disposition", "")
+    assert "attachment" in cd, f"Expected attachment Content-Disposition, got: {cd!r}"
+    assert "filename=" in cd, f"Expected filename= in Content-Disposition, got: {cd!r}"
+
+
+def _assert_content_disposition_absent(response):
+    """Verify the response does NOT carry a Content-Disposition header."""
+    cd = response.headers.get("content-disposition", "")
+    assert cd == "", f"Expected no Content-Disposition, got: {cd!r}"

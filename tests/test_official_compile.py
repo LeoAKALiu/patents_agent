@@ -226,6 +226,7 @@ def test_official_compile_api_creates_lists_gets_and_exports_report(tmp_path):
     assert "# OFFICIAL_COMPILE_RUN" in report_response.text
     assert run["id"] in report_response.text
     assert "## Official Package" in report_response.text
+    _assert_cd_present(report_response)
 
 
 def test_post_draft_review_requires_completed_official_compile(tmp_path):
@@ -313,6 +314,7 @@ def test_review_for_previous_compile_run_cannot_unlock_latest_compile(tmp_path):
 
     assert response.status_code == 409
     assert "Post-draft multi-agent review is required" in response.json()["detail"]
+    _assert_cd_absent(response)
 
 
 def test_official_export_requires_recompile_when_draft_changes(tmp_path):
@@ -326,6 +328,7 @@ def test_official_export_requires_recompile_when_draft_changes(tmp_path):
 
     assert response.status_code == 409
     assert "Official draft compile is required for the current draft" in response.json()["detail"]
+    _assert_cd_absent(response)
 
 
 def test_locked_official_gate_refuses_formal_but_keeps_legacy_internal(tmp_path):
@@ -421,3 +424,15 @@ def _role_json(role: str, status: str, blocking_issues: list[str]) -> str:
   "attorney_memo": ["内部备忘。"]
 }}
 """.replace("'", '"')
+
+def _assert_cd_present(response):
+    """Verify the response carries a Content-Disposition: attachment header."""
+    cd = response.headers.get("content-disposition", "")
+    assert "attachment" in cd, f"Expected attachment Content-Disposition, got: {cd!r}"
+    assert "filename=" in cd, f"Expected filename= in Content-Disposition, got: {cd!r}"
+
+
+def _assert_cd_absent(response):
+    """Verify the response does NOT carry a Content-Disposition header."""
+    cd = response.headers.get("content-disposition", "")
+    assert cd == "", f"Expected no Content-Disposition, got: {cd!r}"
