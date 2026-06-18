@@ -151,6 +151,19 @@ def test_filing_readiness_ignores_prior_art_percent_effect_context():
     assert not any(issue.category == "unverified_effect" for issue in report.issues)
 
 
+def test_filing_readiness_flags_current_invention_percent_after_prior_art_sentence():
+    package = _clean_base_package(
+        description="对比文件CN123456公开了云端推理。本实施例可提升15%识别速度。"
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=False)
+
+    assert any(
+        issue.category == "unverified_effect" and issue.matched_text == "提升15%"
+        for issue in report.issues
+    )
+
+
 def test_filing_readiness_allows_defensive_unverified_example_wording():
     package = _clean_base_package(
         description=(
@@ -162,6 +175,39 @@ def test_filing_readiness_allows_defensive_unverified_example_wording():
 
     assert not any(
         issue.category == "unfavorable_statement" and "尚未验证" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_flags_direct_unverified_effect_admission():
+    package = _clean_base_package(description="本申请的技术效果尚未验证。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "unfavorable_statement" and "尚未验证" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_blocks_technical_disclosure_drafting_process_phrase():
+    package = _clean_base_package(description="根据技术交底书进行撰写权利要求书。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_blocks_technical_disclosure_claim_strengthening_phrase():
+    package = _clean_base_package(description="根据技术交底书补强独权。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
         for issue in report.issues
     )
 

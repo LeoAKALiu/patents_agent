@@ -41,7 +41,7 @@ _INTERNAL_TRACE_PATTERNS = (
 )
 
 _INTERNAL_TRACE_REGEXES = (
-    re.compile(r"根据技术交底书\s*(生成|撰写|输出|自动生成)"),
+    re.compile(r"根据技术交底书\s*(?:进行\s*)?(生成|撰写|输出|自动生成|补强)"),
 )
 
 _UNFAVORABLE_PATTERNS = (
@@ -68,6 +68,25 @@ _PRIOR_ART_EFFECT_CONTEXT = (
     "EP",
     "JP",
     "WO",
+)
+
+_PRIOR_ART_ATTRIBUTION_TERMS = (
+    "公开",
+    "记载",
+    "披露",
+)
+
+_CURRENT_INVENTION_MARKERS = (
+    "本申请",
+    "本发明",
+    "本实施例",
+    "本方案",
+)
+
+_EFFECT_CONTEXT_BOUNDARIES = "。；;！？!?\n"
+
+_UNFAVORABLE_REGEXES = (
+    re.compile(r"(?:本申请|本发明|本实施例|本方案)[^。；;！？!?\n]{0,40}尚未验证"),
 )
 
 
@@ -224,6 +243,8 @@ def _scan_internal_traces(text: str, target: str) -> list[FilingReadinessIssue]:
 
 
 def _scan_unfavorable_statements(text: str, target: str) -> list[FilingReadinessIssue]:
+    literal_matches = list(_literal_matches(_UNFAVORABLE_PATTERNS, text))
+    regex_matches = [match.group(0) for regex in _UNFAVORABLE_REGEXES for match in regex.finditer(text)]
     return [
         FilingReadinessIssue(
             category="unfavorable_statement",
@@ -234,16 +255,14 @@ def _scan_unfavorable_statements(text: str, target: str) -> list[FilingReadiness
             suggestion="移除不利评价，改为客观描述技术问题、技术方案和可验证效果。",
             can_auto_clean=False,
         )
-        for match in _literal_matches(_UNFAVORABLE_PATTERNS, text)
+        for match in [*literal_matches, *regex_matches]
     ]
 
 
 def _scan_unverified_effects(text: str, target: str) -> list[FilingReadinessIssue]:
     issues: list[FilingReadinessIssue] = []
     for match in _UNVERIFIED_EFFECT_PATTERN.finditer(text):
-        context_start = max(0, match.start() - 36)
-        context = text[context_start : match.end() + 18]
-        if any(marker in context for marker in _PRIOR_ART_EFFECT_CONTEXT):
+        if _is_prior_art_effect_attribution(text, match.start()):
             continue
         issues.append(
             FilingReadinessIssue(
@@ -257,6 +276,25 @@ def _scan_unverified_effects(text: str, target: str) -> list[FilingReadinessIssu
             )
         )
     return issues
+
+
+def _is_prior_art_effect_attribution(text: str, effect_start: int) -> bool:
+    context_start = (
+        max(text.rfind(boundary, 0, effect_start) for boundary in _EFFECT_CONTEXT_BOUNDARIES) + 1
+    )
+    context_before_effect = text[context_start:effect_start]
+    for prior_art_marker in _PRIOR_ART_EFFECT_CONTEXT:
+        marker_index = context_before_effect.rfind(prior_art_marker)
+        if marker_index < 0:
+            continue
+        marker_to_effect = context_before_effect[marker_index:]
+        has_attribution = any(term in marker_to_effect for term in _PRIOR_ART_ATTRIBUTION_TERMS)
+        has_current_invention_marker = any(
+            current_marker in marker_to_effect for current_marker in _CURRENT_INVENTION_MARKERS
+        )
+        if has_attribution and not has_current_invention_marker:
+            return True
+    return False
 
 
 def _scan_subject_matter_risks(text: str, target: str) -> list[FilingReadinessIssue]:
