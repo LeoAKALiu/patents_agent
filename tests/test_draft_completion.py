@@ -1,6 +1,10 @@
 import hashlib
 
-from backend.app.draft_completion import completion_run_to_markdown, run_draft_completion
+from backend.app.draft_completion import (
+    _support_strength_score,
+    completion_run_to_markdown,
+    run_draft_completion,
+)
 from backend.app.schemas import (
     ClaimSupportMatrixRow,
     ClaimDefenseWorksheet,
@@ -19,6 +23,49 @@ from backend.app.schemas import (
     ProjectMaterial,
     ProposedPatch,
 )
+
+
+def test_support_strength_missing_rows_use_progressive_penalty():
+    assert _support_strength_score(
+        support_missing=0,
+        support_partial=0,
+        model_generated_core_count=0,
+    ) == 100
+    assert _support_strength_score(
+        support_missing=1,
+        support_partial=0,
+        model_generated_core_count=0,
+    ) == 80
+    assert _support_strength_score(
+        support_missing=2,
+        support_partial=0,
+        model_generated_core_count=0,
+    ) == 55
+    assert _support_strength_score(
+        support_missing=3,
+        support_partial=0,
+        model_generated_core_count=0,
+    ) == 25
+    assert _support_strength_score(
+        support_missing=5,
+        support_partial=0,
+        model_generated_core_count=0,
+    ) == 0
+    assert _support_strength_score(
+        support_missing=0,
+        support_partial=1,
+        model_generated_core_count=0,
+    ) == 88
+    assert _support_strength_score(
+        support_missing=0,
+        support_partial=0,
+        model_generated_core_count=1,
+    ) == 92
+    assert _support_strength_score(
+        support_missing=5,
+        support_partial=2,
+        model_generated_core_count=2,
+    ) == 0
 
 
 def test_draft_completion_models_capture_support_and_patch_state():

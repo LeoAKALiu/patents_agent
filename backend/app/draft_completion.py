@@ -510,6 +510,21 @@ def _patch_text(task: CompletionTask) -> str:
     return task.expected_output
 
 
+def _support_strength_score(
+    *,
+    support_missing: int,
+    support_partial: int,
+    model_generated_core_count: int,
+) -> int:
+    missing_penalty = (
+        min(support_missing, 1) * 20
+        + min(max(support_missing - 1, 0), 1) * 25
+        + min(max(support_missing - 2, 0), 1) * 30
+        + max(support_missing - 3, 0) * 30
+    )
+    return _clamp(100 - missing_penalty - support_partial * 12 - model_generated_core_count * 8)
+
+
 def _scorecard(
     issues: list[CompletionIssue],
     matrix: list[ClaimSupportMatrixRow],
@@ -535,7 +550,11 @@ def _scorecard(
     )
     verified_support_count = sum(1 for row in matrix if _row_has_verified_support(row))
 
-    support_strength = _clamp(100 - support_missing * 35 - support_partial * 15 - model_generated_core_count * 8)
+    support_strength = _support_strength_score(
+        support_missing=support_missing,
+        support_partial=support_partial,
+        model_generated_core_count=model_generated_core_count,
+    )
     official_hygiene = _clamp(
         100 - sum(SEVERITY_PENALTY[issue.severity] for issue in issues if issue.category in HYGIENE_CATEGORIES)
     )
