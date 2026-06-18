@@ -323,6 +323,45 @@ class OfficialCompileRun(BaseModel):
     updated_at: str = ""
 
 
+class OfficialExportGateStage(BaseModel):
+    """One stage of the official export gate (official compile, post-draft review).
+
+    ``state`` values:
+      * ``present`` — a valid artifact exists for the current draft/package.
+      * ``stale``   — an artifact exists but is for an older draft/package.
+      * ``missing`` — no artifact exists at all.
+    """
+
+    state: str = Field(pattern="^(present|stale|missing)$")
+    run_id: str = ""
+    status: str = ""
+    # ``export_allowed`` is only meaningful for the post-draft review stage;
+    # it stays ``None`` for the official compile stage.
+    export_allowed: bool | None = None
+
+
+class OfficialExportReadiness(BaseModel):
+    """Machine-readable view of the official export gate.
+
+    Lets API consumers tell whether formal ``official-export.{docx,md}`` will
+    succeed right now, and — when it is locked — exactly *why* and what to do
+    next, without having to trigger the 409. ``reason`` is a stable enum-like
+    string; ``required_actions`` are ordered next-step codes a UI can map to
+    CTAs. ``detail`` mirrors the 409 detail text (including a ``[reason=...]``
+    tag) so the readiness view and the export failure stay in lockstep.
+    """
+
+    project_id: str
+    ready: bool
+    reason: str
+    required_actions: list[str] = Field(default_factory=list)
+    detail: str
+    current_source_draft_hash: str
+    export_formats: list[str] = Field(default_factory=list)
+    official_compile: OfficialExportGateStage
+    post_draft_review: OfficialExportGateStage
+
+
 class ProjectCreate(BaseModel):
     name: str
     draft_text: str

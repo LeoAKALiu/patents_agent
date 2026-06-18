@@ -358,6 +358,219 @@ def test_locked_official_gate_refuses_formal_but_keeps_legacy_internal(tmp_path)
     )
 
 
+# ---------------------------------------------------------------------------
+# Official export readiness metadata (PR-16A)
+#
+# The export gate can lock for several distinct reasons. API consumers must be
+# able to tell *why* formal export is locked (and what to do next) without
+# triggering the 409. These tests cover the readiness endpoint and the
+# /official-compile-runs list ``export_readiness`` summary across every gate
+# path, plus the machine-readable reason tag carried in the 409 detail.
+# ---------------------------------------------------------------------------
+
+
+def test_readiness_reports_draft_required_when_project_has_no_package(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "无草稿项目", "draft_text": "一种城市体检指标驱动无人机采集方法。"},
+    ).json()["id"]
+
+    response = client.get(f"/api/projects/{project_id}/official-export/readiness")
+
+    assert response.status_code == 200
+    readiness = response.json()
+    assert readiness["ready"] is False
+    assert readiness["reason"] == "draft_required"
+    assert readiness["required_actions"] == ["generate_draft"]
+    assert readiness["official_compile"]["state"] == "missing"
+    assert readiness["post_draft_review"]["state"] == "missing"
+    assert readiness["export_formats"] == []
+
+
+def test_readiness_requires_official_compile_before_review_or_export(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package())
+
+    response = client.get(f"/api/projects/{project_id}/official-export/readiness")
+
+    assert response.status_code == 200
+    readiness = response.json()
+    assert readiness["ready"] is False
+    assert readiness["reason"] == "official_compile_required"
+    assert readiness["required_actions"] == ["run_official_compile"]
+    assert readiness["official_compile"]["state"] == "missing"
+    assert readiness["post_draft_review"]["state"] == "missing"
+    assert "[reason=official_compile_required]" in readiness["detail"]
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 409
+    assert "[reason=official_compile_required]" in export_response.json()["detail"]
+
+
+def test_readiness_locks_on_post_draft_review_required_after_clean_compile(tmp_path):
+    """The core PR-16 regression: a clean official compile must NOT look
+    export-ready. After compile (blocked_items=none) but before review, the
+    readiness view must say formal export is locked because post-draft review
+    is required — not silently appear ready."""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package(claims="1. 一种方法。"))
+
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+    compile_run = compile_response.json()
+    assert compile_run["status"] == "completed"
+    assert compile_run["blocked_items"] == []
+
+    response = client.get(f"/api/projects/{project_id}/official-export/readiness")
+
+    assert response.status_code == 200
+    readiness = response.json()
+    assert readiness["ready"] is False
+    assert readiness["reason"] == "post_draft_review_required"
+    assert readiness["required_actions"] == ["run_post_draft_review"]
+    assert readiness["official_compile"]["state"] == "present"
+    assert readiness["official_compile"]["run_id"] == compile_run["id"]
+    assert readiness["post_draft_review"]["state"] == "missing"
+    assert readiness["export_formats"] == []
+    assert "[reason=post_draft_review_required]" in readiness["detail"]
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 409
+    assert "[reason=post_draft_review_required]" in export_response.json()["detail"]
+
+
+def test_readiness_is_ready_and_export_succeeds_after_passing_review(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package(claims="1. 一种方法。"))
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert review["export_allowed"] is True
+
+    response = client.get(f"/api/projects/{project_id}/official-export/readiness")
+
+    assert response.status_code == 200
+    readiness = response.json()
+    assert readiness["ready"] is True
+    assert readiness["reason"] == "ready"
+    assert readiness["required_actions"] == []
+    assert readiness["detail"] == ""
+    assert readiness["export_formats"] == ["docx", "md"]
+    assert readiness["official_compile"]["state"] == "present"
+    assert readiness["post_draft_review"]["state"] == "present"
+    assert readiness["post_draft_review"]["export_allowed"] is True
+    assert readiness["post_draft_review"]["run_id"] == review["id"]
+
+    md_export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert md_export.status_code == 200
+    assert "权利要求书" in md_export.text
+    docx_export = client.get(f"/api/projects/{project_id}/official-export.docx")
+    assert docx_export.status_code == 200
+
+
+def test_readiness_locks_on_post_draft_review_blocked(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package(claims="1. 一种方法。"))
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert review["export_allowed"] is False
+
+    response = client.get(f"/api/projects/{project_id}/official-export/readiness")
+
+    assert response.status_code == 200
+    readiness = response.json()
+    assert readiness["ready"] is False
+    assert readiness["reason"] == "post_draft_review_blocked"
+    assert readiness["required_actions"] == ["rerun_post_draft_review"]
+    assert readiness["official_compile"]["state"] == "present"
+    assert readiness["post_draft_review"]["state"] == "present"
+    assert readiness["post_draft_review"]["export_allowed"] is False
+    assert readiness["post_draft_review"]["run_id"] == review["id"]
+    assert "[reason=post_draft_review_blocked]" in readiness["detail"]
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 409
+    assert "[reason=post_draft_review_blocked]" in export_response.json()["detail"]
+
+
+def test_readiness_409_details_distinguish_review_required_from_blocked(tmp_path):
+    """Both locked review paths keep the legacy 'Post-draft multi-agent review
+    is required' sentence (back-compat), but the [reason=...] tag must differ so
+    a machine consumer can tell 'run review' from 'review blocked'."""
+    required_client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    required_project = _create_project_with_package(required_client, _draft_package(claims="1. 一种方法。"))
+    required_client.post(f"/api/projects/{required_project}/official-compile-runs", json={})
+    required_export = required_client.get(f"/api/projects/{required_project}/official-export.md")
+    assert required_export.status_code == 409
+    required_detail = required_export.json()["detail"]
+    assert "Post-draft multi-agent review is required" in required_detail
+    assert "[reason=post_draft_review_required]" in required_detail
+    assert "blocked" not in required_detail
+
+    blocked_client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
+    blocked_project = _create_project_with_package(blocked_client, _draft_package(claims="1. 一种方法。"))
+    blocked_client.post(f"/api/projects/{blocked_project}/official-compile-runs", json={})
+    blocked_client.post(f"/api/projects/{blocked_project}/post-draft-reviews", json={})
+    blocked_export = blocked_client.get(f"/api/projects/{blocked_project}/official-export.md")
+    assert blocked_export.status_code == 409
+    blocked_detail = blocked_export.json()["detail"]
+    assert "Post-draft multi-agent review is required" in blocked_detail
+    assert "[reason=post_draft_review_blocked]" in blocked_detail
+
+
+def test_readiness_marks_official_compile_stale_after_draft_changes(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package())
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    client.app.state.store.update_project_package(project_id, _draft_package(abstract="修改后的摘要。"))
+
+    response = client.get(f"/api/projects/{project_id}/official-export/readiness")
+
+    assert response.status_code == 200
+    readiness = response.json()
+    assert readiness["ready"] is False
+    assert readiness["reason"] == "official_compile_required"
+    assert readiness["official_compile"]["state"] == "stale"
+    assert readiness["official_compile"]["run_id"] == compile_run["id"]
+    assert readiness["post_draft_review"]["state"] == "missing"
+
+
+def test_readiness_is_locked_again_after_a_second_compile_invalidates_prior_review(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package())
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})  # second compile
+
+    response = client.get(f"/api/projects/{project_id}/official-export/readiness")
+
+    readiness = response.json()
+    assert readiness["ready"] is False
+    assert readiness["reason"] == "post_draft_review_required"
+    assert readiness["official_compile"]["state"] == "present"
+    assert readiness["post_draft_review"]["state"] == "missing"
+
+
+def test_official_compile_runs_list_exposes_export_readiness(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package(claims="1. 一种方法。"))
+
+    before_compile = client.get(f"/api/projects/{project_id}/official-compile-runs").json()
+    assert before_compile["export_readiness"]["reason"] == "official_compile_required"
+    assert before_compile["export_readiness"]["official_compile"]["state"] == "missing"
+
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    after_compile = client.get(f"/api/projects/{project_id}/official-compile-runs").json()
+    assert after_compile["export_readiness"]["reason"] == "post_draft_review_required"
+    assert after_compile["export_readiness"]["official_compile"]["state"] == "present"
+
+    client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+    after_review = client.get(f"/api/projects/{project_id}/official-compile-runs").json()
+    assert after_review["export_readiness"]["reason"] == "post_draft_review_blocked"
+    assert after_review["export_readiness"]["post_draft_review"]["state"] == "present"
+    assert after_review["export_readiness"]["post_draft_review"]["export_allowed"] is False
+
+
 def _create_project_with_package(client: TestClient, package: DraftPackage) -> str:
     project_id = client.post(
         "/api/projects",
