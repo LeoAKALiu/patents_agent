@@ -122,6 +122,50 @@ def test_only_unverified_quantitative_effect_warns_with_medium_severity():
     assert {issue.severity for issue in report.issues} == {"medium"}
 
 
+def test_filing_readiness_allows_technical_disclosure_reference_phrase():
+    package = _clean_base_package(
+        description=(
+            "根据技术交底书中记载的传感器布置方式，控制器获取第一检测信号和第二检测信号，"
+            "并基于二者的匹配关系生成告警指令。"
+        )
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert not any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_ignores_prior_art_percent_effect_context():
+    package = _clean_base_package(
+        description=(
+            "对比文件CN123456公开的方案可提升15%识别速度，但该方案依赖云端集中推理。"
+            "本实施例采用边缘端缓存策略降低通信等待时间。"
+        )
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=False)
+
+    assert not any(issue.category == "unverified_effect" for issue in report.issues)
+
+
+def test_filing_readiness_allows_defensive_unverified_example_wording():
+    package = _clean_base_package(
+        description=(
+            "尚未验证的参数组合仅作为可选实施例，不用于限定本申请的技术效果。"
+        )
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert not any(
+        issue.category == "unfavorable_statement" and "尚未验证" in issue.matched_text
+        for issue in report.issues
+    )
+
+
 def test_only_subject_matter_risk_warns_with_medium_severity():
     package = _clean_base_package(description="本发明属于人工智能软件方法领域。")
 

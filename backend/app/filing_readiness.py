@@ -36,15 +36,17 @@ _INTERNAL_TRACE_PATTERNS = (
     "多Agent会审",
     "deliberation",
     "generation_logs",
-    "根据技术交底书",
     "根据会审策略",
     "主席汇总失败",
+)
+
+_INTERNAL_TRACE_REGEXES = (
+    re.compile(r"根据技术交底书\s*(生成|撰写|输出|自动生成)"),
 )
 
 _UNFAVORABLE_PATTERNS = (
     "可能不具备创造性",
     "容易被现有技术组合",
-    "尚未验证",
     "存在充分公开风险",
     "禁止直接提交",
 )
@@ -56,6 +58,17 @@ _SUBJECT_MATTER_PATTERNS = (
 )
 
 _UNVERIFIED_EFFECT_PATTERN = re.compile(r"(提升|降低|提高)\s*\d+(?:\.\d+)?\s*%")
+
+_PRIOR_ART_EFFECT_CONTEXT = (
+    "现有技术",
+    "对比文件",
+    "对比文献",
+    "CN",
+    "US",
+    "EP",
+    "JP",
+    "WO",
+)
 
 
 def assess_filing_readiness(
@@ -194,6 +207,8 @@ def _scan_format_pollution(text: str, target: str) -> list[FilingReadinessIssue]
 
 
 def _scan_internal_traces(text: str, target: str) -> list[FilingReadinessIssue]:
+    literal_matches = list(_literal_matches(_INTERNAL_TRACE_PATTERNS, text))
+    regex_matches = [match.group(0) for regex in _INTERNAL_TRACE_REGEXES for match in regex.finditer(text)]
     return [
         FilingReadinessIssue(
             category="internal_trace",
@@ -204,7 +219,7 @@ def _scan_internal_traces(text: str, target: str) -> list[FilingReadinessIssue]:
             suggestion="删除过程性表述，仅保留权利要求、说明书和附图说明内容。",
             can_auto_clean=True,
         )
-        for match in _literal_matches(_INTERNAL_TRACE_PATTERNS, text)
+        for match in [*literal_matches, *regex_matches]
     ]
 
 
@@ -224,18 +239,24 @@ def _scan_unfavorable_statements(text: str, target: str) -> list[FilingReadiness
 
 
 def _scan_unverified_effects(text: str, target: str) -> list[FilingReadinessIssue]:
-    return [
-        FilingReadinessIssue(
-            category="unverified_effect",
-            severity="medium",
-            target=target,
-            matched_text=match.group(0),
-            message="正式稿包含未经验证的量化效果。",
-            suggestion="补充实验或业务验证依据；无法验证时删除具体百分比效果。",
-            can_auto_clean=False,
+    issues: list[FilingReadinessIssue] = []
+    for match in _UNVERIFIED_EFFECT_PATTERN.finditer(text):
+        context_start = max(0, match.start() - 36)
+        context = text[context_start : match.end() + 18]
+        if any(marker in context for marker in _PRIOR_ART_EFFECT_CONTEXT):
+            continue
+        issues.append(
+            FilingReadinessIssue(
+                category="unverified_effect",
+                severity="medium",
+                target=target,
+                matched_text=match.group(0),
+                message="正式稿包含未经验证的量化效果。",
+                suggestion="补充实验或业务验证依据；无法验证时删除具体百分比效果。",
+                can_auto_clean=False,
+            )
         )
-        for match in _UNVERIFIED_EFFECT_PATTERN.finditer(text)
-    ]
+    return issues
 
 
 def _scan_subject_matter_risks(text: str, target: str) -> list[FilingReadinessIssue]:
