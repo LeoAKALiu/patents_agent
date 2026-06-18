@@ -1,6 +1,7 @@
 # PatentAgent Hermes Kanban Tasks
 
 测试日期：2026-06-18  
+最近更新：2026-06-19 00:10
 看板：`patentagent-qa-bugfix`  
 说明：本清单仅同步到 Hermes Kanban，不涉及 Linear。
 
@@ -8,11 +9,22 @@
 
 | PR | Hermes ID | 优先级 | 状态 | 分派 | 建议分支 |
 | --- | --- | --- | --- | --- | --- |
-| PR-14 | `t_7cacda4e` | P0 | running | `bigmodelworker` | `codex/pr-14-tauri-frontend-assets` |
-| PR-15 | `t_2cd4aef4` | P1 | running | `kimiworker` | `codex/pr-15-project-metadata` |
-| PR-16 | `t_39af97b4` | P2 | running | `kimiworker` | `codex/pr-16-official-export-gate-ux` |
-| PR-17 | `t_a3c29562` | P2 | ready | `deepseekworker` | `codex/pr-17-download-ascii-fallback` |
-| PR-18 | `t_bfa3a9cd` | P3 | ready | `kimiworker` | `codex/pr-18-frontend-deps-bundle` |
+| PR-14 clean | `t_f2be2e01` | P0 | running | `bigmodelworker` | `codex/pr-14-tauri-frontend-assets-clean` |
+| PR-15 clean | `t_7b44a196` | P1 | running | `bigmodelworker` | `codex/pr-15-project-metadata-clean` |
+| PR-16A clean | `t_241f3d03` | P2 | running | `bigmodelworker` | `codex/pr-16-official-export-readiness-api-clean` |
+| PR-16B clean | `t_cf6c0876` | P2 | todo, waits on PR-16A | `kimiworker` | `codex/pr-16-official-export-gate-ui-clean` |
+| PR-17 clean | `t_c839241b` | P2 | running | `deepseekworker` | `codex/pr-17-download-ascii-fallback-clean` |
+| PR-18 clean | `t_3985a359` | P3 | running | `deepseekworker` | `codex/pr-18-frontend-deps-bundle-clean` |
+
+旧卡片处理：
+
+| PR | Hermes ID | 处理 |
+| --- | --- | --- |
+| PR-14 original | `t_7cacda4e` | blocked/superseded：旧卡与其他任务并发使用共享工作树 `/Users/leo/Projects/patents_agent`，不可作为 merge-review 分支 |
+| PR-15 original | `t_2cd4aef4` | blocked/superseded：结构化 metadata 是长程 schema/storage/API/frontend 任务，已按规则改派 `bigmodelworker` |
+| PR-16 original | `t_39af97b4` | blocked/superseded：拆分为 PR-16A API readiness 与 PR-16B UI CTA |
+| PR-17 original | `t_a3c29562` | blocked/superseded：改用隔离 worktree 续作 |
+| PR-18 original | `t_bfa3a9cd` | review result: not mergeable；无独立 commit，且 diff 混入 PR-15/16 未提交改动；已改派 clean rerun 给 `deepseekworker` |
 
 已回填并完成的既有卡片：
 
@@ -26,16 +38,17 @@
 
 1. PR-14：先修复 Tauri 打包黑屏，恢复真实客户端 E2E 能力。
 2. PR-15：补齐结构化项目信息输入，减少文档/导出元数据遗漏。
-3. PR-16：优化官方导出门禁和复审 CTA，降低用户卡住概率。
-4. PR-17：修复 CJK 下载文件名 ASCII fallback。
-5. PR-18：处理依赖审计和前端 bundle 体积告警。
+3. PR-16A：先补官方导出 readiness API/报告状态。
+4. PR-16B：在 PR-16A 后补 UI locked state 和 post-draft review CTA。
+5. PR-17：修复 CJK 下载文件名 ASCII fallback。
+6. PR-18：处理依赖审计和前端 bundle 体积告警。
 
 ## PR-14：Fix Packaged Tauri App Black Screen
 
 优先级：P0  
-Hermes ID：`t_7cacda4e`  
+Hermes ID：`t_f2be2e01`
 分派：`bigmodelworker`  
-建议分支：`codex/pr-14-tauri-frontend-assets`
+建议分支：`codex/pr-14-tauri-frontend-assets-clean`
 
 ### 背景
 
@@ -79,9 +92,9 @@ Hermes ID：`t_7cacda4e`
 ## PR-15：Add Structured Project Metadata Intake
 
 优先级：P1  
-Hermes ID：`t_2cd4aef4`  
-分派：`kimiworker`  
-建议分支：`codex/pr-15-project-metadata`
+Hermes ID：`t_7b44a196`
+分派：`bigmodelworker`
+建议分支：`codex/pr-15-project-metadata-clean`
 
 ### 背景
 
@@ -124,9 +137,9 @@ Hermes ID：`t_2cd4aef4`
 ## PR-16：Clarify Official Export Gate and Review CTA
 
 优先级：P2  
-Hermes ID：`t_39af97b4`  
-分派：`kimiworker`  
-建议分支：`codex/pr-16-official-export-gate-ux`
+Hermes ID：`t_241f3d03` / `t_cf6c0876`
+分派：API readiness `bigmodelworker`；UI CTA `kimiworker`
+建议分支：`codex/pr-16-official-export-readiness-api-clean` / `codex/pr-16-official-export-gate-ui-clean`
 
 ### 背景
 
@@ -167,9 +180,9 @@ Hermes ID：`t_39af97b4`
 ## PR-17：Improve ASCII Fallback Filenames for CJK Downloads
 
 优先级：P2  
-Hermes ID：`t_a3c29562`  
+Hermes ID：`t_c839241b`
 分派：`deepseekworker`  
-建议分支：`codex/pr-17-download-ascii-fallback`
+建议分支：`codex/pr-17-download-ascii-fallback-clean`
 
 ### 背景
 
@@ -208,9 +221,9 @@ fallback 应至少包含稳定可读前缀，例如 `patentagent-draft.docx` 或
 ## PR-18：Address Frontend Dependency Audit and Bundle Warning
 
 优先级：P3  
-Hermes ID：`t_bfa3a9cd`  
-分派：`kimiworker`  
-建议分支：`codex/pr-18-frontend-deps-bundle`
+Hermes ID：`t_3985a359`
+分派：`deepseekworker`
+建议分支：`codex/pr-18-frontend-deps-bundle-clean`
 
 ### 背景
 
@@ -247,4 +260,3 @@ Hermes ID：`t_bfa3a9cd`
 - `npm --prefix frontend test`
 - `npm --prefix frontend run build`
 - `npm --prefix frontend audit`
-

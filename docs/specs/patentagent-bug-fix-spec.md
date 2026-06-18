@@ -5,7 +5,7 @@
 
 ## PR-14: Fix packaged Tauri app black screen by bundling frontend assets
 
-Hermes：`t_7cacda4e`  
+Hermes：`t_f2be2e01`
 优先级：P0  
 建议顺序：1
 
@@ -31,7 +31,7 @@ Hermes：`t_7cacda4e`
 
 ## PR-15: Add structured project metadata intake and persistence
 
-Hermes：`t_2cd4aef4`  
+Hermes：`t_7b44a196`
 优先级：P1  
 建议顺序：2
 
@@ -58,7 +58,7 @@ Hermes：`t_2cd4aef4`
 
 ## PR-16: Clarify official export gate and post-draft review CTA
 
-Hermes：`t_39af97b4`  
+Hermes：API readiness `t_241f3d03`; UI CTA `t_cf6c0876`
 优先级：P2  
 建议顺序：3
 
@@ -70,8 +70,8 @@ Hermes：`t_39af97b4`
 
 范围：
 
-- 在 official compile run 或导出视图中暴露 export readiness。
-- UI 对“还需 post-draft review”显示明确状态、原因和操作按钮。
+- PR-16A：在 official compile run 或导出 API/report metadata 中暴露 export readiness。
+- PR-16B：UI 对“还需 post-draft review”显示明确状态、原因和操作按钮。
 - API 错误保持机器可读，前端能映射成人话。
 
 验收标准：
@@ -83,7 +83,7 @@ Hermes：`t_39af97b4`
 
 ## PR-17: Improve ASCII fallback filenames for CJK downloads
 
-Hermes：`t_a3c29562`  
+Hermes：`t_c839241b`
 优先级：P2/P3  
 建议顺序：4
 
@@ -107,7 +107,7 @@ Hermes：`t_a3c29562`
 
 ## PR-18: Address frontend dependency audit and bundle-size warnings
 
-Hermes：`t_bfa3a9cd`  
+Hermes：`t_3985a359`
 优先级：P3  
 建议顺序：5
 

@@ -122,4 +122,5 @@
 
 - 已完成：`t_f33a3fe6` PR-4A v3、`t_9165260e` PR-11B。
 - 已评论：`t_5d22c454` PR-12 v3 存在集成缺口，集成分支已用 `b0299f3` 修复。
-- 新建：`t_7cacda4e`, `t_2cd4aef4`, `t_39af97b4`, `t_a3c29562`, `t_bfa3a9cd`。
+- 旧卡 blocked/superseded：`t_7cacda4e`, `t_2cd4aef4`, `t_39af97b4`, `t_a3c29562` 共用共享工作树产生混杂改动；`t_bfa3a9cd` review-required 但无独立 commit，不可合并。
+- Clean rerun 新建并分派：`t_f2be2e01` PR-14 -> `bigmodelworker`; `t_7b44a196` PR-15 -> `bigmodelworker`; `t_241f3d03` PR-16A -> `bigmodelworker`; `t_cf6c0876` PR-16B -> `kimiworker`; `t_c839241b` PR-17 -> `deepseekworker`; `t_3985a359` PR-18 -> `deepseekworker`。
