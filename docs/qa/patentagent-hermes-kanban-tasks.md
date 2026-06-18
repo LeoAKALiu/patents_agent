@@ -1,7 +1,7 @@
 # PatentAgent Hermes Kanban Tasks
 
 测试日期：2026-06-18  
-最近更新：2026-06-19 04:17
+最近更新：2026-06-19 04:25
 看板：`patentagent-qa-bugfix`  
 说明：本清单仅同步到 Hermes Kanban，不涉及 Linear。
 
@@ -14,7 +14,7 @@
 | PR-15A clean | `t_21b014eb` | P1 | running | `bigmodelworker` | `codex/pr-15a-project-metadata-backend-clean` |
 | PR-15B clean | `t_cf40449f` | P1 | todo, waits on PR-15A | `kimiworker` | `codex/pr-15b-project-metadata-frontend-clean` |
 | PR-16A clean | `t_241f3d03` | P2 | done, merged into integration | `bigmodelworker` | `codex/pr-16-official-export-readiness-api-clean` |
-| PR-16B clean | `t_cf6c0876` | P2 | running | `kimiworker` | `codex/pr-16-official-export-gate-ui-clean` |
+| PR-16B clean | `t_cf6c0876` | P2 | done, merged into integration | `kimiworker` | `codex/pr-16-official-export-gate-ui-clean` |
 | PR-17 clean | `t_c839241b` | P2 | done, cherry-picked into integration | `deepseekworker` | `codex/pr-17-download-ascii-fallback-clean` |
 | PR-18 clean | `t_3985a359` | P3 | done, merged into integration | `deepseekworker` | `codex/pr-18-frontend-deps-bundle-clean` |
 
@@ -180,6 +180,11 @@ Hermes ID：`t_241f3d03` / `t_cf6c0876`
 - API 门禁测试。
 - 前端状态渲染测试。
 - 一次官方编排 -> 复审 -> 导出 E2E 测试。
+
+### 审核结果
+
+- PR-16A `t_241f3d03` 已合入集成分支，补充 machine-readable official export readiness API。
+- PR-16B `t_cf6c0876` 已合入集成分支，merge commit `6aa7d0e`。合并后验证 `npm --prefix frontend test` 17 files / 211 tests passed，`npm --prefix frontend run build` 通过；实际下载 href 仍由 hash-matching `officialAllowed` 控制。
 
 ## PR-17：Improve ASCII Fallback Filenames for CJK Downloads
 

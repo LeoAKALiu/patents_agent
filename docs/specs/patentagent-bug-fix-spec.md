@@ -62,6 +62,7 @@ Hermes：backend `t_21b014eb`; frontend `t_cf40449f`
 Hermes：API readiness `t_241f3d03`; UI CTA `t_cf6c0876`
 优先级：P2  
 建议顺序：3
+状态：PR-16A/PR-16B 均已审核并合入集成分支；PR-16B merge commit `6aa7d0e`，合并后前端 211 tests passed，生产构建通过。
 
 背景：
 
