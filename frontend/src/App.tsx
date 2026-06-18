@@ -15,6 +15,7 @@ import {
   Upload,
   UsersRound,
   Wand2,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -553,6 +554,18 @@ function App() {
     setSelectedFormulaProviders((providers) => normalizeAgentSelection(agentDoctor, providers, "formula"));
   }, [agentDoctor]);
 
+  // Persist selected project to localStorage whenever it changes.
+  useEffect(() => {
+    persistLastSelectedProject(selectedProjectId);
+  }, [selectedProjectId, health?.data_dir]);
+
+  // Clear error/message banners when the user navigates to a different section
+  // or switches between expert tools.
+  useEffect(() => {
+    setError("");
+    setMessage("");
+  }, [activeSection, activeExpertTool]);
+
   useEffect(() => {
     setOfficialCompileRuns([]);
     setCurrentSourceDraftHash("");
@@ -831,6 +844,7 @@ function App() {
     if (!desktop?.dialogs?.saveOfficial) {
       // Web preview / dev fallback: trigger the existing browser download.
       if (!selectedProject) return;
+      const projectName = selectedProject.name || "专利草稿";
       const href =
         format === "sidecar"
           ? `${window.location.origin}/api/projects/${selectedProject.id}/official-compile-runs/${latestOfficialCompileRun?.id ?? ""}/report.md`
@@ -842,7 +856,18 @@ function App() {
         setError("风险说明需要先生成正式稿。");
         return;
       }
-      window.location.href = href;
+      const downloadName =
+        format === "sidecar"
+          ? `${projectName}-正式稿编译报告.md`
+          : format === "docx"
+            ? `${projectName}-正式提交稿.docx`
+            : `${projectName}-正式提交稿.md`;
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = downloadName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
       return;
     }
     if (!selectedProject) {
@@ -1774,6 +1799,16 @@ function App() {
             {busy && <Loader2 className="animate-spin" size={16} />}
             <span>{error || message || guidedBusyLabel(busy) || "处理中"}</span>
             {!error && busy && <BusyOperationConsole log={guidedOperationLog(busy, busyTimer.elapsedSeconds)} />}
+            {(message || error) && (
+              <button
+                className="ml-auto shrink-0 p-1 rounded hover:bg-[var(--surface-raised)] transition-colors"
+                onClick={() => { setError(""); setMessage(""); }}
+                type="button"
+                aria-label="关闭通知"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         )}
 

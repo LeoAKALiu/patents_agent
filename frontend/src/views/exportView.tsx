@@ -89,6 +89,13 @@ export function ExportView({
         : undefined
       : officialExportUrl(project.id, lastExport.format === "docx" ? "docx" : "md")
     : undefined;
+  const lastExportDownloadName = lastExport
+    ? lastExport.format === "sidecar"
+      ? `${projectName}-正式稿编译报告.md`
+      : lastExport.format === "docx"
+        ? `${projectName}-正式提交稿.docx`
+        : `${projectName}-正式提交稿.md`
+    : undefined;
   return (
     <section className="col-span-full grid gap-5">
       <StatusStrip
@@ -180,6 +187,7 @@ export function ExportView({
               <a
                 aria-disabled={!lastExportDownloadHref}
                 className={lastExportDownloadHref ? "btn btn-secondary" : "btn btn-secondary is-disabled"}
+                download={lastExportDownloadName}
                 href={lastExportDownloadHref}
               >
                 <Download size={16} aria-hidden="true" />
