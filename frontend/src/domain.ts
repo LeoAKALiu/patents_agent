@@ -49,6 +49,68 @@ export function canExportPackage(
   return Boolean(value?.title?.trim() && value?.claims?.trim());
 }
 
+export interface ExportGateDiagnostic {
+  id: "draft" | "officialCompile" | "postReview" | "draftHash" | "officialHash";
+  label: string;
+  passed: boolean;
+  actionLabel: string;
+}
+
+export function exportGateDiagnostics({
+  currentDraftHash,
+  currentSourceDraftHash,
+  officialCompileRun,
+  postDraftReview,
+}: {
+  currentDraftHash: string;
+  currentSourceDraftHash: string;
+  officialCompileRun: { id: string; status: string; official_package_hash: string } | null;
+  postDraftReview: {
+    status: string;
+    export_allowed: boolean;
+    draft_package_hash: string;
+    official_compile_run_id: string;
+    official_package_hash?: string | null;
+  } | null;
+}): ExportGateDiagnostic[] {
+  return [
+    {
+      id: "draft",
+      label: "源稿版本一致",
+      passed: Boolean(currentDraftHash && currentDraftHash === currentSourceDraftHash),
+      actionLabel: "重新生成或保存当前初稿",
+    },
+    {
+      id: "officialCompile",
+      label: "正式稿已编译",
+      passed: Boolean(officialCompileRun?.status === "completed"),
+      actionLabel: "去重新编译",
+    },
+    {
+      id: "postReview",
+      label: "成稿会审通过",
+      passed: Boolean(postDraftReview?.status === "completed" && postDraftReview.export_allowed),
+      actionLabel: "去成稿会审",
+    },
+    {
+      id: "draftHash",
+      label: "会审源稿匹配",
+      passed: Boolean(postDraftReview?.draft_package_hash && postDraftReview.draft_package_hash === currentDraftHash),
+      actionLabel: "重新成稿会审",
+    },
+    {
+      id: "officialHash",
+      label: "会审正式稿匹配",
+      passed: Boolean(
+        officialCompileRun?.official_package_hash
+          && postDraftReview?.official_compile_run_id === officialCompileRun.id
+          && postDraftReview?.official_package_hash === officialCompileRun.official_package_hash,
+      ),
+      actionLabel: "重新编译并会审",
+    },
+  ];
+}
+
 export function severityLabel(severity: string): string {
   if (severity === "high") return "高";
   if (severity === "medium") return "中";

@@ -12,7 +12,7 @@ import {
   type PostDraftReviewRun,
   type ProjectRecord,
 } from "@/api";
-import { canExportPackage } from "@/domain";
+import { canExportPackage, exportGateDiagnostics, type ExportGateDiagnostic } from "@/domain";
 import {
   findOfficialContaminationMarkers,
   formatBytes,
@@ -30,6 +30,29 @@ function exportLinkClass(enabled: boolean, primary = false): string {
   if (!enabled) return "export-link disabled";
   return primary ? "export-link export-link-primary" : "export-link";
 }
+
+const officialGateDiagnosticCopy = {
+  draft: {
+    label: "源稿版本一致",
+    actionLabel: "重新生成或保存当前初稿",
+  },
+  officialCompile: {
+    label: "正式稿已编译",
+    actionLabel: "去重新编译",
+  },
+  postReview: {
+    label: "成稿会审通过",
+    actionLabel: "去成稿会审",
+  },
+  draftHash: {
+    label: "会审源稿匹配",
+    actionLabel: "重新成稿会审",
+  },
+  officialHash: {
+    label: "会审正式稿匹配",
+    actionLabel: "重新编译并会审",
+  },
+} satisfies Record<ExportGateDiagnostic["id"], Pick<ExportGateDiagnostic, "label" | "actionLabel">>;
 
 export function ExportView({
   project,
@@ -69,6 +92,15 @@ export function ExportView({
       && postDraftReview.official_compile_run_id === officialCompileRun?.id
       && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
+  const gateDiagnostics = exportGateDiagnostics({
+    currentDraftHash,
+    currentSourceDraftHash,
+    officialCompileRun,
+    postDraftReview,
+  }).map((item) => ({
+    ...item,
+    ...officialGateDiagnosticCopy[item.id],
+  }));
   // PR7 (issue #21): scan the official package text for residual internal
   // markers (log lines, prompt fragments, review memos, mermaid fences, etc.).
   // The backend already strips these at compile time and the gate refuses to
@@ -95,8 +127,8 @@ export function ExportView({
         aria-label="导出状态"
         items={[
           { label: "正式稿状态", value: officialAllowed ? "已解锁" : "等待会审" },
-          { label: "源稿哈希", value: currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成" },
-          { label: "正式稿哈希", value: officialCompileRun?.official_package_hash?.slice(0, 12) ?? "未编译" },
+          { label: "源稿版本", value: currentSourceDraftHash ? "已锁定" : "未生成" },
+          { label: "正式稿版本", value: officialCompileRun?.official_package_hash ? "已生成" : "未编译" },
           { label: "最近导出", value: lastExport && lastExportMatchesHash ? lastExport.format.toUpperCase() : "无有效导出" },
         ]}
       />
@@ -119,7 +151,7 @@ export function ExportView({
           <BoundaryCard
             tone="external"
             title="风险说明"
-            description="解释导出阻断、清污命中和版本哈希来源，帮助人工复核，不替代专利代理师或律师意见。"
+            description="解释导出阻断、清污命中和版本来源，帮助人工复核，不替代专利代理师或律师意见。"
           />
         </div>
       </SettingsGroup>
@@ -131,11 +163,26 @@ export function ExportView({
           title={officialAllowed ? "正式稿已通过成稿会审" : "正式稿入口已锁定"}
           description={
             officialAllowed
-              ? `当前正式稿可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}`
+              ? "当前正式稿已解锁，可导出正式文件。"
               : "正式稿需先生成，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。"
           }
           meta={<span className={officialAllowed ? "tag tag-success" : "tag tag-warn"}>{officialAllowed ? "可导出" : "需处理"}</span>}
         />
+        <div className="dense-list" aria-label="正式导出门禁明细">
+          {gateDiagnostics.map((item) => (
+            <InfoCard
+              key={item.id}
+              tone={item.passed ? "success" : "warn"}
+              title={item.label}
+              description={item.passed ? "已满足" : item.actionLabel}
+              meta={
+                <span className={item.passed ? "tag tag-success" : "tag tag-warn"}>
+                  {item.passed ? "通过" : "待处理"}
+                </span>
+              }
+            />
+          ))}
+        </div>
       {contaminationMatches.length > 0 && (
         <div
           className="callout callout-warn"
@@ -165,7 +212,7 @@ export function ExportView({
           tone="success"
           title={`已导出${lastExport.format === "sidecar" ? "正式稿编译报告" : lastExport.format === "docx" ? "官方 DOCX" : "官方 Markdown"}`}
           description={`${lastExport.filePath}（${formatBytes(lastExport.byteCount)}）`}
-          meta={<span className="tag tag-success">哈希匹配</span>}
+          meta={<span className="tag tag-success">版本一致</span>}
           action={(
             <div className="button-row">
               <button
