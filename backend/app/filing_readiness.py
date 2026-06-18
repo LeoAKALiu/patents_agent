@@ -41,7 +41,10 @@ _INTERNAL_TRACE_PATTERNS = (
 )
 
 _INTERNAL_TRACE_REGEXES = (
-    re.compile(r"根据技术交底书\s*(?:进行\s*)?(生成|撰写|输出|自动生成|补强)"),
+    re.compile(
+        r"根据技术交底书(?!\s*中\s*(?:记载|描述|公开|披露))"
+        r"[^，,。；;！？!?\n]{0,30}(?:自动生成|生成|撰写|输出|补强)"
+    ),
 )
 
 _UNFAVORABLE_PATTERNS = (
@@ -63,12 +66,9 @@ _PRIOR_ART_EFFECT_CONTEXT = (
     "现有技术",
     "对比文件",
     "对比文献",
-    "CN",
-    "US",
-    "EP",
-    "JP",
-    "WO",
 )
+
+_PRIOR_ART_DOCUMENT_PATTERN = re.compile(r"(?<![A-Za-z0-9])(?:CN|US|EP|JP|WO)\d+[A-Za-z0-9]*")
 
 _PRIOR_ART_ATTRIBUTION_TERMS = (
     "公开",
@@ -81,6 +81,13 @@ _CURRENT_INVENTION_MARKERS = (
     "本发明",
     "本实施例",
     "本方案",
+    "本方法",
+    "本系统",
+)
+
+_EFFECT_OWNERSHIP_TRANSITION_MARKERS = (
+    *_CURRENT_INVENTION_MARKERS,
+    "提出一种",
 )
 
 _EFFECT_CONTEXT_BOUNDARIES = "。；;！？!?\n"
@@ -283,18 +290,31 @@ def _is_prior_art_effect_attribution(text: str, effect_start: int) -> bool:
         max(text.rfind(boundary, 0, effect_start) for boundary in _EFFECT_CONTEXT_BOUNDARIES) + 1
     )
     context_before_effect = text[context_start:effect_start]
-    for prior_art_marker in _PRIOR_ART_EFFECT_CONTEXT:
-        marker_index = context_before_effect.rfind(prior_art_marker)
-        if marker_index < 0:
-            continue
+    for marker_index in _prior_art_marker_indexes(context_before_effect):
         marker_to_effect = context_before_effect[marker_index:]
-        has_attribution = any(term in marker_to_effect for term in _PRIOR_ART_ATTRIBUTION_TERMS)
-        has_current_invention_marker = any(
-            current_marker in marker_to_effect for current_marker in _CURRENT_INVENTION_MARKERS
+        attribution_ends = (
+            marker_to_effect.find(term) + len(term)
+            for term in _PRIOR_ART_ATTRIBUTION_TERMS
+            if term in marker_to_effect
         )
-        if has_attribution and not has_current_invention_marker:
+        attribution_end = min(attribution_ends, default=-1)
+        if attribution_end < 0:
+            continue
+        after_attribution = marker_to_effect[attribution_end:]
+        has_solution_transition = any(
+            transition in after_attribution for transition in _EFFECT_OWNERSHIP_TRANSITION_MARKERS
+        )
+        if not has_solution_transition:
             return True
     return False
+
+
+def _prior_art_marker_indexes(text: str) -> list[int]:
+    marker_indexes: list[int] = []
+    for prior_art_marker in _PRIOR_ART_EFFECT_CONTEXT:
+        marker_indexes.extend(match.start() for match in re.finditer(re.escape(prior_art_marker), text))
+    marker_indexes.extend(match.start() for match in _PRIOR_ART_DOCUMENT_PATTERN.finditer(text))
+    return sorted(marker_indexes)
 
 
 def _scan_subject_matter_risks(text: str, target: str) -> list[FilingReadinessIssue]:
@@ -416,6 +436,12 @@ def _clean_internal_trace_fragments(line: str) -> str:
     for pattern in _INTERNAL_TRACE_PATTERNS:
         cleaned = re.sub(
             rf"[，,；;]?\s*{re.escape(pattern)}[^，,；;。]*[，,；;]?",
+            "，",
+            cleaned,
+        )
+    for regex in _INTERNAL_TRACE_REGEXES:
+        cleaned = re.sub(
+            rf"[，,；;]?\s*(?:{regex.pattern})[^，,；;。]*[，,；;]?",
             "，",
             cleaned,
         )

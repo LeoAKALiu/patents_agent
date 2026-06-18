@@ -164,6 +164,19 @@ def test_filing_readiness_flags_current_invention_percent_after_prior_art_senten
     )
 
 
+def test_filing_readiness_flags_solution_percent_after_prior_art_problem_clause():
+    package = _clean_base_package(
+        description="现有技术记载存在云端延迟问题，提出一种边缘缓存策略，可提升15%识别效率。"
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=False)
+
+    assert any(
+        issue.category == "unverified_effect" and issue.matched_text == "提升15%"
+        for issue in report.issues
+    )
+
+
 def test_filing_readiness_allows_defensive_unverified_example_wording():
     package = _clean_base_package(
         description=(
@@ -201,8 +214,30 @@ def test_filing_readiness_blocks_technical_disclosure_drafting_process_phrase():
     )
 
 
+def test_filing_readiness_blocks_technical_disclosure_object_before_drafting_verb():
+    package = _clean_base_package(description="根据技术交底书进行权利要求书撰写。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
 def test_filing_readiness_blocks_technical_disclosure_claim_strengthening_phrase():
     package = _clean_base_package(description="根据技术交底书补强独权。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_blocks_technical_disclosure_object_before_strengthening_verb():
+    package = _clean_base_package(description="根据技术交底书对独权进行补强。")
 
     report = assess_filing_readiness("project-1", package, verified_effects=True)
 
@@ -248,6 +283,18 @@ def test_official_markdown_preserves_body_when_removing_embedded_internal_trace(
     assert "1. 一种方法，包括采集点云" in markdown
     assert "并生成建筑构件参数。" in markdown
     assert "根据会审策略" not in markdown
+
+
+def test_official_markdown_removes_regex_internal_trace_fragments():
+    package = _clean_base_package(
+        claims="1. 一种方法，包括采集点云，根据技术交底书进行撰写权利要求书，并生成建筑构件参数。"
+    )
+
+    markdown = official_package_to_markdown(package)
+
+    assert "1. 一种方法，包括采集点云" in markdown
+    assert "并生成建筑构件参数。" in markdown
+    assert "根据技术交底书" not in markdown
 
 
 def test_export_official_docx_cleans_pollution_and_keeps_formal_sections(tmp_path):
