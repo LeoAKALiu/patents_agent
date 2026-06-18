@@ -2039,6 +2039,67 @@ def _execute_post_draft_review(
         return failed
 
 
+def _persist_disclosure_candidates(
+    *,
+    store: SQLiteStore,
+    project_id: str,
+    package_candidates: list,
+    package_selected_id: str | None,
+    run_start_candidate_ids: set[str] | None = None,
+) -> int:
+    """Persist disclosure-generated candidates as editable patent points.
+
+    The writes are conflict-safe so that a long-running disclosure never
+    clobbers user-edited rows or changes the user's selection:
+
+    - A fresh snapshot of existing points is taken at completion time. Any
+      candidate id already present in the store is skipped — its
+      ``candidate_json``, ``selected`` flag, and ``updated_at`` are preserved
+      exactly as the user (or a previous disclosure run) left them.
+    - Only candidates whose ids are NEW to the project are inserted.
+    - The package's ``selected_candidate_id`` is honoured only when no point
+      is already selected; otherwise the user's existing selection stands.
+    - On rerun, if the LLM emits ``p1``/``p2`` again and those ids already
+      exist from a previous run, those rows are preserved unchanged. The new
+      run simply appends any additional generated candidates (``p3``, ``p4``,
+      ...).
+    - ``run_start_candidate_ids`` protects against re-inserting stale data:
+      if a user deletes a run-start candidate during the disclosure, its id
+      is absent from the fresh store snapshot but still present in
+      ``package_candidates`` (merged at run start). Without the guard, the
+      helper would re-insert the deleted stale user point. When
+      ``run_start_candidate_ids`` is provided, any package candidate whose id
+      was present at run-start but is now absent from the store is silently
+      skipped — the user's deletion is respected.
+
+    Returns the number of candidates inserted.
+    """
+    existing_points = store.list_project_patent_points(project_id)
+    existing_ids = {point.id for point in existing_points}
+    has_existing_selection = any(point.selected for point in existing_points)
+    inserted = 0
+    for candidate in package_candidates:
+        if candidate.id in existing_ids:
+            # Already present — leave user edits / prior-generation rows alone.
+            continue
+        # Guard: if the candidate was present at run-start but the user
+        # deleted it during the disclosure, do NOT resurrect it.
+        if run_start_candidate_ids and candidate.id in run_start_candidate_ids:
+            continue
+        point = candidate
+        if (
+            package_selected_id is not None
+            and candidate.id == package_selected_id
+            and not has_existing_selection
+        ):
+            point = candidate.model_copy(update={"selected": True})
+            has_existing_selection = True
+        store.add_project_patent_point(project_id, point)
+        existing_ids.add(point.id)
+        inserted += 1
+    return inserted
+
+
 def _execute_disclosure(
     store: SQLiteStore,
     index: LocalVectorIndex,
@@ -2092,6 +2153,7 @@ def _execute_disclosure(
 
     try:
         user_candidates = store.list_project_patent_points(project.id)
+        run_start_candidate_ids = {c.id for c in user_candidates}
         cached_llm = _cached_llm(
             store=store,
             project_id=project.id,
@@ -2164,6 +2226,25 @@ def _execute_disclosure(
         run_dir = Path(run.run_dir)
         write_disclosure_artifacts(package_with_diagnostics, run_dir)
         store.update_disclosure_run(completed)
+        # Persist generated candidates as editable patent points so the user
+        # can confirm / edit / select them after disclosure completes. The
+        # writes must be conflict-safe: any point the user already has in the
+        # store (whether they created it themselves or it was materialised by
+        # an earlier disclosure run) is left untouched so user edits and
+        # selection changes made during this long run are preserved. Only
+        # genuinely NEW candidate ids are inserted, and the package's
+        # selected_candidate_id is honoured only when the user has not already
+        # selected something (so we never clobber their selection). On rerun,
+        # if the LLM emits p1/p2 again and those ids already exist from the
+        # previous run, those rows are preserved as-is — the new run simply
+        # appends any additional generated candidates (e.g. p3, p4).
+        _persist_disclosure_candidates(
+            store=store,
+            project_id=project.id,
+            package_candidates=package.candidates,
+            package_selected_id=package.selected_candidate_id,
+            run_start_candidate_ids=run_start_candidate_ids,
+        )
         return completed
     except ConfigError:
         raise

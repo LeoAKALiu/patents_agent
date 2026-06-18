@@ -639,6 +639,467 @@ def _create_patent_point(
     return response.json()
 
 
+def test_disclosure_persists_candidates_as_editable_patent_points(tmp_path):
+    """Disclosure-generated candidate patent points should appear in GET /patent-points."""
+    llm = FakeLLMClient(
+        {
+            "disclosure_scan": '{"summary":"多模态检索项目","materials_summary":"无材料","technical_keywords":["多模态","检索"],"implementation_gaps":[]}',
+            "patent_points": '{"candidates":['
+            '{"id":"p1","title":"多模态检索方法","technical_problem":"单模态检索精度不足","innovation":"融合文本和图像特征","technical_solution":"构建跨模态编码器","beneficial_effects":["提高检索精度"],"protection_focus":["方法"],"grantability_score":0.8,"rationale":"结构完整"},'
+            '{"id":"p2","title":"跨模态编码器系统","technical_problem":"现有编码器无法跨模态对齐","innovation":"联合训练文本和图像编码器","technical_solution":"共享嵌入空间训练","beneficial_effects":["统一表示"],"protection_focus":["系统"],"grantability_score":0.7,"rationale":"结构完整"}'
+            '],"selected_candidate_id":"p1"}',
+            "prior_art_terms": '["多模态 检索 跨模态"]',
+            "prior_art_relevance": '{"prior_art_differences":"现有技术未公开跨模态编码器。","hits":[]}',
+            "disclosure_body": "# 技术交底书\n多模态检索方法及系统。",
+            "disclosure_mermaid": "flowchart TD\nA[文本] --> C[编码器]\nB[图像] --> C",
+            "disclosure_image_prompt": "黑白线稿，展示多模态编码器。",
+            "disclosure_self_check": "[]",
+        }
+    )
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=llm,
+            prior_art_provider=StaticPriorArtProvider(),
+            load_env_file=False,
+        )
+    )
+    # Create a project
+    project_resp = client.post(
+        "/api/projects",
+        json={"name": "多模态检索", "draft_text": "一种多模态检索方法，融合文本和图像特征。"},
+    )
+    assert project_resp.status_code == 200
+    project_id = project_resp.json()["id"]
+
+    # Before disclosure, patent points should be empty
+    points_before = client.get(f"/api/projects/{project_id}/patent-points").json()["points"]
+    assert points_before == []
+
+    # Run disclosure
+    run = client.post(
+        f"/api/projects/{project_id}/disclosures",
+        json={"trace": False, "max_prior_art_results": 0},
+    )
+    assert run.status_code == 200
+    assert run.json()["status"] == "completed"
+    assert len(run.json()["package"]["candidates"]) == 2
+
+    # After disclosure, patent points should contain the generated candidates
+    points_after = client.get(f"/api/projects/{project_id}/patent-points").json()["points"]
+    assert len(points_after) == 2
+    titles = [p["title"] for p in points_after]
+    assert "多模态检索方法" in titles
+    assert "跨模态编码器系统" in titles
+    selected = [p for p in points_after if p["selected"]]
+    assert len(selected) == 1
+    assert selected[0]["title"] == "多模态检索方法"
+
+
+def test_disclosure_preserves_user_edited_point_when_id_collides(tmp_path):
+    """A point the user has in the store must never be overwritten when
+    disclosure completion persists candidates.
+
+    Simulates the long-running disclosure scenario: a user-created point
+    with id ``p1`` exists in the store with custom title and rationale.
+    Disclosure completes and emits a candidate also id'd ``p1`` (because
+    the LLM was prompted with strategic context containing ``p1``). The
+    user's title and rationale must be preserved exactly — only NEW ids
+    are inserted.
+    """
+    store = SQLiteStore(tmp_path / "store.sqlite")
+    # Seed the store with a project + a user-created point.
+    project = ProjectRecord(
+        id="proj-1",
+        name="多模态检索",
+        draft_text="一种多模态检索方法。",
+        patent_type=PatentType.INVENTION,
+    )
+    store.create_project(project)
+    user_point = PatentPointCandidate(
+        id="p1",
+        title="用户手工编辑：跨模态编码器方法",
+        technical_problem="用户补写的技术问题",
+        innovation="用户补写的创新点",
+        technical_solution="用户补写的技术方案",
+        rationale="用户在长跑过程中编辑的说明",
+        evidence_status="feasible_unverified",
+        source_type="user",
+    )
+    store.add_project_patent_point("proj-1", user_point)
+
+    # Disclosure completion tries to persist p1 (LLM-generated) and p2.
+    incoming = [
+        PatentPointCandidate(
+            id="p1",
+            title="模型生成 p1 标题（应当被忽略）",
+            technical_problem="LLM 问题（应当被忽略）",
+            innovation="LLM 创新（应当被忽略）",
+            technical_solution="LLM 方案（应当被忽略）",
+            rationale="LLM 说明（应当被忽略）",
+        ),
+        PatentPointCandidate(
+            id="p2",
+            title="模型生成 p2 标题",
+            technical_problem="LLM 问题 p2",
+            innovation="LLM 创新 p2",
+            technical_solution="LLM 方案 p2",
+            rationale="LLM 说明 p2",
+        ),
+    ]
+    inserted = _persist_disclosure_candidates(
+        store=store,
+        project_id="proj-1",
+        package_candidates=incoming,
+        package_selected_id="p1",
+    )
+
+    assert inserted == 1
+    points = store.list_project_patent_points("proj-1")
+    by_id = {point.id: point for point in points}
+    assert set(by_id) == {"p1", "p2"}
+    # Existing user record preserved exactly.
+    assert by_id["p1"].title == "用户手工编辑：跨模态编码器方法"
+    assert by_id["p1"].rationale == "用户在长跑过程中编辑的说明"
+    assert by_id["p1"].source_type == "user"
+    assert by_id["p1"].technical_problem == "用户补写的技术问题"
+    assert by_id["p1"].selected is False
+    # New row inserted as-is (no selection was inherited because the existing
+    # user row was not selected and the package's selected id collides with
+    # the user row — so selection is NOT applied to a NEW row).
+    assert by_id["p2"].title == "模型生成 p2 标题"
+    assert by_id["p2"].selected is False
+
+
+def test_disclosure_does_not_clobber_user_selection_on_existing_point(tmp_path):
+    """The user's pre-existing selection must not be moved onto a different
+    candidate by the disclosure completion write."""
+    store = SQLiteStore(tmp_path / "store.sqlite")
+    store.create_project(
+        ProjectRecord(
+            id="proj-2",
+            name="选点冲突测试",
+            draft_text="一种测试方法。",
+            patent_type=PatentType.INVENTION,
+        )
+    )
+    store.add_project_patent_point(
+        "proj-2",
+        PatentPointCandidate(
+            id="user-existing",
+            title="用户原有点",
+            technical_problem="用户原有",
+            innovation="用户原有",
+            technical_solution="用户原有",
+            selected=True,
+        ),
+    )
+    # Disclosure emits a fresh candidate and selects it.
+    incoming = [
+        PatentPointCandidate(
+            id="new-1",
+            title="新生成的候选点",
+            technical_problem="新生成",
+            innovation="新生成",
+            technical_solution="新生成",
+        )
+    ]
+    _persist_disclosure_candidates(
+        store=store,
+        project_id="proj-2",
+        package_candidates=incoming,
+        package_selected_id="new-1",
+    )
+    points = store.list_project_patent_points("proj-2")
+    by_id = {p.id: p for p in points}
+    # New candidate inserted but its `selected` flag must stay False because
+    # the user already had a selection.
+    assert by_id["new-1"].selected is False
+    # User's selection preserved.
+    assert by_id["user-existing"].selected is True
+
+
+def test_disclosure_rerun_preserves_previous_generated_p1_p2(tmp_path):
+    """A second disclosure run must not overwrite p1/p2 from the first run;
+    any additional generated candidates (e.g. p3, p4) should be appended as
+    new rows."""
+    store = SQLiteStore(tmp_path / "store.sqlite")
+    store.create_project(
+        ProjectRecord(
+            id="proj-3",
+            name="重跑测试",
+            draft_text="一种重跑方法。",
+            patent_type=PatentType.INVENTION,
+        )
+    )
+    # Simulate state from a previous run: p1/p2 already stored as
+    # model-generated, with the user having edited p1's title.
+    store.add_project_patent_point(
+        "proj-3",
+        PatentPointCandidate(
+            id="p1",
+            title="用户编辑过的 p1",
+            technical_problem="用户编辑",
+            innovation="用户编辑",
+            technical_solution="用户编辑",
+            evidence_status="model_generated",
+            source_type="model",
+        ),
+    )
+    store.add_project_patent_point(
+        "proj-3",
+        PatentPointCandidate(
+            id="p2",
+            title="原始 p2",
+            technical_problem="原始 p2",
+            innovation="原始 p2",
+            technical_solution="原始 p2",
+            evidence_status="model_generated",
+            source_type="model",
+            selected=True,
+        ),
+    )
+
+    # Second run: LLM again emits p1 and p2 (this would have happened with
+    # the old code and overwritten user edits). Plus two new ones: p3, p4.
+    incoming = [
+        PatentPointCandidate(
+            id="p1",
+            title="重跑生成的 p1（应被忽略）",
+            technical_problem="重跑 p1",
+            innovation="重跑 p1",
+            technical_solution="重跑 p1",
+        ),
+        PatentPointCandidate(
+            id="p2",
+            title="重跑生成的 p2（应被忽略）",
+            technical_problem="重跑 p2",
+            innovation="重跑 p2",
+            technical_solution="重跑 p2",
+        ),
+        PatentPointCandidate(
+            id="p3",
+            title="重跑新生成的 p3",
+            technical_problem="重跑 p3",
+            innovation="重跑 p3",
+            technical_solution="重跑 p3",
+        ),
+        PatentPointCandidate(
+            id="p4",
+            title="重跑新生成的 p4",
+            technical_problem="重跑 p4",
+            innovation="重跑 p4",
+            technical_solution="重跑 p4",
+        ),
+    ]
+    inserted = _persist_disclosure_candidates(
+        store=store,
+        project_id="proj-3",
+        package_candidates=incoming,
+        package_selected_id="p1",
+    )
+    assert inserted == 2  # only p3 and p4 are new
+
+    points = store.list_project_patent_points("proj-3")
+    by_id = {p.id: p for p in points}
+    assert set(by_id) == {"p1", "p2", "p3", "p4"}
+    # p1 (user-edited) preserved; selection is NOT moved here because the
+    # user's existing p2 selection stands.
+    assert by_id["p1"].title == "用户编辑过的 p1"
+    assert by_id["p1"].selected is False
+    assert by_id["p2"].title == "原始 p2"
+    assert by_id["p2"].selected is True
+    # New rows are appended without selection (user already had p2 selected).
+    assert by_id["p3"].title == "重跑新生成的 p3"
+    assert by_id["p3"].selected is False
+    assert by_id["p4"].title == "重跑新生成的 p4"
+    assert by_id["p4"].selected is False
+
+
+def test_disclosure_rerun_api_preserves_user_edited_generated_point(tmp_path):
+    """End-to-end: run disclosure (creates p1/p2), user edits p1's title,
+    then run disclosure again. The user's edit on p1 must survive."""
+    llm = FakeLLMClient(
+        {
+            "disclosure_scan": '{"summary":"重跑项目","materials_summary":"无材料","technical_keywords":["重跑"],"implementation_gaps":[]}',
+            "patent_points": '{"candidates":['
+            '{"id":"p1","title":"重跑生成 p1 标题","technical_problem":"重跑 p1","innovation":"重跑 p1","technical_solution":"重跑 p1","grantability_score":0.5,"rationale":"重跑 p1"},'
+            '{"id":"p2","title":"重跑生成 p2 标题","technical_problem":"重跑 p2","innovation":"重跑 p2","technical_solution":"重跑 p2","grantability_score":0.5,"rationale":"重跑 p2"}'
+            '],"selected_candidate_id":"p1"}',
+            "prior_art_terms": '["重跑"]',
+            "prior_art_relevance": '{"prior_art_differences":"无显著差异。","hits":[]}',
+            "disclosure_body": "# 重跑项目交底书",
+            "disclosure_mermaid": "flowchart TD\nA-->B",
+            "disclosure_image_prompt": "黑白线稿。",
+            "disclosure_self_check": "[]",
+        }
+    )
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=llm,
+            prior_art_provider=StaticPriorArtProvider(),
+            load_env_file=False,
+        )
+    )
+    project_resp = client.post(
+        "/api/projects",
+        json={"name": "重跑项目", "draft_text": "一种重跑方法。"},
+    )
+    assert project_resp.status_code == 200
+    project_id = project_resp.json()["id"]
+
+    # First run: persists p1/p2.
+    first = client.post(
+        f"/api/projects/{project_id}/disclosures",
+        json={"trace": False, "max_prior_art_results": 0},
+    )
+    assert first.status_code == 200
+    assert first.json()["status"] == "completed"
+
+    # User edits p1's title via PATCH.
+    patched = client.patch(
+        f"/api/projects/{project_id}/patent-points/p1",
+        json={"title": "用户手工编辑的 p1 标题"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["title"] == "用户手工编辑的 p1 标题"
+
+    # Second run: same LLM outputs p1/p2 again. With the bug, this would
+    # overwrite the user's edit. With the fix, p1 stays edited and p2 is
+    # untouched (the LLM's p1/p2 collide with existing ids).
+    second = client.post(
+        f"/api/projects/{project_id}/disclosures",
+        json={"trace": False, "max_prior_art_results": 0},
+    )
+    assert second.status_code == 200
+    assert second.json()["status"] == "completed"
+
+    points = client.get(f"/api/projects/{project_id}/patent-points").json()["points"]
+    by_id = {p["id"]: p for p in points}
+    assert set(by_id) == {"p1", "p2"}
+    assert by_id["p1"]["title"] == "用户手工编辑的 p1 标题"
+    assert by_id["p2"]["title"] == "重跑生成 p2 标题"
+
+
+def test_disclosure_first_run_marks_selected_when_store_was_empty(tmp_path):
+    """Sanity: on a fresh project, the LLM's selected candidate IS marked
+    selected (this preserves the original PR-9 contract)."""
+    store = SQLiteStore(tmp_path / "store.sqlite")
+    store.create_project(
+        ProjectRecord(
+            id="proj-4",
+            name="首次运行测试",
+            draft_text="一种首次运行方法。",
+            patent_type=PatentType.INVENTION,
+        )
+    )
+    incoming = [
+        PatentPointCandidate(
+            id="p1",
+            title="首点",
+            technical_problem="首点问题",
+            innovation="首点创新",
+            technical_solution="首点方案",
+        ),
+        PatentPointCandidate(
+            id="p2",
+            title="次点",
+            technical_problem="次点问题",
+            innovation="次点创新",
+            technical_solution="次点方案",
+        ),
+    ]
+    inserted = _persist_disclosure_candidates(
+        store=store,
+        project_id="proj-4",
+        package_candidates=incoming,
+        package_selected_id="p1",
+    )
+    assert inserted == 2
+    points = store.list_project_patent_points("proj-4")
+    by_id = {p.id: p for p in points}
+    assert by_id["p1"].selected is True
+    assert by_id["p2"].selected is False
+
+
+def test_disclosure_does_not_revive_user_deleted_run_start_candidate(tmp_path):
+    """If a user deletes a run-start candidate during a disclosure run, the
+    persistence helper must NOT re-insert that stale candidate when the
+    disclosure completes.
+
+    Scenario:
+    1. At run-start, the project has a user candidate "user-existing".
+    2. During the disclosure, the user deletes "user-existing".
+    3. At completion, package.candidates still contains "user-existing"
+       (merged at run start) plus a new generated candidate "gen-new".
+    4. _persist_disclosure_candidates takes a fresh store snapshot — only
+       the generated IDs that were truly new (not present at run start)
+       should be inserted. "user-existing" must not reappear.
+    """
+    store = SQLiteStore(tmp_path / "store.sqlite")
+    store.create_project(
+        ProjectRecord(
+            id="proj-5",
+            name="用户删除测试",
+            draft_text="一种用户删除运行起点的方法。",
+            patent_type=PatentType.INVENTION,
+        )
+    )
+    # Seed a run-start user candidate.
+    store.add_project_patent_point(
+        "proj-5",
+        PatentPointCandidate(
+            id="user-existing",
+            title="用户原有候选点",
+            technical_problem="用户原有",
+            innovation="用户原有",
+            technical_solution="用户原有",
+            source_type="user",
+        ),
+    )
+
+    # Simulate user deletion during the disclosure run: remove the
+    # run-start candidate from the store.
+    store.delete_project_patent_point("proj-5", "user-existing")
+
+    # The package contains the run-start candidate (merged at run start)
+    # plus a new generated candidate.
+    incoming = [
+        PatentPointCandidate(
+            id="user-existing",
+            title="用户原有候选点（应被忽略）",
+            technical_problem="用户原有",
+            innovation="用户原有",
+            technical_solution="用户原有",
+        ),
+        PatentPointCandidate(
+            id="gen-new",
+            title="新生成的候选点",
+            technical_problem="新生成",
+            innovation="新生成",
+            technical_solution="新生成",
+        ),
+    ]
+    inserted = _persist_disclosure_candidates(
+        store=store,
+        project_id="proj-5",
+        package_candidates=incoming,
+        package_selected_id=None,
+        run_start_candidate_ids={"user-existing"},
+    )
+    # Only the genuinely new generated candidate should be inserted.
+    assert inserted == 1
+
+    points = store.list_project_patent_points("proj-5")
+    by_id = {p.id: p for p in points}
+    # "user-existing" must NOT be resurrected.
+    assert "user-existing" not in by_id
+    # "gen-new" must be present.
+    assert "gen-new" in by_id
+    assert by_id["gen-new"].title == "新生成的候选点"
+
+
 def _create_completed_deliberation(client: TestClient, project_id: str) -> None:
     client.app.state.store.create_deliberation_run(
         DeliberationRun(
