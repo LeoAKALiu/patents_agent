@@ -39,6 +39,10 @@ def generate_claim_defense_worksheet(
     evidence_bindings: list[EvidenceBinding] | None = None,
 ) -> ClaimDefenseWorksheet:
     notes: list[str] = []
+    # Collect material evidence notes from disclosure packages.
+    for run in disclosures:
+        if run.package and run.package.materials_summary:
+            notes.append(f"disclosure {run.id} material evidence: {run.package.materials_summary}")
     feature_records = _extract_rule_features(package, disclosures, patent_points)
     feature_records.extend(_try_llm_features(project_id, package, disclosures, patent_points, llm, notes))
 
@@ -85,6 +89,11 @@ def _try_llm_features(
                 run.package.model_dump(mode="json")
                 for run in disclosures
                 if run.package is not None
+            ],
+            "material_evidence": [
+                run.package.materials_summary
+                for run in disclosures
+                if run.package is not None and run.package.materials_summary
             ],
             "allowed_classifications": sorted(VALID_CLASSIFICATIONS),
         },
@@ -160,7 +169,7 @@ def _extract_rule_features(
                     feature_id=f"f-{uuid.uuid4().hex[:8]}",
                     text=_clean_text(candidate.innovation or candidate.title),
                     classification=_classify_text(candidate.innovation or candidate.title, patent_points, disclosures),
-                    description_refs=[f"disclosure:{run.id}"],
+                    description_refs=[f"disclosure:{run.id}", f"materials:{run.package.materials_summary}"],
                     risk_tags=_risk_tags(candidate.innovation or candidate.title),
                 )
             )

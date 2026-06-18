@@ -339,6 +339,202 @@ def test_disclosure_health_endpoint_reports_llm_unconfigured(tmp_path: Path, mon
     assert payload["llm_configured"] is False
 
 
+# --- Material upload and processing edge-case tests ---------------------------
+
+
+def test_material_upload_supports_markdown_file(tmp_path: Path):
+    """Synthetic .md files can be uploaded and appear as processed."""
+    llm = _disclosure_llm()
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=llm,
+            prior_art_provider=StaticPriorArtProvider(),
+        )
+    )
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "MD test", "draft_text": "一种AI方法。"},
+    ).json()["id"]
+
+    material_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={
+            "file": (
+                "design.md",
+                "# 技术方案\n\n系统包括采集模块和缺陷定位模块。\n\n## 数据流\n\n图像 → 模型 → 输出。".encode("utf-8"),
+                "text/markdown",
+            )
+        },
+    )
+    assert material_response.status_code == 200
+    material = material_response.json()
+    assert material["status"] == "processed"
+    assert material["file_type"] == "md"
+    assert "采集模块" in material["text"]
+
+
+def test_material_upload_rejects_unsupported_type_with_actionable_message(tmp_path: Path):
+    """Unsupported file types return 200 with failed status and actionable warning."""
+    llm = _disclosure_llm()
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=llm,
+            prior_art_provider=StaticPriorArtProvider(),
+        )
+    )
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "Type test", "draft_text": "一种方法。"},
+    ).json()["id"]
+
+    material_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={"file": ("data.csv", b"col1,col2\n1,2", "text/csv")},
+    )
+    assert material_response.status_code == 200
+    material = material_response.json()
+    assert material["status"] == "failed"
+    assert "csv" in material["warnings"][0].lower() or "Unsupported" in material["warnings"][0]
+
+
+def test_material_upload_fails_gracefully_on_empty_docx(tmp_path: Path):
+    """Empty DOCX returns 200 failed with actionable explanation."""
+    from docx import Document as DocxDocument
+
+    empty_docx = tmp_path / "empty.docx"
+    doc = DocxDocument()
+    # Add a paragraph with only whitespace — this should be treated as no extractable text.
+    doc.add_paragraph("   ")
+    doc.save(str(empty_docx))
+
+    llm = _disclosure_llm()
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=llm,
+            prior_art_provider=StaticPriorArtProvider(),
+        )
+    )
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "Empty DOCX test", "draft_text": "一种方法。"},
+    ).json()["id"]
+
+    with empty_docx.open("rb") as handle:
+        material_response = client.post(
+            f"/api/projects/{project_id}/materials",
+            files={"file": ("empty.docx", handle, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        )
+    assert material_response.status_code == 200
+    material = material_response.json()
+    assert material["status"] == "failed"
+    assert "no extractable text" in material["warnings"][0].lower() or "no text" in material["warnings"][0].lower()
+
+
+def test_material_parser_warns_on_short_text(tmp_path: Path):
+    """Material text < 20 chars triggers a short-text warning."""
+    short_path = tmp_path / "short.txt"
+    short_path.write_text("Hi.", encoding="utf-8")
+    text, warnings = read_project_material_text(short_path)
+    assert len(text) <= 3
+    assert any("不足20字符" in w for w in warnings)
+    assert any("材料文本较短" in w for w in warnings)
+
+
+def test_materials_appear_in_disclosure_package(tmp_path: Path):
+    """Uploaded materials summary flows into disclosure package."""
+    llm = _disclosure_llm()
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=llm,
+            prior_art_provider=StaticPriorArtProvider(hits=[_prior_art_hit()]),
+        )
+    )
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "Material flow test", "draft_text": "一种图像缺陷识别方法。"},
+    ).json()["id"]
+
+    # Upload a material
+    material_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={"file": ("design.txt", "补充材料：系统包含采集模块、模型训练模块和缺陷定位模块。".encode("utf-8"), "text/plain")},
+    )
+    assert material_response.status_code == 200
+    assert material_response.json()["status"] == "processed"
+
+    # Run disclosure
+    run_response = client.post(
+        f"/api/projects/{project_id}/disclosures",
+        json={"trace": False, "max_prior_art_results": 8},
+    )
+    assert run_response.status_code == 200
+    package = run_response.json()["package"]
+    assert package["materials_summary"] != ""
+    assert "materials_summary" in package
+
+
+def test_material_evidence_in_claim_defense_worksheet(tmp_path: Path):
+    """Material evidence from disclosures is visible in claim_defense worksheet notes."""
+    from backend.app.claim_defense import generate_claim_defense_worksheet
+    from backend.app.schemas import (
+        DisclosureRun,
+        DraftPackage,
+    )
+
+    llm = _disclosure_llm()
+    provider = StaticPriorArtProvider(hits=[_prior_art_hit()])
+    generator = DisclosureGenerator(llm, provider)
+    project = ProjectRecord(id="p-def", name="缺陷识别", draft_text="一种基于神经网络的缺陷识别方法。")
+
+    package, _, _ = generator.generate(
+        project=project,
+        materials=[],
+        context_chunks=[],
+        max_prior_art_results=8,
+    )
+
+    disclosure_run = DisclosureRun(
+        id="dr-1",
+        project_id="p-def",
+        status="completed",
+        package=package,
+    )
+
+    draft_package = DraftPackage(
+        title="缺陷识别方法",
+        abstract="本发明公开了一种缺陷识别方法。",
+        claims="1. 一种缺陷识别方法，包括采集图像和输出缺陷位置。",
+        description="技术领域：AI检测。",
+        drawing_description="图1为流程图。",
+        mermaid="flowchart TD\nA[采集] --> B[输出]",
+        image_prompt="黑白线稿。",
+    )
+
+    worksheet = generate_claim_defense_worksheet(
+        project_id="p-def",
+        package=draft_package,
+        disclosures=[disclosure_run],
+        patent_points=[],
+        llm=None,
+    )
+
+    # Material evidence note should be present since the disclosure has materials_summary
+    assert any("material evidence" in note.lower() for note in worksheet.notes), (
+        f"Expected material evidence note, got: {worksheet.notes}"
+    )
+    # Feature records from disclosure should reference materials
+    if worksheet.feature_records:
+        assert any(
+            "materials:" in ref
+            for record in worksheet.feature_records
+            for ref in record.description_refs
+        ), f"Expected materials: refs in feature records, got: {worksheet.feature_records}"
+
+
 def _prior_art_hit() -> PriorArtHit:
     return PriorArtHit(
         id="h1",

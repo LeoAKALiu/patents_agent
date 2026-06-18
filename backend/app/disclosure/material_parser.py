@@ -12,14 +12,32 @@ def read_project_material_text(path: Path) -> tuple[str, list[str]]:
     suffix = path.suffix.lower()
     warnings: list[str] = []
     if suffix in {".txt", ".md", ".markdown", ".pdf", ".docx"}:
-        text = read_document_text(path)
+        try:
+            text = read_document_text(path)
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise ValueError(
+                f"Failed to read {suffix} material \"{path.name}\": {exc}"
+            ) from exc
+        if suffix == ".docx" and not text.strip():
+            raise ValueError(
+                f"DOCX material \"{path.name}\" contains no extractable text. "
+                "If the document has text, please re-save it as a standard .docx file."
+            )
     elif suffix in {".pptx", ".ppsx"}:
         text = _read_pptx_text(path)
     else:
-        raise ValueError(f"Unsupported project material file type: {suffix}")
+        raise ValueError(
+            f"Unsupported project material file type \"{suffix}\". "
+            f"Supported types: .txt, .md, .markdown, .pdf, .docx, .pptx, .ppsx."
+        )
     normalized = _normalize_text(text)
     if len(normalized) < 20:
-        warnings.append("材料文本较短，可能不足以支撑专利点挖掘。")
+        warnings.append(
+            "材料文本较短（不足20字符），可能不足以支撑专利点挖掘。"
+            "建议上传包含技术方案、模块/步骤描述的完整文档。"
+        )
     return normalized, warnings
 
 
@@ -53,4 +71,3 @@ def _read_pptx_text(path: Path) -> str:
 
 def _normalize_text(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text.strip())
-
