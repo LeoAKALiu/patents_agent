@@ -62,7 +62,11 @@ def _to_ascii_safe(name: str) -> str:
     # Collapse multiple underscores and strip leading/trailing dots/spaces/underscores.
     safe = re.sub(r"_+", "_", safe)
     safe = safe.strip("._ ")
-    return safe or "download"
+    # If nothing remains, or the result is only punctuation / non-alphanumeric
+    # (e.g. a lone hyphen left after stripping CJK), return a stable fallback.
+    if not safe or not any(c.isalnum() for c in safe):
+        return "download"
+    return safe
 
 
 def _encode_rfc5987(value: str) -> str:

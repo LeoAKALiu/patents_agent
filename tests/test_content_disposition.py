@@ -14,6 +14,33 @@ def test_ascii_safe_strips_chinese_characters():
     result = _to_ascii_safe("一种图像缺陷识别方法")
     # All non-ASCII stripped; only safe chars remain.
     assert all(ord(c) < 128 for c in result)
+    # Must contain at least one alphanumeric char — not just punctuation.
+    assert any(c.isalnum() for c in result)
+
+
+def test_ascii_safe_fallback_for_cjk_with_hyphen():
+    """CJK-hyphen-CJK: only the hyphen survives ASCII stripping → must fall back."""
+    result = _to_ascii_safe("一种图像缺陷识别方法-审查包报告")
+    # Must NOT be just a hyphen or other punctuation.
+    assert result != "-"
+    assert any(c.isalnum() for c in result)
+    # Should be the stable "download" fallback.
+    assert result == "download"
+
+
+def test_ascii_safe_fallback_for_only_punctuation():
+    """Only hyphens/underscores/dots → fall back."""
+    assert _to_ascii_safe("---") == "download"
+    assert _to_ascii_safe("___") == "download"
+    assert _to_ascii_safe("-._") == "download"
+
+
+def test_ascii_safe_preserves_mixed_cjk_ascii():
+    """Mixed CJK/ASCII: keep the ASCII portion."""
+    result = _to_ascii_safe("project-测试项目")
+    # Must contain the ASCII portion.
+    assert "project" in result
+    assert all(ord(c) < 128 for c in result)
 
 
 def test_ascii_safe_sanitizes_illegal_chars():
@@ -59,10 +86,40 @@ def test_make_cd_header_with_chinese_name():
     # ASCII fallback should have no Chinese characters
     ascii_part = header.split("; filename=")[1].split(";")[0].strip('"')
     assert all(ord(c) < 128 for c in ascii_part)
+    # ASCII fallback must NOT be just punctuation — must have alnum chars.
+    assert any(c.isalnum() for c in ascii_part)
     # Extension preserved in ASCII part
     assert ascii_part.endswith(".docx")
     # UTF-8 encoded name also ends with .docx
     assert "UTF-8''%E4%B8%80" in header  # 一种... encoded
+
+
+def test_make_cd_header_cjk_hyphen_name():
+    """Pure CJK segments joined by hyphen — ASCII fallback must not be '-.ext'."""
+    header = make_content_disposition("一种图像缺陷识别方法-审查包报告.md")
+    assert header.startswith("attachment; filename=\"")
+    assert "; filename*=UTF-8''" in header
+    # Extract the ASCII fallback filename part.
+    ascii_part = header.split("; filename=")[1].split(";")[0].strip('"')
+    # Must not be "-.md" or similar punctuation-only fallback.
+    assert ascii_part != "-.md"
+    assert ascii_part != "-.docx"
+    # Must contain alphanumeric characters.
+    assert any(c.isalnum() for c in ascii_part)
+    # Extension must be preserved.
+    assert ascii_part.endswith(".md")
+    # The UTF-8 encoded path must still carry the full name.
+    assert "%E4%B8%80%E7%A7%8D" in header  # 一种
+    assert "%E5%AE%A1%E6%9F%A5%E5%8C%85%E6%8A%A5%E5%91%8A" in header  # 审查包报告
+
+
+def test_make_cd_header_mixed_cjk_ascii():
+    """Mixed CJK/ASCII name — ASCII fallback should preserve ASCII portion."""
+    header = make_content_disposition("project-测试项目.docx")
+    ascii_part = header.split("; filename=")[1].split(";")[0].strip('"')
+    assert "project" in ascii_part
+    assert ascii_part.endswith(".docx")
+    assert all(ord(c) < 128 for c in ascii_part)
 
 
 def test_make_cd_header_preserves_extension():
