@@ -106,6 +106,8 @@ from backend.app.schemas import (
     OfficialDraftPackage,
     OfficialCompileRunCreate,
     OfficialCompileRun,
+    OfficialExportGateStage,
+    OfficialExportReadiness,
     PatentChunk,
     PatentPointCandidate,
     PatentPointCreate,
@@ -1505,9 +1507,15 @@ def create_app(
     def list_official_compile_runs(project_id: str) -> dict:
         project = _require_project(store, project_id)
         current_hash = source_draft_hash(project.package) if project.package else ""
+        readiness = (
+            compute_official_export_readiness(store, project_id, project.package).model_dump(mode="json")
+            if project.package
+            else None
+        )
         return {
             "runs": [run.model_dump(mode="json") for run in store.list_official_compile_runs(project_id)],
             "current_source_draft_hash": current_hash,
+            "export_readiness": readiness,
         }
 
     @app.get("/api/projects/{project_id}/official-compile-runs/{run_id}")
@@ -1547,6 +1555,18 @@ def create_app(
         package = _require_package(project)
         compile_run = _require_official_export_gate(store, project_id, package)
         return PlainTextResponse(official_package_to_markdown(compile_run.official_package), media_type="text/markdown; charset=utf-8")
+
+    @app.get("/api/projects/{project_id}/official-export/readiness")
+    def get_official_export_readiness(project_id: str) -> dict:
+        """Machine-readable export gate. Always 200; lets a consumer tell whether
+        formal ``official-export.{docx,md}`` will succeed and — when locked —
+        exactly why (compile / review required / review blocked) and what to do.
+        """
+        project = _require_project(store, project_id)
+        if not project.package:
+            return _draft_required_readiness(store, project_id).model_dump(mode="json")
+        readiness = compute_official_export_readiness(store, project_id, project.package)
+        return readiness.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/export.docx")
     def export_project_docx(project_id: str) -> FileResponse:
@@ -2753,31 +2773,130 @@ def _require_latest_completed_official_compile(
     return run
 
 
-def _require_official_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> OfficialCompileRun:
+def compute_official_export_readiness(
+    store: SQLiteStore, project_id: str, package: DraftPackage
+) -> OfficialExportReadiness:
+    """Single source of truth for the official export gate.
+
+    Returns a machine-readable readiness view (never raises). The export
+    endpoints (``official-export.{docx,md}``) raise the 409 using this view's
+    ``detail``; the ``/official-export/readiness`` endpoint returns it as 200.
+    """
     current_source_hash = source_draft_hash(package)
     compile_run = store.get_latest_completed_official_compile_run(project_id)
-    if not compile_run or not compile_run.official_package or compile_run.source_draft_hash != current_source_hash:
-        raise HTTPException(
-            status_code=409,
-            detail="Official draft compile is required for the current draft before official export.",
+    compile_stage = _official_compile_gate_stage(compile_run, current_source_hash)
+
+    matching_review: PostDraftReviewRun | None = None
+    if compile_stage.state == "present" and compile_run is not None:
+        matching_review = next(
+            (
+                run
+                for run in store.list_post_draft_review_runs(project_id)
+                if run.status == "completed"
+                and run.draft_package_hash == current_source_hash
+                and run.official_compile_run_id == compile_run.id
+                and run.official_package_hash == compile_run.official_package_hash
+            ),
+            None,
         )
-    latest_matching_review = next(
-        (
-            run
-            for run in store.list_post_draft_review_runs(project_id)
-            if run.status == "completed"
-            and run.draft_package_hash == current_source_hash
-            and run.official_compile_run_id == compile_run.id
-            and run.official_package_hash == compile_run.official_package_hash
-        ),
-        None,
+    review_stage = (
+        OfficialExportGateStage(
+            state="present",
+            run_id=matching_review.id,
+            status=matching_review.status,
+            export_allowed=matching_review.export_allowed,
+        )
+        if matching_review is not None
+        else OfficialExportGateStage(state="missing")
     )
-    if not latest_matching_review or not latest_matching_review.export_allowed:
-        raise HTTPException(
-            status_code=409,
-            detail="Post-draft multi-agent review is required for the current official draft before official export.",
+
+    if compile_stage.state != "present":
+        reason = "official_compile_required"
+        required_actions = ["run_official_compile"]
+        detail = (
+            "Official draft compile is required for the current draft before official export. "
+            "[reason=official_compile_required]"
         )
-    return compile_run
+        ready = False
+    elif matching_review is None:
+        reason = "post_draft_review_required"
+        required_actions = ["run_post_draft_review"]
+        detail = (
+            "Post-draft multi-agent review is required for the current official draft before official export. "
+            "Run a post-draft review to unlock formal export. [reason=post_draft_review_required]"
+        )
+        ready = False
+    elif not matching_review.export_allowed:
+        reason = "post_draft_review_blocked"
+        required_actions = ["rerun_post_draft_review"]
+        detail = (
+            "Post-draft multi-agent review is required for the current official draft before official export. "
+            "The latest matching review blocked export; revise the draft or rerun review. "
+            "[reason=post_draft_review_blocked]"
+        )
+        ready = False
+    else:
+        reason = "ready"
+        required_actions = []
+        detail = ""
+        ready = True
+
+    return OfficialExportReadiness(
+        project_id=project_id,
+        ready=ready,
+        reason=reason,
+        required_actions=required_actions,
+        detail=detail,
+        current_source_draft_hash=current_source_hash,
+        export_formats=["docx", "md"] if ready else [],
+        official_compile=compile_stage,
+        post_draft_review=review_stage,
+    )
+
+
+def _official_compile_gate_stage(
+    compile_run: OfficialCompileRun | None, current_source_hash: str
+) -> OfficialExportGateStage:
+    if not compile_run or not compile_run.official_package:
+        return OfficialExportGateStage(state="missing")
+    if compile_run.source_draft_hash != current_source_hash:
+        return OfficialExportGateStage(
+            state="stale",
+            run_id=compile_run.id,
+            status=compile_run.status,
+        )
+    return OfficialExportGateStage(
+        state="present",
+        run_id=compile_run.id,
+        status=compile_run.status,
+    )
+
+
+def _draft_required_readiness(store: SQLiteStore, project_id: str) -> OfficialExportReadiness:
+    return OfficialExportReadiness(
+        project_id=project_id,
+        ready=False,
+        reason="draft_required",
+        required_actions=["generate_draft"],
+        detail="Generate a draft before official export. [reason=draft_required]",
+        current_source_draft_hash="",
+        export_formats=[],
+        official_compile=OfficialExportGateStage(state="missing"),
+        post_draft_review=OfficialExportGateStage(state="missing"),
+    )
+
+
+def _require_official_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> OfficialCompileRun:
+    readiness = compute_official_export_readiness(store, project_id, package)
+    if readiness.ready:
+        compile_run = store.get_latest_completed_official_compile_run(project_id)
+        if compile_run is not None and compile_run.official_package is not None:
+            return compile_run
+        # Defensive: readiness said ready but the store changed underneath us
+        # (e.g. the compile run was removed between the two reads). Fall through
+        # to the same 409 an API consumer would see on the next readiness poll.
+        readiness = compute_official_export_readiness(store, project_id, package)
+    raise HTTPException(status_code=409, detail=readiness.detail)
 
 
 def _require_disclosure_run(store: SQLiteStore, project_id: str, run_id: str) -> DisclosureRun:
