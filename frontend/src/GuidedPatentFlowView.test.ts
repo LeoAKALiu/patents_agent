@@ -61,4 +61,17 @@ describe("Guided patent flow UI regressions", () => {
     expect(exportViewSource).toContain("去重新编译");
     expect(exportViewSource).toContain("去成稿会审");
   });
+
+  it("preserves dirty post-draft repair edits across same-project refreshes", () => {
+    expect(postDraftReviewPanelSource).toContain("useRef");
+    expect(postDraftReviewPanelSource).toContain("lastLoadedRepairFormRef");
+    expect(postDraftReviewPanelSource).toContain("draftDirty");
+    expect(postDraftReviewPanelSource).toContain("if (draftDirty && lastLoadedRepairProjectIdRef.current === project?.id) return");
+  });
+
+  it("uses one official compile disabled predicate in the post-draft review panel", () => {
+    expect(postDraftReviewPanelSource).toContain("const compileDisabled =");
+    expect(postDraftReviewPanelSource.match(/disabled=\{compileDisabled\}/g)).toHaveLength(2);
+    expect(postDraftReviewPanelSource).toContain("Boolean(activeRun)");
+  });
 });

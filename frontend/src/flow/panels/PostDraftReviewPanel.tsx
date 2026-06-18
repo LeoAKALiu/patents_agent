@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClipboardCheck, FileText, Loader2, RefreshCw, Save } from "@/lib/icons";
 import { AgentProviderCards } from "@/AgentProviderCards";
@@ -71,24 +71,43 @@ export function PostDraftReviewPanel({
   onToggleProvider,
 }: PostDraftReviewPanelProps) {
   const packageValue = project?.package ?? null;
+  const currentRepairForm = useMemo(() => packageToRepairForm(packageValue), [packageValue]);
   const [draftForm, setDraftForm] = useState<DraftPackageRepairForm>(() => packageToRepairForm(packageValue));
+  const lastLoadedRepairFormRef = useRef(serializeRepairForm(packageToRepairForm(packageValue)));
+  const lastLoadedRepairProjectIdRef = useRef(project?.id);
   const passed = Boolean(review?.status === "completed" && review.export_allowed);
   const blocked = Boolean(review?.status === "completed" && !review.export_allowed);
   const activeRun = guidedActiveRun(runs);
   const reviewBusy = busy === "post-draft-review" || Boolean(activeRun);
   const compileBusy = busy === "official-compile";
   const saveBusy = busy === "draft-package-save";
+  const compileDisabled = !packageValue || compileBusy || reviewBusy || saveBusy || Boolean(activeRun) || Boolean(busy);
   const repairRun = blocked ? review : runs[0] ?? null;
   const showRepairWorkbench = Boolean(packageValue && (blocked || (!review && runs.length > 0)));
   const repairGuidance = useMemo(() => guidanceFromReview(repairRun), [repairRun]);
+  const currentRepairFormKey = useMemo(() => serializeRepairForm(currentRepairForm), [currentRepairForm]);
+  const draftFormKey = useMemo(() => serializeRepairForm(draftForm), [draftForm]);
   const draftDirty = useMemo(
-    () => packageValue !== null && JSON.stringify(draftForm) !== JSON.stringify(packageToRepairForm(packageValue)),
-    [draftForm, packageValue],
+    () => packageValue !== null && draftFormKey !== lastLoadedRepairFormRef.current,
+    [draftFormKey, packageValue],
   );
 
   useEffect(() => {
-    setDraftForm(packageToRepairForm(packageValue));
-  }, [packageValue, project?.id]);
+    if (lastLoadedRepairProjectIdRef.current !== project?.id) {
+      lastLoadedRepairProjectIdRef.current = project?.id;
+      lastLoadedRepairFormRef.current = currentRepairFormKey;
+      setDraftForm(currentRepairForm);
+      return;
+    }
+    if (draftFormKey === currentRepairFormKey) {
+      lastLoadedRepairFormRef.current = currentRepairFormKey;
+      setDraftForm(currentRepairForm);
+      return;
+    }
+    if (draftDirty && lastLoadedRepairProjectIdRef.current === project?.id) return;
+    lastLoadedRepairFormRef.current = currentRepairFormKey;
+    setDraftForm(currentRepairForm);
+  }, [currentRepairForm, currentRepairFormKey, draftDirty, draftFormKey, project?.id]);
 
   function updateDraftField(field: keyof DraftPackageRepairForm, value: string) {
     setDraftForm((current) => ({ ...current, [field]: value }));
@@ -162,7 +181,7 @@ export function PostDraftReviewPanel({
                 )}
               </div>
               <ActionDock meta="建议顺序：保存初稿 → 重新编译正式稿 → 重新成稿会审。">
-                <button className="btn btn-secondary" disabled={!packageValue || Boolean(busy)} onClick={onStartOfficialCompile} type="button">
+                <button className="btn btn-secondary" disabled={compileDisabled} onClick={onStartOfficialCompile} type="button">
                   {compileBusy ? <Loader2 className="spin" size={17} /> : <RefreshCw size={17} />}
                   <span>{officialCompileRun ? "重新编译正式稿" : "编译正式稿"}</span>
                 </button>
@@ -220,7 +239,7 @@ export function PostDraftReviewPanel({
         <ActionDock meta="会审结果必须与当前成稿和正式稿版本一致，才会放行正式导出。">
           <button
             className="btn btn-secondary"
-            disabled={!packageValue || compileBusy || reviewBusy}
+            disabled={compileDisabled}
             onClick={onStartOfficialCompile}
             type="button"
           >
@@ -281,6 +300,10 @@ function packageToRepairForm(packageValue: DraftPackage | null): DraftPackageRep
     description: packageValue?.description ?? "",
     drawing_description: packageValue?.drawing_description ?? "",
   };
+}
+
+function serializeRepairForm(form: DraftPackageRepairForm): string {
+  return JSON.stringify(form);
 }
 
 function guidanceFromReview(run: PostDraftReviewRun | null): Array<{ kind: "blocking" | "issue" | "rewrite" | "patch"; text: string }> {

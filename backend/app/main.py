@@ -2759,8 +2759,8 @@ def _require_latest_completed_official_compile(
 
 def _require_official_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> OfficialCompileRun:
     current_source_hash = source_draft_hash(package)
-    compile_run = store.get_latest_completed_official_compile_run(project_id)
-    if not compile_run or not compile_run.official_package or compile_run.source_draft_hash != current_source_hash:
+    compile_run = store.get_latest_completed_official_compile_run_for_hash(project_id, current_source_hash)
+    if not compile_run or not compile_run.official_package:
         raise HTTPException(
             status_code=409,
             detail="Official draft compile is required for the current draft before official export.",

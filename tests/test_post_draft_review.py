@@ -189,6 +189,38 @@ def test_post_draft_review_hash_mismatch_invalidates_export_gate(tmp_path):
     assert "current draft" in export_response.json()["detail"]
 
 
+def test_official_export_uses_matching_compile_after_reverting_package(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    package_a = _package()
+    project_id = _create_project_with_package(client, package_a)
+
+    compile_a_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_a_response.status_code == 200
+    compile_a = compile_a_response.json()
+    assert compile_a["status"] == "completed"
+    review_a = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert review_a["export_allowed"] is True
+    assert review_a["official_compile_run_id"] == compile_a["id"]
+
+    package_b = _package(description="说明书切换到版本 B，暂未完成成稿会审。")
+    update_b_response = client.patch(f"/api/projects/{project_id}/package", json=package_b.model_dump(mode="json"))
+    assert update_b_response.status_code == 200
+    compile_b_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_b_response.status_code == 200
+    assert compile_b_response.json()["status"] == "completed"
+
+    stale_b_export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert stale_b_export.status_code == 409
+    assert "Post-draft multi-agent review is required" in stale_b_export.json()["detail"]
+
+    revert_response = client.patch(f"/api/projects/{project_id}/package", json=package_a.model_dump(mode="json"))
+    assert revert_response.status_code == 200
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 200
+    assert "权利要求书" in export_response.text
+
+
 def test_blocked_post_draft_review_can_be_resolved_by_editing_current_draft_package(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
