@@ -538,6 +538,79 @@ class SQLiteStore:
         ).fetchone()
         return self._draft_completion_run_from_row(row) if row else None
 
+    def update_draft_completion_run(self, run: DraftCompletionRun) -> DraftCompletionRun | None:
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                update draft_completion_runs
+                set run_json = ?
+                where project_id = ? and id = ?
+                """,
+                (
+                    json.dumps(run.model_dump(mode="json"), ensure_ascii=False),
+                    run.project_id,
+                    run.id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            return None
+        return self.get_draft_completion_run(run.project_id, run.id) or run
+
+    def get_llm_stage_cache(self, cache_key: str) -> dict[str, Any] | None:
+        row = self.connection.execute(
+            """
+            select * from llm_stage_cache
+            where cache_key = ?
+                and (expires_at is null or expires_at = '' or datetime(expires_at) > datetime('now'))
+            """,
+            (cache_key,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def put_llm_stage_cache(
+        self,
+        *,
+        cache_key: str,
+        project_id: str,
+        stage: str,
+        model: str,
+        prompt_hash: str,
+        input_hash: str,
+        prompt_pack_version: str,
+        response_text: str,
+        response_json: str | None = None,
+        status: str = "completed",
+        expires_at: str | None = None,
+    ) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert or replace into llm_stage_cache(
+                    cache_key, project_id, stage, model, prompt_hash, input_hash,
+                    prompt_pack_version, response_text, response_json, status, expires_at
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    cache_key,
+                    project_id,
+                    stage,
+                    model,
+                    prompt_hash,
+                    input_hash,
+                    prompt_pack_version,
+                    response_text,
+                    response_json,
+                    status,
+                    expires_at,
+                ),
+            )
+
+    def clear_project_llm_cache(self, project_id: str) -> int:
+        with self.connection:
+            cursor = self.connection.execute("delete from llm_stage_cache where project_id = ?", (project_id,))
+        return cursor.rowcount
+
     def create_formula_run(self, run: FormulaRun) -> FormulaRun:
         with self.connection:
             self.connection.execute(
@@ -1197,6 +1270,21 @@ class SQLiteStore:
                     run_json text not null,
                     created_at text not null default current_timestamp,
                     foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists llm_stage_cache (
+                    cache_key text primary key,
+                    project_id text not null,
+                    stage text not null,
+                    model text not null,
+                    prompt_hash text not null,
+                    input_hash text not null,
+                    prompt_pack_version text not null default '',
+                    response_text text not null,
+                    response_json text,
+                    status text not null,
+                    created_at text not null default current_timestamp,
+                    expires_at text
                 );
 
                 create table if not exists formula_runs (
