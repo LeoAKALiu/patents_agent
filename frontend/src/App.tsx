@@ -122,11 +122,13 @@ import {
   startOfficialCompileRun,
   startPostDraftReview,
   updateProjectPatentPoint,
+  updateProject,
   uploadCorpusJobFile,
   uploadExternalDraftSource,
   uploadProjectMaterial,
 } from "./api";
 import { GuidedPatentFlowView } from "./GuidedPatentFlow";
+import { type MetadataFields } from "./flow/panels/IdeaIntakePanel";
 import { runtimeDisplayElapsedMs, runtimeDisplayElapsedSeconds, useRuntimeNow } from "./runtimeDisplay";
 import {
   loadPatentPoints as projectDataLoadPatentPoints,
@@ -1073,7 +1075,7 @@ function App() {
     event.preventDefault();
     if (!projectName.trim() || !draftText.trim()) return;
     await withStatus("create", async () => {
-      const project = await createProject(projectName.trim(), draftText.trim());
+      const project = await createProject({ name: projectName.trim(), draft_text: draftText.trim() });
       const nextProjects = await listProjects();
       setProjects(nextProjects);
       setSelectedProjectId(project.id);
@@ -1083,16 +1085,52 @@ function App() {
     });
   }
 
-  async function handleCreateIdeaProject(payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) {
+  async function handleCreateIdeaProject(payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType; metadata: MetadataFields }) {
     await withStatus("guided-create", async () => {
       const prefix = projectGoalPrefix(payload.mode);
-      const project = await createProject(payload.name, `${prefix}\n${payload.idea}`, payload.patentType);
+      const project = await createProject({
+        name: payload.name,
+        draft_text: `${prefix}\n${payload.idea}`,
+        patent_type: payload.patentType,
+        applicant: payload.metadata.applicant || undefined,
+        inventors: payload.metadata.inventors || undefined,
+        technical_field: payload.metadata.technical_field || undefined,
+        background: payload.metadata.background || undefined,
+        pain_point: payload.metadata.pain_point || undefined,
+        technical_solution: payload.metadata.technical_solution || undefined,
+        innovation: payload.metadata.innovation || undefined,
+        embodiments: payload.metadata.embodiments || undefined,
+        beneficial_effects: payload.metadata.beneficial_effects || undefined,
+      });
       const nextProjects = await listProjects();
       setProjects(nextProjects);
       setSelectedProjectId(project.id);
       setProjectName("");
       setDraftText("");
       setMessage(`已创建项目：${project.name}`);
+    });
+  }
+
+  async function handleUpdateProjectMetadata(metadata: MetadataFields) {
+    if (!selectedProject) return;
+    await withStatus("guided-save-metadata", async () => {
+      const updated = await updateProject(selectedProject.id, {
+        applicant: metadata.applicant,
+        inventors: metadata.inventors,
+        technical_field: metadata.technical_field,
+        background: metadata.background,
+        pain_point: metadata.pain_point,
+        technical_solution: metadata.technical_solution,
+        innovation: metadata.innovation,
+        embodiments: metadata.embodiments,
+        beneficial_effects: metadata.beneficial_effects,
+      });
+      const nextProjects = await listProjects();
+      setProjects(nextProjects);
+      // Keep selected project in sync
+      const refreshed = nextProjects.find((p) => p.id === selectedProject.id);
+      if (refreshed) setSelectedProjectId(refreshed.id);
+      setMessage(`已保存元数据：${updated.name}`);
     });
   }
 
@@ -2044,6 +2082,7 @@ function App() {
             fixedGoalMode={startChoice === "utility" || activeSection === "utility" ? "utility" : undefined}
             initialIntakeMode={startChoice === "external" ? "external" : "idea"}
             onCreateIdeaProject={handleCreateIdeaProject}
+            onUpdateProjectMetadata={handleUpdateProjectMetadata}
             onCreateExternalDraft={handleCreateExternalDraft}
             onUploadExternalDraft={handleUploadExternalDraft}
             onStartExternalDraftIntake={handleStartExternalDraftIntake}

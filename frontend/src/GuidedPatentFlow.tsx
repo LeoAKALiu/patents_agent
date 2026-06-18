@@ -99,6 +99,7 @@ import {
   ExternalDraftIntakePanel,
   InventionPointConfirmation,
   MaterialSummary,
+  type MetadataFields,
 } from "./flow/panels";
 import { Badge } from "@/components/ui/badge";
 
@@ -128,7 +129,8 @@ export type GuidedPatentFlowProps = {
   busyElapsedSeconds?: number;
   fixedGoalMode?: PatentGoalMode;
   initialIntakeMode?: Extract<StartChoiceId, "external"> | "idea";
-  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) => Promise<void>;
+  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType; metadata: MetadataFields }) => Promise<void>;
+  onUpdateProjectMetadata: (payload: MetadataFields) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
   onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
@@ -285,6 +287,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           fixedGoalMode={props.fixedGoalMode}
           initialIntakeMode={props.initialIntakeMode}
           onCreateIdeaProject={props.onCreateIdeaProject}
+          onUpdateProjectMetadata={props.onUpdateProjectMetadata}
           onCreateExternalDraft={props.onCreateExternalDraft}
           onUploadExternalDraft={props.onUploadExternalDraft}
           onStartExternalDraftIntake={props.onStartExternalDraftIntake}

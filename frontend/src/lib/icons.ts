@@ -15,6 +15,8 @@ export {
   BarChart3,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   CircleSlash,
   ClipboardCheck,
   ClipboardList,

@@ -8,5 +8,5 @@ export { PostDraftReviewPanel, type PostDraftReviewPanelProps } from "./PostDraf
 export { ExportConfirmationPanel, type ExportConfirmationPanelProps } from "./ExportConfirmationPanel";
 export { InventionPointConfirmation, type InventionPointConfirmationProps, type DisclosureResearchMode } from "./InventionPointConfirmation";
 export { MaterialSummary } from "./MaterialSummary";
-export { IdeaIntakePanel, type IdeaIntakePanelProps } from "./IdeaIntakePanel";
+export { IdeaIntakePanel, type IdeaIntakePanelProps, type MetadataFields } from "./IdeaIntakePanel";
 export { ExternalDraftIntakePanel, type ExternalDraftIntakePanelProps } from "./ExternalDraftIntakePanel";

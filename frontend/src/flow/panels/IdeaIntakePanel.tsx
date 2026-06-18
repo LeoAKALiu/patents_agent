@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { CheckCircle2, FileText, ShieldCheck, Upload, Wand2 } from "@/lib/icons";
+import { CheckCircle2, ChevronDown, ChevronRight, FileText, Save, ShieldCheck, Upload, Wand2 } from "@/lib/icons";
 import type {
   ExternalDraftIntakeRun,
   ExternalDraftSource,
@@ -12,6 +12,47 @@ import { GuidedOperationConsole } from "../runtimeWidgets";
 import { MaterialSummary } from "./MaterialSummary";
 import { ExternalDraftIntakePanel } from "./ExternalDraftIntakePanel";
 
+export interface MetadataFields {
+  applicant: string;
+  inventors: string;
+  technical_field: string;
+  background: string;
+  pain_point: string;
+  technical_solution: string;
+  innovation: string;
+  embodiments: string;
+  beneficial_effects: string;
+}
+
+export function emptyMetadata(): MetadataFields {
+  return {
+    applicant: "",
+    inventors: "",
+    technical_field: "",
+    background: "",
+    pain_point: "",
+    technical_solution: "",
+    innovation: "",
+    embodiments: "",
+    beneficial_effects: "",
+  };
+}
+
+export function metadataFromProject(project: ProjectRecord | null): MetadataFields {
+  if (!project) return emptyMetadata();
+  return {
+    applicant: project.applicant ?? "",
+    inventors: project.inventors ?? "",
+    technical_field: project.technical_field ?? "",
+    background: project.background ?? "",
+    pain_point: project.pain_point ?? "",
+    technical_solution: project.technical_solution ?? "",
+    innovation: project.innovation ?? "",
+    embodiments: project.embodiments ?? "",
+    beneficial_effects: project.beneficial_effects ?? "",
+  };
+}
+
 export interface IdeaIntakePanelProps {
   project: ProjectRecord | null;
   materials: ProjectMaterial[];
@@ -21,7 +62,8 @@ export interface IdeaIntakePanelProps {
   busyElapsedSeconds: number;
   fixedGoalMode?: PatentGoalMode;
   initialIntakeMode?: "idea" | "external";
-  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) => Promise<void>;
+  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType; metadata: MetadataFields }) => Promise<void>;
+  onUpdateProjectMetadata: (payload: MetadataFields) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
   onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
@@ -48,6 +90,7 @@ export function IdeaIntakePanel({
   fixedGoalMode,
   initialIntakeMode,
   onCreateIdeaProject,
+  onUpdateProjectMetadata,
   onCreateExternalDraft,
   onUploadExternalDraft,
   onStartExternalDraftIntake,
@@ -59,6 +102,9 @@ export function IdeaIntakePanel({
   const [mode, setMode] = useState<PatentGoalMode>("stable");
   const [patentType, setPatentType] = useState<PatentType>(fixedGoalMode === "utility" ? "utility_model" : "invention");
   const [intakeMode, setIntakeMode] = useState<"idea" | "external">(initialIntakeMode ?? "idea");
+  const [metadata, setMetadata] = useState<MetadataFields>(() => metadataFromProject(project));
+  const [metadataExpanded, setMetadataExpanded] = useState(false);
+  const [metadataSaving, setMetadataSaving] = useState(false);
   const canSubmit = Boolean(name.trim() && idea.trim() && !project);
   const effectiveMode = fixedGoalMode ?? mode;
   const effectivePatentType: PatentType = fixedGoalMode === "utility" ? "utility_model" : patentType;
@@ -87,12 +133,43 @@ export function IdeaIntakePanel({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
-    await onCreateIdeaProject({ name: name.trim(), idea: idea.trim(), mode: effectiveMode, patentType: effectivePatentType });
+    await onCreateIdeaProject({
+      name: name.trim(),
+      idea: idea.trim(),
+      mode: effectiveMode,
+      patentType: effectivePatentType,
+      metadata,
+    });
+  }
+
+  async function handleUpdateMetadata(event: FormEvent) {
+    event.preventDefault();
+    if (!project) return;
+    setMetadataSaving(true);
+    try {
+      await onUpdateProjectMetadata(metadata);
+    } finally {
+      setMetadataSaving(false);
+    }
   }
 
   useEffect(() => {
     setIntakeMode(initialIntakeMode ?? "idea");
   }, [initialIntakeMode]);
+
+  // Re-initialise metadata when project changes (key-prop remount)
+  useEffect(() => {
+    setMetadata(metadataFromProject(project));
+  }, [project]);
+
+  function setMetaField(field: keyof MetadataFields, value: string) {
+    setMetadata((prev) => ({ ...prev, [field]: value }));
+  }
+
+  const metadataLabel = "专利元数据";
+  const metadataGuide = project
+    ? "编辑专利的申请人、发明人、技术领域、背景、痛点、技术方案、创新点、实施例和有益效果。"
+    : "可选填写专利申请人、发明人及技术细节，帮助系统更准确地生成专利初稿。";
 
   return (
     <section className="guided-panel guided-first-mile-panel">
@@ -182,6 +259,115 @@ export function IdeaIntakePanel({
                 </div>
               </div>
             </div>
+
+            {/* Metadata section */}
+            <div className="settings-group">
+              <button
+                className="settings-group-header metadata-toggle"
+                onClick={(e) => { e.preventDefault(); setMetadataExpanded(!metadataExpanded); }}
+                type="button"
+                aria-expanded={metadataExpanded}
+              >
+                <span className="metadata-toggle-icon">
+                  {metadataExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </span>
+                <div>
+                  <h3>{metadataLabel}</h3>
+                  <p>{metadataGuide}</p>
+                </div>
+              </button>
+              {metadataExpanded && (
+                <div className="guided-field-grid metadata-grid">
+                  <label className="field">
+                    <span>申请人</span>
+                    <input
+                      value={metadata.applicant}
+                      onChange={(e) => setMetaField("applicant", e.target.value)}
+                      placeholder="例如：焕城智慧科技(济南)有限公司"
+                    />
+                  </label>
+                  <label className="field">
+                    <span>发明人</span>
+                    <input
+                      value={metadata.inventors}
+                      onChange={(e) => setMetaField("inventors", e.target.value)}
+                      placeholder="多个发明人用逗号分隔"
+                    />
+                  </label>
+                  <label className="field">
+                    <span>技术领域</span>
+                    <input
+                      value={metadata.technical_field}
+                      onChange={(e) => setMetaField("technical_field", e.target.value)}
+                      placeholder="例如：计算机视觉、建筑信息模型"
+                    />
+                  </label>
+                  <label className="field field-wide">
+                    <span>技术背景</span>
+                    <textarea
+                      value={metadata.background}
+                      onChange={(e) => setMetaField("background", e.target.value)}
+                      placeholder="描述现有技术现状及存在的问题"
+                    />
+                  </label>
+                  <label className="field field-wide">
+                    <span>技术痛点</span>
+                    <textarea
+                      value={metadata.pain_point}
+                      onChange={(e) => setMetaField("pain_point", e.target.value)}
+                      placeholder="现有技术中迫切需要解决但尚未解决的问题"
+                    />
+                  </label>
+                  <label className="field field-wide">
+                    <span>技术方案</span>
+                    <textarea
+                      value={metadata.technical_solution}
+                      onChange={(e) => setMetaField("technical_solution", e.target.value)}
+                      placeholder="本发明的核心技术方案描述"
+                    />
+                  </label>
+                  <label className="field field-wide">
+                    <span>创新点</span>
+                    <textarea
+                      value={metadata.innovation}
+                      onChange={(e) => setMetaField("innovation", e.target.value)}
+                      placeholder="与现有技术相比的创新之处"
+                    />
+                  </label>
+                  <label className="field field-wide">
+                    <span>实施例</span>
+                    <textarea
+                      value={metadata.embodiments}
+                      onChange={(e) => setMetaField("embodiments", e.target.value)}
+                      placeholder="具体的实施方式或应用场景"
+                    />
+                  </label>
+                  <label className="field field-wide">
+                    <span>有益效果</span>
+                    <textarea
+                      value={metadata.beneficial_effects}
+                      onChange={(e) => setMetaField("beneficial_effects", e.target.value)}
+                      placeholder="技术方案带来的有益效果"
+                    />
+                  </label>
+                </div>
+              )}
+              {project && metadataExpanded && (
+                <div className="action-dock">
+                  <span className="meta">修改后点击保存，系统会将元数据写入项目记录。</span>
+                  <button
+                    className="btn btn-primary"
+                    disabled={metadataSaving}
+                    onClick={handleUpdateMetadata}
+                    type="button"
+                  >
+                    <Save size={17} />
+                    <span>{metadataSaving ? "保存中…" : "保存元数据"}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             {fixedGoalMode !== "utility" && (
               <div className="settings-group">
                 <div className="settings-group-header">
