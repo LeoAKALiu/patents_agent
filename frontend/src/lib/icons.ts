@@ -11,6 +11,7 @@
  */
 export {
   AlertTriangle,
+  ArrowRight,
   BarChart3,
   BookOpen,
   CheckCircle2,
