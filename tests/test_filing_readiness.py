@@ -177,6 +177,19 @@ def test_filing_readiness_flags_solution_percent_after_prior_art_problem_clause(
     )
 
 
+def test_filing_readiness_flags_current_invention_comparative_prior_art_effect():
+    package = _clean_base_package(
+        description="本申请相较于对比文件CN123456公开的方案可提升15%识别速度。"
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=False)
+
+    assert any(
+        issue.category == "unverified_effect" and issue.matched_text == "提升15%"
+        for issue in report.issues
+    )
+
+
 def test_filing_readiness_allows_defensive_unverified_example_wording():
     package = _clean_base_package(
         description=(
@@ -194,6 +207,28 @@ def test_filing_readiness_allows_defensive_unverified_example_wording():
 
 def test_filing_readiness_flags_direct_unverified_effect_admission():
     package = _clean_base_package(description="本申请的技术效果尚未验证。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "unfavorable_statement" and "尚未验证" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_flags_method_unverified_effect_admission():
+    package = _clean_base_package(description="本方法的技术效果尚未验证。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "unfavorable_statement" and "尚未验证" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_flags_system_unverified_data_admission():
+    package = _clean_base_package(description="本系统的实验数据尚未验证。")
 
     report = assess_filing_readiness("project-1", package, verified_effects=True)
 
@@ -238,6 +273,17 @@ def test_filing_readiness_blocks_technical_disclosure_claim_strengthening_phrase
 
 def test_filing_readiness_blocks_technical_disclosure_object_before_strengthening_verb():
     package = _clean_base_package(description="根据技术交底书对独权进行补强。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_blocks_substantive_reference_with_later_drafting_process():
+    package = _clean_base_package(description="根据技术交底书中记载的内容进行撰写权利要求书。")
 
     report = assess_filing_readiness("project-1", package, verified_effects=True)
 
@@ -313,6 +359,21 @@ def test_export_official_docx_cleans_pollution_and_keeps_formal_sections(tmp_pat
     assert "prompt" not in text
     assert "generation_logs" not in text
     assert "根据会审策略" not in text
+
+
+def test_export_official_docx_removes_regex_internal_trace_fragments(tmp_path):
+    package = _clean_base_package(
+        claims="1. 一种方法，包括采集点云，根据技术交底书中记载的内容进行撰写权利要求书，并生成建筑构件参数。"
+    )
+    output_path = tmp_path / "official-regex-clean.docx"
+
+    export_official_docx(package, output_path)
+
+    doc = Document(output_path)
+    text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
+    assert "1. 一种方法，包括采集点云" in text
+    assert "并生成建筑构件参数。" in text
+    assert "根据技术交底书" not in text
 
 
 def test_official_exports_do_not_emit_internal_contamination_markers(tmp_path):

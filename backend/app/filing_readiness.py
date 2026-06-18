@@ -42,8 +42,7 @@ _INTERNAL_TRACE_PATTERNS = (
 
 _INTERNAL_TRACE_REGEXES = (
     re.compile(
-        r"根据技术交底书(?!\s*中\s*(?:记载|描述|公开|披露))"
-        r"[^，,。；;！？!?\n]{0,30}(?:自动生成|生成|撰写|输出|补强)"
+        r"根据技术交底书[^，,。；;！？!?\n]{0,30}(?:自动生成|生成|撰写|输出|补强)"
     ),
 )
 
@@ -92,8 +91,10 @@ _EFFECT_OWNERSHIP_TRANSITION_MARKERS = (
 
 _EFFECT_CONTEXT_BOUNDARIES = "。；;！？!?\n"
 
+_CURRENT_INVENTION_MARKER_PATTERN = "|".join(re.escape(marker) for marker in _CURRENT_INVENTION_MARKERS)
+
 _UNFAVORABLE_REGEXES = (
-    re.compile(r"(?:本申请|本发明|本实施例|本方案)[^。；;！？!?\n]{0,40}尚未验证"),
+    re.compile(rf"(?:{_CURRENT_INVENTION_MARKER_PATTERN})[^。；;！？!?\n]{{0,40}}尚未验证"),
 )
 
 
@@ -290,6 +291,8 @@ def _is_prior_art_effect_attribution(text: str, effect_start: int) -> bool:
         max(text.rfind(boundary, 0, effect_start) for boundary in _EFFECT_CONTEXT_BOUNDARIES) + 1
     )
     context_before_effect = text[context_start:effect_start]
+    if any(marker in context_before_effect for marker in _CURRENT_INVENTION_MARKERS):
+        return False
     for marker_index in _prior_art_marker_indexes(context_before_effect):
         marker_to_effect = context_before_effect[marker_index:]
         attribution_ends = (
