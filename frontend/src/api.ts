@@ -372,6 +372,36 @@ export type PatentType = "invention" | "utility_model";
 export const PATENT_TYPE_INVENTION: PatentType = "invention";
 export const PATENT_TYPE_UTILITY_MODEL: PatentType = "utility_model";
 
+export interface ProjectCreate {
+  name: string;
+  draft_text?: string;
+  patent_type?: PatentType;
+  applicant?: string;
+  inventors?: string;
+  technical_field?: string;
+  background?: string;
+  pain_point?: string;
+  technical_solution?: string;
+  innovation?: string;
+  embodiments?: string;
+  beneficial_effects?: string;
+}
+
+export interface ProjectUpdate {
+  name?: string | null;
+  draft_text?: string | null;
+  patent_type?: PatentType | null;
+  applicant?: string | null;
+  inventors?: string | null;
+  technical_field?: string | null;
+  background?: string | null;
+  pain_point?: string | null;
+  technical_solution?: string | null;
+  innovation?: string | null;
+  embodiments?: string | null;
+  beneficial_effects?: string | null;
+}
+
 export interface ProjectRecord {
   id: string;
   name: string;
@@ -996,24 +1026,44 @@ export async function listProjects(): Promise<ProjectRecord[]> {
   return data.projects;
 }
 
-export async function createProject(
-  name: string,
-  draftText: string,
-  patentType: PatentType = PATENT_TYPE_INVENTION,
-): Promise<ProjectRecord> {
+export async function createProject(payload: ProjectCreate): Promise<ProjectRecord> {
+  const body: Record<string, unknown> = {
+    name: payload.name,
+    draft_text: payload.draft_text ?? "",
+    patent_type: payload.patent_type ?? PATENT_TYPE_INVENTION,
+  };
+  // Include structured metadata fields when provided
+  if (payload.applicant !== undefined) body.applicant = payload.applicant;
+  if (payload.inventors !== undefined) body.inventors = payload.inventors;
+  if (payload.technical_field !== undefined) body.technical_field = payload.technical_field;
+  if (payload.background !== undefined) body.background = payload.background;
+  if (payload.pain_point !== undefined) body.pain_point = payload.pain_point;
+  if (payload.technical_solution !== undefined) body.technical_solution = payload.technical_solution;
+  if (payload.innovation !== undefined) body.innovation = payload.innovation;
+  if (payload.embodiments !== undefined) body.embodiments = payload.embodiments;
+  if (payload.beneficial_effects !== undefined) body.beneficial_effects = payload.beneficial_effects;
   return request<ProjectRecord>("/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name,
-      draft_text: draftText,
-      patent_type: patentType,
-    }),
+    body: JSON.stringify(body),
   });
 }
 
 export async function deleteProject(projectId: string): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>(`/api/projects/${projectId}`, { method: "DELETE" });
+}
+
+export async function updateProject(projectId: string, payload: ProjectUpdate): Promise<ProjectRecord> {
+  const body = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
+  // Remove null values so they are treated as "unset" by exclude_unset on the backend
+  for (const key of Object.keys(body)) {
+    if (body[key] === null) delete body[key];
+  }
+  return request<ProjectRecord>(`/api/projects/${projectId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 export async function uploadProjectMaterial(projectId: string, file: File): Promise<ProjectMaterial> {
