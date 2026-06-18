@@ -701,7 +701,7 @@ def create_app(
     ) -> dict:
         project = _require_project(store, project_id)
         if isinstance(app.state.llm, MissingLLMClient):
-            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating disclosures.")
+            raise _missing_llm_http_exception("generating disclosures")
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "disclosures" / project_id / run_id
         run = DisclosureRun(
@@ -774,7 +774,7 @@ def create_app(
         if not previous:
             raise HTTPException(status_code=404, detail="Disclosure run not found.")
         if isinstance(app.state.llm, MissingLLMClient):
-            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before generating disclosures.")
+            raise _missing_llm_http_exception("generating disclosures")
         retry_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "disclosures" / project_id / retry_id
         retry_run = DisclosureRun(
@@ -2750,6 +2750,30 @@ def _require_project(store: SQLiteStore, project_id: str) -> ProjectRecord:
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
     return project
+
+
+def _missing_llm_http_exception(action: str) -> HTTPException:
+    """Return a structured 503 when the desktop LLM is not configured.
+
+    The detail is a dict so the renderer can branch on ``code`` instead of
+    pattern-matching the human message. The legacy ``message`` field keeps
+    existing log/UI consumers working.
+    """
+    return HTTPException(
+        status_code=503,
+        detail={
+            "code": "llm_not_configured",
+            "message": "LLM is not configured. Set DEEPSEEK_API_KEY before "
+            f"{action}.",
+            "action": action,
+            "recovery": {
+                "open_settings": True,
+                "manual_intake": True,
+                "sample_draft": True,
+                "retry_check": True,
+            },
+        },
+    )
 
 
 def _require_package(project: ProjectRecord) -> DraftPackage:

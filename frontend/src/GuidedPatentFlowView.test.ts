@@ -38,4 +38,38 @@ describe("Guided patent flow UI regressions", () => {
     expect(projectDataSource).toContain("loadPatentPoints");
     expect(appSource).toContain("refreshDisclosureRunUntilSettled");
   });
+
+  it("renders llm-blocked recovery card with four visible recovery actions", () => {
+    // The recovery card must appear when llmBlocked is true (needsGeneration && !llmConfigured).
+    expect(inventionPointSource).toContain("const llmBlocked = needsGeneration && !llmConfigured");
+    // The card container.
+    expect(inventionPointSource).toContain('data-testid="llm-blocked-recovery"');
+    // Four action buttons, each with a predictable testid.
+    expect(inventionPointSource).toContain('data-testid="llm-recovery-goto-settings"');
+    expect(inventionPointSource).toContain('data-testid="llm-recovery-manual-intake"');
+    expect(inventionPointSource).toContain('data-testid="llm-recovery-sample-draft"');
+    expect(inventionPointSource).toContain('data-testid="llm-recovery-retry-check"');
+    // Each button has a visible label.
+    expect(inventionPointSource).toContain("<span>去设置</span>");
+    expect(inventionPointSource).toContain("<span>手动录入</span>");
+    expect(inventionPointSource).toContain("<span>使用示例草稿</span>");
+    expect(inventionPointSource).toContain("<span>重试检测</span>");
+    // GuidedPatentFlow wires the props through.
+    expect(guidedSource).toContain("llmConfigured={props.llmConfigured}");
+    expect(guidedSource).toContain("onNavigateToSettings={props.onNavigateToSettings}");
+    expect(guidedSource).toContain("onRetryHealthCheck={props.onRetryHealthCheck}");
+    expect(guidedSource).toContain("onManualIntake={props.onManualIntake}");
+    expect(guidedSource).toContain("onSampleDraft={props.onSampleDraft}");
+  });
+
+  it("App gates disclosure start on llm_configured", () => {
+    // App reads health.llm_configured to decide whether to block disclosure.
+    expect(appSource).toContain("llmConfigured={health?.llm_configured ?? false}");
+    expect(appSource).toContain('if (!health?.llm_configured)');
+    expect(appSource).toContain("LLM 未配置");
+    // Retry health check wired.
+    expect(appSource).toContain("onRetryHealthCheck={() => void (async () => {");
+    expect(appSource).toContain("const h = await getHealth();");
+    expect(appSource).toContain("setHealth(h);");
+  });
 });

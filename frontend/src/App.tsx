@@ -1119,6 +1119,10 @@ function App() {
 
   async function handleStartDisclosure(trace = false) {
     if (!selectedProject) return;
+    if (!health?.llm_configured) {
+      setMessage("LLM 未配置：请先在设置页填写 DEEPSEEK_API_KEY，然后点击\"重试检测\"。");
+      return;
+    }
     const projectId = selectedProject.id;
     await withStatus("disclosure", async () => {
       const run = await startProjectDisclosure(projectId, trace, disclosureResearchMode);
@@ -1833,6 +1837,20 @@ function App() {
             onImproveScore={() => void handleImproveScore()}
             onAcceptPatch={(runId, patchId) => void handleCompletionPatch(runId, patchId, "accept")}
             onOpenExpertTool={openExpertTool}
+            llmConfigured={health?.llm_configured ?? false}
+            onNavigateToSettings={() => setActiveSection("settings")}
+            onRetryHealthCheck={() => void (async () => {
+              const h = await getHealth();
+              setHealth(h);
+            })()}
+            onManualIntake={() => {
+              setStartChoice("invention");
+              setActiveSection("generate");
+            }}
+            onSampleDraft={() => {
+              setStartChoice("external");
+              setActiveSection("generate");
+            }}
             />
           )}
           </div>

@@ -166,6 +166,11 @@ export type GuidedPatentFlowProps = {
   onOpenExpertTool: (
     tool: "materials" | "moat" | "deliberate" | "readiness" | "claimDefense" | "completion" | "export",
   ) => void;
+  llmConfigured: boolean;
+  onNavigateToSettings: () => void;
+  onRetryHealthCheck: () => void;
+  onManualIntake: () => void;
+  onSampleDraft: () => void;
 };
 
 export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
@@ -299,6 +304,11 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onRetryRun={props.onRetryDisclosureRun}
           onSelectPatentPoint={props.onSelectPatentPoint}
           onOpenExpertTool={props.onOpenExpertTool}
+          llmConfigured={props.llmConfigured}
+          onNavigateToSettings={props.onNavigateToSettings}
+          onRetryHealthCheck={props.onRetryHealthCheck}
+          onManualIntake={props.onManualIntake}
+          onSampleDraft={props.onSampleDraft}
         />
       )}
       {displayedStepId === "draft" && (

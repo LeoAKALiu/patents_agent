@@ -305,7 +305,38 @@ def test_disclosure_generation_fails_closed_without_llm(tmp_path: Path, monkeypa
     disclosure_response = client.post(f"/api/projects/{project_id}/disclosures", json={"trace": False})
 
     assert disclosure_response.status_code == 503
-    assert "DEEPSEEK_API_KEY" in disclosure_response.json()["detail"]
+    detail = disclosure_response.json()["detail"]
+    # PR-1: structured detail so the renderer can branch on the error code
+    # without scraping the human message.
+    assert detail["code"] == "llm_not_configured"
+    assert "DEEPSEEK_API_KEY" in detail["message"]
+    assert detail["action"] == "generating disclosures"
+    # The renderer relies on these four recovery flags to render the blocked card.
+    assert detail["recovery"] == {
+        "open_settings": True,
+        "manual_intake": True,
+        "sample_draft": True,
+        "retry_check": True,
+    }
+
+
+def test_disclosure_health_endpoint_reports_llm_unconfigured(tmp_path: Path, monkeypatch):
+    """The renderer prefetches ``/api/health`` so it can disable blocked actions
+    before the user clicks them (PR-1 acceptance). Without DEEPSEEK_API_KEY the
+    health endpoint must report ``llm_configured: false``."""
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            prior_art_provider=StaticPriorArtProvider(),
+            load_env_file=False,
+        )
+    )
+    health = client.get("/api/health")
+    assert health.status_code == 200
+    payload = health.json()
+    assert payload["ok"] is True
+    assert payload["llm_configured"] is False
 
 
 def _prior_art_hit() -> PriorArtHit:

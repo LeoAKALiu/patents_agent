@@ -1,4 +1,4 @@
-import { Loader2, ShieldCheck, Upload, Wand2 } from "@/lib/icons";
+import { AlertTriangle, Loader2, ShieldCheck, Upload, Wand2, Settings, FilePenLine, Copy, RefreshCw } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type {
@@ -37,6 +37,11 @@ export interface InventionPointConfirmationProps {
     candidates: PatentPointCandidate[],
   ) => void;
   onOpenExpertTool: ExpertToolOpener;
+  llmConfigured: boolean;
+  onNavigateToSettings: () => void;
+  onRetryHealthCheck: () => void;
+  onManualIntake: () => void;
+  onSampleDraft: () => void;
 }
 
 export function InventionPointConfirmation({
@@ -54,6 +59,11 @@ export function InventionPointConfirmation({
   onRetryRun,
   onSelectPatentPoint,
   onOpenExpertTool,
+  llmConfigured,
+  onNavigateToSettings,
+  onRetryHealthCheck,
+  onManualIntake,
+  onSampleDraft,
 }: InventionPointConfirmationProps) {
   const activeRun = guidedActiveRun(disclosureRuns);
   const latestRun = disclosureRuns[0] ?? null;
@@ -67,6 +77,7 @@ export function InventionPointConfirmation({
   const candidates = disclosureCandidates.length ? disclosureCandidates : patentPoints;
   const needsGeneration = (!disclosure || candidates.length === 0) && !activeRun;
   const showingPartialCandidates = Boolean(activeRun && activeRunCandidates.length > 0 && !activeRun.package);
+  const llmBlocked = needsGeneration && !llmConfigured;
 
   return (
     <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
@@ -121,11 +132,66 @@ export function InventionPointConfirmation({
           </p>
         </div>
       )}
-      {needsGeneration && (
+      {needsGeneration && !llmBlocked && (
         <Button variant="glass-primary" disabled={busy === "disclosure"} onClick={onStartDisclosure} type="button">
           {busy === "disclosure" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
           <span>{researchMode === "free_deep_research" ? "提炼发明点（免费 Deep Research）" : "提炼发明点"}</span>
         </Button>
+      )}
+      {llmBlocked && (
+        <div className="llm-recovery-card rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3" data-testid="llm-blocked-recovery">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="text-amber-400 mt-0.5" size={18} />
+            <div>
+              <p className="text-sm font-medium text-amber-200">LLM 未配置</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                前往设置页填写 DEEPSEEK_API_KEY 后可使用 AI 提炼发明点。以下方式无需 LLM 也能继续工作：
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2" data-testid="llm-recovery-actions">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onNavigateToSettings}
+              type="button"
+              data-testid="llm-recovery-goto-settings"
+            >
+              <Settings size={15} />
+              <span>去设置</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onManualIntake}
+              type="button"
+              data-testid="llm-recovery-manual-intake"
+            >
+              <FilePenLine size={15} />
+              <span>手动录入</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onSampleDraft}
+              type="button"
+              data-testid="llm-recovery-sample-draft"
+            >
+              <Copy size={15} />
+              <span>使用示例草稿</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRetryHealthCheck}
+              type="button"
+              data-testid="llm-recovery-retry-check"
+            >
+              <RefreshCw size={15} />
+              <span>重试检测</span>
+            </Button>
+          </div>
+        </div>
       )}
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "disclosure"} />
       <GuidedRuntimeConsole run={activeRun} label="发明点提炼运行中" busy={busy} onCancel={onCancelRun} />
