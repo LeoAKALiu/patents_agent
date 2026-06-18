@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 
+import { safeProjectName } from "@/lib/filename";
 import { Button } from "@/components/ui/button";
 import { AgentProviderCards, normalizeAgentSelection, requiredAgentProviderIds } from "./AgentProviderCards";
 import { ShellSidebar } from "./ui/ShellSidebar";
@@ -844,7 +845,7 @@ function App() {
     if (!desktop?.dialogs?.saveOfficial) {
       // Web preview / dev fallback: trigger the existing browser download.
       if (!selectedProject) return;
-      const projectName = selectedProject.name || "专利草稿";
+      const projectName = safeProjectName(selectedProject?.name);
       const href =
         format === "sidecar"
           ? `${window.location.origin}/api/projects/${selectedProject.id}/official-compile-runs/${latestOfficialCompileRun?.id ?? ""}/report.md`
@@ -897,8 +898,7 @@ function App() {
         return;
       }
     }
-    const projectName = selectedProject.name || "PatentAgent";
-    const safeName = projectName.replace(/[\\/:*?"<>|]/g, "_");
+    const projectName = safeProjectName(selectedProject?.name, "PatentAgent");
     const option =
       format === "docx"
         ? {
@@ -909,7 +909,7 @@ function App() {
               name: "Word 文档",
               extensions: ["docx"],
             },
-            defaultFileName: `${safeName}-正式提交稿.docx`,
+            defaultFileName: `${projectName}-正式提交稿.docx`,
           }
         : format === "md"
           ? {
@@ -917,14 +917,14 @@ function App() {
               label: "官方 Markdown",
               downloadPath: officialExportUrl(selectedProject.id, "md"),
               filter: { name: "Markdown 文本", extensions: ["md"] },
-              defaultFileName: `${safeName}-正式提交稿.md`,
+              defaultFileName: `${projectName}-正式提交稿.md`,
             }
           : {
               format: "sidecar" as const,
               label: "正式稿编译报告",
               downloadPath: `/api/projects/${selectedProject.id}/official-compile-runs/${latestOfficialCompileRun.id}/report.md`,
               filter: { name: "Markdown 文本", extensions: ["md"] },
-              defaultFileName: `${safeName}-正式稿编译报告.md`,
+              defaultFileName: `${projectName}-正式稿编译报告.md`,
             };
     await withStatus("native-export", async () => {
       const result = await desktop.dialogs!.saveOfficial!(option);

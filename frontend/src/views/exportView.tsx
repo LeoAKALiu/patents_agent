@@ -3,6 +3,7 @@
  * The expert export tool: official/internal/sidecar export + native save +
  * contamination warning + last-export success card.
  */
+import { safeProjectName } from "@/lib/filename";
 import { AlertTriangle, CheckCircle2, Download, FileArchive, FileText } from "@/lib/icons";
 import {
   exportUrl,
@@ -60,6 +61,7 @@ export function ExportView({
   desktopDialogsAvailable: boolean;
 }) {
   const enabled = canExportPackage(packageValue);
+  const projectName = safeProjectName(project?.name);
   const officialAllowed = Boolean(
     enabled
       && postDraftReview?.status === "completed"
@@ -96,6 +98,12 @@ export function ExportView({
         ? `${projectName}-正式提交稿.docx`
         : `${projectName}-正式提交稿.md`
     : undefined;
+  const filenames: Record<"docx" | "md" | "mmd" | "prompt", string> = {
+    docx: `${projectName}.docx`,
+    md: `${projectName}.md`,
+    mmd: `${projectName}.mmd`,
+    prompt: `${projectName}-绘图提示词.md`,
+  };
   return (
     <section className="col-span-full grid gap-5">
       <StatusStrip
@@ -218,6 +226,7 @@ export function ExportView({
         <a
           aria-disabled={!officialAllowed}
           className={exportLinkClass(officialAllowed, true)}
+          download={`${projectName}-正式提交稿.docx`}
           href={officialAllowed && project ? officialExportUrl(project.id, "docx") : undefined}
           data-testid="official-export-docx"
         >
@@ -227,6 +236,7 @@ export function ExportView({
         <a
           aria-disabled={!officialAllowed}
           className={exportLinkClass(officialAllowed, true)}
+          download={`${projectName}-正式提交稿.md`}
           href={officialAllowed && project ? officialExportUrl(project.id, "md") : undefined}
           data-testid="official-export-md"
         >
@@ -281,16 +291,17 @@ export function ExportView({
         aria-label="内部工作稿导出"
         data-testid="internal-export-grid"
       >
-        {[
-          ["docx", "内部工作稿 DOCX"],
-          ["md", "内部工作稿 Markdown"],
-          ["mmd", "内部工作稿 Mermaid"],
-          ["prompt", "内部工作稿 绘图提示词"],
-        ].map(([kind, label]) => (
+        {([
+          ["docx", "DOCX"],
+          ["md", "Markdown"],
+          ["mmd", "Mermaid"],
+          ["prompt", "绘图提示词"],
+        ] as Array<[keyof typeof filenames, string]>).map(([kind, label]) => (
           <a
             aria-disabled={!enabled}
             className={exportLinkClass(enabled)}
-            href={enabled && project ? exportUrl(project.id, kind as "docx" | "md" | "mmd" | "prompt") : undefined}
+            download={filenames[kind]}
+            href={enabled && project ? exportUrl(project.id, kind) : undefined}
             key={kind}
             data-testid={`internal-export-${kind}`}
           >

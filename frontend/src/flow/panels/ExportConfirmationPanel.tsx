@@ -1,4 +1,5 @@
 import { Download, FileArchive, FileText, ShieldCheck } from "@/lib/icons";
+import { safeProjectName } from "@/lib/filename";
 import {
   draftCompletionReportUrl,
   exportUrl,
@@ -44,6 +45,7 @@ export function ExportConfirmationPanel({
       </section>
     );
   }
+  const projectName = safeProjectName(project?.name);
   const officialAllowed = Boolean(
     postDraftReview?.export_allowed
       && postDraftReview.draft_package_hash === currentDraftHash
@@ -105,44 +107,55 @@ export function ExportConfirmationPanel({
       </SettingsGroup>
 
       <SettingsGroup title="可导出文件">
-      <div className="export-grid">
-        <a
-          aria-disabled={!officialAllowed}
-          className={officialAllowed ? "export-link export-link-primary" : "export-link disabled"}
-          href={officialAllowed ? officialExportUrl(project.id, "docx") : undefined}
-        >
-          <Download size={18} />
-          <span>正式提交稿 DOCX</span>
-        </a>
-        <a
-          aria-disabled={!officialAllowed}
-          className={officialAllowed ? "export-link export-link-primary" : "export-link disabled"}
-          href={officialAllowed ? officialExportUrl(project.id, "md") : undefined}
-        >
-          <Download size={18} />
-          <span>正式提交稿 MD</span>
-        </a>
-        <a
-          className="export-link"
-          href={exportUrl(project.id, "md")}
-          data-testid="internal-export-md"
-        >
-          <Download size={18} />
-          <span>内部工作稿 MD</span>
-        </a>
-        {filingReport && (
-          <a className="export-link" href={filingReadinessReportUrl(project.id, filingReport.id)}>
+        <div className="export-grid">
+          <a
+            aria-disabled={!officialAllowed}
+            className={officialAllowed ? "export-link export-link-primary" : "export-link disabled"}
+            download={`${projectName}-正式提交稿.docx`}
+            href={officialAllowed ? officialExportUrl(project.id, "docx") : undefined}
+          >
             <Download size={18} />
-            <span>提交成熟度报告</span>
+            <span>正式提交稿 DOCX</span>
           </a>
-        )}
-        {completionRun && (
-          <a className="export-link" href={draftCompletionReportUrl(project.id, completionRun.id)}>
+          <a
+            aria-disabled={!officialAllowed}
+            className={officialAllowed ? "export-link export-link-primary" : "export-link disabled"}
+            download={`${projectName}-正式提交稿.md`}
+            href={officialAllowed ? officialExportUrl(project.id, "md") : undefined}
+          >
             <Download size={18} />
-            <span>初稿完善报告</span>
+            <span>正式提交稿 MD</span>
           </a>
-        )}
-      </div>
+          <a
+            className="export-link"
+            download={`${projectName}.md`}
+            href={exportUrl(project.id, "md")}
+            data-testid="internal-export-md"
+          >
+            <Download size={18} />
+            <span>内部工作稿 MD</span>
+          </a>
+          {filingReport && (
+            <a
+              className="export-link"
+              download={`${projectName}-提交成熟度报告.md`}
+              href={filingReadinessReportUrl(project.id, filingReport.id)}
+            >
+              <Download size={18} />
+              <span>提交成熟度报告</span>
+            </a>
+          )}
+          {completionRun && (
+            <a
+              className="export-link"
+              download={`${projectName}-初稿完善报告.md`}
+              href={draftCompletionReportUrl(project.id, completionRun.id)}
+            >
+              <Download size={18} />
+              <span>初稿完善报告</span>
+            </a>
+          )}
+        </div>
       </SettingsGroup>
 
       <InfoCard

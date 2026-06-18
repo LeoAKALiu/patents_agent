@@ -1,6 +1,7 @@
 /**
  * Filing-readiness + draft-completion views — extracted from App.tsx (M3-B').
  */
+import { safeProjectName } from "@/lib/filename";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -140,6 +141,7 @@ export function FilingReadinessView({
   onRun: () => void;
 }) {
   const canExport = Boolean(project?.package);
+  const projectName = safeProjectName(project?.name);
   const officialAllowed = Boolean(
     canExport
       && postDraftReview?.status === "completed"
@@ -223,6 +225,7 @@ export function FilingReadinessView({
                   <a
                     aria-disabled={!officialAllowed}
                     className={officialAllowed ? "btn btn-primary" : "btn btn-secondary is-disabled"}
+                    download={`${projectName}-正式提交稿.docx`}
                     href={officialAllowed ? officialExportUrl(project.id, "docx") : undefined}
                   >
                     <Download size={18} />
@@ -240,6 +243,7 @@ export function FilingReadinessView({
                   <a
                     aria-disabled={!officialAllowed}
                     className={officialAllowed ? "btn btn-secondary" : "btn btn-secondary is-disabled"}
+                    download={`${projectName}-正式提交稿.md`}
                     href={officialAllowed ? officialExportUrl(project.id, "md") : undefined}
                   >
                     <Download size={18} />
@@ -254,7 +258,7 @@ export function FilingReadinessView({
                 tone="info"
                 meta={<span className="tag tag-info">内部材料</span>}
                 action={(
-                  <a className="btn btn-secondary" href={exportUrl(project.id, "md")}>
+                  <a className="btn btn-secondary" download={`${projectName}.md`} href={exportUrl(project.id, "md")}>
                     <Download size={18} />
                     <span>下载</span>
                   </a>
@@ -268,7 +272,7 @@ export function FilingReadinessView({
                   tone={readinessTone(report.status)}
                   meta={<span className={readinessTagClass(report.status)}>{readinessStatusLabel(report.status)}</span>}
                   action={(
-                    <a className="btn btn-secondary" href={filingReadinessReportUrl(project.id, report.id)}>
+                    <a className="btn btn-secondary" download={`${projectName}-提交成熟度报告.md`} href={filingReadinessReportUrl(project.id, report.id)}>
                       <Download size={18} />
                       <span>下载</span>
                     </a>
@@ -387,6 +391,7 @@ export function DraftCompletionView({
   const blockingIssueCount = run?.issues.filter((issue) => issue.blocks_submission).length ?? 0;
   const proposedPatchCount = run?.patches.filter((patch) => patch.status === "proposed").length ?? 0;
   const patchBusy = busy === "completion" || busy.startsWith("completion-");
+  const projectName = safeProjectName(project?.name);
 
   return (
     <div className="grid gap-4">
@@ -558,7 +563,7 @@ export function DraftCompletionView({
         description="采纳会进入完善结果；不能进入正式稿的补丁会明确标识为仅内部参考。"
       >
         {project && run && (
-          <a className="btn btn-secondary quality-inline-action" href={draftCompletionReportUrl(project.id, run.id)}>
+          <a className="btn btn-secondary quality-inline-action" download={`${projectName}-初稿完善报告.md`} href={draftCompletionReportUrl(project.id, run.id)}>
             <Download size={17} />
             <span>报告 MD</span>
           </a>
