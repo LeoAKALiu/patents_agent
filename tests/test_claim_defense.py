@@ -3,7 +3,14 @@ import json
 
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
-from backend.app.schemas import ClaimDefenseWorksheet, DraftPackage, FeatureRecord
+from backend.app.schemas import (
+    ClaimDefenseWorksheet,
+    DraftPackage,
+    EvidenceBinding,
+    EvidenceBindingSourceType,
+    EvidenceVerificationStatus,
+    FeatureRecord,
+)
 
 
 class RaisingLLMClient:
@@ -153,6 +160,104 @@ def test_claim_defense_valid_llm_output_is_merged_with_rule_features():
     assert any("LLM补充的从属防线特征" in text for text in texts)
     assert any("IFC洞口扣减拓扑" in text for text in texts)
     assert any("工程量清单回链" in text for text in texts)
+
+
+def test_claim_defense_attaches_evidence_refs_when_supplied():
+    from backend.app.claim_defense import generate_claim_defense_worksheet
+
+    package = DraftPackage(
+        title="声学视觉融合巡检方法",
+        abstract="通过声学异常窗口触发视觉局部复检。",
+        claims="1. 一种巡检方法，其特征在于，声学异常窗口触发视觉局部复检。",
+        description="说明书记载声学异常窗口触发视觉局部复检的执行流程。",
+        drawing_description="图1示出声学异常窗口触发视觉局部复检流程。",
+        mermaid="",
+        image_prompt="",
+    )
+    worksheet = generate_claim_defense_worksheet(
+        project_id="p1",
+        package=package,
+        disclosures=[],
+        patent_points=[],
+        llm=None,
+        evidence_bindings=[
+            EvidenceBinding(
+                evidence_id="E100",
+                source_type=EvidenceBindingSourceType.PRIOR_ART,
+                source_id="CN100A",
+                source_label="一种声学巡检方法",
+                quote="未公开声学异常窗口触发视觉局部复检",
+                confidence=0.74,
+                verification_status=EvidenceVerificationStatus.RETRIEVED,
+                citable=True,
+            ),
+            EvidenceBinding(
+                evidence_id="M100",
+                source_type=EvidenceBindingSourceType.PROJECT_MATERIAL,
+                source_id="material-1",
+                source_label="实验记录.md",
+                quote="声学异常窗口触发视觉局部复检",
+                confidence=0.82,
+                verification_status=EvidenceVerificationStatus.USER_PROVIDED,
+            ),
+            EvidenceBinding(
+                evidence_id="P100",
+                source_type=EvidenceBindingSourceType.PATENT_POINT,
+                source_id="point-1",
+                source_label="声学窗口触发视觉复检",
+                quote="声学异常窗口触发视觉局部复检",
+                confidence=0.55,
+                verification_status=EvidenceVerificationStatus.FEASIBLE_UNVERIFIED,
+            ),
+        ],
+    )
+
+    record = next(item for item in worksheet.feature_records if "声学异常窗口触发视觉局部复检" in item.text)
+    assert record.evidence_refs == ["E100", "M100", "P100"]
+    assert "prior_art:CN100A" in record.source_refs
+    assert "project_material:material-1" in record.source_refs
+    assert "patent_point:point-1" in record.source_refs
+    assert record.prior_art_refs == ["CN100A"]
+    assert "M100" in record.support_explanation
+    assert "P100" in record.support_explanation
+    assert "不升级为已验证支撑" in record.support_explanation
+
+
+def test_claim_defense_model_generated_evidence_does_not_upgrade_classification():
+    from backend.app.claim_defense import generate_claim_defense_worksheet
+
+    package = DraftPackage(
+        title="普通采集方法",
+        abstract="采集设备温度。",
+        claims="1. 一种采集方法，其特征在于，读取设备温度数据。",
+        description="说明书记载读取设备温度数据。",
+        drawing_description="",
+        mermaid="",
+        image_prompt="",
+    )
+    worksheet = generate_claim_defense_worksheet(
+        project_id="p1",
+        package=package,
+        disclosures=[],
+        patent_points=[],
+        llm=None,
+        evidence_bindings=[
+            EvidenceBinding(
+                evidence_id="E200",
+                source_type=EvidenceBindingSourceType.PATENT_POINT,
+                source_id="model-point",
+                source_label="模型建议",
+                quote="读取设备温度数据",
+                confidence=0.95,
+                verification_status=EvidenceVerificationStatus.MODEL_GENERATED,
+            )
+        ],
+    )
+
+    record = next(item for item in worksheet.feature_records if "读取设备温度数据" in item.text)
+    assert record.evidence_refs == ["E200"]
+    assert record.classification == "known_base"
+    assert "不升级为已验证支撑" in record.support_explanation
 
 
 def test_claim_defense_api_falls_back_when_llm_is_missing(tmp_path):

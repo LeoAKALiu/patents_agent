@@ -5,13 +5,17 @@ import {
   completionCategoryLabel,
   completionPatchKindLabel,
   completionPatchStatusLabel,
+  completionRunFreshnessLabel,
   completionScoreAverage,
   completionTargetLabel,
   completionTaskStatusLabel,
   draftSectionLabel,
+  evidenceBindingConfidenceLabel,
   evidenceStatusLabel,
+  evidenceVerificationLabel,
   featureClassificationLabel,
   moatScoreTotal,
+  patchSafetyLabel,
   pipelineRunStatusLabel,
   readinessStatusLabel,
   sourceTypeLabel,
@@ -72,6 +76,11 @@ describe("patent moat helpers", () => {
     expect(evidenceStatusLabel("feasible_unverified")).toBe("可行未验证");
     expect(evidenceStatusLabel("needs_experiment")).toBe("需实验");
     expect(evidenceStatusLabel("model_generated")).toBe("模型生成");
+    expect(evidenceVerificationLabel("retrieved")).toBe("已检索");
+    expect(evidenceVerificationLabel("user_provided")).toBe("用户材料");
+    expect(evidenceBindingConfidenceLabel(0.82)).toBe("高置信");
+    expect(evidenceBindingConfidenceLabel(0.65)).toBe("中置信");
+    expect(evidenceBindingConfidenceLabel(0.2)).toBe("低置信");
     expect(sourceTypeLabel("user")).toBe("用户输入");
     expect(sourceTypeLabel("imported")).toBe("材料导入");
     expect(sourceTypeLabel("model")).toBe("模型生成");
@@ -164,6 +173,10 @@ describe("draft completion helpers", () => {
     expect(completionTaskStatusLabel("open")).toBe("待处理");
     expect(completionPatchStatusLabel("proposed")).toBe("待确认");
     expect(completionPatchKindLabel("rewrite")).toBe("改写");
+    expect(patchSafetyLabel({ can_enter_official_draft: true, evidence_refs: ["E100"] })).toBe("证据支撑可入稿");
+    expect(patchSafetyLabel({ can_enter_official_draft: false, evidence_refs: [] })).toBe("仅内部参考");
+    expect(completionRunFreshnessLabel("hash-a", "hash-a")).toBe("当前稿结果");
+    expect(completionRunFreshnessLabel("hash-a", "hash-b")).toBe("历史稿结果");
     expect(draftSectionLabel("claims")).toBe("权利要求书");
     expect(draftSectionLabel("drawing_description")).toBe("附图说明");
   });

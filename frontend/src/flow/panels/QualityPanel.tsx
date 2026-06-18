@@ -5,6 +5,7 @@ import type {
   FilingReadinessReport,
 } from "@/api";
 import { qualitySummaryFromRuns, type GuidedActionGate } from "@/guidedFlow";
+import { patchSafetyLabel } from "@/domain";
 import { GuidedOperationConsole } from "../runtimeWidgets";
 import { ActionGateHint, type ExpertToolOpener } from "../parts";
 import {
@@ -56,6 +57,8 @@ export function QualityPanel({
   const actionsDisabled = !actionGate.allowed || Boolean(busy);
   const hasAnyResult = Boolean(filingReport || worksheet || completionRun);
   const proposedPatches = completionRun?.patches.filter((patch) => patch.status === "proposed").slice(0, 3) ?? [];
+  const evidenceRows = completionRun?.support_matrix.filter((row) => row.evidence_refs.length > 0).slice(0, 3) ?? [];
+  const missingEvidenceRows = completionRun?.support_matrix.filter((row) => row.missing_evidence_reason).slice(0, 3) ?? [];
 
   return (
     <section className="surface-panel guided-quality-panel">
@@ -170,6 +173,32 @@ export function QualityPanel({
         </SettingsGroup>
       ) : null}
 
+      {completionRun && (evidenceRows.length > 0 || missingEvidenceRows.length > 0) ? (
+        <SettingsGroup title="证据支持链" description="仅展示与初稿完善矩阵相关的证据编号和缺失原因。">
+          <div className="dense-list">
+            {evidenceRows.map((row) => (
+              <InfoCard
+                title={row.feature_text}
+                description={row.support_explanation || "已关联证据。"}
+                meta={<span className="tag tag-success">{row.evidence_refs.join(", ")}</span>}
+                key={`${row.claim_ref}-${row.feature_text}-evidence`}
+              >
+                {row.source_refs.length ? <p>来源：{row.source_refs.join("，")}</p> : null}
+              </InfoCard>
+            ))}
+            {missingEvidenceRows.map((row) => (
+              <InfoCard
+                title={row.feature_text}
+                description={row.missing_evidence_reason}
+                tone="warn"
+                meta={<span className="tag tag-warn">待补证据</span>}
+                key={`${row.claim_ref}-${row.feature_text}-missing`}
+              />
+            ))}
+          </div>
+        </SettingsGroup>
+      ) : null}
+
       {completionRun && proposedPatches.length ? (
         <SettingsGroup title="候选补强" description="接受后会更新工作稿，正式导出需要重新绑定后续检查。">
           <div className="dense-list">
@@ -177,9 +206,10 @@ export function QualityPanel({
               <InfoCard
                 title={patch.rationale}
                 description={patch.risk_delta}
-                meta={<span className={patch.can_enter_official_draft ? "tag tag-success" : "tag tag-warn"}>{patch.can_enter_official_draft ? "可进入官方稿" : "仅内部参考"}</span>}
+                meta={<span className={patch.can_enter_official_draft ? "tag tag-success" : "tag tag-warn"}>{patchSafetyLabel(patch)}</span>}
                 key={patch.id}
               >
+                {patch.evidence_refs.length ? <p>证据：{patch.evidence_refs.join("，")}</p> : null}
                 <pre className="patch-preview">{patch.after_text}</pre>
                 <button className="btn btn-primary" onClick={() => onAcceptPatch(completionRun.id, patch.id)} type="button">
                   接受补强建议

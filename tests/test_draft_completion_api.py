@@ -1,8 +1,10 @@
+from backend.app.llm import FakeLLMClient
+from backend.app.official_compile import source_draft_hash
 from backend.app.schemas import CompletionScoreCard, CompletionTask, DraftCompletionRun, ProposedPatch
 from backend.app.storage import SQLiteStore
 from fastapi.testclient import TestClient
 
-from backend.app.main import create_app
+from backend.app.main import _apply_completion_patch, create_app
 
 
 def _stored_completion_run(project_id: str = "project-1") -> DraftCompletionRun:
@@ -124,6 +126,10 @@ def test_completion_api_runs_lists_exports_and_updates_patch_status(tmp_path):
     assert report_response.status_code == 200
     assert "DRAFT_COMPLETION_REPORT" in report_response.text
 
+    generate_response = client.post(f"/api/projects/{project['id']}/completion-runs/{run['id']}/patches/generate")
+    assert generate_response.status_code == 200
+    assert len(generate_response.json()["patches"]) >= len(run["patches"])
+
     patch_id = run["patches"][0]["id"]
     accept_response = client.post(f"/api/projects/{project['id']}/completion-runs/{run['id']}/patches/{patch_id}/accept")
     assert accept_response.status_code == 200
@@ -157,7 +163,7 @@ def test_score_improvement_applies_safe_patches_and_re_scores_project(tmp_path):
     ).json()
     app = client.app
     store = app.state.store
-    from backend.app.schemas import DraftPackage
+    from backend.app.schemas import DraftPackage, ProjectMaterial
 
     store.update_project_package(
         project["id"],
@@ -174,6 +180,17 @@ def test_score_improvement_applies_safe_patches_and_re_scores_project(tmp_path):
             generation_logs=[],
         ),
     )
+    store.add_project_material(
+        ProjectMaterial(
+            id="material-1",
+            project_id=project["id"],
+            file_name="实验记录.md",
+            path="/tmp/material.md",
+            file_type="markdown",
+            text="接收输入数据、生成处理结果并输出控制指令。",
+            status="processed",
+        )
+    )
 
     response = client.post(f"/api/projects/{project['id']}/score-improvement", json={"max_rounds": 1})
 
@@ -186,3 +203,201 @@ def test_score_improvement_applies_safe_patches_and_re_scores_project(tmp_path):
     updated_project = client.get(f"/api/projects/{project['id']}").json()
     assert "生成处理结果" in updated_project["package"]["description"]
     assert "伪代码" in updated_project["package"]["description"]
+
+
+def test_apply_completion_patch_rejects_stale_run_hash():
+    from backend.app.schemas import DraftPackage
+
+    package = DraftPackage(
+        title="一种输入数据处理方法",
+        abstract="本发明公开一种输入数据处理方法。",
+        claims="1. 一种方法。",
+        description="本实施例接收输入数据。",
+        drawing_description="图1为流程图。",
+        mermaid="",
+        image_prompt="",
+    )
+    patch = ProposedPatch(
+        id="patch-1",
+        task_id="task-1",
+        target_section="description",
+        patch_kind="insert",
+        before_text="本实施例接收输入数据。",
+        after_text="补充实施例文本。",
+        rationale="补强。",
+        risk_delta="降低风险。",
+        evidence_refs=["E100"],
+        can_enter_official_draft=True,
+    )
+
+    updated = _apply_completion_patch(package, patch, run_draft_package_hash="stale-hash")
+
+    assert updated == package
+
+
+def test_apply_completion_patch_rejects_official_safe_patch_without_real_evidence_refs():
+    from backend.app.schemas import DraftPackage
+
+    package = DraftPackage(
+        title="一种输入数据处理方法",
+        abstract="本发明公开一种输入数据处理方法。",
+        claims="1. 一种方法。",
+        description="本实施例接收输入数据。",
+        drawing_description="图1为流程图。",
+        mermaid="",
+        image_prompt="",
+    )
+    patch = ProposedPatch(
+        id="patch-1",
+        task_id="task-1",
+        target_section="description",
+        patch_kind="insert",
+        before_text="本实施例接收输入数据。",
+        after_text="补充实施例文本。",
+        rationale="补强。",
+        risk_delta="降低风险。",
+        evidence_refs=["task:task-1", "claim:1"],
+        can_enter_official_draft=True,
+    )
+
+    updated = _apply_completion_patch(package, patch, run_draft_package_hash=source_draft_hash(package))
+
+    assert updated == package
+
+
+def test_apply_completion_patch_accepts_verified_patent_point_ref():
+    from backend.app.schemas import DraftPackage
+
+    package = DraftPackage(
+        title="一种输入数据处理方法",
+        abstract="本发明公开一种输入数据处理方法。",
+        claims="1. 一种方法。",
+        description="本实施例接收输入数据。",
+        drawing_description="图1为流程图。",
+        mermaid="",
+        image_prompt="",
+    )
+    patch = ProposedPatch(
+        id="patch-1",
+        task_id="task-1",
+        target_section="description",
+        patch_kind="insert",
+        before_text="本实施例接收输入数据。",
+        after_text="补充实施例文本。",
+        rationale="补强。",
+        risk_delta="降低风险。",
+        evidence_refs=["patent_points", "patent_point:verified"],
+        can_enter_official_draft=True,
+    )
+
+    updated = _apply_completion_patch(package, patch, run_draft_package_hash=source_draft_hash(package))
+
+    assert "补充实施例文本。" in updated.description
+
+
+def test_score_improvement_invalidates_previous_official_export_gate(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={
+            "name": "通用处理流程",
+            "draft_text": "一种输入数据处理方法，解决处理结果不可追溯的问题。",
+        },
+    ).json()
+    app = client.app
+    store = app.state.store
+    from backend.app.schemas import DraftPackage, ProjectMaterial
+
+    store.update_project_package(
+        project["id"],
+        DraftPackage(
+            title="一种输入数据处理方法",
+            abstract="本发明公开一种输入数据处理方法。",
+            claims="1. 一种输入数据处理方法，其特征在于，包括接收输入数据、生成处理结果并输出控制指令。",
+            description="本实施例接收输入数据。",
+            drawing_description="图1为流程图。",
+            mermaid="",
+            image_prompt="",
+            review_findings=[],
+            citations=[],
+            generation_logs=[],
+        ),
+    )
+    store.add_project_material(
+        ProjectMaterial(
+            id="material-1",
+            project_id=project["id"],
+            file_name="实验记录.md",
+            path="/tmp/material.md",
+            file_type="markdown",
+            text="接收输入数据、生成处理结果并输出控制指令。",
+            status="processed",
+        )
+    )
+    assert client.post(f"/api/projects/{project['id']}/official-compile-runs", json={}).json()["status"] == "completed"
+    assert client.post(f"/api/projects/{project['id']}/post-draft-reviews", json={}).json()["export_allowed"] is True
+    assert client.get(f"/api/projects/{project['id']}/official-export.md").status_code == 200
+
+    response = client.post(f"/api/projects/{project['id']}/score-improvement", json={"max_rounds": 1})
+    assert response.status_code == 200
+    assert response.json()["accepted_patch_ids"]
+
+    blocked_export = client.get(f"/api/projects/{project['id']}/official-export.md")
+    assert blocked_export.status_code == 409
+    assert "current draft" in blocked_export.json()["detail"]
+
+
+def _review_llm(*, export_allowed: bool) -> FakeLLMClient:
+    status = "passed" if export_allowed else "blocked"
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": f"""
+{{
+  "role": "claims_reviewer",
+  "status": "{status}",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}}
+""",
+            "post_draft_spec_cleaner": f"""
+{{
+  "role": "spec_cleaner",
+  "status": "{status}",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}}
+""",
+            "post_draft_technical_hardness": f"""
+{{
+  "role": "technical_hardness",
+  "status": "{status}",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}}
+""",
+            "post_draft_chair_synthesis": f"""
+{{
+  "status": "{status}",
+  "export_allowed": {str(export_allowed).lower()},
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [],
+  "attorney_memo": [],
+  "next_actions": []
+}}
+""",
+        }
+    )

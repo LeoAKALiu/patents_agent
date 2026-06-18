@@ -59,6 +59,18 @@ TREND_FIELDS = (
     "overall",
 )
 
+DRAFTING_QUALITY_FIELDS = (
+    "evidence_binding_rate",
+    "core_feature_support_rate",
+    "unsupported_core_feature_count",
+    "unverified_effect_leak_count",
+    "dependent_fallback_depth",
+    "embodiment_density",
+    "patch_delta",
+)
+
+CORE_FEATURE_CLASSES = {"core_combo", "differentiator", "support_needed"}
+
 OFFICIAL_EXPORT_FORBIDDEN_MARKERS = (
     "generation_logs",
     "image_prompt",
@@ -900,6 +912,7 @@ def _workflow_result(
 ) -> dict[str, Any]:
     scorecard = completion_run["scorecard"]
     trend = {field: scorecard[field] for field in TREND_FIELDS}
+    drafting_quality = _drafting_quality_metrics(completion_run)
     research_hit_count = len(disclosure.package.prior_art_hits if disclosure.package else [])
     gates = {
         "research_evidence_count": {
@@ -917,6 +930,21 @@ def _workflow_result(
             "expected": ",".join(TREND_FIELDS),
             "actual": json.dumps(trend, ensure_ascii=False),
         },
+        "evidence_binding_rate": {
+            "passed": drafting_quality["evidence_binding_rate"] >= 0.1,
+            "expected": ">=0.1",
+            "actual": str(drafting_quality["evidence_binding_rate"]),
+        },
+        "core_feature_support_rate": {
+            "passed": drafting_quality["core_feature_support_rate"] >= 0.4,
+            "expected": ">=0.4",
+            "actual": str(drafting_quality["core_feature_support_rate"]),
+        },
+        "unverified_effect_leak_count": {
+            "passed": drafting_quality["unverified_effect_leak_count"] == 0,
+            "expected": "0",
+            "actual": str(drafting_quality["unverified_effect_leak_count"]),
+        },
         **export_result["gates"],
     }
     failed_gates = [name for name, gate in gates.items() if not gate["passed"]]
@@ -933,8 +961,54 @@ def _workflow_result(
         "research_confidence": disclosure.package.research_confidence if disclosure.package else "low",
         "grantability": grantability,
         "quality_trend": trend,
+        "drafting_quality": drafting_quality,
         "gates": gates,
     }
+
+
+def _drafting_quality_metrics(completion_run: dict[str, Any]) -> dict[str, Any]:
+    rows = completion_run.get("support_matrix") or []
+    issues = completion_run.get("issues") or []
+    patches = completion_run.get("patches") or []
+    core_rows = [row for row in rows if row.get("feature_classification") in CORE_FEATURE_CLASSES]
+    rows_with_evidence = [row for row in rows if row.get("evidence_refs")]
+    supported_core = [row for row in core_rows if row.get("completion_status") in {"supported", "partial"}]
+    unsupported_core = [row for row in core_rows if row.get("completion_status") == "missing"]
+    structural_rows = [
+        row
+        for row in rows
+        if row.get("description_refs")
+        or row.get("embodiment_refs")
+        or row.get("formula_refs")
+        or row.get("data_structure_refs")
+        or row.get("pseudo_code_refs")
+    ]
+    unverified_leaks = [
+        issue
+        for issue in issues
+        if issue.get("category") == "unverified_scheme_gap" and issue.get("blocks_submission")
+    ]
+    official_safe_evidence_patches = [
+        patch
+        for patch in patches
+        if patch.get("can_enter_official_draft") and patch.get("evidence_refs")
+    ]
+    sidecar_patches = [patch for patch in patches if patch.get("patch_kind") == "sidecar_only"]
+    return {
+        "evidence_binding_rate": _ratio(len(rows_with_evidence), len(rows)),
+        "core_feature_support_rate": _ratio(len(supported_core), len(core_rows)),
+        "unsupported_core_feature_count": len(unsupported_core),
+        "unverified_effect_leak_count": len(unverified_leaks),
+        "dependent_fallback_depth": sum(1 for row in rows if row.get("feature_classification") == "dependent_fallback"),
+        "embodiment_density": _ratio(len(structural_rows), len(rows)),
+        "patch_delta": len(official_safe_evidence_patches) - len(sidecar_patches),
+    }
+
+
+def _ratio(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round(numerator / denominator, 3)
 
 
 def run_golden_case(client: TestClient, case: GoldenCase) -> dict[str, Any]:
@@ -989,6 +1063,7 @@ def _build_report(results: list[dict[str, Any]], failures: list[dict[str, str]])
             "failed_workflows": len(failures),
             "categories": categories,
             "trend_fields": list(TREND_FIELDS),
+            "drafting_quality_fields": list(DRAFTING_QUALITY_FIELDS),
         },
         "workflows": results,
         "failures": failures,
@@ -1024,6 +1099,9 @@ def _render_markdown_report(report: dict[str, Any]) -> str:
         )
         for field in TREND_FIELDS:
             lines.append(f"  - {field}: {workflow['quality_trend'][field]}")
+        lines.append("- drafting_quality:")
+        for field in DRAFTING_QUALITY_FIELDS:
+            lines.append(f"  - {field}: {workflow['drafting_quality'][field]}")
         lines.extend(["- gates:"])
         for name, gate in workflow["gates"].items():
             lines.append(f"  - {name}: {'pass' if gate['passed'] else 'fail'} ({gate['actual']})")
