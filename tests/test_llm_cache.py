@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.llm import FakeLLMClient
-from backend.app.llm_cache import clear_project_llm_cache, complete_stage_cached, stage_cache_key
+from backend.app.llm_cache import _call_with_retry, clear_project_llm_cache, complete_stage_cached, stage_cache_key
 from backend.app.main import create_app
 from backend.app.schemas import DraftPackage
 from backend.app.storage import SQLiteStore
@@ -173,6 +175,35 @@ def test_clear_project_llm_cache_endpoint(tmp_path) -> None:
 
     assert response.status_code == 200
     assert response.json()["deleted"] == 1
+
+
+def test_call_with_retry_does_not_swallow_base_exception() -> None:
+    class StopSignal(BaseException):
+        pass
+
+    attempts: list[str] = []
+
+    def fallback() -> str:
+        attempts.append("called")
+        raise StopSignal()
+
+    with pytest.raises(StopSignal):
+        _call_with_retry(fallback, retries=2, timeout_s=None)
+
+    assert attempts == ["called"]
+
+
+def test_call_with_retry_timeout_returns_without_waiting_for_fallback() -> None:
+    def slow_fallback() -> str:
+        time.sleep(0.5)
+        return "late response"
+
+    started_at = time.monotonic()
+    with pytest.raises(TimeoutError):
+        _call_with_retry(slow_fallback, retries=0, timeout_s=0.01)
+    elapsed = time.monotonic() - started_at
+
+    assert elapsed < 0.25
 
 
 def test_post_draft_review_uses_stage_cache_for_same_official_package(tmp_path) -> None:

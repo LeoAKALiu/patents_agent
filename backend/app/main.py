@@ -2687,9 +2687,11 @@ def _apply_completion_patch(
 
 
 def _patch_has_real_evidence_refs(patch: ProposedPatch) -> bool:
-    ignored_prefixes = ("task:", "claim:", "term:", "filing_readiness:", "patent_points")
+    # "patent_points" is a stage aggregate tag; "patent_point:*" is project evidence.
+    ignored_refs = {"patent_points"}
+    ignored_prefixes = ("task:", "claim:", "term:", "filing_readiness:")
     for ref in patch.evidence_refs:
-        if ref and not ref.startswith(ignored_prefixes):
+        if ref and ref not in ignored_refs and not ref.startswith(ignored_prefixes):
             return True
     return False
 

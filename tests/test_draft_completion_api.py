@@ -265,6 +265,36 @@ def test_apply_completion_patch_rejects_official_safe_patch_without_real_evidenc
     assert updated == package
 
 
+def test_apply_completion_patch_accepts_verified_patent_point_ref():
+    from backend.app.schemas import DraftPackage
+
+    package = DraftPackage(
+        title="一种输入数据处理方法",
+        abstract="本发明公开一种输入数据处理方法。",
+        claims="1. 一种方法。",
+        description="本实施例接收输入数据。",
+        drawing_description="图1为流程图。",
+        mermaid="",
+        image_prompt="",
+    )
+    patch = ProposedPatch(
+        id="patch-1",
+        task_id="task-1",
+        target_section="description",
+        patch_kind="insert",
+        before_text="本实施例接收输入数据。",
+        after_text="补充实施例文本。",
+        rationale="补强。",
+        risk_delta="降低风险。",
+        evidence_refs=["patent_points", "patent_point:verified"],
+        can_enter_official_draft=True,
+    )
+
+    updated = _apply_completion_patch(package, patch, run_draft_package_hash=source_draft_hash(package))
+
+    assert "补充实施例文本。" in updated.description
+
+
 def test_score_improvement_invalidates_previous_official_export_gate(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project = client.post(

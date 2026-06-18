@@ -9,6 +9,8 @@ from __future__ import annotations
 import concurrent.futures
 import hashlib
 import json
+import queue
+import threading
 from collections.abc import Callable
 
 from backend.app.llm import LLMClient
@@ -133,13 +135,13 @@ class CachedStageLLMClient:
 
 def _call_with_retry(fallback: Callable[[], str], *, retries: int, timeout_s: float | None) -> str:
     attempts = max(0, retries) + 1
-    last_error: BaseException | None = None
+    last_error: Exception | None = None
     for _attempt in range(attempts):
         try:
             if timeout_s is None:
                 return fallback()
             return _call_with_timeout(fallback, timeout_s)
-        except BaseException as exc:
+        except Exception as exc:
             last_error = exc
     if last_error is not None:
         raise last_error
@@ -147,9 +149,23 @@ def _call_with_retry(fallback: Callable[[], str], *, retries: int, timeout_s: fl
 
 
 def _call_with_timeout(fallback: Callable[[], str], timeout_s: float) -> str:
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(fallback)
-        return future.result(timeout=timeout_s)
+    result_queue: queue.Queue[tuple[bool, str | BaseException]] = queue.Queue(maxsize=1)
+
+    def run_fallback() -> None:
+        try:
+            result_queue.put((True, fallback()))
+        except BaseException as exc:
+            result_queue.put((False, exc))
+
+    thread = threading.Thread(target=run_fallback, name="llm-stage-fallback", daemon=True)
+    thread.start()
+    try:
+        ok, value = result_queue.get(timeout=timeout_s)
+    except queue.Empty as exc:
+        raise concurrent.futures.TimeoutError(f"LLM fallback timed out after {timeout_s:g}s.") from exc
+    if ok:
+        return str(value)
+    raise value
 
 
 def _hash_json(payload: dict) -> str:
