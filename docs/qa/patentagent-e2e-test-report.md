@@ -126,3 +126,6 @@
 - Clean rerun 新建并分派：`t_f2be2e01` PR-14 -> `bigmodelworker`; `t_7b44a196` PR-15 -> `bigmodelworker`; `t_241f3d03` PR-16A -> `bigmodelworker`; `t_cf6c0876` PR-16B -> `kimiworker`; `t_c839241b` PR-17 -> `deepseekworker`; `t_3985a359` PR-18 -> `deepseekworker`。
 - 已审核并合入集成分支：`t_3985a359` PR-18，验证 `npm install`, `npm test`, `npm run build`, `npm audit --audit-level=low` 均通过。
 - 已审核并合入集成分支：`t_c839241b` PR-17，因分支携带旧 PR-4A 历史，实际 cherry-pick 修复 commit `9829473` 为 `c5e305f`；验证 content-disposition/API/official compile 相关测试通过。
+- 已审核并合入集成分支：`t_241f3d03` PR-16A，验证 official compile/post-draft review readiness 相关测试通过。
+- 已审核并合入集成分支：`t_f2be2e01` PR-14，验证 `npm build`, `cargo check/test --features custom-protocol`, `cargo tauri build --debug`, `tauri_dmg_smoke.py` 均通过；未合入 `.artifacts/pr14-*` 生成物。
+- 已拆分继续执行：`t_7b44a196` PR-15 连续超时且无 commit，拆为 `t_21b014eb` PR-15A backend -> `bigmodelworker` 与 `t_cf40449f` PR-15B frontend -> `kimiworker`。

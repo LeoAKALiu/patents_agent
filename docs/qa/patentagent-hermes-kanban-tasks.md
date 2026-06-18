@@ -1,7 +1,7 @@
 # PatentAgent Hermes Kanban Tasks
 
 测试日期：2026-06-18  
-最近更新：2026-06-19 00:10
+最近更新：2026-06-19 04:17
 看板：`patentagent-qa-bugfix`  
 说明：本清单仅同步到 Hermes Kanban，不涉及 Linear。
 
@@ -9,10 +9,12 @@
 
 | PR | Hermes ID | 优先级 | 状态 | 分派 | 建议分支 |
 | --- | --- | --- | --- | --- | --- |
-| PR-14 clean | `t_f2be2e01` | P0 | running | `bigmodelworker` | `codex/pr-14-tauri-frontend-assets-clean` |
-| PR-15 clean | `t_7b44a196` | P1 | running | `bigmodelworker` | `codex/pr-15-project-metadata-clean` |
-| PR-16A clean | `t_241f3d03` | P2 | running | `bigmodelworker` | `codex/pr-16-official-export-readiness-api-clean` |
-| PR-16B clean | `t_cf6c0876` | P2 | todo, waits on PR-16A | `kimiworker` | `codex/pr-16-official-export-gate-ui-clean` |
+| PR-14 clean | `t_f2be2e01` | P0 | done, integrated | `bigmodelworker` | `codex/pr-14-tauri-frontend-assets-clean` |
+| PR-15 clean | `t_7b44a196` | P1 | blocked, decomposed | `bigmodelworker` | `codex/pr-15-project-metadata-clean` |
+| PR-15A clean | `t_21b014eb` | P1 | running | `bigmodelworker` | `codex/pr-15a-project-metadata-backend-clean` |
+| PR-15B clean | `t_cf40449f` | P1 | todo, waits on PR-15A | `kimiworker` | `codex/pr-15b-project-metadata-frontend-clean` |
+| PR-16A clean | `t_241f3d03` | P2 | done, merged into integration | `bigmodelworker` | `codex/pr-16-official-export-readiness-api-clean` |
+| PR-16B clean | `t_cf6c0876` | P2 | running | `kimiworker` | `codex/pr-16-official-export-gate-ui-clean` |
 | PR-17 clean | `t_c839241b` | P2 | done, cherry-picked into integration | `deepseekworker` | `codex/pr-17-download-ascii-fallback-clean` |
 | PR-18 clean | `t_3985a359` | P3 | done, merged into integration | `deepseekworker` | `codex/pr-18-frontend-deps-bundle-clean` |
 
@@ -22,6 +24,7 @@
 | --- | --- | --- |
 | PR-14 original | `t_7cacda4e` | blocked/superseded：旧卡与其他任务并发使用共享工作树 `/Users/leo/Projects/patents_agent`，不可作为 merge-review 分支 |
 | PR-15 original | `t_2cd4aef4` | blocked/superseded：结构化 metadata 是长程 schema/storage/API/frontend 任务，已按规则改派 `bigmodelworker` |
+| PR-15 clean failed | `t_7b44a196` | blocked/decomposed：连续两次迭代预算耗尽，停留在 dirty worktree、无 commit；拆为 PR-15A 后端与 PR-15B 前端 |
 | PR-16 original | `t_39af97b4` | blocked/superseded：拆分为 PR-16A API readiness 与 PR-16B UI CTA |
 | PR-17 original | `t_a3c29562` | blocked/superseded：改用隔离 worktree 续作 |
 | PR-18 original | `t_bfa3a9cd` | review result: not mergeable；无独立 commit，且 diff 混入 PR-15/16 未提交改动；已改派 clean rerun 给 `deepseekworker` |
@@ -37,11 +40,12 @@
 ## 建议执行顺序
 
 1. PR-14：先修复 Tauri 打包黑屏，恢复真实客户端 E2E 能力。
-2. PR-15：补齐结构化项目信息输入，减少文档/导出元数据遗漏。
-3. PR-16A：先补官方导出 readiness API/报告状态。
-4. PR-16B：在 PR-16A 后补 UI locked state 和 post-draft review CTA。
-5. PR-17：修复 CJK 下载文件名 ASCII fallback。
-6. PR-18：处理依赖审计和前端 bundle 体积告警。
+2. PR-15A：先补结构化项目信息的后端 schema/storage/API。
+3. PR-15B：在 PR-15A 后补前端录入/编辑 UI。
+4. PR-16A：先补官方导出 readiness API/报告状态。
+5. PR-16B：在 PR-16A 后补 UI locked state 和 post-draft review CTA。
+6. PR-17：修复 CJK 下载文件名 ASCII fallback。
+7. PR-18：处理依赖审计和前端 bundle 体积告警。
 
 ## PR-14：Fix Packaged Tauri App Black Screen
 
@@ -92,9 +96,9 @@ Hermes ID：`t_f2be2e01`
 ## PR-15：Add Structured Project Metadata Intake
 
 优先级：P1  
-Hermes ID：`t_7b44a196`
-分派：`bigmodelworker`
-建议分支：`codex/pr-15-project-metadata-clean`
+Hermes ID：backend `t_21b014eb`; frontend `t_cf40449f`
+分派：backend `bigmodelworker`；frontend `kimiworker`
+建议分支：`codex/pr-15a-project-metadata-backend-clean` / `codex/pr-15b-project-metadata-frontend-clean`
 
 ### 背景
 

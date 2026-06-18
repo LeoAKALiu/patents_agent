@@ -31,7 +31,7 @@ Hermes：`t_f2be2e01`
 
 ## PR-15: Add structured project metadata intake and persistence
 
-Hermes：`t_7b44a196`
+Hermes：backend `t_21b014eb`; frontend `t_cf40449f`
 优先级：P1  
 建议顺序：2
 
@@ -43,7 +43,8 @@ Hermes：`t_7b44a196`
 
 范围：
 
-- 扩展后端 schema、SQLite 存储、API 和前端表单。
+- PR-15A：扩展后端 schema、SQLite 存储、API 和迁移。
+- PR-15B：在 PR-15A API contract 之后补前端表单、API client 和交互状态。
 - 为旧项目提供默认值/迁移。
 - 支持编辑后保存、刷新、重启后持久化。
 - 明确申请人/发明人是否进入导出稿；若不进入，也要在 UI 上解释。
