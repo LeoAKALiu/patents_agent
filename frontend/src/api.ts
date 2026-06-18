@@ -806,6 +806,31 @@ export interface PostDraftReviewRun {
   updated_at: string;
 }
 
+export interface OfficialExportGateStage {
+  state: "present" | "stale" | "missing";
+  run_id: string;
+  status: string;
+  export_allowed: boolean | null;
+}
+
+/** Machine-readable view of the official export gate.
+ *  Maps directly to the backend OfficialExportReadiness schema.
+ *  Reason codes: draft_required → official_compile_required →
+ *  post_draft_review_required → post_draft_review_blocked → ready.
+ *  required_actions are ordered CTA codes:
+ *  generate_draft / run_official_compile / run_post_draft_review / rerun_post_draft_review. */
+export interface OfficialExportReadiness {
+  project_id: string;
+  ready: boolean;
+  reason: string;
+  required_actions: string[];
+  detail: string;
+  current_source_draft_hash: string;
+  export_formats: string[];
+  official_compile: OfficialExportGateStage;
+  post_draft_review: OfficialExportGateStage;
+}
+
 export interface CorpusQualityReport {
   total_files: number;
   processed_files: number;
@@ -1391,6 +1416,16 @@ export function exportUrl(projectId: string, kind: "docx" | "md" | "mmd" | "prom
 
 export function officialExportUrl(projectId: string, kind: "docx" | "md"): string {
   return kind === "docx" ? `/api/projects/${projectId}/official-export.docx` : `/api/projects/${projectId}/official-export.md`;
+}
+
+export function officialExportReadinessUrl(projectId: string): string {
+  return `/api/projects/${projectId}/official-export/readiness`;
+}
+
+export async function fetchOfficialExportReadiness(
+  projectId: string,
+): Promise<OfficialExportReadiness> {
+  return request<OfficialExportReadiness>(officialExportReadinessUrl(projectId));
 }
 
 export function disclosureExportUrl(

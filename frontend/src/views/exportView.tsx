@@ -4,7 +4,7 @@
  * contamination warning + last-export success card.
  */
 import { safeProjectName } from "@/lib/filename";
-import { AlertTriangle, CheckCircle2, Download, FileArchive, FileText } from "@/lib/icons";
+import { AlertTriangle, ArrowRight, CheckCircle2, Download, FileArchive, FileText } from "@/lib/icons";
 import {
   exportUrl,
   officialExportUrl,
@@ -13,7 +13,7 @@ import {
   type PostDraftReviewRun,
   type ProjectRecord,
 } from "@/api";
-import { canExportPackage } from "@/domain";
+import { canExportPackage, deriveExportReadiness } from "@/domain";
 import {
   findOfficialContaminationMarkers,
   formatBytes,
@@ -62,6 +62,24 @@ export function ExportView({
 }) {
   const enabled = canExportPackage(packageValue);
   const projectName = safeProjectName(project?.name);
+
+  // Derive the export gate state from existing props (mirrors backend
+  // compute_official_export_readiness without a network round-trip).
+  const readiness = deriveExportReadiness({
+    hasPackage: enabled,
+    officialCompileCompleted: Boolean(
+      officialCompileRun?.status === "completed" && officialCompileRun.official_package,
+    ),
+    officialCompilePresent: Boolean(officialCompileRun),
+    postDraftReviewCompleted: Boolean(postDraftReview?.status === "completed"),
+    postDraftReviewBlocked:
+      Boolean(postDraftReview?.status === "completed" && !postDraftReview.export_allowed),
+    postDraftReviewPresent: Boolean(postDraftReview),
+  });
+
+  // Keep the existing officialAllowed check for backward compat — it gates
+  // the actual download hrefs and is stricter than readiness.ready because
+  // it also verifies hash matches between compile run and review.
   const officialAllowed = Boolean(
     enabled
       && postDraftReview?.status === "completed"
@@ -71,6 +89,33 @@ export function ExportView({
       && postDraftReview.official_compile_run_id === officialCompileRun?.id
       && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
+
+  const gateStatusLabel = (function () {
+    if (officialAllowed) return "已解锁 — 可导出";
+    if (readiness.reason === "draft_required") return "未生成初稿";
+    if (readiness.reason === "official_compile_required") return "等待正式稿编译";
+    if (readiness.reason === "post_draft_review_required") return "需要成稿会审";
+    if (readiness.reason === "post_draft_review_blocked") return "成稿会审已阻断";
+    return "等待会审";
+  })();
+
+  const gateTitle = (function () {
+    if (officialAllowed) return "正式稿已通过成稿会审";
+    if (readiness.reason === "post_draft_review_required")
+      return "正式稿已编译 — 需完成成稿会审";
+    if (readiness.reason === "post_draft_review_blocked")
+      return "成稿会审已阻断 — 需修订后重新会审";
+    if (readiness.reason === "official_compile_required") return "正式稿入口已锁定";
+    if (readiness.reason === "draft_required") return "正式稿入口已锁定";
+    return "正式稿入口已锁定";
+  })();
+
+  const gateDescription = (function () {
+    if (officialAllowed)
+      return `当前正式稿可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}`;
+    return readiness.detail;
+  })();
+
   // PR7 (issue #21): scan the official package text for residual internal
   // markers (log lines, prompt fragments, review memos, mermaid fences, etc.).
   // The backend already strips these at compile time and the gate refuses to
@@ -109,7 +154,7 @@ export function ExportView({
       <StatusStrip
         aria-label="导出状态"
         items={[
-          { label: "正式稿状态", value: officialAllowed ? "已解锁" : "等待会审" },
+          { label: "正式稿状态", value: gateStatusLabel },
           { label: "源稿哈希", value: currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成" },
           { label: "正式稿哈希", value: officialCompileRun?.official_package_hash?.slice(0, 12) ?? "未编译" },
           { label: "最近导出", value: lastExport && lastExportMatchesHash ? lastExport.format.toUpperCase() : "无有效导出" },
@@ -143,14 +188,63 @@ export function ExportView({
         <InfoCard
           icon={<FileText size={18} aria-hidden="true" />}
           tone={officialAllowed ? "success" : "warn"}
-          title={officialAllowed ? "正式稿已通过成稿会审" : "正式稿入口已锁定"}
-          description={
-            officialAllowed
-              ? `当前正式稿可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}`
-              : "正式稿需先生成，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。"
-          }
+          title={gateTitle}
+          description={gateDescription}
           meta={<span className={officialAllowed ? "tag tag-success" : "tag tag-warn"}>{officialAllowed ? "可导出" : "需处理"}</span>}
+          data-testid="official-export-gate-card"
         />
+      {readiness.reason === "post_draft_review_required" && (
+        <div
+          className="callout callout-action"
+          role="alert"
+          data-testid="official-export-cta-review-required"
+        >
+          <ArrowRight size={18} aria-hidden="true" />
+          <div>
+            <strong>下一步：运行成稿会审</strong>
+            <p>正式稿已编译完成，但导出前必须通过成稿后多智能体会审。请在流程中进入「成稿会审」步骤运行，通过后即可导出正式提交稿。</p>
+          </div>
+        </div>
+      )}
+      {readiness.reason === "post_draft_review_blocked" && (
+        <div
+          className="callout callout-danger"
+          role="alert"
+          data-testid="official-export-cta-review-blocked"
+        >
+          <AlertTriangle size={18} aria-hidden="true" />
+          <div>
+            <strong>成稿会审已阻断，需要修订</strong>
+            <p>请查看会审报告中的阻断项，修改初稿后重新编译正式稿，再运行成稿会审。通过后即可导出正式提交稿。</p>
+          </div>
+        </div>
+      )}
+      {readiness.reason === "official_compile_required" && (
+        <div
+          className="callout callout-warn"
+          role="alert"
+          data-testid="official-export-cta-compile-required"
+        >
+          <ArrowRight size={18} aria-hidden="true" />
+          <div>
+            <strong>需要先编译正式稿</strong>
+            <p>正式导出前需要先生成正式稿。请在流程中进入「正式稿编译」步骤运行，编译通过后再完成成稿会审即可导出。</p>
+          </div>
+        </div>
+      )}
+      {readiness.reason === "draft_required" && (
+        <div
+          className="callout callout-warn"
+          role="alert"
+          data-testid="official-export-cta-draft-required"
+        >
+          <ArrowRight size={18} aria-hidden="true" />
+          <div>
+            <strong>需要先生成专利初稿</strong>
+            <p>正式导出前需要先完成初稿生成，再经过正式稿编译和成稿会审。请先在流程中生成初稿。</p>
+          </div>
+        </div>
+      )}
       {contaminationMatches.length > 0 && (
         <div
           className="callout callout-warn"

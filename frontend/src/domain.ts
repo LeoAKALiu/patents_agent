@@ -49,6 +49,89 @@ export function canExportPackage(
   return Boolean(value?.title?.trim() && value?.claims?.trim());
 }
 
+/** Export gate reason codes mirroring backend OfficialExportReadiness.reason. */
+export type ExportReadinessReason =
+  | "draft_required"
+  | "official_compile_required"
+  | "post_draft_review_required"
+  | "post_draft_review_blocked"
+  | "ready";
+
+export interface DerivedExportReadiness {
+  ready: boolean;
+  reason: ExportReadinessReason;
+  required_actions: string[];
+  detail: string;
+}
+
+/** Derive the export gate state from UI-side props. Mirrors
+ *  backend ``compute_official_export_readiness()`` without
+ *  a network round-trip. */
+export function deriveExportReadiness(params: {
+  hasPackage: boolean;
+  officialCompileCompleted: boolean;
+  officialCompilePresent: boolean;
+  postDraftReviewCompleted: boolean;
+  postDraftReviewBlocked: boolean;
+  postDraftReviewPresent: boolean;
+}): DerivedExportReadiness {
+  if (!params.hasPackage) {
+    return {
+      ready: false,
+      reason: "draft_required",
+      required_actions: ["generate_draft"],
+      detail: "需要先生成专利初稿。",
+    };
+  }
+  if (!params.officialCompilePresent) {
+    return {
+      ready: false,
+      reason: "official_compile_required",
+      required_actions: ["run_official_compile"],
+      detail: "需要先编译正式稿。",
+    };
+  }
+  if (!params.officialCompileCompleted) {
+    return {
+      ready: false,
+      reason: "official_compile_required",
+      required_actions: ["run_official_compile"],
+      detail: "正式稿编译未完成，请重新运行。",
+    };
+  }
+  if (!params.postDraftReviewPresent) {
+    return {
+      ready: false,
+      reason: "post_draft_review_required",
+      required_actions: ["run_post_draft_review"],
+      detail: "正式稿已编译完成，需要进行成稿会审后才能导出。",
+    };
+  }
+  if (params.postDraftReviewCompleted && params.postDraftReviewBlocked) {
+    return {
+      ready: false,
+      reason: "post_draft_review_blocked",
+      required_actions: ["rerun_post_draft_review"],
+      detail: "成稿会审已阻断，请根据阻断项修改初稿后重新编译正式稿再会审。",
+    };
+  }
+  if (params.postDraftReviewCompleted && !params.postDraftReviewBlocked) {
+    return {
+      ready: true,
+      reason: "ready",
+      required_actions: [],
+      detail: "正式稿已通过成稿会审，可导出。",
+    };
+  }
+  // Review running or other transient state
+  return {
+    ready: false,
+    reason: "post_draft_review_required",
+    required_actions: ["run_post_draft_review"],
+    detail: "成稿会审进行中，请等待完成后导出。",
+  };
+}
+
 export function severityLabel(severity: string): string {
   if (severity === "high") return "高";
   if (severity === "medium") return "中";
