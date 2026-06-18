@@ -1,0 +1,152 @@
+{
+  "review": {
+    "id": "cd5144c2e8da459db34c4c6d657cd5b6",
+    "project_id": "a9cfa4e757474151bf08bd40eb60d3a2",
+    "status": "completed",
+    "providers": [
+      "codex",
+      "deepseek",
+      "claude"
+    ],
+    "prompt_pack_version": "post-draft-review-v1",
+    "draft_package_hash": "2340a5136c5dfc40140b68ee229896b9e188b98c2ead5c2f7913cae9902b5e4d",
+    "official_compile_run_id": "a914b0315b8e4a9581655af3b072ad6e",
+    "official_package_hash": "6c5f269454a1687872b1d032f67d848e8e9401d230b2a19e8aab65dbaaabf0b8",
+    "role_results": [
+      {
+        "role": "claims_reviewer",
+        "status": "passed",
+        "blocking_issues": [],
+        "contamination_hits": [],
+        "rewrite_suggestions": [
+          "建议正式提交前补充从属权利要求覆盖图像语义标签生成细节。"
+        ],
+        "official_safe_patches": [],
+        "attorney_memo": [
+          "权利要求1具备方法步骤闭环，但需要真实检索支撑创造性。"
+        ]
+      },
+      {
+        "role": "spec_cleaner",
+        "status": "passed",
+        "blocking_issues": [],
+        "contamination_hits": [],
+        "rewrite_suggestions": [
+          "说明书章节顺序基本符合草案要求。"
+        ],
+        "official_safe_patches": [],
+        "attorney_memo": [
+          "未发现内部提示词、生成日志或会审 JSON 残留在正式稿主体中。"
+        ]
+      },
+      {
+        "role": "technical_hardness",
+        "status": "passed",
+        "blocking_issues": [],
+        "contamination_hits": [],
+        "rewrite_suggestions": [
+          "建议补充证据链字段的数据结构实施例。"
+        ],
+        "official_safe_patches": [],
+        "attorney_memo": [
+          "技术方案可实现，但测试数据未验证真实检索效果。"
+        ]
+      }
+    ],
+    "chair_result": {
+      "status": "passed",
+      "export_allowed": true,
+      "blocking_issues": [],
+      "contamination_hits": [],
+      "claim_1_rewrite": "",
+      "system_claim_rewrite": "",
+      "abstract_rewrite": "",
+      "description_rewrite_tasks": [],
+      "official_safe_patches": [],
+      "attorney_memo": [
+        "QA Fake LLM 结果仅用于流程验证；正式提交前需使用真实模型和代理师复核。"
+      ],
+      "next_actions": []
+    },
+    "export_allowed": true,
+    "blocking_issues": [],
+    "contamination_hits": [],
+    "logs": [
+      {
+        "level": "info",
+        "phase": "post_draft_review",
+        "provider_id": "claims_reviewer",
+        "attempt": null,
+        "message": "claims_reviewer completed",
+        "detail": "{\"role\": \"claims_reviewer\", \"status\": \"passed\", \"blocking_issues\": [], \"contamination_hits\": [], \"rewrite_suggestions\": [\"建议正式提交前补充从属权利要求覆盖图像语义标签生成细节。\"], \"official_safe_patches\": [], \"attorney_memo\": [\"权利要求1具备方法步骤闭环，但需要真实检索支撑创造性。\"]}",
+        "repair_suggestion": "",
+        "elapsed_ms": null,
+        "created_at": "2026-06-18T15:47:35Z"
+      },
+      {
+        "level": "info",
+        "phase": "post_draft_review",
+        "provider_id": "spec_cleaner",
+        "attempt": null,
+        "message": "spec_cleaner completed",
+        "detail": "{\"role\": \"spec_cleaner\", \"status\": \"passed\", \"blocking_issues\": [], \"contamination_hits\": [], \"rewrite_suggestions\": [\"说明书章节顺序基本符合草案要求。\"], \"official_safe_patches\": [], \"attorney_memo\": [\"未发现内部提示词、生成日志或会审 JSON 残留在正式稿主体中。\"]}",
+        "repair_suggestion": "",
+        "elapsed_ms": null,
+        "created_at": "2026-06-18T15:47:35Z"
+      },
+      {
+        "level": "info",
+        "phase": "post_draft_review",
+        "provider_id": "technical_hardness",
+        "attempt": null,
+        "message": "technical_hardness completed",
+        "detail": "{\"role\": \"technical_hardness\", \"status\": \"passed\", \"blocking_issues\": [], \"contamination_hits\": [], \"rewrite_suggestions\": [\"建议补充证据链字段的数据结构实施例。\"], \"official_safe_patches\": [], \"attorney_memo\": [\"技术方案可实现，但测试数据未验证真实检索效果。\"]}",
+        "repair_suggestion": "",
+        "elapsed_ms": null,
+        "created_at": "2026-06-18T15:47:35Z"
+      }
+    ],
+    "failure_details": [],
+    "runtime_state": {
+      "current_stage": "post_draft_review",
+      "provider": "llm",
+      "query": "",
+      "subtask": "role review",
+      "heartbeat_at": "2026-06-18T15:47:35Z",
+      "elapsed_ms": 3,
+      "warning_count": 0,
+      "partial_artifact_count": 4,
+      "timeout_ms": 10000,
+      "attempt": null
+    },
+    "cancel_requested": false,
+    "retry_of": null,
+    "created_at": "",
+    "updated_at": ""
+  },
+  "downloads": {
+    "official_docx": {
+      "path": "/private/tmp/patents-agent-e2e-integration/docs/qa/evidence/patentagent-e2e-draft-official.docx",
+      "bytes": 38046,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "content_disposition": "attachment; filename=\"-.docx\"; filename*=UTF-8''%E4%B8%80%E7%A7%8D%E5%9F%BA%E4%BA%8E%E5%A4%9A%E6%A8%A1%E6%80%81%E6%A3%80%E7%B4%A2%E7%9A%84%E4%B8%93%E5%88%A9%E8%8D%89%E6%A1%88%E7%94%9F%E6%88%90%E6%96%B9%E6%B3%95-%E6%AD%A3%E5%BC%8F%E6%8F%90%E4%BA%A4%E7%A8%BF.docx"
+    },
+    "official_md": {
+      "path": "/private/tmp/patents-agent-e2e-integration/docs/qa/evidence/patentagent-e2e-draft-official.md",
+      "bytes": 3939,
+      "content_type": "text/markdown; charset=utf-8",
+      "content_disposition": "attachment; filename=\"-.md\"; filename*=UTF-8''%E4%B8%80%E7%A7%8D%E5%9F%BA%E4%BA%8E%E5%A4%9A%E6%A8%A1%E6%80%81%E6%A3%80%E7%B4%A2%E7%9A%84%E4%B8%93%E5%88%A9%E8%8D%89%E6%A1%88%E7%94%9F%E6%88%90%E6%96%B9%E6%B3%95-%E6%AD%A3%E5%BC%8F%E6%8F%90%E4%BA%A4%E7%A8%BF.md"
+    },
+    "post_draft_review_report": {
+      "path": "/private/tmp/patents-agent-e2e-integration/docs/qa/evidence/patentagent-e2e-post-draft-review-report.md",
+      "bytes": 2718,
+      "content_type": "text/markdown; charset=utf-8",
+      "content_disposition": ""
+    }
+  },
+  "content_checks": {
+    "official_docx_has_claims": true,
+    "official_docx_has_description": true,
+    "official_docx_has_internal_markers": false
+  }
+}

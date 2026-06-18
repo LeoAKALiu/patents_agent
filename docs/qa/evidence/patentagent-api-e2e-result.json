@@ -1,0 +1,1129 @@
+{
+  "steps": [
+    {
+      "step": "health",
+      "status": 200,
+      "payload": {
+        "ok": true,
+        "llm_configured": true,
+        "data_dir": "/tmp/patentagent-e2e-browser-20260618",
+        "data_dir_source": "explicit",
+        "qa_profile": true,
+        "qa_profile_env": "PATENTAGENT_QA_PROFILE",
+        "app_path": null,
+        "backend_port": null,
+        "instance_id": null,
+        "model": "deepseek-v4-pro",
+        "embedding_model": "local-hash-128",
+        "version": "1.1.0"
+      }
+    },
+    {
+      "step": "empty project validation",
+      "status": 200,
+      "payload": {
+        "id": "fa12e460817947b79b52ba6cf133f33d",
+        "name": "",
+        "draft_text": "",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-18 15:45:23",
+        "updated_at": "2026-06-18 15:45:23"
+      }
+    },
+    {
+      "step": "create project",
+      "status": 200,
+      "project": {
+        "id": "a9cfa4e757474151bf08bd40eb60d3a2",
+        "name": "一种基于多模态检索的专利草案生成方法",
+        "draft_text": "测试项目：一种基于多模态检索的专利草案生成方法。\n申请人：杭州虚构智能科技有限公司。\n发明人：张三、李四。\n技术领域：智能专利撰写、信息检索和自然语言生成。\n背景技术：现有工具通常只处理文本交底，难以结合附图描述、检索证据和用户保护重点。\n痛点：权利要求与说明书支撑关系弱，附图说明和术语引用易不一致，正式稿可能混入内部过程性内容。\n技术方案：接收交底文本、附图描述和保护重点，执行语义切分、图像语义标签生成、多模态检索、证据链构建、章节生成和引用一致性校验。\n创新点：将多模态检索证据链绑定到专利草案章节，并对权利要求、说明书和附图说明执行一致性校验。\n实施例：输入包含流程图描述和系统模块说明，系统生成检索查询并输出摘要、权利要求书、说明书、附图说明和 Mermaid 流程图。\n有益效果：提高草案完整性和可复核性，降低人工整理遗漏。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-18 15:45:23",
+        "updated_at": "2026-06-18 15:45:23"
+      }
+    },
+    {
+      "step": "add patent point",
+      "status": 200,
+      "point": {
+        "id": "user-p1",
+        "title": "多模态检索证据链驱动的草案生成",
+        "technical_problem": "单一文本生成难以支撑权利要求和说明书一致性。",
+        "innovation": "将文本交底、附图描述和相似专利片段统一为证据链。",
+        "technical_solution": "构建语义片段、图像标签、检索结果和章节引用之间的映射关系。",
+        "beneficial_effects": [
+          "提升章节一致性",
+          "降低内部内容污染风险"
+        ],
+        "protection_focus": [
+          "方法步骤",
+          "证据链",
+          "一致性校验"
+        ],
+        "grantability_score": 0.0,
+        "rationale": "",
+        "evidence_status": "feasible_unverified",
+        "source_type": "user",
+        "feasibility_basis": "算法流程可通过现有向量检索和文本生成模块实现。",
+        "support_gaps": [
+          "正式申请前需要补充公开检索和实验样例。"
+        ],
+        "experiment_needed": [],
+        "moat_scores": {
+          "scope_width": 0.0,
+          "designaround_difficulty": 0.0,
+          "feasibility": 0.5,
+          "support_strength": 0.2,
+          "prior_art_distance": 0.0,
+          "strategic_value": 0.6
+        },
+        "moat_rationale": "",
+        "claim_chart": [],
+        "selected": true
+      }
+    },
+    {
+      "step": "generate disclosure",
+      "status": "completed",
+      "run": {
+        "id": "b011325efe634fef828665d09cc8511f",
+        "project_id": "a9cfa4e757474151bf08bd40eb60d3a2",
+        "status": "completed",
+        "trace": true,
+        "max_prior_art_results": 0,
+        "research_mode": "standard",
+        "run_dir": "/tmp/patentagent-e2e-browser-20260618/disclosures/a9cfa4e757474151bf08bd40eb60d3a2/b011325efe634fef828665d09cc8511f",
+        "stage_results": [
+          {
+            "phase": "project_scan",
+            "payload": {
+              "summary": "本项目涉及一种基于多模态检索的专利草案生成方法，面向交底材料、既有专利文本和用户意图的联合检索与草案组织。",
+              "materials_summary": "测试材料覆盖背景技术、痛点、技术方案、创新点和实施例。",
+              "key_findings": [
+                "多模态检索",
+                "证据片段绑定",
+                "草案章节生成"
+              ]
+            }
+          },
+          {
+            "phase": "patent_points",
+            "payload": {
+              "candidates": [
+                {
+                  "id": "user-p1",
+                  "title": "多模态检索证据链驱动的草案生成",
+                  "technical_problem": "单一文本生成难以支撑权利要求和说明书一致性。",
+                  "innovation": "将文本交底、附图描述和相似专利片段统一为证据链。",
+                  "technical_solution": "构建语义片段、图像标签、检索结果和章节引用之间的映射关系。",
+                  "beneficial_effects": [
+                    "提升章节一致性",
+                    "降低内部内容污染风险"
+                  ],
+                  "protection_focus": [
+                    "方法步骤",
+                    "证据链",
+                    "一致性校验"
+                  ],
+                  "grantability_score": 0.0,
+                  "rationale": "",
+                  "evidence_status": "feasible_unverified",
+                  "source_type": "user",
+                  "feasibility_basis": "算法流程可通过现有向量检索和文本生成模块实现。",
+                  "support_gaps": [
+                    "正式申请前需要补充公开检索和实验样例。"
+                  ],
+                  "experiment_needed": [],
+                  "moat_scores": {
+                    "scope_width": 0.0,
+                    "designaround_difficulty": 0.0,
+                    "feasibility": 0.5,
+                    "support_strength": 0.2,
+                    "prior_art_distance": 0.0,
+                    "strategic_value": 0.6
+                  },
+                  "moat_rationale": "",
+                  "claim_chart": [],
+                  "selected": true
+                },
+                {
+                  "id": "p1",
+                  "title": "基于多模态检索证据链的专利草案生成方法",
+                  "technical_problem": "现有专利草案生成工具难以同时利用文本交底、附图线索和检索证据，导致权利要求支撑不足。",
+                  "innovation": "将多模态检索结果转换为可追溯证据链，并在权利要求、说明书和附图说明之间建立引用关系。",
+                  "technical_solution": "接收发明交底文本、附图描述和关键词；构建文本向量与图像语义标签；检索相似专利片段；按技术问题、区别特征和技术效果生成章节化草案。",
+                  "beneficial_effects": [
+                    "减少人工整理遗漏",
+                    "提高权利要求与说明书一致性",
+                    "降低内部过程性内容进入正式稿风险"
+                  ],
+                  "protection_focus": [
+                    "检索证据链",
+                    "章节生成",
+                    "引用关系校验"
+                  ],
+                  "grantability_score": 0.72,
+                  "rationale": "候选点覆盖方法流程、系统模块和可校验的数据流。",
+                  "evidence_status": "model_generated",
+                  "source_type": "model",
+                  "feasibility_basis": "",
+                  "support_gaps": [],
+                  "experiment_needed": [],
+                  "moat_scores": {
+                    "scope_width": 0.0,
+                    "designaround_difficulty": 0.0,
+                    "feasibility": 0.0,
+                    "support_strength": 0.0,
+                    "prior_art_distance": 0.0,
+                    "strategic_value": 0.0
+                  },
+                  "moat_rationale": "",
+                  "claim_chart": [],
+                  "selected": false
+                },
+                {
+                  "id": "p2",
+                  "title": "专利草案章节引用一致性校验方法",
+                  "technical_problem": "生成草案中的术语、附图标记和权利要求引用关系容易不一致。",
+                  "innovation": "利用章节结构图检测引用缺口并输出修订建议。",
+                  "technical_solution": "解析权利要求、摘要、说明书和附图说明，建立术语节点和引用边，标记缺失支撑位置。",
+                  "beneficial_effects": [
+                    "提高格式一致性",
+                    "提升人工复核效率"
+                  ],
+                  "protection_focus": [
+                    "引用图谱",
+                    "缺口检测"
+                  ],
+                  "grantability_score": 0.64,
+                  "rationale": "适合作为从属方案或质量控制模块。",
+                  "evidence_status": "model_generated",
+                  "source_type": "model",
+                  "feasibility_basis": "",
+                  "support_gaps": [],
+                  "experiment_needed": [],
+                  "moat_scores": {
+                    "scope_width": 0.0,
+                    "designaround_difficulty": 0.0,
+                    "feasibility": 0.0,
+                    "support_strength": 0.0,
+                    "prior_art_distance": 0.0,
+                    "strategic_value": 0.0
+                  },
+                  "moat_rationale": "",
+                  "claim_chart": [],
+                  "selected": false
+                }
+              ],
+              "selected_candidate_id": "user-p1"
+            }
+          },
+          {
+            "phase": "prior_art_terms",
+            "payload": {
+              "terms": [
+                "多模态 检索 专利 草案 生成",
+                "专利 权利要求 说明书 引用 一致性",
+                "证据链 检索 章节 生成"
+              ]
+            }
+          },
+          {
+            "phase": "prior_art_search",
+            "payload": {
+              "hits": [],
+              "warnings": [],
+              "ledger": {
+                "entries": [],
+                "total_hits": 0,
+                "total_citations": 0,
+                "provider_warnings": []
+              }
+            }
+          },
+          {
+            "phase": "prior_art_relevance",
+            "payload": {
+              "hits": [],
+              "prior_art_differences": "未获得可用公开现有技术结果；交底书仅基于本地材料和授权专利语料生成。",
+              "claim_charts": []
+            }
+          },
+          {
+            "phase": "disclosure_body",
+            "payload": {
+              "chars": 542
+            }
+          },
+          {
+            "phase": "disclosure_mermaid",
+            "payload": {
+              "chars": 86
+            }
+          },
+          {
+            "phase": "disclosure_image_prompt",
+            "payload": {
+              "chars": 51
+            }
+          },
+          {
+            "phase": "disclosure_self_check",
+            "payload": [
+              {
+                "category": "证据支撑",
+                "severity": "medium",
+                "message": "测试数据未包含真实公开专利检索结果。",
+                "suggestion": "正式申请前补充公开专利检索和区别特征论证。"
+              }
+            ]
+          }
+        ],
+        "package": {
+          "title": "多模态检索证据链驱动的草案生成",
+          "summary": "本项目涉及一种基于多模态检索的专利草案生成方法，面向交底材料、既有专利文本和用户意图的联合检索与草案组织。",
+          "materials_summary": "测试材料覆盖背景技术、痛点、技术方案、创新点和实施例。",
+          "candidates": [
+            {
+              "id": "user-p1",
+              "title": "多模态检索证据链驱动的草案生成",
+              "technical_problem": "单一文本生成难以支撑权利要求和说明书一致性。",
+              "innovation": "将文本交底、附图描述和相似专利片段统一为证据链。",
+              "technical_solution": "构建语义片段、图像标签、检索结果和章节引用之间的映射关系。",
+              "beneficial_effects": [
+                "提升章节一致性",
+                "降低内部内容污染风险"
+              ],
+              "protection_focus": [
+                "方法步骤",
+                "证据链",
+                "一致性校验"
+              ],
+              "grantability_score": 0.0,
+              "rationale": "",
+              "evidence_status": "feasible_unverified",
+              "source_type": "user",
+              "feasibility_basis": "算法流程可通过现有向量检索和文本生成模块实现。",
+              "support_gaps": [
+                "正式申请前需要补充公开检索和实验样例。"
+              ],
+              "experiment_needed": [],
+              "moat_scores": {
+                "scope_width": 0.0,
+                "designaround_difficulty": 0.0,
+                "feasibility": 0.5,
+                "support_strength": 0.2,
+                "prior_art_distance": 0.0,
+                "strategic_value": 0.6
+              },
+              "moat_rationale": "",
+              "claim_chart": [],
+              "selected": true
+            },
+            {
+              "id": "p1",
+              "title": "基于多模态检索证据链的专利草案生成方法",
+              "technical_problem": "现有专利草案生成工具难以同时利用文本交底、附图线索和检索证据，导致权利要求支撑不足。",
+              "innovation": "将多模态检索结果转换为可追溯证据链，并在权利要求、说明书和附图说明之间建立引用关系。",
+              "technical_solution": "接收发明交底文本、附图描述和关键词；构建文本向量与图像语义标签；检索相似专利片段；按技术问题、区别特征和技术效果生成章节化草案。",
+              "beneficial_effects": [
+                "减少人工整理遗漏",
+                "提高权利要求与说明书一致性",
+                "降低内部过程性内容进入正式稿风险"
+              ],
+              "protection_focus": [
+                "检索证据链",
+                "章节生成",
+                "引用关系校验"
+              ],
+              "grantability_score": 0.72,
+              "rationale": "候选点覆盖方法流程、系统模块和可校验的数据流。",
+              "evidence_status": "model_generated",
+              "source_type": "model",
+              "feasibility_basis": "",
+              "support_gaps": [],
+              "experiment_needed": [],
+              "moat_scores": {
+                "scope_width": 0.0,
+                "designaround_difficulty": 0.0,
+                "feasibility": 0.0,
+                "support_strength": 0.0,
+                "prior_art_distance": 0.0,
+                "strategic_value": 0.0
+              },
+              "moat_rationale": "",
+              "claim_chart": [],
+              "selected": false
+            },
+            {
+              "id": "p2",
+              "title": "专利草案章节引用一致性校验方法",
+              "technical_problem": "生成草案中的术语、附图标记和权利要求引用关系容易不一致。",
+              "innovation": "利用章节结构图检测引用缺口并输出修订建议。",
+              "technical_solution": "解析权利要求、摘要、说明书和附图说明，建立术语节点和引用边，标记缺失支撑位置。",
+              "beneficial_effects": [
+                "提高格式一致性",
+                "提升人工复核效率"
+              ],
+              "protection_focus": [
+                "引用图谱",
+                "缺口检测"
+              ],
+              "grantability_score": 0.64,
+              "rationale": "适合作为从属方案或质量控制模块。",
+              "evidence_status": "model_generated",
+              "source_type": "model",
+              "feasibility_basis": "",
+              "support_gaps": [],
+              "experiment_needed": [],
+              "moat_scores": {
+                "scope_width": 0.0,
+                "designaround_difficulty": 0.0,
+                "feasibility": 0.0,
+                "support_strength": 0.0,
+                "prior_art_distance": 0.0,
+                "strategic_value": 0.0
+              },
+              "moat_rationale": "",
+              "claim_chart": [],
+              "selected": false
+            }
+          ],
+          "selected_candidate_id": "user-p1",
+          "prior_art_hits": [],
+          "prior_art_differences": "未获得可用公开现有技术结果；交底书仅基于本地材料和授权专利语料生成。",
+          "body_markdown": "# 技术交底书\n\n## 背景技术\n现有专利撰写工具通常依赖单一文本输入，难以将发明交底、附图语义、相似专利片段和用户选择的保护重点统一组织。\n\n## 技术问题\n需要解决草案生成过程中证据来源分散、权利要求支撑关系弱、说明书章节与附图说明不一致的问题。\n\n## 技术方案\n一种基于多模态检索的专利草案生成方法，包括：\nS1，接收发明交底文本、附图描述、关键词和用户指定的保护重点；\nS2，对文本交底进行语义切分，提取技术问题、区别特征、实施例和技术效果；\nS3，对附图描述生成图像语义标签，并与文本片段共同构建检索查询；\nS4，在本地专利语料中检索相似片段，形成包含来源、章节、相似度和摘要的证据链；\nS5，基于证据链生成摘要、权利要求书、说明书和附图说明；\nS6，对术语、附图标记和权利要求引用关系进行一致性校验。\n\n## 创新点\n将多模态检索证据链绑定到草案章节，并在生成后执行章节引用一致性校验。\n\n## 实施例\n在一个实施例中，系统将交底文本中的“多模态检索”和附图中的“检索模块、生成模块、校验模块”映射为统一术语表，并将相似专利片段作为说明书背景技术和区别特征的参考。\n\n## 有益效果\n该方法能够提高草案结构完整性，降低生成内容与证据来源脱节的风险，并提升代理师复核效率。",
+          "mermaid": "flowchart TD\nA[交底文本与附图描述] --> B[多模态检索]\nB --> C[证据链构建]\nC --> D[草案章节生成]\nD --> E[引用一致性校验]",
+          "image_prompt": "黑白专利流程图，包含交底输入、多模态检索、证据链构建、草案生成、引用校验五个模块，模块之间用箭头连接。",
+          "self_check_findings": [
+            {
+              "category": "证据支撑",
+              "severity": "medium",
+              "message": "测试数据未包含真实公开专利检索结果。",
+              "suggestion": "正式申请前补充公开专利检索和区别特征论证。"
+            }
+          ],
+          "generation_logs": [
+            "project_scan: summarized draft and uploaded materials",
+            "patent_points: generated candidates and selected recommended point",
+            "prior_art_terms: generated semantic search chunks",
+            "prior_art_search: collected 0 public references",
+            "prior_art_relevance: summarized differences against public references",
+            "disclosure_body: generated technical disclosure markdown",
+            "disclosure_mermaid: generated Mermaid diagrams",
+            "disclosure_image_prompt: generated patent drawing prompt",
+            "disclosure_self_check: checked disclosure consistency and support",
+            "low_research_confidence: 0 references collected (0 provider attempts); 交底书不隐含高专利性置信度。"
+          ],
+          "export_warnings": [],
+          "research_ledger": {
+            "entries": [],
+            "total_hits": 0,
+            "total_citations": 0,
+            "provider_warnings": []
+          },
+          "provider_diagnostics": [
+            {
+              "phase": "pre_flight",
+              "available_providers": [
+                "google_patents",
+                "patent"
+              ],
+              "skipped_providers": [
+                {
+                  "provider": "cnipa",
+                  "reason": "CNIPA EPUB helper is not configured; set CNIPA_EPUB_SEARCH_SCRIPT to enable live CNIPA search."
+                }
+              ],
+              "active_chain": [
+                "google_patents",
+                "patent"
+              ],
+              "warnings": [],
+              "created_at": "2026-06-18T15:45:23Z"
+            },
+            {
+              "phase": "post_flight",
+              "available_providers": [],
+              "skipped_providers": [],
+              "active_chain": [],
+              "warnings": [],
+              "created_at": "2026-06-18T15:45:23Z"
+            }
+          ],
+          "research_confidence": "low"
+        },
+        "failures": [],
+        "failure_details": [],
+        "events": [
+          "run started",
+          "project scan completed",
+          "patent points generated",
+          "prior art search completed",
+          "disclosure package generated"
+        ],
+        "runtime_state": {
+          "current_stage": "disclosure_package",
+          "provider": "system",
+          "query": "",
+          "subtask": "artifact assembly",
+          "heartbeat_at": "2026-06-18T15:45:23Z",
+          "elapsed_ms": 19,
+          "warning_count": 0,
+          "partial_artifact_count": 9,
+          "timeout_ms": null,
+          "attempt": null
+        },
+        "cancel_requested": false,
+        "retry_of": null
+      }
+    },
+    {
+      "step": "run deliberation",
+      "status": "completed",
+      "run": {
+        "id": "16e76f850471413785481c37a1cbf5ef",
+        "project_id": "a9cfa4e757474151bf08bd40eb60d3a2",
+        "status": "completed",
+        "providers": [
+          "codex",
+          "deepseek",
+          "claude"
+        ],
+        "run_mode": "full",
+        "round_depth": "converged_two_round",
+        "trace": true,
+        "run_dir": "/tmp/patentagent-e2e-browser-20260618/deliberation-runs/a9cfa4e757474151bf08bd40eb60d3a2/16e76f850471413785481c37a1cbf5ef",
+        "stage_results": [
+          {
+            "phase": "opening",
+            "provider_id": "codex",
+            "label": "opening codex",
+            "payload": {
+              "position": "codex opening",
+              "recommendations": [
+                "独立权利要求覆盖多模态检索证据链生成。",
+                "说明书补充引用一致性校验实施例。"
+              ],
+              "risks": [
+                "测试数据未包含真实检索结果。"
+              ],
+              "claim_focus": [
+                "证据链",
+                "章节生成",
+                "一致性校验"
+              ]
+            },
+            "status": "completed",
+            "failure": null
+          },
+          {
+            "phase": "opening",
+            "provider_id": "deepseek",
+            "label": "opening deepseek",
+            "payload": {
+              "position": "deepseek opening",
+              "recommendations": [
+                "独立权利要求覆盖多模态检索证据链生成。",
+                "说明书补充引用一致性校验实施例。"
+              ],
+              "risks": [
+                "测试数据未包含真实检索结果。"
+              ],
+              "claim_focus": [
+                "证据链",
+                "章节生成",
+                "一致性校验"
+              ]
+            },
+            "status": "completed",
+            "failure": null
+          },
+          {
+            "phase": "opening",
+            "provider_id": "claude",
+            "label": "opening claude",
+            "payload": {
+              "position": "claude opening",
+              "recommendations": [
+                "独立权利要求覆盖多模态检索证据链生成。",
+                "说明书补充引用一致性校验实施例。"
+              ],
+              "risks": [
+                "测试数据未包含真实检索结果。"
+              ],
+              "claim_focus": [
+                "证据链",
+                "章节生成",
+                "一致性校验"
+              ]
+            },
+            "status": "completed",
+            "failure": null
+          },
+          {
+            "phase": "pair",
+            "provider_id": "codex",
+            "label": "pair codex-vs-deepseek",
+            "payload": {
+              "pair": [
+                "codex",
+                "deepseek"
+              ],
+              "agreement": [
+                "均认可证据链与章节一致性校验是核心差异。"
+              ],
+              "conflict": [],
+              "resolved_recommendation": "独权中保留证据链生成和引用一致性校验两个步骤。",
+              "risks": [
+                "需要补充真实公开专利检索支撑创造性。"
+              ]
+            },
+            "status": "completed",
+            "failure": null
+          },
+          {
+            "phase": "pair",
+            "provider_id": "codex",
+            "label": "pair codex-vs-claude",
+            "payload": {
+              "pair": [
+                "codex",
+                "claude"
+              ],
+              "agreement": [
+                "均认可证据链与章节一致性校验是核心差异。"
+              ],
+              "conflict": [],
+              "resolved_recommendation": "独权中保留证据链生成和引用一致性校验两个步骤。",
+              "risks": [
+                "需要补充真实公开专利检索支撑创造性。"
+              ]
+            },
+            "status": "completed",
+            "failure": null
+          },
+          {
+            "phase": "pair",
+            "provider_id": "codex",
+            "label": "pair deepseek-vs-claude",
+            "payload": {
+              "pair": [
+                "deepseek",
+                "claude"
+              ],
+              "agreement": [
+                "均认可证据链与章节一致性校验是核心差异。"
+              ],
+              "conflict": [],
+              "resolved_recommendation": "独权中保留证据链生成和引用一致性校验两个步骤。",
+              "risks": [
+                "需要补充真实公开专利检索支撑创造性。"
+              ]
+            },
+            "status": "completed",
+            "failure": null
+          },
+          {
+            "phase": "chair",
+            "provider_id": "codex",
+            "label": "chair synthesis",
+            "payload": {
+              "summary": "三方会审认为应以多模态检索证据链驱动草案生成为独立方法权利要求核心。",
+              "claim_strategy": [
+                "独立权利要求限定输入、语义切分、多模态检索、证据链生成、草案生成和一致性校验步骤。",
+                "从属权利要求分别限定证据链字段、引用一致性校验和附图语义标签生成。"
+              ],
+              "description_strategy": [
+                "说明书按技术问题、整体流程、证据链结构和校验实施例展开。",
+                "避免声称模型效果已实验验证，测试效果表述为可提高复核效率。"
+              ],
+              "risk_controls": [
+                "不要将内部会审、模型提示词或支撑不足标签写入正式稿。",
+                "技术效果需保持可实现、可推导，不写商业宣传语。"
+              ],
+              "agent_consensus": "Codex、DeepSeek、Claude 三方均建议把证据链和引用一致性作为保护重点。",
+              "disclosure_summary": "交底覆盖多模态检索、证据链和草案章节生成。",
+              "patent_point_summary": "推荐候选点为基于多模态检索证据链的专利草案生成方法。",
+              "prior_art_differences": "测试环境未接入真实公开检索，需正式申请前补充检索。"
+            },
+            "status": "completed",
+            "failure": null
+          }
+        ],
+        "strategy_brief": {
+          "summary": "三方会审认为应以多模态检索证据链驱动草案生成为独立方法权利要求核心。",
+          "claim_strategy": [
+            "独立权利要求限定输入、语义切分、多模态检索、证据链生成、草案生成和一致性校验步骤。",
+            "从属权利要求分别限定证据链字段、引用一致性校验和附图语义标签生成。"
+          ],
+          "description_strategy": [
+            "说明书按技术问题、整体流程、证据链结构和校验实施例展开。",
+            "避免声称模型效果已实验验证，测试效果表述为可提高复核效率。"
+          ],
+          "risk_controls": [
+            "不要将内部会审、模型提示词或支撑不足标签写入正式稿。",
+            "技术效果需保持可实现、可推导，不写商业宣传语。"
+          ],
+          "agent_consensus": "Codex、DeepSeek、Claude 三方均建议把证据链和引用一致性作为保护重点。",
+          "disclosure_summary": "交底覆盖多模态检索、证据链和草案章节生成。",
+          "patent_point_summary": "推荐候选点为基于多模态检索证据链的专利草案生成方法。",
+          "prior_art_differences": "测试环境未接入真实公开检索，需正式申请前补充检索。"
+        },
+        "failures": [],
+        "failure_details": [],
+        "events": [
+          "opening completed: codex",
+          "opening completed: deepseek",
+          "opening completed: claude",
+          "pair completed: codex vs deepseek",
+          "pair completed: codex vs claude",
+          "pair completed: deepseek vs claude",
+          "chair synthesis completed"
+        ],
+        "logs": [
+          {
+            "level": "info",
+            "phase": "opening",
+            "provider_id": "codex",
+            "attempt": null,
+            "message": "opening completed",
+            "detail": "{\"position\": \"codex opening\", \"recommendations\": [\"独立权利要求覆盖多模态检索证据链生成。\", \"说明书补充引用一致性校验实施例。\"], \"risks\": [\"测试数据未包含真实检索结果。\"], \"claim_focus\": [\"证据链\", \"章节生成\", \"一致性校验\"]}",
+            "repair_suggestion": "",
+            "elapsed_ms": null,
+            "created_at": "2026-06-18T15:45:25Z"
+          },
+          {
+            "level": "info",
+            "phase": "opening",
+            "provider_id": "deepseek",
+            "attempt": null,
+            "message": "opening completed",
+            "detail": "{\"position\": \"deepseek opening\", \"recommendations\": [\"独立权利要求覆盖多模态检索证据链生成。\", \"说明书补充引用一致性校验实施例。\"], \"risks\": [\"测试数据未包含真实检索结果。\"], \"claim_focus\": [\"证据链\", \"章节生成\", \"一致性校验\"]}",
+            "repair_suggestion": "",
+            "elapsed_ms": null,
+            "created_at": "2026-06-18T15:45:25Z"
+          },
+          {
+            "level": "info",
+            "phase": "opening",
+            "provider_id": "claude",
+            "attempt": null,
+            "message": "opening completed",
+            "detail": "{\"position\": \"claude opening\", \"recommendations\": [\"独立权利要求覆盖多模态检索证据链生成。\", \"说明书补充引用一致性校验实施例。\"], \"risks\": [\"测试数据未包含真实检索结果。\"], \"claim_focus\": [\"证据链\", \"章节生成\", \"一致性校验\"]}",
+            "repair_suggestion": "",
+            "elapsed_ms": null,
+            "created_at": "2026-06-18T15:45:25Z"
+          },
+          {
+            "level": "info",
+            "phase": "pair",
+            "provider_id": "codex",
+            "attempt": null,
+            "message": "pair completed: codex vs deepseek",
+            "detail": "{\"agreement\": [\"均认可证据链与章节一致性校验是核心差异。\"], \"conflict\": [], \"resolved_recommendation\": \"独权中保留证据链生成和引用一致性校验两个步骤。\", \"risks\": [\"需要补充真实公开专利检索支撑创造性。\"]}",
+            "repair_suggestion": "",
+            "elapsed_ms": null,
+            "created_at": "2026-06-18T15:45:25Z"
+          },
+          {
+            "level": "info",
+            "phase": "pair",
+            "provider_id": "codex",
+            "attempt": null,
+            "message": "pair completed: codex vs claude",
+            "detail": "{\"agreement\": [\"均认可证据链与章节一致性校验是核心差异。\"], \"conflict\": [], \"resolved_recommendation\": \"独权中保留证据链生成和引用一致性校验两个步骤。\", \"risks\": [\"需要补充真实公开专利检索支撑创造性。\"]}",
+            "repair_suggestion": "",
+            "elapsed_ms": null,
+            "created_at": "2026-06-18T15:45:25Z"
+          },
+          {
+            "level": "info",
+            "phase": "pair",
+            "provider_id": "codex",
+            "attempt": null,
+            "message": "pair completed: deepseek vs claude",
+            "detail": "{\"agreement\": [\"均认可证据链与章节一致性校验是核心差异。\"], \"conflict\": [], \"resolved_recommendation\": \"独权中保留证据链生成和引用一致性校验两个步骤。\", \"risks\": [\"需要补充真实公开专利检索支撑创造性。\"]}",
+            "repair_suggestion": "",
+            "elapsed_ms": null,
+            "created_at": "2026-06-18T15:45:25Z"
+          },
+          {
+            "level": "info",
+            "phase": "chair",
+            "provider_id": "codex",
+            "attempt": null,
+            "message": "chair synthesis completed",
+            "detail": "{\"summary\": \"三方会审认为应以多模态检索证据链驱动草案生成为独立方法权利要求核心。\", \"claim_strategy\": [\"独立权利要求限定输入、语义切分、多模态检索、证据链生成、草案生成和一致性校验步骤。\", \"从属权利要求分别限定证据链字段、引用一致性校验和附图语义标签生成。\"], \"description_strategy\": [\"说明书按技术问题、整体流程、证据链结构和校验实施例展开。\", \"避免声称模型效果已实验验证，测试效果表述为可提高复核效率。\"], \"risk_controls\": [\"不要将内部会审、模型提示词或支撑不足标签写入正式稿。\", \"技术效果需保持可实现、可推导，不写商业宣传语。\"], \"agent_consensus\": \"Codex、DeepSeek、Claude 三方均建议把证据链和引用一致性作为保护重点。\", \"disclosure_summary\": \"交底覆盖多模态检索、证据链和草案章节生成。\", \"patent_point_summary\": \"推荐候选点为基于多模态检索证据链的专利草案生成方法。\", \"prior_art_differences\": \"测试环境未接入真实公开检索，需正式申请前补充检索。\"}",
+            "repair_suggestion": "",
+            "elapsed_ms": null,
+            "created_at": "2026-06-18T15:45:25Z"
+          }
+        ],
+        "runtime_state": {
+          "current_stage": "deliberation_finalize",
+          "provider": "system",
+          "query": "",
+          "subtask": "strategy brief",
+          "heartbeat_at": "2026-06-18T15:45:25Z",
+          "elapsed_ms": 6,
+          "warning_count": 0,
+          "partial_artifact_count": 7,
+          "timeout_ms": 5000,
+          "attempt": null
+        },
+        "cancel_requested": false,
+        "retry_of": null
+      }
+    },
+    {
+      "step": "formula requirement",
+      "status": 200,
+      "payload": {
+        "required": false,
+        "signals": [],
+        "reasons": []
+      }
+    },
+    {
+      "step": "generate draft",
+      "status": "completed",
+      "run": {
+        "id": "85dcb2f9938b4e41b667244e98e72394",
+        "project_id": "a9cfa4e757474151bf08bd40eb60d3a2",
+        "status": "completed",
+        "providers": [
+          "llm"
+        ],
+        "deliberation_run_id": null,
+        "formula_run_id": null,
+        "package": {
+          "title": "一种基于多模态检索的专利草案生成方法",
+          "abstract": "本发明公开了一种基于多模态检索的专利草案生成方法，接收发明交底文本、附图描述和保护重点，对文本进行语义切分并生成图像语义标签，组合形成多模态检索查询，在专利语料中生成证据链，并据此生成摘要、权利要求书、说明书和附图说明，同时进行引用一致性校验，以提高草案完整性和可复核性。",
+          "claims": "1. 一种基于多模态检索的专利草案生成方法，其特征在于，包括：\n接收发明交底文本、附图描述以及用户输入的保护重点；\n对所述发明交底文本进行语义切分，得到技术问题片段、技术方案片段、实施例片段和技术效果片段；\n根据所述附图描述生成图像语义标签，并将所述图像语义标签与所述语义切分结果组合为多模态检索查询；\n在专利语料库中检索与所述多模态检索查询匹配的专利片段，生成包含来源信息和章节信息的证据链；\n基于所述证据链生成摘要、权利要求书、说明书和附图说明；\n对所述权利要求书、说明书和附图说明中的术语、附图标记及引用关系进行一致性校验。\n\n2. 根据权利要求1所述的方法，其特征在于，所述证据链包括检索片段的文献标识、章节类型、相似度分值和与区别特征对应的说明。\n\n3. 根据权利要求1所述的方法，其特征在于，所述一致性校验包括检测权利要求中的技术特征是否在说明书具体实施方式中具有对应支撑。",
+          "description": "说明书\n\n技术领域\n本发明涉及智能专利撰写与信息检索技术领域，尤其涉及一种基于多模态检索的专利草案生成方法。\n\n背景技术\n现有专利草案生成通常依赖用户输入的文字交底。对于同时包含流程图、系统结构图或模块说明的发明，单一文本生成方式难以充分利用附图语义，生成的权利要求、说明书和附图说明之间也容易出现引用不一致。\n\n发明内容\n本发明提供一种基于多模态检索的专利草案生成方法，通过对交底文本和附图描述进行联合检索，形成可追溯证据链，并基于该证据链生成专利草案各章节。\n\n具体实施方式\n在一个实施例中，系统接收发明交底文本、附图描述和用户输入的保护重点。系统首先对交底文本执行语义切分，得到技术问题、技术方案、实施例和技术效果片段。随后，系统从附图描述中识别模块名称和数据流关系，生成图像语义标签。系统将文本片段和图像语义标签组合为多模态检索查询，并在本地专利语料库中检索相似专利片段。\n\n系统将检索结果组织为证据链，证据链至少包括文献标识、章节类型、相似度分值和与区别特征对应的说明。草案生成模块根据证据链分别生成摘要、权利要求书、说明书和附图说明。校验模块进一步解析术语、附图标记和引用关系，检测权利要求中的技术特征是否在说明书中具有支撑。\n\n有益效果\n通过上述方式，本发明能够提高生成草案的章节一致性和可复核性，降低内部过程性信息进入正式提交稿的风险。",
+          "drawing_description": "图1为基于多模态检索的专利草案生成方法流程图。\n图2为专利草案生成系统的模块结构示意图。\n图3为证据链与草案章节的引用关系示意图。",
+          "mermaid": "flowchart TD\nA[输入交底与附图] --> B[语义切分]\nA --> C[图像语义标签]\nB --> D[多模态检索]\nC --> D\nD --> E[证据链]\nE --> F[草案生成]\nF --> G[一致性校验]",
+          "image_prompt": "黑白专利附图，展示输入层、检索层、证据链层、草案生成层和一致性校验层，使用流程箭头和模块框。",
+          "review_findings": [],
+          "citations": [],
+          "generation_logs": [
+            "claims: generated from invention brief and retrieved claim/description context",
+            "description: generated to support claims",
+            "abstract: generated under CNIPA-style 300-character constraint",
+            "drawings: generated as figure descriptions",
+            "diagram: generated as Mermaid flowchart",
+            "image_prompt: generated for patent-style black-and-white drawing",
+            "deliberation: injected strategy brief from run 16e76f850471413785481c37a1cbf5ef",
+            "disclosure: injected pre-filing materials from run b011325efe634fef828665d09cc8511f",
+            "formula: no core formula package required",
+            "hygiene: cleaned 0 contamination items before save"
+          ],
+          "deliberation_run_id": "16e76f850471413785481c37a1cbf5ef",
+          "strategy_brief": {
+            "summary": "三方会审认为应以多模态检索证据链驱动草案生成为独立方法权利要求核心。",
+            "claim_strategy": [
+              "独立权利要求限定输入、语义切分、多模态检索、证据链生成、草案生成和一致性校验步骤。",
+              "从属权利要求分别限定证据链字段、引用一致性校验和附图语义标签生成。"
+            ],
+            "description_strategy": [
+              "说明书按技术问题、整体流程、证据链结构和校验实施例展开。",
+              "避免声称模型效果已实验验证，测试效果表述为可提高复核效率。"
+            ],
+            "risk_controls": [
+              "不要将内部会审、模型提示词或支撑不足标签写入正式稿。",
+              "技术效果需保持可实现、可推导，不写商业宣传语。"
+            ],
+            "agent_consensus": "Codex、DeepSeek、Claude 三方均建议把证据链和引用一致性作为保护重点。",
+            "disclosure_summary": "交底覆盖多模态检索、证据链和草案章节生成。",
+            "patent_point_summary": "推荐候选点为基于多模态检索证据链的专利草案生成方法。",
+            "prior_art_differences": "测试环境未接入真实公开检索，需正式申请前补充检索。"
+          },
+          "agent_consensus": "Codex、DeepSeek、Claude 三方均建议把证据链和引用一致性作为保护重点。",
+          "disclosure_run_id": "b011325efe634fef828665d09cc8511f",
+          "disclosure_summary": "本项目涉及一种基于多模态检索的专利草案生成方法，面向交底材料、既有专利文本和用户意图的联合检索与草案组织。",
+          "patent_point_summary": "多模态检索证据链驱动的草案生成",
+          "formula_run_id": null,
+          "core_formula_summary": null
+        },
+        "failures": [],
+        "failure_details": [],
+        "events": [
+          "run created",
+          "run started",
+          "run completed"
+        ],
+        "runtime_state": null,
+        "cancel_requested": false,
+        "retry_of": null,
+        "created_at": "2026-06-18 15:45:25",
+        "updated_at": "2026-06-18 15:45:25"
+      }
+    },
+    {
+      "step": "reload project",
+      "status": 200,
+      "has_package": true
+    },
+    {
+      "step": "filing readiness",
+      "status": 200,
+      "report": {
+        "id": "f65bc9b093db4dd18c0119137339b55e",
+        "project_id": "a9cfa4e757474151bf08bd40eb60d3a2",
+        "draft_package_hash": "2340a5136c5dfc40140b68ee229896b9e188b98c2ead5c2f7913cae9902b5e4d",
+        "status": "high_risk",
+        "rules_version": "filing-readiness-v1",
+        "issues": [
+          {
+            "category": "format_pollution",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "mermaid",
+            "message": "正式稿导出字段包含制图、提示词或中间格式内容。",
+            "suggestion": "正式提交包中删除该内部字段，仅保留摘要、权利要求书、说明书和附图说明。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "format_pollution",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "image_prompt",
+            "message": "正式稿导出字段包含制图、提示词或中间格式内容。",
+            "suggestion": "正式提交包中删除该内部字段，仅保留摘要、权利要求书、说明书和附图说明。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "internal_trace",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "generation_logs",
+            "message": "正式稿导出字段包含内部过程痕迹。",
+            "suggestion": "正式提交包中删除该内部字段，仅保留可提交正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "internal_trace",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "agent_consensus",
+            "message": "正式稿导出字段包含内部过程痕迹。",
+            "suggestion": "正式提交包中删除该内部字段，仅保留可提交正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "internal_trace",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "strategy_brief",
+            "message": "正式稿导出字段包含内部过程痕迹。",
+            "suggestion": "正式提交包中删除该内部字段，仅保留可提交正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "internal_trace",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "disclosure_summary",
+            "message": "正式稿导出字段包含内部过程痕迹。",
+            "suggestion": "正式提交包中删除该内部字段，仅保留可提交正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "internal_trace",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "patent_point_summary",
+            "message": "正式稿导出字段包含内部过程痕迹。",
+            "suggestion": "正式提交包中删除该内部字段，仅保留可提交正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "format_pollution",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "Mermaid",
+            "message": "正式稿包含 Markdown、Mermaid 或绘图提示等格式污染。",
+            "suggestion": "删除格式标记和制图过程内容，仅保留可提交的专利正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "format_pollution",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "flowchart",
+            "message": "正式稿包含 Markdown、Mermaid 或绘图提示等格式污染。",
+            "suggestion": "删除格式标记和制图过程内容，仅保留可提交的专利正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "format_pollution",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "flowchart",
+            "message": "正式稿包含 Markdown、Mermaid 或绘图提示等格式污染。",
+            "suggestion": "删除格式标记和制图过程内容，仅保留可提交的专利正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "format_pollution",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "diagram:",
+            "message": "正式稿包含 Markdown、Mermaid 或绘图提示等格式污染。",
+            "suggestion": "删除格式标记和制图过程内容，仅保留可提交的专利正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "format_pollution",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "image_prompt:",
+            "message": "正式稿包含 Markdown、Mermaid 或绘图提示等格式污染。",
+            "suggestion": "删除格式标记和制图过程内容，仅保留可提交的专利正文。",
+            "can_auto_clean": true
+          },
+          {
+            "category": "internal_trace",
+            "severity": "high",
+            "target": "export",
+            "matched_text": "deliberation: injected strategy brief from run 16e76f850471413785481c37a1cbf5ef",
+            "message": "正式稿包含内部过程痕迹。",
+            "suggestion": "删除过程性表述，仅保留权利要求、说明书和附图说明内容。",
+            "can_auto_clean": true
+          }
+        ],
+        "created_at": "2026-06-18T15:45:25.229290+00:00"
+      }
+    },
+    {
+      "step": "official compile",
+      "status": "completed",
+      "run": {
+        "id": "a914b0315b8e4a9581655af3b072ad6e",
+        "project_id": "a9cfa4e757474151bf08bd40eb60d3a2",
+        "status": "completed",
+        "source_draft_hash": "2340a5136c5dfc40140b68ee229896b9e188b98c2ead5c2f7913cae9902b5e4d",
+        "official_package_hash": "6c5f269454a1687872b1d032f67d848e8e9401d230b2a19e8aab65dbaaabf0b8",
+        "official_package": {
+          "title": "一种基于多模态检索的专利草案生成方法",
+          "abstract": "本发明公开了一种基于多模态检索的专利草案生成方法，接收发明交底文本、附图描述和保护重点，对文本进行语义切分并生成图像语义标签，组合形成多模态检索查询，在专利语料中生成证据链，并据此生成摘要、权利要求书、说明书和附图说明，同时进行引用一致性校验，以提高草案完整性和可复核性。",
+          "claims": "1. 一种基于多模态检索的专利草案生成方法，其特征在于，包括：\n接收发明交底文本、附图描述以及用户输入的保护重点；\n对所述发明交底文本进行语义切分，得到技术问题片段、技术方案片段、实施例片段和技术效果片段；\n根据所述附图描述生成图像语义标签，并将所述图像语义标签与所述语义切分结果组合为多模态检索查询；\n在专利语料库中检索与所述多模态检索查询匹配的专利片段，生成包含来源信息和章节信息的证据链；\n基于所述证据链生成摘要、权利要求书、说明书和附图说明；\n对所述权利要求书、说明书和附图说明中的术语、附图标记及引用关系进行一致性校验。\n\n2. 根据权利要求1所述的方法，其特征在于，所述证据链包括检索片段的文献标识、章节类型、相似度分值和与区别特征对应的说明。\n\n3. 根据权利要求1所述的方法，其特征在于，所述一致性校验包括检测权利要求中的技术特征是否在说明书具体实施方式中具有对应支撑。",
+          "description": "说明书\n\n技术领域\n本发明涉及智能专利撰写与信息检索技术领域，尤其涉及一种基于多模态检索的专利草案生成方法。\n\n背景技术\n现有专利草案生成通常依赖用户输入的文字交底。对于同时包含流程图、系统结构图或模块说明的发明，单一文本生成方式难以充分利用附图语义，生成的权利要求、说明书和附图说明之间也容易出现引用不一致。\n\n发明内容\n本发明提供一种基于多模态检索的专利草案生成方法，通过对交底文本和附图描述进行联合检索，形成可追溯证据链，并基于该证据链生成专利草案各章节。\n\n具体实施方式\n在一个实施例中，系统接收发明交底文本、附图描述和用户输入的保护重点。系统首先对交底文本执行语义切分，得到技术问题、技术方案、实施例和技术效果片段。随后，系统从附图描述中识别模块名称和数据流关系，生成图像语义标签。系统将文本片段和图像语义标签组合为多模态检索查询，并在本地专利语料库中检索相似专利片段。\n\n系统将检索结果组织为证据链，证据链至少包括文献标识、章节类型、相似度分值和与区别特征对应的说明。草案生成模块根据证据链分别生成摘要、权利要求书、说明书和附图说明。校验模块进一步解析术语、附图标记和引用关系，检测权利要求中的技术特征是否在说明书中具有支撑。\n\n有益效果\n通过上述方式，本发明能够提高生成草案的章节一致性和可复核性，降低内部过程性信息进入正式提交稿的风险。",
+          "drawing_description": "图1为基于多模态检索的专利草案生成方法流程图。\n图2为专利草案生成系统的模块结构示意图。\n图3为证据链与草案章节的引用关系示意图。",
+          "figure_plan": [
+            {
+              "figure_no": "图1",
+              "title": "基于多模态检索的专利草案生成方法流程图",
+              "description": "图1为基于多模态检索的专利草案生成方法流程图。",
+              "referenced_sections": [
+                "drawing_description"
+              ]
+            },
+            {
+              "figure_no": "图2",
+              "title": "专利草案生成系统的模块结构示意图",
+              "description": "图2为专利草案生成系统的模块结构示意图。",
+              "referenced_sections": [
+                "drawing_description"
+              ]
+            },
+            {
+              "figure_no": "图3",
+              "title": "证据链与草案章节的引用关系示意图",
+              "description": "图3为证据链与草案章节的引用关系示意图。",
+              "referenced_sections": [
+                "drawing_description"
+              ]
+            }
+          ],
+          "compile_warnings": [],
+          "source_draft_hash": "2340a5136c5dfc40140b68ee229896b9e188b98c2ead5c2f7913cae9902b5e4d",
+          "official_package_hash": "6c5f269454a1687872b1d032f67d848e8e9401d230b2a19e8aab65dbaaabf0b8"
+        },
+        "contamination_removed": [],
+        "blocked_items": [],
+        "sidecar_notes": [],
+        "logs": [
+          {
+            "level": "info",
+            "phase": "official_compile",
+            "provider_id": "",
+            "attempt": null,
+            "message": "official draft compile started",
+            "detail": "source_draft_hash=2340a5136c5dfc40140b68ee229896b9e188b98c2ead5c2f7913cae9902b5e4d",
+            "repair_suggestion": "",
+            "elapsed_ms": null,
+            "created_at": "2026-06-18T15:45:25Z"
+          },
+          {
+            "level": "info",
+            "phase": "official_compile",
+            "provider_id": "",
+            "attempt": null,
+            "message": "official draft compile completed",
+            "detail": "official_package_hash=6c5f269454a1687872b1d032f67d848e8e9401d230b2a19e8aab65dbaaabf0b8",
+            "repair_suggestion": "",
+            "elapsed_ms": null,
+            "created_at": "2026-06-18T15:45:25Z"
+          }
+        ],
+        "created_at": "2026-06-18 15:45:25",
+        "updated_at": "2026-06-18 15:45:25"
+      }
+    }
+  ],
+  "issues": [
+    "empty project was accepted"
+  ],
+  "health": {
+    "ok": true,
+    "llm_configured": true,
+    "data_dir": "/tmp/patentagent-e2e-browser-20260618",
+    "data_dir_source": "explicit",
+    "qa_profile": true,
+    "qa_profile_env": "PATENTAGENT_QA_PROFILE",
+    "app_path": null,
+    "backend_port": null,
+    "instance_id": null,
+    "model": "deepseek-v4-pro",
+    "embedding_model": "local-hash-128",
+    "version": "1.1.0"
+  },
+  "project_id": "a9cfa4e757474151bf08bd40eb60d3a2",
+  "downloads": {
+    "internal_docx": {
+      "path": "/private/tmp/patents-agent-e2e-integration/docs/qa/evidence/patentagent-e2e-draft-internal.docx",
+      "bytes": 38785,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "content_disposition": "attachment; filename=\"-.docx\"; filename*=UTF-8''%E4%B8%80%E7%A7%8D%E5%9F%BA%E4%BA%8E%E5%A4%9A%E6%A8%A1%E6%80%81%E6%A3%80%E7%B4%A2%E7%9A%84%E4%B8%93%E5%88%A9%E8%8D%89%E6%A1%88%E7%94%9F%E6%88%90%E6%96%B9%E6%B3%95-%E5%86%85%E9%83%A8%E5%B7%A5%E4%BD%9C%E7%A8%BF.docx"
+    },
+    "internal_md": {
+      "path": "/private/tmp/patents-agent-e2e-integration/docs/qa/evidence/patentagent-e2e-draft-internal.md",
+      "bytes": 6186,
+      "content_type": "text/markdown; charset=utf-8",
+      "content_disposition": "attachment; filename=\"-.md\"; filename*=UTF-8''%E4%B8%80%E7%A7%8D%E5%9F%BA%E4%BA%8E%E5%A4%9A%E6%A8%A1%E6%80%81%E6%A3%80%E7%B4%A2%E7%9A%84%E4%B8%93%E5%88%A9%E8%8D%89%E6%A1%88%E7%94%9F%E6%88%90%E6%96%B9%E6%B3%95-%E5%86%85%E9%83%A8%E5%B7%A5%E4%BD%9C%E7%A8%BF.md"
+    },
+    "disclosure_md": {
+      "path": "/private/tmp/patents-agent-e2e-integration/docs/qa/evidence/patentagent-e2e-disclosure.md",
+      "bytes": 4681,
+      "content_type": "text/markdown; charset=utf-8",
+      "content_disposition": "attachment; filename=\"-.md\"; filename*=UTF-8''%E4%B8%80%E7%A7%8D%E5%9F%BA%E4%BA%8E%E5%A4%9A%E6%A8%A1%E6%80%81%E6%A3%80%E7%B4%A2%E7%9A%84%E4%B8%93%E5%88%A9%E8%8D%89%E6%A1%88%E7%94%9F%E6%88%90%E6%96%B9%E6%B3%95-%E6%8A%80%E6%9C%AF%E4%BA%A4%E5%BA%95%E4%B9%A6.md"
+    },
+    "official_report": {
+      "path": "/private/tmp/patents-agent-e2e-integration/docs/qa/evidence/patentagent-e2e-official-compile-report.md",
+      "bytes": 4648,
+      "content_type": "text/markdown; charset=utf-8",
+      "content_disposition": "attachment; filename=\"-.md\"; filename*=UTF-8''%E4%B8%80%E7%A7%8D%E5%9F%BA%E4%BA%8E%E5%A4%9A%E6%A8%A1%E6%80%81%E6%A3%80%E7%B4%A2%E7%9A%84%E4%B8%93%E5%88%A9%E8%8D%89%E6%A1%88%E7%94%9F%E6%88%90%E6%96%B9%E6%B3%95-%E6%AD%A3%E5%BC%8F%E7%BC%96%E8%AF%91%E6%8A%A5%E5%91%8A.md"
+    }
+  },
+  "content_checks": {
+    "md_has_title": true,
+    "md_has_claims": true,
+    "docx_has_claims": true,
+    "docx_has_description": true,
+    "internal_marker_present": true
+  }
+}
