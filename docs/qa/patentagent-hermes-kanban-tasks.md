@@ -14,7 +14,7 @@
 | PR-16A clean | `t_241f3d03` | P2 | running | `bigmodelworker` | `codex/pr-16-official-export-readiness-api-clean` |
 | PR-16B clean | `t_cf6c0876` | P2 | todo, waits on PR-16A | `kimiworker` | `codex/pr-16-official-export-gate-ui-clean` |
 | PR-17 clean | `t_c839241b` | P2 | running | `deepseekworker` | `codex/pr-17-download-ascii-fallback-clean` |
-| PR-18 clean | `t_3985a359` | P3 | running | `deepseekworker` | `codex/pr-18-frontend-deps-bundle-clean` |
+| PR-18 clean | `t_3985a359` | P3 | done, merged into integration | `deepseekworker` | `codex/pr-18-frontend-deps-bundle-clean` |
 
 旧卡片处理：
 
