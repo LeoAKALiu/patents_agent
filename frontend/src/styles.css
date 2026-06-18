@@ -2224,6 +2224,45 @@ input:focus, select:focus, textarea:focus {
   margin-bottom: 8px;
 }
 
+.post-review-repair-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+
+.repair-guidance-panel,
+.draft-repair-editor {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.repair-guidance-item {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.repair-guidance-item p {
+  margin: 6px 0 0;
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.draft-repair-editor textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.draft-repair-editor textarea:nth-of-type(3) {
+  min-height: 180px;
+}
+
 .dense-list {
   display: grid;
   gap: 8px;
@@ -2468,6 +2507,7 @@ input:focus, select:focus, textarea:focus {
   .external-draft-source-row .icon-button { width: 100%; }
   .status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workbench-grid { grid-template-columns: 1fr; }
+  .post-review-repair-workbench { grid-template-columns: 1fr; }
   .boundary-grid { grid-template-columns: 1fr; }
   .section-head {
     align-items: stretch;

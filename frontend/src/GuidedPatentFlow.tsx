@@ -29,6 +29,7 @@ import {
   type ClaimDefenseWorksheet,
   type DeliberationRun,
   type DisclosureRun,
+  type DraftPackage,
   type DraftCompletionRun,
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
@@ -155,6 +156,7 @@ export type GuidedPatentFlowProps = {
   onRetryFormulaRun: (runId: string) => void;
   onStartOfficialCompile: () => void;
   onStartPostDraftReview: () => void;
+  onSaveDraftPackage: (packageValue: DraftPackage) => Promise<void>;
   onCancelPostDraftReviewRun: (runId: string) => void;
   onRetryPostDraftReviewRun: (runId: string) => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
@@ -383,6 +385,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartPostDraftReview={props.onStartPostDraftReview}
+          onStartOfficialCompile={props.onStartOfficialCompile}
+          onSaveDraftPackage={props.onSaveDraftPackage}
           onCancelRun={props.onCancelPostDraftReviewRun}
           onRetryRun={props.onRetryPostDraftReviewRun}
           onToggleProvider={props.onToggleDeliberationProvider}

@@ -413,6 +413,13 @@ def create_app(
         project = _require_project(store, project_id)
         return project.model_dump(mode="json")
 
+    @app.patch("/api/projects/{project_id}/package")
+    def update_project_draft_package(project_id: str, payload: DraftPackage) -> dict:
+        _require_project(store, project_id)
+        store.update_project_package(project_id, payload)
+        project = _require_project(store, project_id)
+        return project.model_dump(mode="json")
+
     @app.delete("/api/projects/{project_id}")
     def delete_project(project_id: str) -> dict:
         deleted = store.delete_project(project_id)

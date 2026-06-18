@@ -11,6 +11,7 @@ import {
   retryPostDraftReview,
   retryProjectDeliberation,
   retryProjectDisclosure,
+  updateProjectPackage,
   uploadCorpusJobFile,
   uploadProjectMaterial,
 } from "./api";
@@ -79,6 +80,38 @@ describe("runtime control API", () => {
     }));
 
     await expect(getHealth()).rejects.toThrow("GET /api/health 请求失败：Load failed");
+  });
+
+  it("patches the current draft package for manual blocker repair", async () => {
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify({ id: "project-1", package: { title: "一种方法" } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await updateProjectPackage("project-1", {
+      title: "一种方法",
+      abstract: "摘要",
+      claims: "1. 一种方法。",
+      description: "说明书。",
+      drawing_description: "图1。",
+      mermaid: "",
+      image_prompt: "",
+      review_findings: [],
+      citations: [],
+      generation_logs: [],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-1/package",
+      expect.objectContaining({
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: expect.stringContaining('"description":"说明书。"'),
+      }),
+    );
   });
 
   it("routes direct upload fetches through the Tauri backend base URL", async () => {

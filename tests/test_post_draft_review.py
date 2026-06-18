@@ -151,6 +151,39 @@ def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_pat
     assert "attorney_memo" in report_response.text
 
 
+def test_blocked_post_draft_review_can_be_resolved_by_editing_current_draft_package(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+    review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+    assert review_response.status_code == 200
+    blocked_review = review_response.json()
+    assert blocked_review["export_allowed"] is False
+    stale_hash = blocked_review["draft_package_hash"]
+
+    edited_package = _package(
+        description="本发明涉及无人机任务规划技术领域，说明书补充贡献矩阵字段、后验更新步骤和任务包生成示例。"
+    )
+    edit_response = client.patch(
+        f"/api/projects/{project_id}/package",
+        json=edited_package.model_dump(mode="json"),
+    )
+
+    assert edit_response.status_code == 200
+    edited_project = edit_response.json()
+    assert edited_project["package"]["description"] == edited_package.description
+    assert edited_project["package"]["description"] != _package().description
+    official_runs = client.get(f"/api/projects/{project_id}/official-compile-runs").json()
+    post_review_runs = client.get(f"/api/projects/{project_id}/post-draft-reviews").json()
+    assert official_runs["current_source_draft_hash"] != stale_hash
+    assert post_review_runs["current_draft_hash"] != stale_hash
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 409
+    assert "Official draft compile is required for the current draft" in export_response.json()["detail"]
+
+
 def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compile(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _package())

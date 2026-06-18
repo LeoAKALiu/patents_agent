@@ -905,6 +905,14 @@ export async function createProject(
   });
 }
 
+export async function updateProjectPackage(projectId: string, packageValue: DraftPackage): Promise<ProjectRecord> {
+  return request<ProjectRecord>(`/api/projects/${projectId}/package`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(packageValue),
+  });
+}
+
 export async function deleteProject(projectId: string): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>(`/api/projects/${projectId}`, { method: "DELETE" });
 }

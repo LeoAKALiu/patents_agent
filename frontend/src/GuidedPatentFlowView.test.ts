@@ -5,6 +5,7 @@ import guidedSource from "./GuidedPatentFlow.tsx?raw";
 // The patent-point selection logic lives in a dedicated pure module after
 // the M4 extraction; the regression guard below pins its behaviour there.
 import inventionSelectorsSource from "./flow/inventionSelectors.ts?raw";
+import postDraftReviewPanelSource from "./flow/panels/PostDraftReviewPanel.tsx?raw";
 // InventionPointConfirmation (panel-level candidate surfacing) was extracted
 // to its own module in M4; the panel-consumption guard points there now.
 import inventionPointSource from "./flow/panels/InventionPointConfirmation.tsx?raw";
@@ -37,5 +38,15 @@ describe("Guided patent flow UI regressions", () => {
     expect(projectDataSource).toContain("refreshDisclosureRunUntilSettled");
     expect(projectDataSource).toContain("loadPatentPoints");
     expect(appSource).toContain("refreshDisclosureRunUntilSettled");
+  });
+
+  it("lets blocked post-draft review users inspect blocker guidance and edit the current draft", () => {
+    expect(postDraftReviewPanelSource).toContain("阻断修复工作台");
+    expect(postDraftReviewPanelSource).toContain("当前内部初稿");
+    expect(postDraftReviewPanelSource).toContain("textarea");
+    expect(postDraftReviewPanelSource).toContain("onSaveDraftPackage");
+    expect(guidedSource).toContain("onSaveDraftPackage={props.onSaveDraftPackage}");
+    expect(appSource).toContain("async function handleSaveDraftPackage");
+    expect(appSource).toContain("updateProjectPackage");
   });
 });
