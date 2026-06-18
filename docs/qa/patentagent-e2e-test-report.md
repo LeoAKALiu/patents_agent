@@ -128,5 +128,6 @@
 - 已审核并合入集成分支：`t_c839241b` PR-17，因分支携带旧 PR-4A 历史，实际 cherry-pick 修复 commit `9829473` 为 `c5e305f`；验证 content-disposition/API/official compile 相关测试通过。
 - 已审核并合入集成分支：`t_241f3d03` PR-16A，验证 official compile/post-draft review readiness 相关测试通过。
 - 已审核并合入集成分支：`t_cf6c0876` PR-16B，merge commit `6aa7d0e`；验证 `npm --prefix frontend test` 17 files / 211 tests passed，`npm --prefix frontend run build` 通过。正式稿下载 href 仍由 hash-matching `officialAllowed` 硬门禁控制，UI 增加 locked state、原因和 CTA。
+- 已审核并合入集成分支：`t_21b014eb` PR-15A，cherry-pick commit `741eacf`；验证 PR worktree `tests/test_api.py` 11 passed，集成分支 `tests/test_api.py tests/test_official_compile.py tests/test_content_disposition.py` 59 passed。PUT 局部更新语义为未传字段保留、`null` 不覆盖、空字符串可清空；申请人/发明人当前按 metadata-only 不写入初稿导出。
 - 已审核并合入集成分支：`t_f2be2e01` PR-14，验证 `npm build`, `cargo check/test --features custom-protocol`, `cargo tauri build --debug`, `tauri_dmg_smoke.py` 均通过；未合入 `.artifacts/pr14-*` 生成物。
-- 已拆分继续执行：`t_7b44a196` PR-15 连续超时且无 commit，拆为 `t_21b014eb` PR-15A backend -> `bigmodelworker` 与 `t_cf40449f` PR-15B frontend -> `kimiworker`。
+- 已拆分继续执行：`t_7b44a196` PR-15 连续超时且无 commit，拆为 `t_21b014eb` PR-15A backend -> `bigmodelworker`（已完成）与 `t_cf40449f` PR-15B frontend -> `kimiworker`（PR-15A 完成后已自动 promoted/running）。

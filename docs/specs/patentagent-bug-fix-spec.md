@@ -34,6 +34,7 @@ Hermes：`t_f2be2e01`
 Hermes：backend `t_21b014eb`; frontend `t_cf40449f`
 优先级：P1  
 建议顺序：2
+状态：PR-15A backend 已审核并 cherry-pick 到集成分支 `741eacf`；PR-15B frontend 已在 Hermes promoted/running。
 
 背景：
 
