@@ -5,11 +5,15 @@ import re
 import uuid
 from typing import Any
 
+from backend.app.evidence_binding import evidence_refs_for_text
 from backend.app.llm import LLMClient
 from backend.app.schemas import (
     ClaimDefenseWorksheet,
     DisclosureRun,
     DraftPackage,
+    EvidenceBinding,
+    EvidenceBindingSourceType,
+    EvidenceVerificationStatus,
     FeatureRecord,
     PatentPointCandidate,
 )
@@ -32,6 +36,7 @@ def generate_claim_defense_worksheet(
     disclosures: list[DisclosureRun],
     patent_points: list[PatentPointCandidate],
     llm: LLMClient | None,
+    evidence_bindings: list[EvidenceBinding] | None = None,
 ) -> ClaimDefenseWorksheet:
     notes: list[str] = []
     feature_records = _extract_rule_features(package, disclosures, patent_points)
@@ -39,7 +44,7 @@ def generate_claim_defense_worksheet(
 
     feature_records = _dedupe_records(feature_records)
     feature_records = [
-        _normalize_record(record, index, package, disclosures, patent_points)
+        _normalize_record(record, index, package, disclosures, patent_points, evidence_bindings or [])
         for index, record in enumerate(feature_records, start=1)
     ]
     support_gaps = _support_gaps(feature_records)
@@ -221,6 +226,7 @@ def _normalize_record(
     package: DraftPackage | None,
     disclosures: list[DisclosureRun],
     patent_points: list[PatentPointCandidate],
+    evidence_bindings: list[EvidenceBinding],
 ) -> FeatureRecord:
     classification = record.classification if record.classification in VALID_CLASSIFICATIONS else "known_base"
     inferred = _classify_text(record.text, patent_points, disclosures)
@@ -234,6 +240,16 @@ def _normalize_record(
         description_refs = _disclosure_refs(record.text, disclosures)
 
     risk_tags = list(dict.fromkeys([*record.risk_tags, *_risk_tags(record.text)]))
+    matched_evidence = _matching_evidence_bindings(record.text, evidence_bindings)
+    evidence_refs = list(dict.fromkeys([*record.evidence_refs, *[binding.evidence_id for binding in matched_evidence]]))
+    matched_source_refs = [_source_ref(binding) for binding in matched_evidence]
+    source_refs = list(dict.fromkeys([ref for ref in [*record.source_refs, *matched_source_refs] if ref]))
+    prior_art_refs = list(record.prior_art_refs)
+    prior_art_refs.extend(
+        binding.source_id
+        for binding in matched_evidence
+        if binding.source_type == EvidenceBindingSourceType.PRIOR_ART and binding.source_id
+    )
     if classification in {"differentiator", "core_combo"} and not description_refs:
         classification = "support_needed"
         risk_tags.append("说明书支撑不足")
@@ -245,6 +261,10 @@ def _normalize_record(
             "classification": classification,
             "description_refs": description_refs,
             "figure_refs": record.figure_refs or (_figure_refs(record.text, package) if package else []),
+            "prior_art_refs": list(dict.fromkeys(prior_art_refs)),
+            "evidence_refs": evidence_refs,
+            "source_refs": source_refs,
+            "support_explanation": _support_explanation(record.support_explanation, matched_evidence),
             "risk_tags": list(dict.fromkeys(risk_tags)),
         }
     )
@@ -270,6 +290,44 @@ def _disclosure_refs(text: str, disclosures: list[DisclosureRun]) -> list[str]:
         if run.package and any(marker in run.package.body_markdown for marker in _support_markers(text)):
             refs.append(f"disclosure:{run.id}")
     return refs
+
+
+def _matching_evidence_bindings(text: str, evidence_bindings: list[EvidenceBinding]) -> list[EvidenceBinding]:
+    matched_refs = set(evidence_refs_for_text(text, evidence_bindings, min_confidence=0.0))
+    return [binding for binding in evidence_bindings if binding.evidence_id in matched_refs]
+
+
+def _source_ref(binding: EvidenceBinding) -> str:
+    source_id = binding.source_id or binding.evidence_id
+    if not source_id:
+        return ""
+    return f"{binding.source_type.value}:{source_id}"
+
+
+def _support_explanation(existing: str, matched_evidence: list[EvidenceBinding]) -> str:
+    parts = [existing] if existing else []
+    if not matched_evidence:
+        return existing
+    evidence_ids = [binding.evidence_id for binding in matched_evidence if binding.evidence_id]
+    verified_ids = [binding.evidence_id for binding in matched_evidence if _counts_as_verified_support(binding)]
+    weak_ids = [binding.evidence_id for binding in matched_evidence if binding.evidence_id not in verified_ids]
+    if evidence_ids:
+        parts.append(f"已关联证据: {', '.join(evidence_ids)}。")
+    if verified_ids:
+        parts.append(f"可作为已验证/已检索支撑: {', '.join(verified_ids)}。")
+    if weak_ids:
+        parts.append(f"低置信或未验证证据仅作线索，不升级为已验证支撑: {', '.join(weak_ids)}。")
+    return " ".join(parts)
+
+
+def _counts_as_verified_support(binding: EvidenceBinding) -> bool:
+    if binding.confidence < 0.6:
+        return False
+    return binding.verification_status in {
+        EvidenceVerificationStatus.RETRIEVED,
+        EvidenceVerificationStatus.USER_PROVIDED,
+        EvidenceVerificationStatus.VERIFIED,
+    }
 
 
 def _point_support_refs(point: PatentPointCandidate) -> list[str]:

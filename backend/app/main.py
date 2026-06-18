@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import shutil
 import time
@@ -23,6 +25,7 @@ from backend.app.disclosure.generator import DisclosureGenerator
 from backend.app.disclosure.material_parser import read_project_material_text
 from backend.app.disclosure.prior_art import PublicPriorArtProvider
 from backend.app.draft_completion import completion_run_to_markdown, run_draft_completion
+from backend.app.evidence_binding import build_evidence_bindings
 from backend.app.external_drafts import (
     create_external_draft_source,
     external_draft_review_bundle_to_markdown,
@@ -49,6 +52,7 @@ from backend.app.desktop_config import (
     save_desktop_config,
 )
 from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
+from backend.app.llm_cache import CachedStageLLMClient, clear_project_llm_cache
 from backend.app.moat import score_moat
 from backend.app.official_compile import (
     OfficialDraftCompiler,
@@ -57,6 +61,7 @@ from backend.app.official_compile import (
     official_package_to_markdown,
     source_draft_hash,
 )
+from backend.app.patch_generator import PatchGenerationContext, generate_evidence_backed_patches
 from backend.app.patent_mode import is_utility_model_project
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
 from backend.app.post_draft_review import (
@@ -93,6 +98,7 @@ from backend.app.schemas import (
     ExternalDraftReviewBundle,
     ExternalDraftSourceCreate,
     DraftPackage,
+    EvidenceBinding,
     FormulaRun,
     FormulaRunCreate,
     GenerateRequest,
@@ -1119,7 +1125,13 @@ def create_app(
         )
         brief = _brief_from_draft(project, disclosure_package)
         context = _retrieve_generation_context(index, brief)
-        generator = PatentDraftGenerator(app.state.llm)
+        cached_llm = _cached_llm(
+            store=store,
+            project_id=project_id,
+            source_hash_value=_draft_generation_source_hash(project, deliberation, disclosure, formula_run, user_candidates),
+            llm=app.state.llm,
+        )
+        generator = PatentDraftGenerator(cached_llm)
         try:
             package = generator.generate(
                 brief,
@@ -1208,12 +1220,16 @@ def create_app(
     @app.post("/api/projects/{project_id}/claim-defense-worksheets")
     def create_claim_defense_worksheet(project_id: str) -> dict:
         project = _require_project(store, project_id)
+        _materials, disclosures, patent_points, _formula_runs, evidence_bindings = _build_evidence_bindings_for_project(
+            store, project
+        )
         worksheet = generate_claim_defense_worksheet(
             project_id=project_id,
             package=project.package,
-            disclosures=store.list_disclosure_runs(project_id),
-            patent_points=store.list_project_patent_points(project_id),
+            disclosures=disclosures,
+            patent_points=patent_points,
             llm=app.state.llm,
+            evidence_bindings=evidence_bindings,
         )
         stored = store.create_claim_defense_worksheet(worksheet)
         return stored.model_dump(mode="json")
@@ -1242,14 +1258,18 @@ def create_app(
     def create_draft_completion_run(project_id: str) -> dict:
         project = _require_project(store, project_id)
         package = _require_package(project)
+        materials, disclosures, patent_points, _formula_runs, evidence_bindings = _build_evidence_bindings_for_project(
+            store, project
+        )
         run = run_draft_completion(
             project_id=project_id,
             package=package,
             filing_reports=store.list_filing_readiness_reports(project_id),
             worksheets=store.list_claim_defense_worksheets(project_id),
-            patent_points=store.list_project_patent_points(project_id),
-            disclosures=store.list_disclosure_runs(project_id),
-            materials=store.list_project_materials(project_id),
+            patent_points=patent_points,
+            disclosures=disclosures,
+            materials=materials,
+            evidence_bindings=evidence_bindings,
         )
         stored = store.create_draft_completion_run(run)
         return stored.model_dump(mode="json")
@@ -1281,6 +1301,43 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
         return PlainTextResponse(completion_run_to_markdown(run), media_type="text/markdown; charset=utf-8")
+
+    @app.post("/api/projects/{project_id}/llm-cache/clear")
+    def clear_project_stage_cache(project_id: str) -> dict:
+        _require_project(store, project_id)
+        deleted = clear_project_llm_cache(store, project_id)
+        return {"deleted": deleted}
+
+    @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/generate")
+    def generate_completion_patches(project_id: str, run_id: str) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        run = store.get_draft_completion_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        current_hash = source_draft_hash(package)
+        if run.draft_package_hash != current_hash:
+            raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
+        _materials, _disclosures, _patent_points, _formula_runs, evidence_bindings = _build_evidence_bindings_for_project(
+            store, project
+        )
+        generated = generate_evidence_backed_patches(
+            PatchGenerationContext(
+                package=package,
+                issues=run.issues,
+                tasks=run.tasks,
+                support_matrix=run.support_matrix,
+                evidence_bindings=evidence_bindings,
+                existing_patch_count=len(run.patches),
+            )
+        )
+        if not generated:
+            return run.model_dump(mode="json")
+        updated = run.model_copy(update={"patches": [*run.patches, *generated]})
+        stored = store.update_draft_completion_run(updated)
+        if not stored:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/{patch_id}/accept")
     def accept_completion_patch(project_id: str, run_id: str, patch_id: str) -> dict:
@@ -1318,11 +1375,24 @@ def create_app(
             if not safe_patches:
                 logs.append("score-improvement: 未发现可自动进入正式稿的补强补丁")
                 break
+            round_accepted = False
             for patch in safe_patches:
-                current_package = _apply_completion_patch(current_package, patch)
+                patched_package = _apply_completion_patch(
+                    current_package,
+                    patch,
+                    run_draft_package_hash=current_run.draft_package_hash,
+                )
+                if patched_package == current_package:
+                    logs.append(f"score-improvement: 补丁 {patch.id} 未通过安全检查，未应用")
+                    continue
+                current_package = patched_package
                 store.update_completion_patch_status(project_id, current_run.id, patch.id, "accepted")
                 accepted_patch_ids.append(patch.id)
+                round_accepted = True
                 logs.append(f"score-improvement: 已应用补丁 {patch.id} -> {patch.target_section}")
+            if not round_accepted:
+                logs.append("score-improvement: 本轮没有补丁通过安全检查")
+                break
             store.update_project_package(project_id, current_package)
             current_run = _run_quality_cycle(app, store, project_id)
             logs.append(f"score-improvement: 第 {round_index} 轮重新评分 {current_run.scorecard.overall}/100")
@@ -1882,10 +1952,17 @@ def _execute_post_draft_review(
     )
     try:
         runtime.begin_stage("post_draft_review", provider="llm", subtask="role review")
+        cached_llm = _cached_llm(
+            store=store,
+            project_id=project_id,
+            source_hash_value=package_hash_for_review(package),
+            llm=llm,
+            prompt_pack_version="post-draft-review-v1",
+        )
         generated = run_post_draft_review(
             project_id=project_id,
             package=package,
-            llm=llm,
+            llm=cached_llm,
             providers=providers,
             official_compile_run_id=official_compile_run_id,
         )
@@ -2000,8 +2077,14 @@ def _execute_disclosure(
     )
 
     try:
-        generator = DisclosureGenerator(llm, prior_art_provider)
         user_candidates = store.list_project_patent_points(project.id)
+        cached_llm = _cached_llm(
+            store=store,
+            project_id=project.id,
+            source_hash_value=_disclosure_source_hash(project, materials, user_candidates, run.max_prior_art_results),
+            llm=llm,
+        )
+        generator = DisclosureGenerator(cached_llm, prior_art_provider)
         package, stage_results, warnings = generator.generate(
             project=project,
             materials=materials,
@@ -2467,18 +2550,103 @@ def _execute_deliberation(
         return failed
 
 
+def _build_evidence_bindings_for_project(store: SQLiteStore, project: ProjectRecord) -> tuple[
+    list[ProjectMaterial],
+    list[DisclosureRun],
+    list[PatentPointCandidate],
+    list[FormulaRun],
+    list[EvidenceBinding],
+]:
+    materials = store.list_project_materials(project.id)
+    disclosures = store.list_disclosure_runs(project.id)
+    patent_points = store.list_project_patent_points(project.id)
+    formula_runs = store.list_formula_runs(project.id)
+    evidence_bindings = build_evidence_bindings(
+        project,
+        materials=materials,
+        disclosures=disclosures,
+        patent_points=patent_points,
+        formula_runs=formula_runs,
+    )
+    return materials, disclosures, patent_points, formula_runs, evidence_bindings
+
+
+def _cached_llm(
+    *,
+    store: SQLiteStore,
+    project_id: str,
+    source_hash_value: str,
+    llm: LLMClient,
+    prompt_pack_version: str = "",
+    timeout_s: float | None = None,
+) -> LLMClient:
+    if not source_hash_value:
+        return llm
+    return CachedStageLLMClient(
+        store=store,
+        project_id=project_id,
+        source_hash=source_hash_value,
+        delegate=llm,
+        prompt_pack_version=prompt_pack_version,
+        timeout_s=timeout_s,
+        retries=1,
+    )
+
+
+def _hash_payload(payload: object) -> str:
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _draft_generation_source_hash(
+    project: ProjectRecord,
+    deliberation: DeliberationRun | None,
+    disclosure: DisclosureRun | None,
+    formula_run: FormulaRun | None,
+    patent_points: list[PatentPointCandidate],
+) -> str:
+    return _hash_payload(
+        {
+            "project": project.model_dump(mode="json"),
+            "deliberation_id": deliberation.id if deliberation else "",
+            "disclosure_id": disclosure.id if disclosure else "",
+            "formula_run_id": formula_run.id if formula_run else "",
+            "patent_points": [point.model_dump(mode="json") for point in patent_points],
+        }
+    )
+
+
+def _disclosure_source_hash(
+    project: ProjectRecord,
+    materials: list[ProjectMaterial],
+    patent_points: list[PatentPointCandidate],
+    max_prior_art_results: int,
+) -> str:
+    return _hash_payload(
+        {
+            "project": project.model_dump(mode="json"),
+            "materials": [material.model_dump(mode="json") for material in materials],
+            "patent_points": [point.model_dump(mode="json") for point in patent_points],
+            "max_prior_art_results": max_prior_art_results,
+        }
+    )
+
+
 def _run_quality_cycle(app: FastAPI, store: SQLiteStore, project_id: str) -> DraftCompletionRun:
     project = _require_project(store, project_id)
     package = _require_package(project)
-    verified_effects = any(point.evidence_status == "verified" for point in store.list_project_patent_points(project_id))
+    materials, disclosures, patent_points, _formula_runs, evidence_bindings = _build_evidence_bindings_for_project(
+        store, project
+    )
+    verified_effects = any(point.evidence_status == "verified" for point in patent_points)
     report = assess_filing_readiness(project_id, package, verified_effects=verified_effects)
     store.create_filing_readiness_report(report)
     worksheet = generate_claim_defense_worksheet(
         project_id=project_id,
         package=package,
-        disclosures=store.list_disclosure_runs(project_id),
-        patent_points=store.list_project_patent_points(project_id),
+        disclosures=disclosures,
+        patent_points=patent_points,
         llm=app.state.llm,
+        evidence_bindings=evidence_bindings,
     )
     store.create_claim_defense_worksheet(worksheet)
     run = run_draft_completion(
@@ -2486,24 +2654,52 @@ def _run_quality_cycle(app: FastAPI, store: SQLiteStore, project_id: str) -> Dra
         package=package,
         filing_reports=store.list_filing_readiness_reports(project_id),
         worksheets=store.list_claim_defense_worksheets(project_id),
-        patent_points=store.list_project_patent_points(project_id),
-        disclosures=store.list_disclosure_runs(project_id),
-        materials=store.list_project_materials(project_id),
+        patent_points=patent_points,
+        disclosures=disclosures,
+        materials=materials,
+        evidence_bindings=evidence_bindings,
     )
     return store.create_draft_completion_run(run)
 
 
-def _apply_completion_patch(package: DraftPackage, patch: ProposedPatch) -> DraftPackage:
+def _apply_completion_patch(
+    package: DraftPackage,
+    patch: ProposedPatch,
+    *,
+    run_draft_package_hash: str = "",
+) -> DraftPackage:
+    if run_draft_package_hash and source_draft_hash(package) != run_draft_package_hash:
+        return package
+    if patch.patch_kind == "sidecar_only":
+        return package
     if not patch.can_enter_official_draft or not patch.after_text.strip():
+        return package
+    if not _patch_has_real_evidence_refs(patch):
         return package
     text = patch.after_text.strip()
     if patch.target_section in {"description", "embodiment", "term"}:
-        return package.model_copy(update={"description": _append_once(package.description, "补充实施方式", text)})
+        return package.model_copy(update={"description": _insert_or_append(package.description, patch, "补充实施方式")})
     if patch.target_section == "claim":
-        return package.model_copy(update={"claims": _append_once(package.claims, "补充权利要求", text)})
+        return package.model_copy(update={"claims": _insert_or_append(package.claims, patch, "补充权利要求")})
     if patch.target_section == "drawing":
-        return package.model_copy(update={"drawing_description": _append_once(package.drawing_description, "补充附图说明", text)})
+        return package.model_copy(update={"drawing_description": _insert_or_append(package.drawing_description, patch, "补充附图说明")})
     return package
+
+
+def _patch_has_real_evidence_refs(patch: ProposedPatch) -> bool:
+    ignored_prefixes = ("task:", "claim:", "term:", "filing_readiness:", "patent_points")
+    for ref in patch.evidence_refs:
+        if ref and not ref.startswith(ignored_prefixes):
+            return True
+    return False
+
+
+def _insert_or_append(original: str, patch: ProposedPatch, heading: str) -> str:
+    addition = patch.after_text.strip()
+    anchor = patch.before_text.strip()
+    if anchor and anchor in original and addition not in original:
+        return original.replace(anchor, f"{anchor.rstrip()}\n{addition}", 1)
+    return _append_once(original, heading, addition)
 
 
 def _append_once(original: str, heading: str, addition: str) -> str:

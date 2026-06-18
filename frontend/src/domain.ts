@@ -62,6 +62,22 @@ export function evidenceStatusLabel(status: string): string {
   return "模型生成";
 }
 
+export function evidenceVerificationLabel(status: string): string {
+  if (status === "verified") return "已验证";
+  if (status === "retrieved") return "已检索";
+  if (status === "user_provided") return "用户材料";
+  if (status === "feasible_unverified") return "可行未验证";
+  if (status === "needs_experiment") return "需实验";
+  return "模型生成";
+}
+
+export function evidenceBindingConfidenceLabel(confidence: number): string {
+  if (confidence >= 0.8) return "高置信";
+  if (confidence >= 0.6) return "中置信";
+  if (confidence > 0) return "低置信";
+  return "未评分";
+}
+
 export function sourceTypeLabel(source: string): string {
   if (source === "user") return "用户输入";
   if (source === "imported") return "材料导入";
@@ -123,6 +139,17 @@ export function completionPatchKindLabel(kind: string): string {
   if (kind === "rewrite") return "改写";
   if (kind === "sidecar_only") return "仅侧车记录";
   return kind || "未知";
+}
+
+export function patchSafetyLabel(value: { can_enter_official_draft?: boolean; evidence_refs?: string[] }): string {
+  if (!value.can_enter_official_draft) return "仅内部参考";
+  if (value.evidence_refs?.length) return "证据支撑可入稿";
+  return "缺少证据不可自动入稿";
+}
+
+export function completionRunFreshnessLabel(runHash: string | null | undefined, currentHash: string | null | undefined): string {
+  if (!runHash || !currentHash) return "未绑定当前稿";
+  return runHash === currentHash ? "当前稿结果" : "历史稿结果";
 }
 
 export function draftSectionLabel(section: string): string {

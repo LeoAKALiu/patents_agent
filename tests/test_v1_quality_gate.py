@@ -51,9 +51,21 @@ def test_quality_report_contains_trends_gates_and_live_boundary(tmp_path):
         "research_confidence": "medium",
         "grantability": {"status": "medium", "fail_closed": False, "claim_chart_rows": 2},
         "quality_trend": {field: 80 for field in smoke.TREND_FIELDS},
+        "drafting_quality": {
+            "evidence_binding_rate": 0.8,
+            "core_feature_support_rate": 0.75,
+            "unsupported_core_feature_count": 1,
+            "unverified_effect_leak_count": 0,
+            "dependent_fallback_depth": 2,
+            "embodiment_density": 0.6,
+            "patch_delta": 1,
+        },
         "gates": {
             "research_evidence_count": {"passed": True, "expected": ">=2", "actual": "2"},
             "official_export_hygiene": {"passed": True, "expected": "clean", "actual": "clean"},
+            "evidence_binding_rate": {"passed": True, "expected": ">=0.1", "actual": "0.8"},
+            "core_feature_support_rate": {"passed": True, "expected": ">=0.4", "actual": "0.75"},
+            "unverified_effect_leak_count": {"passed": True, "expected": "0", "actual": "0"},
         },
     }
 
@@ -63,5 +75,61 @@ def test_quality_report_contains_trends_gates_and_live_boundary(tmp_path):
     md = (tmp_path / "v1_1_quality_report.md").read_text(encoding="utf-8")
     assert "live_provider_tests: opt-in only" in md
     assert "authorization_stability" in md
+    assert "evidence_binding_rate" in md
+    assert "core_feature_support_rate" in md
     assert "official_export_hygiene" in md
     assert (tmp_path / "v1_1_quality_report.json").exists()
+
+
+def test_drafting_quality_metrics_are_deterministic():
+    smoke = load_smoke_module()
+
+    metrics = smoke._drafting_quality_metrics(
+        {
+            "support_matrix": [
+                {
+                    "feature_classification": "core_combo",
+                    "completion_status": "supported",
+                    "evidence_refs": ["E1"],
+                    "description_refs": ["description:auto-match"],
+                    "embodiment_refs": [],
+                    "formula_refs": [],
+                    "data_structure_refs": ["description:data-structure"],
+                    "pseudo_code_refs": [],
+                },
+                {
+                    "feature_classification": "core_combo",
+                    "completion_status": "missing",
+                    "evidence_refs": [],
+                    "description_refs": [],
+                    "embodiment_refs": [],
+                    "formula_refs": [],
+                    "data_structure_refs": [],
+                    "pseudo_code_refs": [],
+                },
+                {
+                    "feature_classification": "dependent_fallback",
+                    "completion_status": "partial",
+                    "evidence_refs": [],
+                    "description_refs": ["description:auto-match"],
+                    "embodiment_refs": [],
+                    "formula_refs": [],
+                    "data_structure_refs": [],
+                    "pseudo_code_refs": [],
+                },
+            ],
+            "issues": [{"category": "unverified_scheme_gap", "blocks_submission": False}],
+            "patches": [
+                {"can_enter_official_draft": True, "evidence_refs": ["E1"], "patch_kind": "insert"},
+                {"can_enter_official_draft": False, "evidence_refs": [], "patch_kind": "sidecar_only"},
+            ],
+        }
+    )
+
+    assert metrics["evidence_binding_rate"] == 0.333
+    assert metrics["core_feature_support_rate"] == 0.5
+    assert metrics["unsupported_core_feature_count"] == 1
+    assert metrics["unverified_effect_leak_count"] == 0
+    assert metrics["dependent_fallback_depth"] == 1
+    assert metrics["embodiment_density"] == 0.667
+    assert metrics["patch_delta"] == 0

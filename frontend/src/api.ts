@@ -10,6 +10,21 @@ export type SectionType =
   | "other";
 
 export type EvidenceStatus = "verified" | "feasible_unverified" | "needs_experiment" | "model_generated";
+export type EvidenceBindingSourceType =
+  | "project_material"
+  | "prior_art"
+  | "disclosure"
+  | "patent_point"
+  | "formula"
+  | "draft_citation"
+  | "manual";
+export type EvidenceVerificationStatus =
+  | "verified"
+  | "retrieved"
+  | "user_provided"
+  | "feasible_unverified"
+  | "needs_experiment"
+  | "model_generated";
 export type PatentPointSourceType = "user" | "model" | "imported";
 
 export interface MoatScores {
@@ -168,7 +183,23 @@ export interface FeatureRecord {
   description_refs: string[];
   figure_refs: string[];
   prior_art_refs: string[];
+  evidence_refs: string[];
+  source_refs: string[];
+  support_explanation: string;
   risk_tags: string[];
+}
+
+export interface EvidenceBinding {
+  evidence_id: string;
+  source_type: EvidenceBindingSourceType;
+  source_id: string;
+  source_label: string;
+  quote: string;
+  confidence: number;
+  verification_status: EvidenceVerificationStatus;
+  internal_only: boolean;
+  citable: boolean;
+  metadata: Record<string, unknown>;
 }
 
 export interface ClaimDefenseWorksheet {
@@ -241,6 +272,10 @@ export interface ClaimSupportMatrixRow {
   data_structure_refs: string[];
   pseudo_code_refs: string[];
   prior_art_refs: string[];
+  evidence_refs: string[];
+  source_refs: string[];
+  support_explanation: string;
+  missing_evidence_reason: string;
   evidence_status: EvidenceStatus;
   risk_tags: string[];
   completion_status: "supported" | "partial" | "missing";
@@ -1074,6 +1109,12 @@ export function draftCompletionReportUrl(projectId: string, runId: string): stri
   return `/api/projects/${projectId}/completion-runs/${runId}/report.md`;
 }
 
+export async function generateCompletionPatches(projectId: string, runId: string): Promise<DraftCompletionRun> {
+  return request<DraftCompletionRun>(`/api/projects/${projectId}/completion-runs/${runId}/patches/generate`, {
+    method: "POST",
+  });
+}
+
 export async function acceptCompletionPatch(
   projectId: string,
   runId: string,
@@ -1103,6 +1144,10 @@ export async function improveProjectScore(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+export async function clearProjectLlmCache(projectId: string): Promise<{ deleted: number }> {
+  return request<{ deleted: number }>(`/api/projects/${projectId}/llm-cache/clear`, { method: "POST" });
 }
 
 export async function listProjectDeliberations(projectId: string): Promise<DeliberationRun[]> {

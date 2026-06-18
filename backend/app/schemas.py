@@ -69,6 +69,38 @@ class Citation(BaseModel):
     text: str
 
 
+class EvidenceBindingSourceType(str, Enum):
+    PROJECT_MATERIAL = "project_material"
+    PRIOR_ART = "prior_art"
+    DISCLOSURE = "disclosure"
+    PATENT_POINT = "patent_point"
+    FORMULA = "formula"
+    DRAFT_CITATION = "draft_citation"
+    MANUAL = "manual"
+
+
+class EvidenceVerificationStatus(str, Enum):
+    VERIFIED = "verified"
+    RETRIEVED = "retrieved"
+    USER_PROVIDED = "user_provided"
+    FEASIBLE_UNVERIFIED = "feasible_unverified"
+    NEEDS_EXPERIMENT = "needs_experiment"
+    MODEL_GENERATED = "model_generated"
+
+
+class EvidenceBinding(BaseModel):
+    evidence_id: str = ""
+    source_type: EvidenceBindingSourceType = EvidenceBindingSourceType.MANUAL
+    source_id: str = ""
+    source_label: str = ""
+    quote: str = ""
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    verification_status: EvidenceVerificationStatus = EvidenceVerificationStatus.MODEL_GENERATED
+    internal_only: bool = True
+    citable: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class InventionBrief(BaseModel):
     title: str
     technical_field: str
@@ -338,6 +370,9 @@ class FeatureRecord(BaseModel):
     description_refs: list[str] = Field(default_factory=list)
     figure_refs: list[str] = Field(default_factory=list)
     prior_art_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    source_refs: list[str] = Field(default_factory=list)
+    support_explanation: str = ""
     risk_tags: list[str] = Field(default_factory=list)
 
 
@@ -419,6 +454,10 @@ class ClaimSupportMatrixRow(BaseModel):
     data_structure_refs: list[str] = Field(default_factory=list)
     pseudo_code_refs: list[str] = Field(default_factory=list)
     prior_art_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    source_refs: list[str] = Field(default_factory=list)
+    support_explanation: str = ""
+    missing_evidence_reason: str = ""
     evidence_status: str = Field(
         default="model_generated",
         pattern="^(verified|feasible_unverified|needs_experiment|model_generated)$",

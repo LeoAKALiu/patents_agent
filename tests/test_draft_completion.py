@@ -7,12 +7,16 @@ from backend.app.schemas import (
     CompletionIssue,
     CompletionScoreCard,
     CompletionTask,
+    DisclosurePackage,
+    DisclosureRun,
     DraftPackage,
     DraftCompletionRun,
     FeatureRecord,
     FilingReadinessIssue,
     FilingReadinessReport,
     PatentPointCandidate,
+    PriorArtHit,
+    ProjectMaterial,
     ProposedPatch,
 )
 
@@ -82,6 +86,8 @@ def test_draft_completion_models_capture_support_and_patch_state():
     assert run.tasks[0].status == "open"
     assert run.patches[0].status == "proposed"
     assert run.support_matrix[0].completion_status == "missing"
+    assert run.support_matrix[0].evidence_refs == []
+    assert run.support_matrix[0].missing_evidence_reason == ""
     assert run.scorecard.overall == 64
 
 
@@ -331,6 +337,186 @@ def test_completion_support_matrix_does_not_apply_unrelated_formula_globally():
     assert row.description_refs
     assert row.formula_refs == []
     assert row.completion_status == "partial"
+
+
+def test_completion_support_matrix_carries_evidence_refs_and_missing_reasons():
+    package = DraftPackage(
+        title="声学视觉融合巡检方法",
+        abstract="通过声学异常窗口触发视觉局部复检。",
+        claims="1. 一种巡检方法，其特征在于，声学异常窗口触发视觉局部复检，并形成复检状态记录。",
+        description=(
+            "本实施例中，声学异常窗口触发视觉局部复检。"
+            "所述复检状态记录为数据结构，包括window_id、image_region和confidence字段。"
+            "系统执行伪代码：步骤S1获取声学异常窗口，步骤S2触发视觉局部复检，步骤S3输出复检状态记录。"
+        ),
+        drawing_description="图1示出声学异常窗口触发视觉局部复检流程。",
+        mermaid="",
+        image_prompt="",
+    )
+    disclosure = DisclosureRun(
+        id="disclosure-1",
+        project_id="project-1",
+        status="completed",
+        package=DisclosurePackage(
+            title="声学视觉融合巡检交底",
+            summary="声学异常窗口触发视觉局部复检。",
+            materials_summary="实验记录支持该触发流程。",
+            prior_art_hits=[
+                PriorArtHit(
+                    id="pa-1",
+                    source="Google Patents",
+                    query="声学 视觉 巡检",
+                    title="一种声学巡检方法",
+                    publication_number="CN100A",
+                    url="https://patents.google.com/patent/CN100A",
+                    abstract="公开了声学巡检。",
+                    differentiators=["未公开声学异常窗口触发视觉局部复检"],
+                )
+            ],
+            body_markdown="声学异常窗口触发视觉局部复检。",
+            mermaid="",
+            image_prompt="",
+        ),
+    )
+    material = ProjectMaterial(
+        id="material-1",
+        project_id="project-1",
+        file_name="实验记录.md",
+        path="/tmp/material.md",
+        file_type="markdown",
+        text="声学异常窗口触发视觉局部复检，并形成复检状态记录。",
+        status="processed",
+    )
+
+    run = run_draft_completion(
+        project_id="project-1",
+        package=package,
+        filing_reports=[],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[disclosure],
+        materials=[material],
+    )
+
+    row = next(row for row in run.support_matrix if "声学异常窗口触发视觉局部复检" in row.feature_text)
+    assert row.evidence_refs
+    assert "CN100A" in row.prior_art_refs
+    assert "prior_art:CN100A" in row.source_refs
+    assert "project_material:material-1" in row.source_refs
+    assert row.missing_evidence_reason == ""
+    assert "可作为已验证/已检索支撑" in row.support_explanation
+
+    markdown = completion_run_to_markdown(run)
+    assert "evidence_refs=" in markdown
+    assert "https://patents.google.com/patent/CN100A" not in markdown
+
+
+def test_completion_scoring_requires_prior_art_refs_for_material_distinction_credit():
+    package = DraftPackage(
+        title="声学视觉融合巡检方法",
+        abstract="通过声学异常窗口触发视觉局部复检。",
+        claims="1. 一种巡检方法，其特征在于，声学异常窗口触发视觉局部复检，并形成复检状态记录。",
+        description=(
+            "本实施例中，声学异常窗口触发视觉局部复检。"
+            "所述复检状态记录为数据结构，包括window_id和image_region字段。"
+        ),
+        drawing_description="",
+        mermaid="",
+        image_prompt="",
+    )
+    disclosure = DisclosureRun(
+        id="disclosure-1",
+        project_id="project-1",
+        status="completed",
+        package=DisclosurePackage(
+            title="交底",
+            summary="声学视觉融合巡检。",
+            materials_summary="",
+            prior_art_hits=[
+                PriorArtHit(
+                    id="pa-1",
+                    source="Google Patents",
+                    query="声学 视觉 巡检",
+                    title="一种声学巡检方法",
+                    publication_number="CN100A",
+                    url="https://patents.google.com/patent/CN100A",
+                    differentiators=["未公开声学异常窗口触发视觉局部复检"],
+                )
+            ],
+            body_markdown="声学视觉融合巡检。",
+            mermaid="",
+            image_prompt="",
+        ),
+    )
+
+    without_prior_art = run_draft_completion(
+        project_id="project-1",
+        package=package,
+        filing_reports=[],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[],
+        materials=[],
+    )
+    with_prior_art = run_draft_completion(
+        project_id="project-1",
+        package=package,
+        filing_reports=[],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[disclosure],
+        materials=[],
+    )
+
+    assert with_prior_art.scorecard.prior_art_distinction > without_prior_art.scorecard.prior_art_distinction
+
+
+def test_completion_penalizes_core_rows_with_only_model_generated_evidence():
+    package = DraftPackage(
+        title="复检状态记录方法",
+        abstract="生成复检状态记录。",
+        claims="1. 一种巡检方法，其特征在于，生成复检状态记录并输出复检结果。",
+        description=(
+            "本实施例生成复检状态记录并输出复检结果。"
+            "所述复检状态记录为数据结构，包括record_id和result字段。"
+            "系统执行伪代码：步骤S1生成复检状态记录，步骤S2输出复检结果。"
+        ),
+        drawing_description="",
+        mermaid="",
+        image_prompt="",
+    )
+    material = ProjectMaterial(
+        id="material-1",
+        project_id="project-1",
+        file_name="实验记录.md",
+        path="/tmp/material.md",
+        file_type="markdown",
+        text="生成复检状态记录并输出复检结果。",
+        status="processed",
+    )
+
+    without_material = run_draft_completion(
+        project_id="project-1",
+        package=package,
+        filing_reports=[],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[],
+        materials=[],
+    )
+    with_material = run_draft_completion(
+        project_id="project-1",
+        package=package,
+        filing_reports=[],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[],
+        materials=[material],
+    )
+
+    row = next(row for row in without_material.support_matrix if "复检状态记录" in row.feature_text)
+    assert row.missing_evidence_reason == "核心/区别特征缺少用户材料、专利点或现有技术证据绑定。"
+    assert with_material.scorecard.support_strength > without_material.scorecard.support_strength
 
 
 def test_completion_scorecard_uses_generic_examiner_rules_instead_of_domain_keywords():

@@ -5,7 +5,9 @@ import uuid
 from datetime import datetime, timezone
 
 from backend.app.claim_defense import generate_claim_defense_worksheet
+from backend.app.evidence_binding import build_evidence_bindings
 from backend.app.filing_readiness import assess_filing_readiness
+from backend.app.patch_generator import PatchGenerationContext, generate_evidence_backed_patches
 from backend.app.schemas import (
     ClaimDefenseWorksheet,
     ClaimSupportMatrixRow,
@@ -15,9 +17,13 @@ from backend.app.schemas import (
     DisclosureRun,
     DraftCompletionRun,
     DraftPackage,
+    EvidenceBinding,
+    EvidenceBindingSourceType,
+    FeatureRecord,
     FilingReadinessReport,
     PatentPointCandidate,
     ProjectMaterial,
+    ProjectRecord,
     ProposedPatch,
 )
 
@@ -50,9 +56,17 @@ def run_draft_completion(
     patent_points: list[PatentPointCandidate],
     disclosures: list[DisclosureRun],
     materials: list[ProjectMaterial],
+    evidence_bindings: list[EvidenceBinding] | None = None,
 ) -> DraftCompletionRun:
     snapshot_hash = _snapshot_hash(package, patent_points, materials)
     package_hash = _package_hash(package)
+    if evidence_bindings is None:
+        evidence_bindings = build_evidence_bindings(
+            ProjectRecord(id=project_id, name="", draft_text="", package=package),
+            materials=materials,
+            disclosures=disclosures,
+            patent_points=patent_points,
+        )
     readiness = next(
         (report for report in filing_reports if report.draft_package_hash == package_hash),
         None,
@@ -70,6 +84,7 @@ def run_draft_completion(
         disclosures=disclosures,
         patent_points=patent_points,
         llm=None,
+        evidence_bindings=evidence_bindings,
     )
 
     issues = _issues_from_readiness(readiness)
@@ -80,7 +95,22 @@ def run_draft_completion(
     issues = _dedupe_issues(issues)
 
     tasks = _tasks_from_issues(issues)
-    patches = _patches_from_tasks(tasks)
+    patches = generate_evidence_backed_patches(
+        PatchGenerationContext(
+            package=package,
+            issues=issues,
+            tasks=tasks,
+            support_matrix=matrix,
+            evidence_bindings=evidence_bindings,
+        )
+    )
+    patched_task_ids = {patch.task_id for patch in patches}
+    patches.extend(
+        _patches_from_tasks(
+            [task for task in tasks if task.id not in patched_task_ids],
+            start_index=len(patches) + 1,
+        )
+    )
     scorecard = _scorecard(issues, matrix, package)
 
     return DraftCompletionRun(
@@ -146,9 +176,13 @@ def completion_run_to_markdown(run: DraftCompletionRun) -> str:
     if not run.support_matrix:
         lines.append("暂无权利要求特征矩阵。")
     for row in run.support_matrix:
-        lines.append(
-            f"- {row.claim_ref}: {row.completion_status} | {row.feature_classification} | {row.feature_text}"
-        )
+        details = []
+        if row.evidence_refs:
+            details.append(f"evidence_refs={', '.join(row.evidence_refs)}")
+        if row.missing_evidence_reason:
+            details.append(f"missing_evidence={row.missing_evidence_reason}")
+        suffix = f" | {' | '.join(details)}" if details else ""
+        lines.append(f"- {row.claim_ref}: {row.completion_status} | {row.feature_classification} | {row.feature_text}{suffix}")
 
     lines.extend(["", "## Completion Tasks"])
     if not run.tasks:
@@ -251,6 +285,16 @@ def _support_matrix(
                 data_structure_refs=data_refs,
                 pseudo_code_refs=pseudo_refs,
                 prior_art_refs=record.prior_art_refs,
+                evidence_refs=record.evidence_refs,
+                source_refs=record.source_refs,
+                support_explanation=record.support_explanation,
+                missing_evidence_reason=_missing_evidence_reason(
+                    record,
+                    description_refs,
+                    data_refs,
+                    pseudo_refs,
+                    formula_refs,
+                ),
                 evidence_status=_evidence_status(record.text, patent_points),
                 risk_tags=record.risk_tags,
                 completion_status=completion_status,
@@ -272,6 +316,30 @@ def _completion_status(
     return "missing"
 
 
+def _missing_evidence_reason(
+    record: FeatureRecord,
+    description_refs: list[str],
+    data_refs: list[str],
+    pseudo_refs: list[str],
+    formula_refs: list[str],
+) -> str:
+    has_structural_support = bool(description_refs or data_refs or pseudo_refs or formula_refs)
+    if (
+        record.evidence_refs
+        and record.support_explanation
+        and "不升级为已验证支撑" in record.support_explanation
+        and "可作为已验证/已检索支撑" not in record.support_explanation
+    ):
+        return "仅有低置信或未验证证据，不能作为已验证支撑。"
+    if record.evidence_refs and has_structural_support:
+        return ""
+    if not record.evidence_refs and record.classification in DISTINCTION_CLASSIFICATIONS:
+        return "核心/区别特征缺少用户材料、专利点或现有技术证据绑定。"
+    if not has_structural_support:
+        return "说明书缺少对应实施例、数据结构、公式或伪代码支撑。"
+    return ""
+
+
 def _issues_from_support_matrix(matrix: list[ClaimSupportMatrixRow]) -> list[CompletionIssue]:
     issues: list[CompletionIssue] = []
     for index, row in enumerate(matrix, start=1):
@@ -284,14 +352,29 @@ def _issues_from_support_matrix(matrix: list[ClaimSupportMatrixRow]) -> list[Com
                 category="claim_support_gap",
                 severity=severity,
                 target="claim",
-                source_refs=[f"claim:{row.claim_ref}" if row.claim_ref else "claim"],
+                source_refs=list(
+                    dict.fromkeys(
+                        [
+                            f"claim:{row.claim_ref}" if row.claim_ref else "claim",
+                            *row.source_refs,
+                            *[f"evidence:{ref}" for ref in row.evidence_refs],
+                        ]
+                    )
+                ),
                 message=f"权利要求特征缺少充分支撑：{row.feature_text}",
                 why_it_matters="权利要求特征缺少说明书、实施例、公式或数据结构支撑，会增加充分公开和支持性风险。",
-                suggested_action="补充对应公式、数据结构、伪代码、附图说明或端到端实施例。",
+                suggested_action=_support_issue_suggestion(row),
                 blocks_submission=True,
             )
         )
     return issues
+
+
+def _support_issue_suggestion(row: ClaimSupportMatrixRow) -> str:
+    base = "补充对应公式、数据结构、伪代码、附图说明或端到端实施例。"
+    if row.missing_evidence_reason:
+        return f"{base} 缺失原因：{row.missing_evidence_reason}"
+    return base
 
 
 def _specification_sufficiency_issues(
@@ -381,9 +464,9 @@ def _task_spec(issue: CompletionIssue) -> tuple[str, str, str]:
     return "revise_draft_support", issue.suggested_action, issue.target
 
 
-def _patches_from_tasks(tasks: list[CompletionTask]) -> list[ProposedPatch]:
+def _patches_from_tasks(tasks: list[CompletionTask], *, start_index: int = 1) -> list[ProposedPatch]:
     patches: list[ProposedPatch] = []
-    for index, task in enumerate(tasks, start=1):
+    for index, task in enumerate(tasks, start=start_index):
         patches.append(
             ProposedPatch(
                 id=f"patch-{index}",
@@ -394,11 +477,17 @@ def _patches_from_tasks(tasks: list[CompletionTask]) -> list[ProposedPatch]:
                 rationale=f"响应补强任务：{task.expected_output}",
                 risk_delta="降低提交成熟度、充分公开或格式污染风险。",
                 evidence_refs=[f"task:{task.id}", *task.input_refs],
-                can_enter_official_draft=task.draft_section_target
-                in {"description", "claim", "drawing", "embodiment"},
+                can_enter_official_draft=(
+                    task.draft_section_target in {"description", "claim", "drawing", "embodiment"}
+                    and _task_has_evidence_refs(task)
+                ),
             )
         )
     return patches
+
+
+def _task_has_evidence_refs(task: CompletionTask) -> bool:
+    return any(ref.startswith("evidence:") for ref in task.input_refs)
 
 
 def _patch_text(task: CompletionTask) -> str:
@@ -434,9 +523,19 @@ def _scorecard(
     category_count = _claim_category_count(package.claims)
     procedural_count = _procedural_verb_count(package.claims)
     differentiator_count = sum(1 for row in matrix if row.feature_classification in DISTINCTION_CLASSIFICATIONS)
+    grounded_distinction_count = sum(
+        1 for row in matrix if row.feature_classification in DISTINCTION_CLASSIFICATIONS and row.prior_art_refs
+    )
+    ungrounded_distinction_count = differentiator_count - grounded_distinction_count
     prior_art_ref_count = sum(1 for row in matrix if row.prior_art_refs)
+    model_generated_core_count = sum(
+        1
+        for row in matrix
+        if row.feature_classification in DISTINCTION_CLASSIFICATIONS and _row_has_only_model_generated_evidence(row)
+    )
+    verified_support_count = sum(1 for row in matrix if _row_has_verified_support(row))
 
-    support_strength = _clamp(100 - support_missing * 35 - support_partial * 15)
+    support_strength = _clamp(100 - support_missing * 35 - support_partial * 15 - model_generated_core_count * 8)
     official_hygiene = _clamp(
         100 - sum(SEVERITY_PENALTY[issue.severity] for issue in issues if issue.category in HYGIENE_CATEGORIES)
     )
@@ -446,6 +545,7 @@ def _scorecard(
         - medium * 5
         - (12 if "其特征在于" not in package.claims else 0)
         - (8 if claim_count <= 1 else 0)
+        + min(verified_support_count, 4) * 3
     )
     protection = _clamp(
         45
@@ -457,8 +557,9 @@ def _scorecard(
     )
     distinction = _clamp(
         55
-        + min(differentiator_count, 5) * 6
-        + min(prior_art_ref_count, 3) * 5
+        + min(grounded_distinction_count, 5) * 8
+        + min(prior_art_ref_count, 3) * 4
+        + min(ungrounded_distinction_count, 5) * 2
         - sum(5 for issue in issues if issue.category == "prior_art_distinction_gap")
     )
     maturity = _clamp((support_strength + official_hygiene + authorization) // 3)
@@ -473,6 +574,24 @@ def _scorecard(
         official_hygiene=official_hygiene,
         overall=overall,
     )
+
+
+def _row_has_only_model_generated_evidence(row: ClaimSupportMatrixRow) -> bool:
+    if _row_has_verified_support(row):
+        return False
+    if row.evidence_status == "model_generated":
+        return True
+    return "低置信或未验证证据" in row.missing_evidence_reason
+
+
+def _row_has_verified_support(row: ClaimSupportMatrixRow) -> bool:
+    if any(ref.startswith(f"{EvidenceBindingSourceType.PROJECT_MATERIAL.value}:") for ref in row.source_refs):
+        return "低置信或未验证证据" not in row.missing_evidence_reason
+    if row.evidence_status == "verified" and any(
+        ref.startswith(f"{EvidenceBindingSourceType.PATENT_POINT.value}:") for ref in row.source_refs
+    ):
+        return True
+    return False
 
 
 def _priority(issue: CompletionIssue) -> int:
