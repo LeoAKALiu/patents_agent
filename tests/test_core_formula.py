@@ -166,11 +166,20 @@ def _fake_llm() -> FakeLLMClient:
       "latex": "\\\\Delta C_i = C_i^{post} - C_i^{prior}",
       "purpose": "衡量一次任务对城市体检指标置信度的提升。",
       "claim_hook": "根据指标置信度增益生成无人机任务包"
+    },
+    {
+      "id": "F02",
+      "name": "传感器贡献矩阵",
+      "latex": "\\\\mathbf{C} = \\\\mathbf{A}^T \\\\mathbf{W} \\\\mathbf{A}",
+      "purpose": "构造传感器贡献矩阵，融合多源采集数据以更新后验置信度。",
+      "claim_hook": "将贡献矩阵写入独立权利要求"
     }
   ],
   "variable_definitions": [
     {"symbol": "C_i^{post}", "meaning": "采集后第i类指标的后验置信度", "unit": ""},
-    {"symbol": "C_i^{prior}", "meaning": "采集前第i类指标的先验置信度", "unit": ""}
+    {"symbol": "C_i^{prior}", "meaning": "采集前第i类指标的先验置信度", "unit": ""},
+    {"symbol": "\\\\mathbf{W}", "meaning": "传感器权重矩阵", "unit": ""},
+    {"symbol": "\\\\mathbf{A}", "meaning": "传感器测量矩阵", "unit": ""}
   ],
   "derivation_notes": ["由证据缺失度和传感器贡献矩阵更新后验置信度。"],
   "claim_hooks": ["独立权利要求中写入以指标置信度增益作为任务优化目标。"],
@@ -575,3 +584,147 @@ class TestParseFormulaPackage:
         assert pkg.quality_severity == "high"
         assert pkg.is_fallback is True
         assert pkg.raw_model_output == raw
+
+
+# ============================================================
+#  PR-12 v3: backend generate gate for fallback formula packages
+#  Mirror of the frontend guidedFlow gate — fallback packages with
+#  high/critical quality severity must be rejected by the backend
+#  /api/projects/{id}/generate endpoint, not just the UI.
+# ============================================================
+
+from backend.app.main import _formula_package_blocks_generation
+
+
+class TestFormulaPackageBlocksGeneration:
+    """Unit tests for the backend quality-gate helper."""
+
+    def test_normal_package_is_not_blocked(self):
+        pkg = CoreFormulaPackage(summary="ok", quality_severity="normal")
+        assert _formula_package_blocks_generation(pkg) is False
+
+    def test_non_fallback_high_severity_is_not_blocked(self):
+        # Only fallback + high/critical is blocked; a non-fallback package
+        # flagged high by the quality validator is allowed (user choice).
+        pkg = CoreFormulaPackage(summary="ok", is_fallback=False, quality_severity="high")
+        assert _formula_package_blocks_generation(pkg) is False
+
+    def test_warning_fallback_is_not_blocked(self):
+        pkg = CoreFormulaPackage(summary="ok", is_fallback=True, quality_severity="warning")
+        assert _formula_package_blocks_generation(pkg) is False
+
+    def test_high_fallback_is_blocked(self):
+        pkg = CoreFormulaPackage(summary="ok", is_fallback=True, quality_severity="high")
+        assert _formula_package_blocks_generation(pkg) is True
+
+    def test_critical_fallback_is_blocked(self):
+        pkg = CoreFormulaPackage(summary="ok", is_fallback=True, quality_severity="critical")
+        assert _formula_package_blocks_generation(pkg) is True
+
+    def test_none_package_is_not_blocked(self):
+        assert _formula_package_blocks_generation(None) is False
+
+
+def _garbage_formula_llm() -> FakeLLMClient:
+    """LLM whose core_formula output is unparseable garbage, forcing a
+    fallback package. Combined with strong project signals the resulting
+    package is is_fallback=True / quality_severity=critical."""
+    return FakeLLMClient(
+        {
+            "core_formula": "not json at all",
+            "claims": "1. 一种城市体检指标驱动的无人机主动采集方法。",
+            "description": "具体实施方式\n本实施例包括公式F01。",
+            "abstract": "本发明公开一种无人机主动采集方法。",
+            "drawings": "图1为方法流程图。",
+            "diagram": "flowchart TD\nA[指标] --> B[任务包]",
+            "image_prompt": "黑白线稿。",
+        }
+    )
+
+
+def _create_formula_required_project(client: TestClient) -> str:
+    response = client.post(
+        "/api/projects",
+        json={
+            "name": "城市体检指标驱动无人机主动采集",
+            "draft_text": "以指标置信度增益为任务优化目标，结合贡献矩阵、后验置信度和置信区间生成补采任务。",
+        },
+    )
+    return response.json()["id"]
+
+
+def test_generate_rejects_explicit_critical_fallback_formula_run(tmp_path):
+    """Regression: explicit formula_run_id pointing at a critical fallback
+    package must be rejected with 409 (defense-in-depth behind the frontend)."""
+    llm = _garbage_formula_llm()
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm))
+    project_id = _create_formula_required_project(client)
+    _create_strict_completed_deliberation(client, project_id)
+
+    formula_run = client.post(
+        f"/api/projects/{project_id}/formula-runs", json={}
+    ).json()
+    assert formula_run["status"] == "completed"
+    package = formula_run["package"]
+    assert package["is_fallback"] is True
+    assert package["quality_severity"] == "critical"
+    assert package["formula_blocks"] == []
+
+    blocked = client.post(
+        f"/api/projects/{project_id}/generate",
+        json={"formula_run_id": formula_run["id"]},
+    )
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert "low-quality fallback" in detail
+    assert formula_run["id"] in detail
+    assert "Re-run formula generation" in detail
+
+
+def test_generate_rejects_latest_completed_critical_fallback_formula_run(tmp_path):
+    """Regression: auto-selection path — when the only completed run is a
+    critical fallback, generate must 409 rather than silently accepting it."""
+    llm = _garbage_formula_llm()
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm))
+    project_id = _create_formula_required_project(client)
+    _create_strict_completed_deliberation(client, project_id)
+
+    formula_run = client.post(
+        f"/api/projects/{project_id}/formula-runs", json={}
+    ).json()
+    assert formula_run["package"]["quality_severity"] == "critical"
+
+    blocked = client.post(f"/api/projects/{project_id}/generate", json={})
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert "low-quality fallback" in detail
+    assert "Re-run formula generation" in detail
+
+
+def test_generate_uses_earlier_non_blocked_run_when_latest_is_blocked(tmp_path):
+    """Mirrors the frontend guidedFlow gate: if an earlier completed run is
+    usable, it is selected for auto-generation even when the latest run is a
+    blocked fallback."""
+    good_llm = _fake_llm()
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=good_llm))
+    project_id = _create_formula_required_project(client)
+    _create_strict_completed_deliberation(client, project_id)
+
+    good_run = client.post(
+        f"/api/projects/{project_id}/formula-runs", json={}
+    ).json()
+    assert good_run["package"]["is_fallback"] is False
+    assert good_run["package"]["quality_severity"] == "normal"
+
+    # Swap to a garbage LLM and run again — the latest run is now a blocked fallback.
+    client.app.state.llm = _garbage_formula_llm()
+    bad_run = client.post(
+        f"/api/projects/{project_id}/formula-runs", json={}
+    ).json()
+    assert bad_run["package"]["is_fallback"] is True
+    assert bad_run["package"]["quality_severity"] == "critical"
+
+    # Auto-selection should skip the bad run and use the earlier good one.
+    response = client.post(f"/api/projects/{project_id}/generate", json={})
+    assert response.status_code == 200
+    assert response.json()["formula_run_id"] == good_run["id"]

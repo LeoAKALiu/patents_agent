@@ -98,6 +98,7 @@ from backend.app.schemas import (
     ExternalDraftReviewBundle,
     ExternalDraftSourceCreate,
     DraftPackage,
+    CoreFormulaPackage,
     EvidenceBinding,
     FormulaRun,
     FormulaRunCreate,
@@ -2822,6 +2823,23 @@ def _is_strict_completed_deliberation(run: DeliberationRun) -> bool:
     return any(phase == "chair" and label == "chair synthesis" for phase, _provider, label in completed)
 
 
+_BLOCKING_FORMULA_SEVERITIES = ("high", "critical")
+
+
+def _formula_package_blocks_generation(package: CoreFormulaPackage | None) -> bool:
+    """Mirror the frontend guidedFlow gate: a fallback core formula package
+    whose quality severity is high or critical cannot be used to generate a
+    patent draft. Such packages are produced when the LLM output failed to
+    parse or yielded only trivial formulas against strong project signals.
+    """
+    if package is None:
+        return False
+    return bool(
+        package.is_fallback
+        and package.quality_severity in _BLOCKING_FORMULA_SEVERITIES
+    )
+
+
 def _resolve_formula_run(
     *,
     store: SQLiteStore,
@@ -2844,13 +2862,49 @@ def _resolve_formula_run(
             raise HTTPException(status_code=404, detail="Formula run not found.")
         if run.status != "completed" or run.package is None:
             raise HTTPException(status_code=409, detail="Formula run is not completed.")
+        if _formula_package_blocks_generation(run.package):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Formula run {run.id} produced a low-quality fallback package "
+                    f"(quality_severity={run.package.quality_severity}) and cannot be used to generate a patent draft. "
+                    "Re-run formula generation or manually provide formulas."
+                ),
+            )
         return run
     if not assessment.required:
         return None
-    run = store.get_latest_completed_formula_run(project_id)
-    if not run or not run.package:
-        raise HTTPException(status_code=409, detail="Core formula package is required before generating a patent draft.")
-    return run
+    # Auto-selection: pick the latest completed, non-blocked run. This mirrors
+    # the frontend guidedFlow gate, which counts a project as formula-ready if
+    # any completed run is not a high/critical fallback. Blocked fallback runs
+    # are skipped rather than silently accepted.
+    completed_runs = [
+        run
+        for run in store.list_formula_runs(project_id)
+        if run.status == "completed" and run.package is not None
+    ]
+    if not completed_runs:
+        raise HTTPException(
+            status_code=409,
+            detail="Core formula package is required before generating a patent draft.",
+        )
+    selected: FormulaRun | None = None
+    for run in completed_runs:
+        if _formula_package_blocks_generation(run.package):
+            continue
+        if selected is None or (run.updated_at or "") > (selected.updated_at or ""):
+            selected = run
+    if selected is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No usable core formula package is available: every completed run "
+                "produced a low-quality fallback package (is_fallback with "
+                "high/critical quality_severity). Re-run formula generation or "
+                "manually provide formulas before generating a patent draft."
+            ),
+        )
+    return selected
 
 
 def _brief_from_draft(project: ProjectRecord, disclosure: DisclosurePackage | None = None) -> InventionBrief:
