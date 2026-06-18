@@ -653,6 +653,9 @@ class CoreFormulaPackage(BaseModel):
     description_insert: str = ""
     latex_markdown: str = ""
     generation_logs: list[str] = Field(default_factory=list)
+    is_fallback: bool = False
+    quality_severity: str = "normal"
+    raw_model_output: str = ""
 
 
 class FormulaRun(BaseModel):

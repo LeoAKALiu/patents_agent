@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
-from typing import Iterable
+from typing import Any, Iterable
 
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
@@ -225,10 +226,38 @@ variable_definitions 每项包含 symbol、meaning、unit。
 
 def _parse_formula_package(raw: str, requirement: FormulaNeedAssessment) -> CoreFormulaPackage:
     payload = _extract_json(raw)
+    if not payload:
+        package = _fallback_package(requirement, raw_output=raw)
+        package.quality_severity = "critical"
+        package.is_fallback = True
+        package.formula_blocks = []
+        package.variable_definitions = []
+        package.claim_hooks = []
+        package.description_insert = ""
+        package.derivation_notes = [
+            "未生成任何公式：模型输出无法解析为公式包JSON。"
+        ] + package.derivation_notes
+        package.latex_markdown = formula_package_to_markdown(package)
+        return package
+    repaired = _repair_formula_payload(payload, requirement)
     try:
-        package = CoreFormulaPackage(**payload)
+        package = CoreFormulaPackage(**repaired)
     except Exception:
-        package = _fallback_package(requirement)
+        package = _fallback_package(requirement, raw_output=raw)
+        package.quality_severity = "critical"
+        package.is_fallback = True
+        package.derivation_notes = [
+            "未生成任何公式：模型输出字段无法修复为公式包。"
+        ] + package.derivation_notes
+        package.latex_markdown = formula_package_to_markdown(package)
+        return package
+    package.raw_model_output = raw
+    quality = _validate_formula_quality(package, requirement)
+    package.quality_severity = quality["severity"]
+    if quality["severity"] in {"high", "critical"}:
+        package.is_fallback = True
+    if quality["warnings"]:
+        package.derivation_notes = quality["warnings"] + package.derivation_notes
     if not package.generation_logs:
         package.generation_logs = ["formula: generated core formula package"]
     if not package.latex_markdown:
@@ -248,16 +277,147 @@ def _extract_json(raw: str) -> dict:
         candidates.append(stripped[first : last + 1])
     for candidate in candidates:
         try:
-            payload = json.loads(candidate)
+            payload = _loads_formula_json(candidate)
             if isinstance(payload, dict):
                 return payload
+            if isinstance(payload, list):
+                return {"formula_blocks": payload}
         except json.JSONDecodeError:
             continue
     return {}
 
 
-def _fallback_package(requirement: FormulaNeedAssessment) -> CoreFormulaPackage:
+def _loads_formula_json(candidate: str) -> Any:
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        repaired = re.sub(r",\s*([}\]])", r"\1", candidate)
+        repaired = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", repaired)
+        return json.loads(repaired)
+
+
+def _repair_formula_payload(payload: dict, requirement: FormulaNeedAssessment) -> dict:
+    repaired = dict(payload)
+    signal_text = "、".join(requirement.signals) if requirement.signals else "技术指标"
+    summary = repaired.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        repaired["summary"] = f"围绕{signal_text}凝练核心公式关系。"
+
+    blocks = repaired.get("formula_blocks")
+    if not isinstance(blocks, list):
+        blocks = []
+    repaired_blocks: list[dict[str, str]] = []
+    for index, item in enumerate(blocks, start=1):
+        if not isinstance(item, dict):
+            continue
+        latex = item.get("latex")
+        if not isinstance(latex, str) or not latex:
+            latex = item.get("expression") if isinstance(item.get("expression"), str) else ""
+        repaired_blocks.append(
+            {
+                "id": str(item.get("id") or f"F{index:02d}"),
+                "name": str(item.get("name") or f"公式{index}"),
+                "latex": latex,
+                "purpose": str(item.get("purpose") or ""),
+                "claim_hook": str(item.get("claim_hook") or ""),
+            }
+        )
+    repaired["formula_blocks"] = repaired_blocks
+
+    repaired["variable_definitions"] = _repair_list_of_dicts(
+        repaired.get("variable_definitions"), ["symbol", "meaning", "unit"]
+    )
+    repaired["derivation_notes"] = _repair_string_list(repaired.get("derivation_notes"))
+    repaired["claim_hooks"] = _repair_string_list(repaired.get("claim_hooks"))
+    if not isinstance(repaired.get("description_insert"), str):
+        repaired["description_insert"] = ""
+    if not isinstance(repaired.get("latex_markdown"), str):
+        repaired["latex_markdown"] = ""
+    if not isinstance(repaired.get("generation_logs"), list):
+        repaired["generation_logs"] = []
+    return repaired
+
+
+def _repair_list_of_dicts(value: Any, keys: list[str]) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    repaired: list[dict[str, str]] = []
+    for item in value:
+        if isinstance(item, dict):
+            repaired.append({key: str(item.get(key) or "") for key in keys})
+    return repaired
+
+
+def _repair_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if isinstance(item, str) and item.strip()]
+
+
+_SEVERITY_RANK = {"normal": 0, "warning": 1, "high": 2, "critical": 3}
+_STRONG_FORMULA_SIGNALS = {"矩阵", "权重", "优化", "概率", "阈值", "协方差", "梯度", "损失"}
+
+
+def _validate_formula_quality(package: CoreFormulaPackage, requirement: FormulaNeedAssessment) -> dict:
+    warnings: list[str] = []
+    severity = "normal"
+
+    def raise_severity(next_severity: str) -> None:
+        nonlocal severity
+        if _SEVERITY_RANK[next_severity] > _SEVERITY_RANK[severity]:
+            severity = next_severity
+
+    if requirement.required and not package.formula_blocks:
+        warnings.append("未生成任何公式，无法支撑检测到的公式型技术特征。")
+        raise_severity("critical")
+
+    strong_signals = [signal for signal in requirement.signals if signal in _STRONG_FORMULA_SIGNALS]
+    for block in package.formula_blocks:
+        latex = block.latex.strip()
+        if not latex:
+            warnings.append(f"公式{block.id}的LaTeX为空。")
+            raise_severity("high")
+        if _is_trivial_delta_formula(latex):
+            warnings.append(f"公式{block.id}为平凡差值公式，难以支撑复杂算法创新。")
+            raise_severity("high")
+
+    if strong_signals and len(package.formula_blocks) == 1:
+        warnings.append("检测到矩阵、权重或优化等强公式信号，但仅生成一个公式。")
+        raise_severity("warning")
+    if len(strong_signals) >= 3 and _has_generic_variable_definitions(package):
+        warnings.append("变量定义偏泛化，未覆盖矩阵、权重或优化目标的关键符号。")
+        raise_severity("warning")
+
+    return {"severity": severity, "warnings": warnings}
+
+
+def _is_trivial_delta_formula(latex: str) -> bool:
+    compact = re.sub(r"\s+", "", latex)
+    return (
+        r"\DeltaS_i" in compact
+        and "S_i^{post}" in compact
+        and "S_i^{prior}" in compact
+        and "-" in compact
+    )
+
+
+def _has_generic_variable_definitions(package: CoreFormulaPackage) -> bool:
+    if not package.variable_definitions:
+        return True
+    meanings = " ".join(item.meaning for item in package.variable_definitions)
+    technical_terms = ("矩阵", "权重", "优化", "概率", "阈值", "协方差", "梯度", "损失")
+    return not any(term in meanings for term in technical_terms)
+
+
+def _fallback_package(requirement: FormulaNeedAssessment, raw_output: str = "") -> CoreFormulaPackage:
     signal = requirement.signals[0] if requirement.signals else "技术指标"
+    strong = [item for item in requirement.signals if item in _STRONG_FORMULA_SIGNALS]
+    severity = "high" if len(strong) >= 3 else "warning"
+    derivation_note = (
+        "模型输出严重不足，系统生成保守公式包供人工复核。"
+        if severity == "high"
+        else "模型输出不完整，系统生成保守公式包供人工复核。"
+    )
     return CoreFormulaPackage(
         summary=f"围绕{signal}建立核心计算关系，用于支撑权利要求中的算法步骤。",
         formula_blocks=[
@@ -273,8 +433,11 @@ def _fallback_package(requirement: FormulaNeedAssessment) -> CoreFormulaPackage:
             FormulaVariableDefinition(symbol=r"S_i^{post}", meaning="处理后的指标状态", unit=""),
             FormulaVariableDefinition(symbol=r"S_i^{prior}", meaning="处理前的指标状态", unit=""),
         ],
-        derivation_notes=["模型输出未能解析为完整JSON，系统生成保守公式包供人工复核。"],
+        derivation_notes=[derivation_note],
         claim_hooks=[f"将{signal}更新关系写入从属权利要求或具体实施方式。"],
         description_insert=f"本实施例可通过公式F01计算{signal}更新量，并据此执行后续任务。",
         generation_logs=["formula: fallback package generated after parsing failure"],
+        is_fallback=True,
+        quality_severity=severity,
+        raw_model_output=raw_output,
     )

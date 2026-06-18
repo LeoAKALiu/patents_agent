@@ -10,6 +10,7 @@ from backend.app.schemas import (
     PatentPointCandidate,
     PatentPointCreate,
     PatentStrategyBrief,
+    PatentType,
     PriorArtHit,
     ProjectRecord,
 )
@@ -18,7 +19,7 @@ from fastapi.testclient import TestClient
 from backend.app.disclosure.generator import DisclosureGenerator
 from backend.app.disclosure.prior_art import StaticPriorArtProvider
 from backend.app.llm import FakeLLMClient
-from backend.app.main import create_app
+from backend.app.main import _persist_disclosure_candidates, create_app
 from backend.app.storage import SQLiteStore
 
 

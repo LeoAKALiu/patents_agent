@@ -260,6 +260,25 @@ type DesktopMenuBridge = {
   };
 };
 
+const LAST_SELECTED_PROJECT_KEY_PREFIX = "patentagent:last-selected-project";
+
+function projectSelectionStorageKey(dataDir?: string | null): string {
+  return `${LAST_SELECTED_PROJECT_KEY_PREFIX}:${dataDir || "default"}`;
+}
+
+function persistLastSelectedProject(projectId: string, dataDir?: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    const key = projectSelectionStorageKey(dataDir);
+    if (projectId) {
+      window.localStorage.setItem(key, projectId);
+    } else {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // localStorage can be unavailable in hardened or private contexts.
+  }
+}
 
 type CorpusJobForm = {
   source_type: string;
@@ -567,7 +586,7 @@ function App() {
 
   // Persist selected project to localStorage whenever it changes.
   useEffect(() => {
-    persistLastSelectedProject(selectedProjectId);
+    persistLastSelectedProject(selectedProjectId, health?.data_dir);
   }, [selectedProjectId, health?.data_dir]);
 
   // Clear error/message banners when the user navigates to a different section

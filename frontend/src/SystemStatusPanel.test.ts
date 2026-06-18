@@ -4,15 +4,30 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { SystemStatusPanel } from "./ui/SystemStatusPanel";
 import type { SystemStatusPanelProps } from "./ui/SystemStatusPanel";
-import type { ProjectRecord, Health, AgentDoctorReport } from "./api";
+import type { ProjectRecord, Health, AgentDoctorReport, DraftPackage } from "./api";
+
+function makeDraftPackage(): DraftPackage {
+  return {
+    title: "测试初稿",
+    abstract: "摘要。",
+    claims: "1. 一种测试方法。",
+    description: "说明书。",
+    drawing_description: "图1。",
+    mermaid: "flowchart TD\nA --> B",
+    image_prompt: "线稿。",
+    review_findings: [],
+    citations: [],
+    generation_logs: [],
+  };
+}
 
 function makeProject(overrides: Partial<ProjectRecord> = {}): ProjectRecord {
   return {
     id: overrides.id ?? "proj-1",
     name: overrides.name ?? "测试项目",
-    package: overrides.package ?? undefined,
-    data_dir: overrides.data_dir ?? "/tmp/test-proj",
-    draft_version: overrides.draft_version ?? 1,
+    draft_text: overrides.draft_text ?? "测试交底文本",
+    patent_type: overrides.patent_type ?? "invention",
+    package: overrides.package ?? null,
     created_at: overrides.created_at ?? "2026-06-18T00:00:00Z",
     updated_at: overrides.updated_at ?? "2026-06-18T00:00:00Z",
   };
@@ -20,7 +35,11 @@ function makeProject(overrides: Partial<ProjectRecord> = {}): ProjectRecord {
 
 function makeHealth(overrides: Partial<Health> = {}): Health {
   return {
+    ok: overrides.ok ?? true,
     llm_configured: overrides.llm_configured ?? true,
+    data_dir: overrides.data_dir ?? "/tmp/patentagent-test",
+    model: overrides.model ?? "test-model",
+    embedding_model: overrides.embedding_model ?? "test-embedding",
   };
 }
 
@@ -56,14 +75,14 @@ describe("SystemStatusPanel", () => {
 
   it("shows '已有初稿' badge when project has a package", () => {
     const html = render({
-      selectedProject: makeProject({ package: "v1-draft" }),
+      selectedProject: makeProject({ package: makeDraftPackage() }),
     });
     expect(html).toContain("已有初稿");
   });
 
   it("shows '新建中' badge when project has no package", () => {
     const html = render({
-      selectedProject: makeProject({ package: undefined }),
+      selectedProject: makeProject({ package: null }),
     });
     expect(html).toContain("新建中");
   });
