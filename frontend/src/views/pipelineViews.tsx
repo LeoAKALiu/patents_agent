@@ -14,6 +14,7 @@ import {
   UsersRound,
 } from "@/lib/icons";
 import { AgentProviderCards } from "@/AgentProviderCards";
+import { Button } from "@/components/ui/button";
 import type {
   AgentDoctorReport,
   DeliberationRun,
@@ -43,7 +44,8 @@ import {
   runtimeStageLabel,
 } from "./runtimePanel";
 import { StatusPill } from "./widgets";
-import { StrategyBriefView, DisclosurePreview } from "./disclosureViews";
+import { DisclosurePreview } from "./disclosureViews";
+import { DeliberationReport } from "./deliberationReport";
 
 function percent(value: number | undefined): string {
   return `${Math.round((value ?? 0) * 100)}%`;
@@ -332,7 +334,7 @@ export function DeliberationView({
   const deliberationBusy = busy === "deliberate" || Boolean(activeRun);
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex items-center justify-between gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
+      <section className="flex items-center justify-between gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-5 shadow-xl backdrop-blur-xl">
         <div>
           <h3>多智能体会审</h3>
           <p>
@@ -343,40 +345,46 @@ export function DeliberationView({
           <p>{disclosure ? "将默认结合前置交底书。" : "暂无已完成交底书，会审仅基于草稿和检索片段。"}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--surface-subtle)] hover:bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-sm border border-[var(--border-subtle)] disabled:opacity-50 transition-colors" onClick={onRefresh} type="button" title="刷新会审">
-            <RefreshCw size={17} />
-          </button>
-          <button
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[var(--action-primary)] to-[color-mix(in_oklch,var(--action-primary),black_30%)] text-[var(--action-primary-contrast)] font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all"
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onRefresh}
+            type="button"
+            title="刷新会审"
+            aria-label="刷新会审"
+          >
+            <RefreshCw size={16} />
+          </Button>
+          <Button
+            variant="glass-primary"
             disabled={!project || deliberationBusy}
             onClick={() => onStart(false)}
             type="button"
           >
-            <UsersRound size={18} />
+            <UsersRound size={16} />
             <span>{activeRun ? "会审中" : "启动会审"}</span>
-          </button>
+          </Button>
         </div>
       </section>
       <RuntimeRunConsole run={activeRun} title="多智能体会审运行中" actionDisabled={Boolean(busy)} onCancel={onCancelRun} />
 
-      <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="grid gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
-          <h3>智能体诊断</h3>
-          <div className="doctor-grid">
-            <StatusPill label="状态" value={agentDoctorStatusLabel(doctor?.status ?? "unknown")} />
-            <StatusPill label="运行级别" value={agentRunModeLabel(doctor?.run_mode ?? "unknown")} />
-          </div>
-          <AgentProviderCards
-            doctor={doctor}
-            role="deliberation"
-            selectedProviders={selectedProviders}
-            disabled={deliberationBusy}
-            onToggleProvider={onToggleProvider}
-          />
+      <section className="grid gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-4 shadow-xl backdrop-blur-xl">
+        <h3>智能体诊断</h3>
+        <div className="doctor-grid">
+          <StatusPill label="状态" value={agentDoctorStatusLabel(doctor?.status ?? "unknown")} />
+          <StatusPill label="运行级别" value={agentRunModeLabel(doctor?.run_mode ?? "unknown")} />
         </div>
+        <AgentProviderCards
+          doctor={doctor}
+          role="deliberation"
+          selectedProviders={selectedProviders}
+          disabled={deliberationBusy}
+          onToggleProvider={onToggleProvider}
+        />
+      </section>
 
-        <div className="grid gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
-          <h3>会审记录</h3>
+      <section className="grid gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-4 shadow-xl backdrop-blur-xl">
+        <h3>会审记录</h3>
           <div className="flex flex-col gap-3">
             {runs.map((run) => (
               <article className="flex flex-col gap-2 p-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] rounded-lg shadow-sm" key={run.id}>
@@ -429,12 +437,11 @@ export function DeliberationView({
             ))}
             {runs.length === 0 && <p className="text-sm text-[var(--text-primary)]/50 italic py-4">暂无会审记录</p>}
           </div>
-        </div>
       </section>
 
-      <StrategyBriefView
-        title={completed ? "可注入会审策略" : latest ? "最近会审尚未完成" : "会审策略"}
-        strategy={completed?.strategy_brief ?? null}
+      <DeliberationReport
+        run={completed ?? latest}
+        loading={deliberationBusy && !latest}
       />
     </div>
   );

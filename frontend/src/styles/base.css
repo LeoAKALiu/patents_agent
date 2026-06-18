@@ -22,7 +22,6 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  overflow-x: hidden;
 
   /* Mesh canvas: brand-tinted radial gradients over a warm near-white.
      The frost layers (.glass*) refract this, so keep tints soft. */
