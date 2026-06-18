@@ -82,16 +82,14 @@ from backend.app.research.deep_researcher import (
     PatentDeepResearcher,
     PriorArtProviderAdapter,
 )
-from backend.app.research.ledger import (
-    ProviderDiagnostic,
-    SourceLedger,
-)
+from backend.app.research.ledger import ProviderDiagnostic
 from backend.app.research.providers import ChainedResearchProvider, build_provider_chain
 from backend.app.runtime import RuntimeCancelled, RuntimeContext, RuntimeTimeout
 from backend.app.settings import (
     QA_PROFILE_ENV,
     data_dir_source,
-    resolve_backend_data_dir,
+    resolve_backend_port,
+    resolve_instance_id,
     resolve_qa_profile,
 )
 from backend.app.schemas import (
@@ -186,6 +184,12 @@ def _build_runtime_diagnostics(
     harness, and human QA can all tell *which* backend instance a given
     window is talking to without inspecting environment variables.  See
     ``PR-7`` for the Tauri data-dir isolation contract.
+
+    ``instance_id`` and ``backend_port`` are already env-resolved by the
+    caller (see :func:`backend.app.settings.resolve_instance_id` /
+    :func:`backend.app.settings.resolve_backend_port`) so a uvicorn-launched
+    backend — which never receives explicit kwargs — still reports the id
+    and port the Tauri supervisor exported, rather than ``None``.
     """
 
     return {
@@ -215,12 +219,18 @@ def create_app(
     settings = build_settings(load_env_file=load_env_file, data_dir=data_dir)
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     is_qa = resolve_qa_profile(qa_profile)
+    # Apply env-backed defaults so a uvicorn-launched backend (which never
+    # receives explicit kwargs) still surfaces the instance id and port the
+    # Tauri supervisor exported.  Explicit kwargs win, mirroring the
+    # data_dir / qa_profile precedence.
+    resolved_instance_id = resolve_instance_id(instance_id)
+    resolved_backend_port = resolve_backend_port(backend_port)
     runtime_diagnostics = _build_runtime_diagnostics(
         settings=settings,
         is_qa=is_qa,
         app_path=app_path,
-        backend_port=backend_port,
-        instance_id=instance_id,
+        backend_port=resolved_backend_port,
+        instance_id=resolved_instance_id,
         explicit_data_dir=data_dir,
     )
 

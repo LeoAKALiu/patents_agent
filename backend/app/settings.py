@@ -42,6 +42,20 @@ BACKEND_DATA_DIR_ENV: tuple[str, ...] = (
 # only thing that turns it on is the explicit override env, never a default.
 QA_PROFILE_ENV = "PATENTAGENT_QA_PROFILE"
 
+# ``PATENTAGENT_INSTANCE_ID`` is exported by the Tauri supervisor so the
+# backend, the instance lockfile, and the ``/api/health`` diagnostics block
+# all report the *same* per-launch identifier.  Without it the uvicorn entry
+# point (``backend.app.main:app``) would surface ``instance_id: null`` even
+# though Tauri generated one, which is exactly the truthfulness gap PR-7
+# closes.
+INSTANCE_ID_ENV = "PATENTAGENT_INSTANCE_ID"
+
+# ``PATENTAGENT_BACKEND_PORT`` mirrors the ``--port`` the Tauri supervisor
+# binds the uvicorn child to.  The backend cannot otherwise discover its own
+# listen port, so the diagnostics block would report ``backend_port: null``.
+# Exported by Rust in ``start_backend_with_python``.
+BACKEND_PORT_ENV = "PATENTAGENT_BACKEND_PORT"
+
 
 def _resolve_env_data_dir() -> Path | None:
     for env_name in BACKEND_DATA_DIR_ENV:
@@ -107,6 +121,49 @@ def resolve_qa_profile(explicit: bool | None = None) -> bool:
     if not raw:
         return False
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def resolve_instance_id(explicit: str | None = None) -> str | None:
+    """Return the per-launch instance id, honoring explicit > env > None.
+
+    The Tauri supervisor generates an id once in ``setup`` and exports it via
+    :data:`INSTANCE_ID_ENV` so the uvicorn child, the instance lockfile, and
+    the ``/api/health`` diagnostics all agree.  Tests inject ``explicit``;
+    the uvicorn entry point relies on the env fallback.  An empty/whitespace
+    env value is treated as unset so a misconfigured launch surfaces
+    ``None`` rather than a blank string.
+    """
+
+    if explicit is not None:
+        return explicit
+    raw = os.environ.get(INSTANCE_ID_ENV)
+    if raw is None:
+        return None
+    raw = raw.strip()
+    return raw or None
+
+
+def resolve_backend_port(explicit: int | None = None) -> int | None:
+    """Return the backend listen port, honoring explicit > env > None.
+
+    Mirrors :func:`resolve_instance_id`: the Tauri supervisor exports
+    :data:`BACKEND_PORT_ENV` so the backend can report the port it was bound
+    to.  A non-integer or out-of-range env value is ignored (returns
+    ``None``) rather than crashing the diagnostics path.
+    """
+
+    if explicit is not None:
+        return explicit
+    raw = os.environ.get(BACKEND_PORT_ENV)
+    if not raw:
+        return None
+    try:
+        port = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if 0 < port <= 65535:
+        return port
+    return None
 
 
 def build_settings(

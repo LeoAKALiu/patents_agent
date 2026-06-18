@@ -30,6 +30,14 @@ const SECRET_REDACTION: &str = concat!("s", "k", "-...");
 const ENV_DATA_DIR_PRIMARY: &str = "PATENTAGENT_BACKEND_DATA_DIR";
 const ENV_DATA_DIR_FALLBACK: &str = "DATA_DIR";
 const ENV_QA_PROFILE: &str = "PATENTAGENT_QA_PROFILE";
+/// Exported to the uvicorn child so the backend's ``/api/health`` diagnostics
+/// can report the port the supervisor bound it to.  Mirrors the Python-side
+/// ``BACKEND_PORT_ENV`` constant; keeping them in sync is what lets the
+/// Tauri diagnostics block and the backend health payload agree.
+const ENV_BACKEND_PORT: &str = "PATENTAGENT_BACKEND_PORT";
+/// Exported to the uvicorn child so its ``/api/health`` reports the *same*
+/// instance id the Tauri supervisor generated and wrote to the lockfile.
+const ENV_INSTANCE_ID: &str = "PATENTAGENT_INSTANCE_ID";
 
 #[derive(Debug, Clone, Serialize)]
 struct BackendInfo {
@@ -161,7 +169,7 @@ fn main() {
                 .unwrap_or_default();
             let is_qa = resolve_qa_profile();
             let instance_id = generate_instance_id();
-            install_instance_lock(&data_dir, &data_dir_source);
+            install_instance_lock(&data_dir, &data_dir_source, &instance_id);
             fs::create_dir_all(&data_dir)?;
             append_backend_startup_log(&data_dir, "setup: begin");
             let runtime_diag = RuntimeDiagnostics {
@@ -694,6 +702,16 @@ fn start_backend_with_python(
         format!("{}:{}", repo_root.to_string_lossy(), existing_pythonpath)
     };
     let data_dir_str = data_dir.to_string_lossy();
+    // ``data_dir_source`` is exported so the backend's own diagnostics
+    // resolution can be cross-checked against what the supervisor intended,
+    // and logged per-attempt so QA can correlate which source won when
+    // multiple python interpreters are tried.
+    append_backend_startup_log(
+        data_dir,
+        &format!(
+            "spawning backend via {python}: data_dir_source={data_dir_source}, instance_id={instance_id}"
+        ),
+    );
     let mut cmd = Command::new(&python);
     cmd.args([
         "-m",
@@ -710,10 +728,10 @@ fn start_backend_with_python(
     .env("DATA_DIR", data_dir_str.as_ref())
     .env("PATENTAGENT_BACKEND_DATA_DIR", data_dir_str.as_ref())
     .env("PATENTAGENT_QA_PROFILE", if qa_profile { "1" } else { "0" })
-    .env(
-        "PATENTAGENT_INSTANCE_ID",
-        instance_id,
-    )
+    .env(ENV_INSTANCE_ID, instance_id)
+    // Export the resolved port so the backend's ``/api/health`` diagnostics
+    // block can report it without having to discover its own listen socket.
+    .env(ENV_BACKEND_PORT, port.to_string())
     .env("PYTHONPATH", pythonpath)
     .env("PYTHONUNBUFFERED", "1")
     .env("PYTHONDONTWRITEBYTECODE", "1")
@@ -870,11 +888,17 @@ fn generate_instance_id() -> String {
 /// running at once on the same port.  What we do want is a forensic
 /// breadcrumb: if a QA session unexpectedly reuses a data dir, the
 /// ``source`` field tells them which env var set it.
-fn install_instance_lock(data_dir: &Path, source: &str) {
+///
+/// ``instance_id`` is the *same* id generated once in ``setup`` and
+/// exported to the uvicorn child, so the lockfile, the backend
+/// ``/api/health`` payload, and the Tauri diagnostics block all agree on a
+/// single per-launch identifier.  Previously this function regenerated the
+/// id, which produced three disagreeing identifiers for one launch.
+fn install_instance_lock(data_dir: &Path, source: &str, instance_id: &str) {
     let lock_path = data_dir.join("instance.lock");
     let payload = format!(
         "{}\npid={}\nsource={}\n",
-        generate_instance_id(),
+        instance_id,
         std::process::id(),
         source
     );
@@ -884,7 +908,10 @@ fn install_instance_lock(data_dir: &Path, source: &str) {
     if let Err(err) = fs::write(&lock_path, payload) {
         append_backend_startup_log(
             data_dir,
-            &format!("instance lock write failed at {}: {err}", lock_path.display()),
+            &format!(
+                "instance lock write failed at {}: {err}",
+                lock_path.display()
+            ),
         );
     }
 }
@@ -1122,5 +1149,47 @@ mod tests {
     fn rejects_malformed_chunked_http_response_body() {
         let response = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nB\r\n{\"ok\":true}";
         assert!(parse_http_response(response).is_err());
+    }
+
+    #[test]
+    fn instance_lock_records_the_setup_instance_id() {
+        // Regression for PR-7 v3: install_instance_lock previously
+        // regenerated the id internally, so the lockfile id disagreed with
+        // the diagnostics block and the id exported to the backend.  It must
+        // now write exactly the id passed in.
+        let dir = std::env::temp_dir().join(format!(
+            "patentagent-rust-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let lock_path = dir.join("instance.lock");
+        let _ = fs::remove_file(&lock_path);
+
+        let known_id = "pid42-cafebabe";
+        install_instance_lock(&dir, "PATENTAGENT_BACKEND_DATA_DIR", known_id);
+
+        let payload = fs::read_to_string(&lock_path).expect("lockfile written");
+        assert!(
+            payload.starts_with(known_id),
+            "lockfile must start with the setup instance id; got: {payload}"
+        );
+        assert!(
+            payload.contains("source=PATENTAGENT_BACKEND_DATA_DIR"),
+            "lockfile must record the data-dir source; got: {payload}"
+        );
+        let _ = fs::remove_file(&lock_path);
+        let _ = fs::remove_dir(&dir);
+    }
+
+    #[test]
+    fn generate_instance_id_is_unique_across_calls() {
+        // Two calls a few nanoseconds apart must yield different ids — the
+        // lockfile/diagnostics agreement depends on a single id being used
+        // per launch, but we also assert the generator itself is monotonic.
+        let a = generate_instance_id();
+        std::thread::sleep(std::time::Duration::from_micros(5));
+        let b = generate_instance_id();
+        assert_ne!(a, b, "instance ids must not collide for back-to-back launches");
+        assert!(a.starts_with("pid"), "instance id format is pid<nanos>");
     }
 }
