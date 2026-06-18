@@ -1,5 +1,4 @@
-import { Download } from "@/lib/icons";
-import { Button } from "@/components/ui/button";
+import { Download, FileArchive, FileText, ShieldCheck } from "@/lib/icons";
 import {
   draftCompletionReportUrl,
   exportUrl,
@@ -11,6 +10,12 @@ import {
   type PostDraftReviewRun,
   type ProjectRecord,
 } from "@/api";
+import {
+  BoundaryCard,
+  InfoCard,
+  SettingsGroup,
+  StatusStrip,
+} from "@/ui/EnterpriseSurface";
 import type { ExpertToolOpener } from "../parts";
 
 export interface ExportConfirmationPanelProps {
@@ -34,7 +39,7 @@ export function ExportConfirmationPanel({
 }: ExportConfirmationPanelProps) {
   if (!project?.package) {
     return (
-      <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
+      <section className="settings-group">
         <p className="empty">生成初稿后才能导出。</p>
       </section>
     );
@@ -46,39 +51,64 @@ export function ExportConfirmationPanel({
   );
 
   return (
-    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
-      <div className="flex items-start justify-between gap-3.5">
-        <div>
-          <h3>导出前确认</h3>
-          <p>正式稿只在正式稿编译完成、成稿会审通过且哈希匹配后放行；导出文件仍需专利代理师或律师复核后再提交。</p>
+    <section className="grid gap-4">
+      <StatusStrip
+        aria-label="导出前状态"
+        items={[
+          { label: "正式稿", value: officialAllowed ? "已解锁" : "锁定中" },
+          { label: "提交成熟度", value: filingReport?.status === "high_risk" ? "高风险" : filingReport ? "已检查" : "未检查" },
+          { label: "初稿完善", value: completionRun ? "有报告" : "无报告" },
+          { label: "当前哈希", value: currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成" },
+        ]}
+      />
+
+      <SettingsGroup
+        title="导出前确认"
+        description="正式稿只在正式稿编译完成、成稿会审通过且哈希匹配后放行；导出文件仍需专业人员复核后再提交。"
+      >
+        {filingReport?.status === "high_risk" && (
+          <div className="callout callout-warn">
+            <ShieldCheck size={18} aria-hidden="true" />
+            <div>
+              <strong>当前提交成熟度为高风险</strong>
+              <p>请先处理报告中的不利表述、内部痕迹或支撑缺口，再让专业人员复核。</p>
+            </div>
+          </div>
+        )}
+        {!officialAllowed && (
+          <div className="callout callout-warn">
+            <FileText size={18} aria-hidden="true" />
+            <div>
+              <strong>正式稿入口已锁定</strong>
+              <p>请先生成正式稿，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。</p>
+            </div>
+          </div>
+        )}
+
+        <div className="boundary-grid">
+          <BoundaryCard
+            tone="official"
+            title="正式稿"
+            description={officialAllowed ? `已通过成稿会审，可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}` : "等待正式稿编译和成稿会审通过后解锁。"}
+          />
+          <BoundaryCard
+            tone="internal"
+            title="内部稿"
+            description="保留策略、风险、会审、支撑矩阵和补强建议，仅供内部复核，不作为提交稿。"
+          />
+          <BoundaryCard
+            tone="external"
+            title="导出原则"
+            description="阻断项会锁定正式稿；风险说明用于解释风险来源，不替代最终人工审查。"
+          />
         </div>
-        <Download size={24} />
-      </div>
-      {filingReport?.status === "high_risk" && <p className="workflow-hint">当前提交成熟度为高风险：请先处理报告中的不利表述、内部痕迹或支撑缺口，再让专业人员复核。</p>}
-      {!officialAllowed && (
-        <p className="workflow-hint">正式稿入口已锁定：请先生成正式稿，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。</p>
-      )}
-      <div className="export-confirmation">
-        <article>
-          <strong>正式稿</strong>
-          <span>{officialAllowed ? `已通过成稿会审，可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}` : "等待正式稿编译和成稿会审通过后解锁。"}</span>
-        </article>
-        <article>
-          <strong>内部稿</strong>
-          <span>保留策略、风险、会审、支撑矩阵和补强建议，仅供内部复核，不作为提交稿。</span>
-        </article>
-        <article>
-          <strong>导出原则</strong>
-          <span>阻断项会锁定正式稿；风险说明用于解释风险来源，不替代最终人工审查。</span>
-        </article>
-      </div>
-      <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("export")} type="button">
-        查看专家导出工具
-      </Button>
+      </SettingsGroup>
+
+      <SettingsGroup title="可导出文件">
       <div className="export-grid">
         <a
           aria-disabled={!officialAllowed}
-          className={officialAllowed ? "export-link" : "export-link disabled"}
+          className={officialAllowed ? "export-link export-link-primary" : "export-link disabled"}
           href={officialAllowed ? officialExportUrl(project.id, "docx") : undefined}
         >
           <Download size={18} />
@@ -86,7 +116,7 @@ export function ExportConfirmationPanel({
         </a>
         <a
           aria-disabled={!officialAllowed}
-          className={officialAllowed ? "export-link" : "export-link disabled"}
+          className={officialAllowed ? "export-link export-link-primary" : "export-link disabled"}
           href={officialAllowed ? officialExportUrl(project.id, "md") : undefined}
         >
           <Download size={18} />
@@ -109,6 +139,19 @@ export function ExportConfirmationPanel({
           </a>
         )}
       </div>
+      </SettingsGroup>
+
+      <InfoCard
+        icon={<FileArchive size={18} aria-hidden="true" />}
+        title="专家导出工具"
+        description="查看完整导出面板、桌面端原生保存和风险说明侧车文件。"
+        action={(
+          <button className="btn btn-secondary" onClick={() => onOpenExpertTool("export")} type="button">
+            <Download size={16} aria-hidden="true" />
+            <span>打开导出工具</span>
+          </button>
+        )}
+      />
     </section>
   );
 }
