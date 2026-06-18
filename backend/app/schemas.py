@@ -144,6 +144,7 @@ class AgentProviderStatus(BaseModel):
     diagnostic: str = ""
     repair_suggestion: str = ""
     selectable: bool = False  # user toggle: installed AND auth_status in (ready, unknown)
+    resolver_source: str = Field(default="", pattern="^(bundle|PATH|custom|)$")  # where the command was resolved from
 
 
 class AgentDoctorReport(BaseModel):

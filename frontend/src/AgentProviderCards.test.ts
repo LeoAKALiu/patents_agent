@@ -3,7 +3,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { AgentProviderCards, normalizeAgentSelection, providerListForRole } from "./AgentProviderCards";
-import type { AgentDoctorReport } from "./api";
+import type { AgentDoctorReport, AgentProviderStatus } from "./api";
+
+type ResolverSource = AgentProviderStatus["resolver_source"];
 
 // Helper to build a provider status with the new required fields.
 function p(
@@ -21,8 +23,9 @@ function p(
     diagnostic: string;
     repair_suggestion: string;
     selectable: boolean;
+    resolver_source: ResolverSource;
   }>,
-) {
+): AgentProviderStatus {
   return {
     id: overrides.id ?? "x",
     label: overrides.label ?? "X",
@@ -37,6 +40,7 @@ function p(
     diagnostic: overrides.diagnostic ?? "",
     repair_suggestion: overrides.repair_suggestion ?? "",
     selectable: overrides.selectable ?? false,
+    resolver_source: (overrides.resolver_source ?? "") as ResolverSource,
   };
 }
 
@@ -155,5 +159,94 @@ describe("agent provider card helpers", () => {
     expect(html).not.toContain("/bin");
     expect(html).not.toContain("/Users/leo");
     expect(html).not.toContain("未找到命令");
+  });
+
+  it("renders resolver source badges for providers with known sources", () => {
+    const doctorWithSources: AgentDoctorReport = {
+      status: "ready",
+      run_mode: "full",
+      active_provider_ids: ["codex", "deepseek", "claude"],
+      missing_required: [],
+      missing_optional: [],
+      unknown_required: [],
+      commands: {
+        codex: p({
+          id: "codex",
+          label: "Codex",
+          command: "codex",
+          available: true,
+          path: "/Applications/Codex.app/Contents/Resources/codex",
+          required: true,
+          model_version: "codex-cli default",
+          roles: ["deliberation", "formula", "chair"],
+          installed: true,
+          auth_status: "ready",
+          selectable: true,
+          resolver_source: "bundle",
+        }),
+        deepseek: p({
+          id: "deepseek",
+          label: "DeepSeek",
+          command: "reasonix",
+          available: true,
+          path: "/usr/local/bin/reasonix",
+          required: true,
+          model_version: "reasonix deepseek-pro",
+          roles: ["deliberation", "formula", "critic"],
+          installed: true,
+          auth_status: "ready",
+          selectable: true,
+          resolver_source: "PATH",
+        }),
+        claude: p({
+          id: "claude",
+          label: "Claude",
+          command: "claude",
+          available: true,
+          path: "/usr/local/bin/claude",
+          required: true,
+          model_version: "claude-code default",
+          roles: ["deliberation", "formula", "critic"],
+          installed: true,
+          auth_status: "ready",
+          selectable: true,
+        }),
+        gemini: p({ id: "gemini", label: "Gemini", command: "gemini", required: false, model_version: "deprecated", roles: ["deprecated"], installed: true, auth_status: "unknown", selectable: true }),
+        kimicode: p({ id: "kimicode", label: "KimiCode", command: "kimicode", required: false, model_version: "kimi-code local", roles: ["deliberation", "formula", "critic"], installed: true, auth_status: "ready", selectable: true }),
+        mimo: p({ id: "mimo", label: "MimoCode", command: "mimo", required: false, model_version: "mimo-code local", roles: ["deliberation", "formula", "critic"], installed: true, auth_status: "ready", selectable: true }),
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      createElement(AgentProviderCards, {
+        doctor: doctorWithSources,
+        selectedProviders: [],
+        role: "deliberation",
+        onToggleProvider: () => undefined,
+      }),
+    );
+
+    // Bundle-sourced Codex shows the 应用包 badge.
+    expect(html).toContain("应用包");
+    // DeepSeek resolved from /usr/local/bin shows the PATH badge.
+    expect(html).toContain("PATH");
+    // Claude has resolver_source="" by default — no badge should be rendered for it.
+    const claudeIdx = html.indexOf("Claude");
+    const claudeCard = html.slice(claudeIdx, claudeIdx + 600);
+    expect(claudeCard).not.toContain("应用包");
+  });
+
+  it("omits resolver source badge when resolver_source is empty", () => {
+    const html = renderToStaticMarkup(
+      createElement(AgentProviderCards, {
+        doctor,
+        selectedProviders: ["kimicode"],
+        role: "deliberation",
+        onToggleProvider: () => undefined,
+      }),
+    );
+
+    // doctor fixture leaves resolver_source empty for every provider; no badge should appear.
+    expect(html).not.toContain("应用包");
   });
 });

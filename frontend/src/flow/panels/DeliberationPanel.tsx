@@ -42,12 +42,18 @@ export function DeliberationPanel({
 }: DeliberationPanelProps) {
   const activeRun = guidedActiveRun(runs);
   const deliberationBusy = busy === "deliberate" || Boolean(activeRun);
+  const doctorBlocked = doctor?.status === "blocked" || (doctor?.missing_required?.length ?? 0) > 0;
   return (
     <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
       <div className="flex items-start justify-between gap-3.5">
         <div>
           <h3>多智能体会审</h3>
           <p>生成前需完成会审，用于收敛权利要求边界、说明书支撑和规避风险。</p>
+          {doctorBlocked && (
+            <p className="text-app-danger text-sm mt-1">
+              智能体未就绪，会审已禁用。请在诊断区修复后刷新。
+            </p>
+          )}
         </div>
         <UsersRound size={24} />
       </div>
@@ -63,7 +69,7 @@ export function DeliberationPanel({
         disabled={deliberationBusy}
         onToggleProvider={onToggleProvider}
       />
-      <Button variant="glass-primary" disabled={deliberationBusy} onClick={onStartDeliberation} type="button">
+      <Button variant="glass-primary" disabled={deliberationBusy || doctorBlocked} onClick={onStartDeliberation} type="button">
         {deliberationBusy ? <Loader2 className="spin" size={17} /> : <UsersRound size={17} />}
         <span>{activeRun ? "会审中" : deliberation ? "重新会审" : "启动多智能体会审"}</span>
       </Button>

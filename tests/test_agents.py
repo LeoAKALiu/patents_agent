@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from backend.app.deliberation.cli_paths import agent_search_path, resolve_agent_command
+from backend.app.deliberation.cli_paths import (
+    agent_bundle_paths,
+    agent_search_path,
+    resolve_agent_command,
+    resolver_source_for_path,
+)
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
 from backend.app.deliberation.providers import AgentProviderRunner, ProviderFailure, _extract_json_payload, build_provider_command
@@ -596,3 +601,229 @@ def test_orchestrator_fails_when_any_required_agent_opening_fails(tmp_path: Path
     assert result.strategy_brief is None
     assert any(entry.level == "error" and entry.provider_id == "codex" for entry in result.logs)
     assert any("修复" in entry.repair_suggestion or entry.repair_suggestion for entry in result.logs)
+
+
+# ---------------------------------------------------------------------------
+# Codex.app bundle fallback & resolver_source reporting
+# ---------------------------------------------------------------------------
+
+
+def test_resolver_source_for_empty_or_unknown_path() -> None:
+    """Empty input yields empty label; non-bundle path reports 'PATH'."""
+    assert resolver_source_for_path("") == ""
+    # /tmp is not under any .app bundle directory on test hosts, so this is 'PATH'
+    assert resolver_source_for_path("/tmp/somewhere/codex") == "PATH"
+
+
+def test_resolver_source_marks_app_bundle_paths_as_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A path inside an .app bundle resource dir is reported as 'bundle'."""
+    bundle_root = tmp_path / "Codex.app" / "Contents" / "Resources"
+    bundle_root.mkdir(parents=True)
+    bundle_bin = bundle_root / "codex"
+    bundle_bin.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    bundle_bin.chmod(0o755)
+
+    monkeypatch.setattr(
+        "backend.app.deliberation.cli_paths.agent_bundle_paths",
+        lambda: [str(bundle_root)],
+    )
+
+    assert resolver_source_for_path(str(bundle_bin)) == "bundle"
+    # Sibling executables inside the bundle are still reported as 'bundle'.
+    sibling = bundle_root / "codex-helper"
+    sibling.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    sibling.chmod(0o755)
+    assert resolver_source_for_path(str(sibling)) == "bundle"
+    # Paths outside the bundle keep their 'PATH' classification.
+    assert resolver_source_for_path(str(tmp_path / "usr" / "local" / "bin" / "codex")) == "PATH"
+
+
+def test_agent_search_path_includes_app_bundle_directories(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """agent_search_path() advertises .app bundle resource directories."""
+    bundle_root = tmp_path / "Codex.app" / "Contents" / "Resources"
+    bundle_root.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        "backend.app.deliberation.cli_paths.agent_bundle_paths",
+        lambda: [str(bundle_root)],
+    )
+
+    search_path = agent_search_path()
+    assert str(bundle_root) in search_path
+    # Bundle entries must be deduplicated like every other entry.
+    assert search_path.count(str(bundle_root)) == 1
+
+
+def test_resolve_agent_command_finds_codex_inside_app_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A codex binary shipped inside Codex.app is resolvable via the search path."""
+    bundle_root = tmp_path / "Codex.app" / "Contents" / "Resources"
+    bundle_root.mkdir(parents=True)
+    bundle_codex = bundle_root / "codex"
+    bundle_codex.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    bundle_codex.chmod(0o755)
+
+    # Strip PATH so the only place codex could be found is the bundle directory.
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    monkeypatch.delenv("PATENTS_AGENT_AGENT_PATH", raising=False)
+    monkeypatch.setattr(
+        "backend.app.deliberation.cli_paths.agent_bundle_paths",
+        lambda: [str(bundle_root)],
+    )
+
+    resolved = resolve_agent_command("codex")
+    assert resolved == str(bundle_codex)
+    # And the resolver correctly classifies the source.
+    assert resolver_source_for_path(resolved or "") == "bundle"
+
+
+def test_resolve_agent_command_prefers_path_over_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When both PATH and bundle ship codex, the PATH entry wins (consistent resolver)."""
+    path_dir = tmp_path / "usr-bin"
+    bundle_root = tmp_path / "Codex.app" / "Contents" / "Resources"
+    path_dir.mkdir()
+    bundle_root.mkdir(parents=True)
+
+    path_codex = path_dir / "codex"
+    path_codex.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    path_codex.chmod(0o755)
+
+    bundle_codex = bundle_root / "codex"
+    bundle_codex.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    bundle_codex.chmod(0o755)
+
+    monkeypatch.setenv("PATH", str(path_dir))
+    monkeypatch.delenv("PATENTS_AGENT_AGENT_PATH", raising=False)
+    monkeypatch.setattr(
+        "backend.app.deliberation.cli_paths.agent_bundle_paths",
+        lambda: [str(bundle_root)],
+    )
+
+    resolved = resolve_agent_command("codex")
+    assert resolved == str(path_codex)
+    assert resolver_source_for_path(resolved or "") == "PATH"
+
+
+def test_doctor_reports_resolver_source_for_path_providers() -> None:
+    """Standard /bin lookups are tagged as 'PATH' on the doctor report."""
+    report = inspect_agent_environment(
+        command_lookup=lambda command: f"/bin/{command}" if command else "",
+        command_probe=_probe_ready,
+    )
+
+    for required_id in ("codex", "deepseek", "claude"):
+        provider = report.commands[required_id]
+        assert provider.installed is True
+        assert provider.resolver_source == "PATH"
+
+
+def test_doctor_reports_resolver_source_bundle_for_app_providers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the doctor is told a command lives inside Codex.app, resolver_source='bundle'."""
+    bundle_root = tmp_path / "Codex.app" / "Contents" / "Resources"
+    bundle_root.mkdir(parents=True)
+    bundle_codex = bundle_root / "codex"
+    bundle_codex.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    bundle_codex.chmod(0o755)
+
+    monkeypatch.setattr(
+        "backend.app.deliberation.cli_paths.agent_bundle_paths",
+        lambda: [str(bundle_root)],
+    )
+
+    codex_dir = tmp_path / "usr-local-bin"
+    codex_dir.mkdir()
+    for binary in ("reasonix", "claude"):
+        binary_path = codex_dir / binary
+        binary_path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        binary_path.chmod(0o755)
+
+    def lookup(command: str) -> str | None:
+        if command == "codex":
+            return str(bundle_codex)
+        binary = codex_dir / command
+        return str(binary) if binary.is_file() else None
+
+    report = inspect_agent_environment(
+        command_lookup=lookup,
+        command_probe=_probe_ready,
+    )
+
+    assert report.commands["codex"].path == str(bundle_codex)
+    assert report.commands["codex"].resolver_source == "bundle"
+    assert report.commands["deepseek"].resolver_source == "PATH"
+    assert report.commands["claude"].resolver_source == "PATH"
+
+
+def test_doctor_resolver_source_consistent_with_provider_lookup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Doctor and provider execution share the same resolver, so source reporting stays consistent."""
+    # Place a codex binary in a custom PATENTS_AGENT_AGENT_PATH directory.
+    custom_dir = tmp_path / "agents"
+    custom_dir.mkdir()
+    custom_codex = custom_dir / "codex"
+    custom_codex.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    custom_codex.chmod(0o755)
+
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    monkeypatch.setenv("PATENTS_AGENT_AGENT_PATH", str(custom_dir))
+    monkeypatch.setattr(
+        "backend.app.deliberation.cli_paths.agent_bundle_paths",
+        lambda: [],
+    )
+
+    # Doctor lookup must surface the same path the provider would resolve.
+    doctor = inspect_agent_environment(command_probe=_probe_ready)
+    assert doctor.commands["codex"].path == str(custom_codex)
+    assert doctor.commands["codex"].resolver_source == "PATH"
+
+    # Provider-side resolve_agent_command must agree with the doctor's report.
+    assert resolve_agent_command("codex") == str(custom_codex)
+
+
+def test_agent_bundle_paths_returns_empty_when_no_apps_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bundle discovery is a no-op when /Applications is missing or empty."""
+    # Point the discovery root at a directory that does not exist as Codex.app.
+    fake_apps = tmp_path / "Applications"
+    # Don't create fake_apps; /Applications itself is checked, so monkeypatch Path("/Applications")
+    monkeypatch.setattr(
+        "backend.app.deliberation.cli_paths.Path",
+        lambda p: fake_apps if p == "/Applications" else Path(p),
+    )
+
+    assert agent_bundle_paths() == []
+
+
+def test_agent_bundle_paths_lists_known_bundles(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Discovery enumerates every known .app that ships CLI resources."""
+    bundle_root = tmp_path / "Codex.app" / "Contents" / "Resources"
+    bundle_root.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        "backend.app.deliberation.cli_paths.Path",
+        lambda p: tmp_path if p == "/Applications" else Path(p),
+    )
+
+    assert agent_bundle_paths() == [str(bundle_root)]
+

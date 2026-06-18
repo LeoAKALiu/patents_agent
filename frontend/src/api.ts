@@ -623,6 +623,7 @@ export interface AgentProviderStatus {
   diagnostic: string;
   repair_suggestion: string;
   selectable: boolean;
+  resolver_source: "bundle" | "PATH" | "custom" | "";
 }
 
 export interface AgentDoctorReport {

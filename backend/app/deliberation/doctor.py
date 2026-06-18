@@ -5,7 +5,7 @@ import re
 import subprocess
 from collections.abc import Callable
 
-from backend.app.deliberation.cli_paths import agent_subprocess_env, resolve_agent_command
+from backend.app.deliberation.cli_paths import agent_subprocess_env, resolve_agent_command, resolver_source_for_path
 from backend.app.schemas import AgentDoctorReport, AgentProviderStatus
 
 
@@ -345,6 +345,7 @@ def inspect_agent_environment(
             diagnostic=diagnostic,
             repair_suggestion=repair_suggestion,
             selectable=selectable,
+            resolver_source=resolver_source_for_path(path),
         )
 
         if available:

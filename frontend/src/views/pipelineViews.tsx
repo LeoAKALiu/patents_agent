@@ -332,6 +332,7 @@ export function DeliberationView({
   const completed = latestCompletedDeliberation(runs);
   const activeRun = latestActiveRun(runs);
   const deliberationBusy = busy === "deliberate" || Boolean(activeRun);
+  const doctorBlocked = doctor?.status === "blocked" || (doctor?.missing_required?.length ?? 0) > 0;
   return (
     <div className="flex flex-col gap-4">
       <section className="flex items-center justify-between gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-5 shadow-xl backdrop-blur-xl">
@@ -343,6 +344,11 @@ export function DeliberationView({
               : "先创建项目后再启动会审。"}
           </p>
           <p>{disclosure ? "将默认结合前置交底书。" : "暂无已完成交底书，会审仅基于草稿和检索片段。"}</p>
+          {doctorBlocked && (
+            <p className="text-app-danger text-sm mt-2">
+              智能体未就绪，会审已禁用。请在诊断区修复后刷新。
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -357,7 +363,7 @@ export function DeliberationView({
           </Button>
           <Button
             variant="glass-primary"
-            disabled={!project || deliberationBusy}
+            disabled={!project || deliberationBusy || doctorBlocked}
             onClick={() => onStart(false)}
             type="button"
           >

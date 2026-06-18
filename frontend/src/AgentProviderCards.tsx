@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, CircleSlash, Clock, HelpCircle, LockKeyhole, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleSlash, Clock, HelpCircle, LockKeyhole, Package, Terminal, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/primitives/Badge";
 import type { AgentDoctorReport, AgentProviderStatus } from "./api";
@@ -6,6 +6,20 @@ import type { AgentDoctorReport, AgentProviderStatus } from "./api";
 export type AgentProviderRole = "deliberation" | "formula" | "post_review";
 
 export const requiredAgentProviderIds = ["codex", "deepseek", "claude"];
+
+function resolverSourceLabel(source: string): { label: string; icon: React.ReactNode } | null {
+  if (!source) return null;
+  switch (source) {
+    case "bundle":
+      return { label: "应用包", icon: <Package size={13} /> };
+    case "PATH":
+      return { label: "PATH", icon: <Terminal size={13} /> };
+    case "custom":
+      return { label: "自定义", icon: <Terminal size={13} /> };
+    default:
+      return null;
+  }
+}
 
 function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: "success" | "warn" | "neutral" } {
   if (!provider.installed) {
@@ -123,6 +137,12 @@ export function AgentProviderCards({
               <Badge variant={enabled ? "success" : "neutral"} className="shrink-0 min-w-0">
                 <span className="truncate">{provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}</span>
               </Badge>
+              {resolverSourceLabel(provider.resolver_source) && (
+                <Badge variant="neutral" className="shrink-0">
+                  {resolverSourceLabel(provider.resolver_source)?.icon}
+                  {resolverSourceLabel(provider.resolver_source)?.label}
+                </Badge>
+              )}
             </div>
             <p className="text-app-muted text-[11px] leading-snug m-0">{providerHint(provider)}</p>
             {provider.diagnostic && !provider.selectable && (
