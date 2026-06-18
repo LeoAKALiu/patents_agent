@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { FileText, Upload, Wand2 } from "@/lib/icons";
-import { Button } from "@/components/ui/button";
+import { CheckCircle2, FileText, ShieldCheck, Upload, Wand2 } from "@/lib/icons";
 import type {
   ExternalDraftIntakeRun,
   ExternalDraftSource,
@@ -8,6 +7,7 @@ import type {
   ProjectRecord,
 } from "@/api";
 import { ideaPatentGoalModes, patentTypeOptions, type PatentGoalMode, type PatentType } from "@/guidedFlow";
+import { cn } from "@/lib/cn";
 import { GuidedOperationConsole } from "../runtimeWidgets";
 import { MaterialSummary } from "./MaterialSummary";
 import { ExternalDraftIntakePanel } from "./ExternalDraftIntakePanel";
@@ -62,6 +62,27 @@ export function IdeaIntakePanel({
   const canSubmit = Boolean(name.trim() && idea.trim() && !project);
   const effectiveMode = fixedGoalMode ?? mode;
   const effectivePatentType: PatentType = fixedGoalMode === "utility" ? "utility_model" : patentType;
+  const intakeModeLabel = intakeMode === "idea" ? "从想法生成" : "导入外部初稿";
+  const patentTypeLabel = fixedGoalMode === "utility"
+    ? "实用新型"
+    : patentTypeOptions.find((item) => item.id === patentType)?.label ?? "发明专利";
+  const goalModeLabel = fixedGoalMode === "utility"
+    ? "实用新型轻量版"
+    : ideaPatentGoalModes.find((item) => item.id === mode)?.label ?? "授权稳健";
+  const latestExternalRun = externalDraftIntakeRuns[0] ?? null;
+  const externalQueueLabel = latestExternalRun
+    ? latestExternalRun.status === "needs_review"
+      ? "待确认章节"
+      : `解析${latestExternalRun.status}`
+    : externalDraftSources.length
+      ? `${externalDraftSources.length} 份待解析`
+      : "暂无外部稿";
+  const intakeSupportLabel = intakeMode === "idea"
+    ? materials.length > 0
+      ? `${materials.length} 份材料`
+      : "材料可选"
+    : externalQueueLabel;
+  const projectDisplayName = project?.name ?? (name.trim() || "待创建");
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -74,8 +95,8 @@ export function IdeaIntakePanel({
   }, [initialIntakeMode]);
 
   return (
-    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
-      <div className="flex items-start justify-between gap-3.5">
+    <section className="guided-panel guided-first-mile-panel">
+      <div className="section-head">
         <div>
           <h3>{intakeMode === "idea" ? "把你的想法写成一段话" : "导入外部专利初稿"}</h3>
           <p>
@@ -86,93 +107,176 @@ export function IdeaIntakePanel({
         </div>
         {intakeMode === "idea" ? <Wand2 size={24} /> : <FileText size={24} />}
       </div>
-      <div className="segmented-control" role="tablist" aria-label="专利生成入口">
-        <button
-          aria-selected={intakeMode === "idea"}
-          className={intakeMode === "idea" ? "selected" : ""}
-          onClick={() => setIntakeMode("idea")}
-          role="tab"
-          type="button"
-        >
-          从想法生成
-        </button>
-        <button
-          aria-selected={intakeMode === "external"}
-          className={intakeMode === "external" ? "selected" : ""}
-          onClick={() => setIntakeMode("external")}
-          role="tab"
-          type="button"
-        >
-          导入外部初稿
-        </button>
+
+      <div className="status-strip guided-intake-status" aria-label="首 Mile 摘要">
+        <div className="status-tile">
+          <span>入口方式</span>
+          <strong>{intakeModeLabel}</strong>
+        </div>
+        <div className="status-tile">
+          <span>项目</span>
+          <strong title={projectDisplayName}>{projectDisplayName}</strong>
+        </div>
+        <div className="status-tile">
+          <span>专利类型</span>
+          <strong>{patentTypeLabel}</strong>
+        </div>
+        <div className="status-tile">
+          <span>{intakeMode === "idea" ? "补充材料" : "外部稿队列"}</span>
+          <strong>{intakeSupportLabel}</strong>
+        </div>
       </div>
+
+      <div className="settings-group">
+        <div className="settings-group-header">
+          <h3>起步配置</h3>
+          <p>先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。</p>
+        </div>
+        <div className="segmented" role="tablist" aria-label="专利生成入口">
+          <button
+            aria-selected={intakeMode === "idea"}
+            className={cn("segment", intakeMode === "idea" && "is-active")}
+            onClick={() => setIntakeMode("idea")}
+            role="tab"
+            type="button"
+          >
+            从想法生成
+          </button>
+          <button
+            aria-selected={intakeMode === "external"}
+            className={cn("segment", intakeMode === "external" && "is-active")}
+            onClick={() => setIntakeMode("external")}
+            role="tab"
+            type="button"
+          >
+            导入外部初稿
+          </button>
+        </div>
+      </div>
+
       {intakeMode === "idea" ? (
         <>
-          <form className="guided-intake" onSubmit={handleSubmit}>
-            <label>
-              <span>项目名称</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} disabled={Boolean(project)} />
-            </label>
-            <label>
-              <span>一句话想法</span>
-              <textarea
-                className="idea-input"
-                value={idea}
-                onChange={(event) => setIdea(event.target.value)}
-                disabled={Boolean(project)}
-                placeholder="例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。"
-              />
-            </label>
+          <form className="guided-intake guided-intake-form" onSubmit={handleSubmit}>
+            <div className="info-card guided-form-card">
+              <div className="info-card-icon accent">
+                <FileText size={18} aria-hidden="true" />
+              </div>
+              <div className="info-card-body">
+                <strong>项目基础信息</strong>
+                <p>创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。</p>
+                <div className="guided-field-grid">
+                  <label className="field">
+                    <span>项目名称</span>
+                    <input value={name} onChange={(event) => setName(event.target.value)} disabled={Boolean(project)} />
+                  </label>
+                  <label className="field field-wide">
+                    <span>一句话想法</span>
+                    <textarea
+                      className="idea-input"
+                      value={idea}
+                      onChange={(event) => setIdea(event.target.value)}
+                      disabled={Boolean(project)}
+                      placeholder="例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
             {fixedGoalMode !== "utility" && (
-              <div className="mode-grid">
-                {patentTypeOptions.map((item) => (
-                  <button
-                    className={patentType === item.id ? "mode-card selected" : "mode-card"}
-                    key={item.id}
-                    onClick={() => setPatentType(item.id)}
-                    type="button"
-                  >
-                    <strong>{item.label}</strong>
-                    <span>{item.description}</span>
-                  </button>
-                ))}
+              <div className="settings-group">
+                <div className="settings-group-header">
+                  <h3>专利类型</h3>
+                  <p>影响流程深度、发明点提炼方式和后续正式稿边界。</p>
+                </div>
+                <div className="mode-grid">
+                  {patentTypeOptions.map((item) => (
+                    <button
+                      className={cn("info-card guided-config-card", patentType === item.id && "selected")}
+                      key={item.id}
+                      onClick={() => setPatentType(item.id)}
+                      type="button"
+                    >
+                      <div className={cn("info-card-icon", item.id === "utility_model" ? "success" : "info")}>
+                        {item.id === "utility_model" ? <ShieldCheck size={18} aria-hidden="true" /> : <Wand2 size={18} aria-hidden="true" />}
+                      </div>
+                      <div className="info-card-body">
+                        <strong>{item.label}</strong>
+                        <p>{item.description}</p>
+                      </div>
+                      {patentType === item.id && <CheckCircle2 size={18} aria-hidden="true" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {fixedGoalMode === "utility" && (
+              <div className="callout callout-success">
+                <ShieldCheck size={18} aria-hidden="true" />
+                <div>
+                  <strong>已使用实用新型入口</strong>
+                  <p>系统会优先关注结构组成、连接关系、安装位置和附图说明，减少发明专属重步骤。</p>
+                </div>
               </div>
             )}
             {!fixedGoalMode && (
-              <div className="mode-grid">
-                {ideaPatentGoalModes.map((item) => (
-                  <button
-                    className={mode === item.id ? "mode-card selected" : "mode-card"}
-                    key={item.id}
-                    onClick={() => setMode(item.id)}
-                    type="button"
-                  >
-                    <strong>{item.label}</strong>
-                    <span>{item.description}</span>
-                  </button>
-                ))}
+              <div className="settings-group">
+                <div className="settings-group-header">
+                  <h3>撰写目标</h3>
+                  <p>目标模式只影响项目提示词和后续策略，不会跳过必要的质量门。</p>
+                </div>
+                <div className="mode-grid">
+                  {ideaPatentGoalModes.map((item) => (
+                    <button
+                      className={cn("info-card guided-config-card", mode === item.id && "selected")}
+                      key={item.id}
+                      onClick={() => setMode(item.id)}
+                      type="button"
+                    >
+                      <div className="info-card-icon accent">
+                        <Wand2 size={18} aria-hidden="true" />
+                      </div>
+                      <div className="info-card-body">
+                        <strong>{item.label}</strong>
+                        <p>{item.description}</p>
+                      </div>
+                      {mode === item.id && <CheckCircle2 size={18} aria-hidden="true" />}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-            <Button variant="glass-primary" disabled={!canSubmit || busy === "guided-create"} type="submit">
-              <FileText size={17} />
-              <span>{project ? "已创建想法" : "创建并继续"}</span>
-            </Button>
+            <div className="action-dock">
+              <span className="meta">当前目标：{goalModeLabel}；创建后进入发明点/结构方案确认。</span>
+              <button className="btn btn-primary" disabled={!canSubmit || busy === "guided-create"} type="submit">
+                <FileText size={17} />
+                <span>{project ? "已创建想法" : "创建并继续"}</span>
+              </button>
+            </div>
             <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "guided-create"} />
           </form>
           {project && (
-            <form className="guided-upload" onSubmit={onUploadMaterial}>
-              <input
-                id="project-material-file"
-                name="project-material-file"
-                type="file"
-                accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
-              />
-              <Button variant="glass-primary" disabled={busy === "material-upload"} type="submit">
-                <Upload size={17} />
-                <span>上传补充材料</span>
-              </Button>
+            <>
+              <form className="info-card guided-upload guided-upload-card" onSubmit={onUploadMaterial}>
+                <div className="info-card-icon info">
+                  <Upload size={18} aria-hidden="true" />
+                </div>
+                <div className="info-card-body">
+                  <strong>补充材料</strong>
+                  <p>上传 PDF、DOCX、PPT 或 Markdown，作为发明点提炼和说明书支撑材料。</p>
+                  <input
+                    id="project-material-file"
+                    name="project-material-file"
+                    type="file"
+                    accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
+                  />
+                </div>
+                <button className="btn btn-primary" disabled={busy === "material-upload"} type="submit">
+                  <Upload size={17} />
+                  <span>上传补充材料</span>
+                </button>
+              </form>
               <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "material-upload"} />
-            </form>
+            </>
           )}
           <MaterialSummary materials={materials} />
         </>

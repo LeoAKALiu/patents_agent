@@ -17,7 +17,19 @@ import {
   findOfficialContaminationMarkers,
   formatBytes,
 } from "@/lib/officialContamination";
+import {
+  ActionDock,
+  BoundaryCard,
+  InfoCard,
+  SettingsGroup,
+  StatusStrip,
+} from "@/ui/EnterpriseSurface";
 import { PackagePreview } from "./disclosureViews";
+
+function exportLinkClass(enabled: boolean, primary = false): string {
+  if (!enabled) return "export-link disabled";
+  return primary ? "export-link export-link-primary" : "export-link";
+}
 
 export function ExportView({
   project,
@@ -78,80 +90,122 @@ export function ExportView({
       : officialExportUrl(project.id, lastExport.format === "docx" ? "docx" : "md")
     : undefined;
   return (
-    <section className="grid gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl col-span-full">
-      <h3>导出文件</h3>
-      <p className="text-sm text-[var(--text-primary)]/70 bg-[var(--surface-subtle)] px-4 py-3 rounded-lg border border-[var(--border-subtle)] flex items-center gap-2">
-        {officialAllowed
-          ? `正式稿已由成稿会审解锁：${officialCompileRun?.official_package_hash.slice(0, 12)}`
-          : "正式稿需先生成，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。"}
-      </p>
+    <section className="col-span-full grid gap-5">
+      <StatusStrip
+        aria-label="导出状态"
+        items={[
+          { label: "正式稿状态", value: officialAllowed ? "已解锁" : "等待会审" },
+          { label: "源稿哈希", value: currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成" },
+          { label: "正式稿哈希", value: officialCompileRun?.official_package_hash?.slice(0, 12) ?? "未编译" },
+          { label: "最近导出", value: lastExport && lastExportMatchesHash ? lastExport.format.toUpperCase() : "无有效导出" },
+        ]}
+      />
+
+      <SettingsGroup
+        title="导出边界"
+        description="正式提交稿、内部策略稿和风险说明使用不同容器，避免内部会审内容进入可提交文件。"
+      >
+        <div className="boundary-grid">
+          <BoundaryCard
+            tone="official"
+            title="正式提交稿"
+            description="只包含清污后的权利要求、说明书和摘要；必须由正式稿编译和成稿会审共同解锁。"
+          />
+          <BoundaryCard
+            tone="internal"
+            title="内部策略稿"
+            description="保留会审结论、护城河、支撑缺口和补强建议，仅供内部复核，不作为提交稿。"
+          />
+          <BoundaryCard
+            tone="external"
+            title="风险说明"
+            description="解释导出阻断、清污命中和版本哈希来源，帮助人工复核，不替代专利代理师或律师意见。"
+          />
+        </div>
+      </SettingsGroup>
+
+      <SettingsGroup title="正式稿门禁">
+        <InfoCard
+          icon={<FileText size={18} aria-hidden="true" />}
+          tone={officialAllowed ? "success" : "warn"}
+          title={officialAllowed ? "正式稿已通过成稿会审" : "正式稿入口已锁定"}
+          description={
+            officialAllowed
+              ? `当前正式稿可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}`
+              : "正式稿需先生成，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。"
+          }
+          meta={<span className={officialAllowed ? "tag tag-success" : "tag tag-warn"}>{officialAllowed ? "可导出" : "需处理"}</span>}
+        />
       {contaminationMatches.length > 0 && (
         <div
-          className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-app-warn/60 bg-app-warn/10 text-app-warn"
+          className="callout callout-warn"
           role="alert"
           data-testid="official-contamination-warning"
         >
-          <p className="flex items-center gap-2 font-medium">
-            <AlertTriangle size={18} aria-hidden="true" />
-            <span>检测到正式稿仍包含 {contaminationMatches.length} 处内部痕迹</span>
-          </p>
-          <p className="text-sm text-app-warn/80">
-            请重新运行正式稿编译并通过成稿会审后再导出；下方涉及的章节与模式仅作提示，不会自动从已生成的官方稿中删除。
-          </p>
-          <ul className="text-xs font-mono list-disc pl-6 text-app-warn/80">
-            {contaminationMatches.slice(0, 8).map((entry, index) => (
-              <li key={`${entry.section}-${entry.pattern}-${index}`}>
-                {entry.section}: 命中 “{entry.pattern}”
-              </li>
-            ))}
-            {contaminationMatches.length > 8 && (
-              <li>其余 {contaminationMatches.length - 8} 处已省略…</li>
-            )}
-          </ul>
+          <AlertTriangle size={18} aria-hidden="true" />
+          <div>
+            <strong>检测到正式稿仍包含 {contaminationMatches.length} 处内部痕迹</strong>
+            <p>请重新运行正式稿编译并通过成稿会审后再导出；下方涉及的章节与模式仅作提示，不会自动从已生成的官方稿中删除。</p>
+            <ul className="mt-2 list-disc pl-5 font-mono text-xs text-[var(--warn-text)]">
+              {contaminationMatches.slice(0, 8).map((entry, index) => (
+                <li key={`${entry.section}-${entry.pattern}-${index}`}>
+                  {entry.section}: 命中 “{entry.pattern}”
+                </li>
+              ))}
+              {contaminationMatches.length > 8 && (
+                <li>其余 {contaminationMatches.length - 8} 处已省略...</li>
+              )}
+            </ul>
+          </div>
         </div>
       )}
       {lastExport && lastExportMatchesHash && (
-        <div
-          className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-app-success/50 bg-app-success/10 text-app-success"
+        <InfoCard
+          icon={<CheckCircle2 size={18} aria-hidden="true" />}
+          tone="success"
+          title={`已导出${lastExport.format === "sidecar" ? "正式稿编译报告" : lastExport.format === "docx" ? "官方 DOCX" : "官方 Markdown"}`}
+          description={`${lastExport.filePath}（${formatBytes(lastExport.byteCount)}）`}
+          meta={<span className="tag tag-success">哈希匹配</span>}
+          action={(
+            <div className="button-row">
+              <button
+                className="btn btn-primary"
+                disabled={!desktopDialogsAvailable}
+                onClick={onOpenExportFolder}
+                type="button"
+              >
+                <FileArchive size={16} aria-hidden="true" />
+                <span>打开文件夹</span>
+              </button>
+              <a
+                aria-disabled={!lastExportDownloadHref}
+                className={lastExportDownloadHref ? "btn btn-secondary" : "btn btn-secondary is-disabled"}
+                href={lastExportDownloadHref}
+              >
+                <Download size={16} aria-hidden="true" />
+                <span>再次下载</span>
+              </a>
+            </div>
+          )}
           data-testid="export-success-card"
         >
-          <p className="flex items-center gap-2 font-medium">
-            <CheckCircle2 size={18} aria-hidden="true" />
-            <span>已导出{lastExport.format === "sidecar" ? "正式稿编译报告" : lastExport.format === "docx" ? "官方 DOCX" : "官方 Markdown"}</span>
-          </p>
-          <p className="text-sm font-mono break-all text-app-success/90">
-            {lastExport.filePath}（{formatBytes(lastExport.byteCount)}）
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[var(--action-primary)] text-[var(--action-primary-contrast)] font-medium hover:brightness-110 transition-all disabled:opacity-50"
-              disabled={!desktopDialogsAvailable}
-              onClick={onOpenExportFolder}
-              type="button"
-            >
-              <FileArchive size={16} aria-hidden="true" />
-              <span>在系统文件管理器中打开</span>
-            </button>
-            <a
-              aria-disabled={!lastExportDownloadHref}
-              className={lastExportDownloadHref ? "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-medium hover:bg-white transition-colors" : "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[var(--surface-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)]/40 font-medium cursor-not-allowed"}
-              href={lastExportDownloadHref}
-            >
-              <Download size={16} aria-hidden="true" />
-              <span>再次下载</span>
-            </a>
-          </div>
           {!desktopDialogsAvailable && (
-            <p className="text-xs text-app-success/70">
+            <p>
               “在系统文件管理器中打开”仅在桌面端原生对话框可用时启用。
             </p>
           )}
-        </div>
+        </InfoCard>
       )}
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="导出文件"
+        description="正式稿导出受门禁控制；内部材料始终带有策略语境，请不要直接提交。"
+      >
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <a
           aria-disabled={!officialAllowed}
-          className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-subtle)] shadow-sm hover:bg-white text-[var(--text-primary)] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--surface-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)]/40 font-medium cursor-not-allowed"}
+          className={exportLinkClass(officialAllowed, true)}
           href={officialAllowed && project ? officialExportUrl(project.id, "docx") : undefined}
         >
           <Download size={18} />
@@ -159,7 +213,7 @@ export function ExportView({
         </a>
         <a
           aria-disabled={!officialAllowed}
-          className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-subtle)] shadow-sm hover:bg-white text-[var(--text-primary)] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--surface-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)]/40 font-medium cursor-not-allowed"}
+          className={exportLinkClass(officialAllowed, true)}
           href={officialAllowed && project ? officialExportUrl(project.id, "md") : undefined}
         >
           <Download size={18} />
@@ -169,7 +223,7 @@ export function ExportView({
           <>
             <button
               aria-disabled={!officialAllowed}
-              className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--action-primary)] text-[var(--action-primary-contrast)] font-medium hover:brightness-110 transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--surface-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)]/40 font-medium cursor-not-allowed"}
+              className={exportLinkClass(officialAllowed, true)}
               disabled={!officialAllowed}
               onClick={() => onNativeExport("docx")}
               type="button"
@@ -179,7 +233,7 @@ export function ExportView({
             </button>
             <button
               aria-disabled={!officialAllowed}
-              className={officialAllowed ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--action-primary)] text-[var(--action-primary-contrast)] font-medium hover:brightness-110 transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--surface-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)]/40 font-medium cursor-not-allowed"}
+              className={exportLinkClass(officialAllowed, true)}
               disabled={!officialAllowed}
               onClick={() => onNativeExport("md")}
               type="button"
@@ -188,7 +242,7 @@ export function ExportView({
               <span>原生保存 Markdown…</span>
             </button>
             <button
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-subtle)] shadow-sm hover:bg-white text-[var(--text-primary)] font-medium transition-colors"
+              className="export-link"
               onClick={() => onNativeExport("sidecar")}
               type="button"
             >
@@ -205,7 +259,7 @@ export function ExportView({
         ].map(([kind, label]) => (
           <a
             aria-disabled={!enabled}
-            className={enabled ? "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-subtle)] shadow-sm hover:bg-white text-[var(--text-primary)] font-medium transition-colors" : "inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-[var(--surface-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)]/40 font-medium cursor-not-allowed"}
+            className={exportLinkClass(enabled)}
             href={enabled && project ? exportUrl(project.id, kind as "docx" | "md" | "mmd" | "prompt") : undefined}
             key={kind}
           >
@@ -214,7 +268,11 @@ export function ExportView({
           </a>
         ))}
       </div>
+      </SettingsGroup>
+
+      <SettingsGroup title="包内容预览" description="用于人工复核导出内容，正式提交前仍需专业人员确认。">
       <PackagePreview packageValue={packageValue} compact />
+      </SettingsGroup>
     </section>
   );
 }

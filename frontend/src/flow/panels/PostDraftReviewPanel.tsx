@@ -1,6 +1,5 @@
 import { ClipboardCheck, Loader2 } from "@/lib/icons";
 import { AgentProviderCards } from "@/AgentProviderCards";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   postDraftReviewReportUrl,
@@ -11,6 +10,12 @@ import {
 } from "@/api";
 import { pipelineRunStatusLabel } from "@/domain";
 import type { GuidedActionGate } from "@/guidedFlow";
+import {
+  ActionDock,
+  InfoCard,
+  SettingsGroup,
+  StatusStrip,
+} from "@/ui/EnterpriseSurface";
 import {
   GuidedOperationConsole,
   GuidedRuntimeActions,
@@ -58,19 +63,39 @@ export function PostDraftReviewPanel({
   const activeRun = guidedActiveRun(runs);
   const reviewBusy = busy === "post-draft-review" || Boolean(activeRun);
   return (
-    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
-      <div className="flex items-start justify-between gap-3.5">
-        <div>
-          <h3>成稿后多智能体会审</h3>
-          <p>正式导出前必选。多智能体会审权利要求质量、说明书清洁度、技术硬度，再综合裁决。</p>
-        </div>
-        <ClipboardCheck size={24} />
-      </div>
-      <div className="result-meta">
-        {passed ? <Badge variant="success" className="text-xs">已通过</Badge> : blocked ? <Badge variant="destructive" className="text-xs">阻止正式导出</Badge> : <Badge variant="warning" className="text-xs">等待会审</Badge>}
-        <span>当前成稿：{currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成"}</span>
-        <span>正式稿：{officialCompileRun?.official_package_hash.slice(0, 12) ?? "未编译"}</span>
-      </div>
+    <section className="grid gap-4">
+      <StatusStrip
+        aria-label="成稿会审状态"
+        items={[
+          { label: "会审状态", value: passed ? "已通过" : blocked ? "阻止导出" : activeRun ? "运行中" : "等待会审" },
+          { label: "当前成稿", value: currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成" },
+          { label: "正式稿", value: officialCompileRun?.official_package_hash.slice(0, 12) ?? "未编译" },
+          { label: "历史记录", value: `${runs.length} 次` },
+        ]}
+      />
+
+      <SettingsGroup
+        title="成稿后多智能体会审"
+        description="正式导出前必选。多智能体会审权利要求质量、说明书清洁度、技术硬度，再综合裁决。"
+      >
+        <InfoCard
+          icon={<ClipboardCheck size={18} aria-hidden="true" />}
+          tone={passed ? "success" : blocked ? "danger" : "warn"}
+          title={passed ? "综合裁决：允许正式导出" : blocked ? "综合裁决：需要修订" : "等待成稿会审"}
+          description={
+            passed
+              ? "当前正式稿已通过会审，可进入导出确认。"
+              : blocked
+                ? "导出已锁定，请根据阻断项修改初稿并重新编译正式稿。"
+                : "选择可用智能体后启动会审，结果会绑定当前成稿和正式稿哈希。"
+          }
+          meta={(
+            <>
+              {passed ? <Badge variant="success" className="text-xs">已通过</Badge> : blocked ? <Badge variant="destructive" className="text-xs">阻止正式导出</Badge> : <Badge variant="warning" className="text-xs">等待会审</Badge>}
+              {review?.draft_package_hash && <span className="hash-chip">{review.draft_package_hash.slice(0, 12)}</span>}
+            </>
+          )}
+        />
       <AgentProviderCards
         doctor={doctor}
         role="post_review"
@@ -79,8 +104,9 @@ export function PostDraftReviewPanel({
         onToggleProvider={onToggleProvider}
       />
       <ActionGateHint gate={actionGate} />
-      <Button
-        variant="glass-primary"
+      <ActionDock meta="会审结果必须与当前成稿哈希和正式稿哈希匹配，才会放行正式导出。">
+        <button
+          className="btn btn-primary"
         disabled={!actionGate.allowed || reviewBusy}
         onClick={onStartPostDraftReview}
         title={actionGate.reason || undefined}
@@ -88,7 +114,8 @@ export function PostDraftReviewPanel({
       >
         {reviewBusy ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
         <span>{activeRun ? "成稿会审中" : review ? "重新成稿会审" : "启动成稿会审"}</span>
-      </Button>
+        </button>
+      </ActionDock>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "post-draft-review"} />
       <GuidedRuntimeConsole run={activeRun} label="成稿会审运行中" busy={busy} onCancel={onCancelRun} />
       <GuidedRuntimeFailures run={runs[0] ?? null} />
@@ -119,6 +146,7 @@ export function PostDraftReviewPanel({
       {!review && runs.length > 0 && (
         <p className="workflow-hint">已有成稿会审记录，但不属于当前成稿。请重新运行成稿会审。</p>
       )}
+      </SettingsGroup>
     </section>
   );
 }
