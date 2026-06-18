@@ -36,12 +36,18 @@ from backend.app.external_drafts import (
     seal_external_draft_file,
     working_draft_hash,
 )
-from backend.app.exporter import export_docx, package_to_markdown
+from backend.app.exporter import (
+    export_docx,
+    export_internal_docx,
+    internal_package_to_markdown,
+    package_to_markdown,
+)
 from backend.app.filing_readiness import (
     assess_filing_readiness,
     readiness_report_to_markdown,
 )
 from backend.app.generator import PatentDraftGenerator
+from backend.app.hygiene import clean_draft_package
 from backend.app.desktop_config import (
     DesktopConfig,
     DesktopConfigError,
@@ -1168,6 +1174,9 @@ def create_app(
             package.generation_logs.append(f"formula: injected core formula package from run {formula_run.id}")
         else:
             package.generation_logs.append("formula: no core formula package required")
+        # ── PR-10: strip/sidecar non-patent content before persisting ────
+        package, sidecar = clean_draft_package(package)
+        package.generation_logs.append(f"hygiene: cleaned {sum(len(v) for v in sidecar.values())} contamination items before save")
         store.update_project_package(project_id, package)
         return package.model_dump(mode="json")
 
@@ -1552,18 +1561,23 @@ def create_app(
     def export_project_docx(project_id: str) -> FileResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        output_path = export_docx(package, settings.data_dir / "exports" / f"{project.id}.docx")
+        output_path = export_internal_docx(
+            package, settings.data_dir / "exports" / f"{project.id}-internal.docx"
+        )
         return FileResponse(
             output_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=f"{project.name}.docx",
+            filename=f"{project.name}-内部工作稿.docx",
         )
 
     @app.get("/api/projects/{project_id}/export.md")
     def export_project_markdown(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        return PlainTextResponse(package_to_markdown(package), media_type="text/markdown; charset=utf-8")
+        return PlainTextResponse(
+            internal_package_to_markdown(package),
+            media_type="text/markdown; charset=utf-8",
+        )
 
     @app.get("/api/projects/{project_id}/diagram.mmd")
     def export_project_mermaid(project_id: str) -> PlainTextResponse:

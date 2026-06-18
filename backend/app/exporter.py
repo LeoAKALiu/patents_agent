@@ -92,3 +92,43 @@ def _add_section(doc: Document, heading: str, text: str) -> None:
     doc.add_heading(heading, level=1)
     for line in text.splitlines() or [""]:
         doc.add_paragraph(line)
+
+
+def export_internal_docx(package: DraftPackage, output_path: Path) -> Path:
+    """Like ``export_docx`` but inserts an internal-only disclaimer at the top."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    doc = Document()
+    disclaimer = doc.add_paragraph()
+    run = disclaimer.add_run("※ 内部工作稿 — 仅供内部复核，不得作为正式提交稿使用。")
+    run.bold = True
+    doc.add_heading(package.title, level=0)
+    _add_section(doc, "摘要", package.abstract)
+    _add_section(doc, "权利要求书", package.claims)
+    _add_section(doc, "说明书", package.description)
+    _add_section(doc, "附图说明", package.drawing_description)
+    _add_section(doc, "Mermaid流程图", package.mermaid)
+    _add_section(doc, "绘图提示词", package.image_prompt)
+    if package.strategy_brief:
+        doc.add_heading("多Agent会审策略", level=1)
+        doc.add_paragraph(package.strategy_brief.summary)
+        for item in package.strategy_brief.claim_strategy:
+            doc.add_paragraph(item, style=None)
+    if package.citations:
+        doc.add_heading("引用语料片段", level=1)
+        for citation in package.citations:
+            doc.add_paragraph(f"{citation.chunk_id} ({citation.section_type.value})")
+            doc.add_paragraph(citation.text)
+    if package.generation_logs:
+        doc.add_heading("生成日志", level=1)
+        for log in package.generation_logs:
+            doc.add_paragraph(log)
+    doc.save(output_path)
+    return output_path
+
+
+def internal_package_to_markdown(package: DraftPackage) -> str:
+    """Like ``package_to_markdown`` but prefixed with an internal-disclaimer blockquote."""
+    return (
+        "> **内部工作稿** — 仅供内部复核，不得作为正式提交稿使用。\n\n"
+        + package_to_markdown(package)
+    )

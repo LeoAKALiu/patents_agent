@@ -252,10 +252,10 @@ export function ExportView({
           </>
         )}
         {[
-          ["docx", "DOCX"],
-          ["md", "Markdown"],
-          ["mmd", "Mermaid"],
-          ["prompt", "绘图提示词"],
+          ["docx", "内部工作稿 DOCX"],
+          ["md", "内部工作稿 Markdown"],
+          ["mmd", "内部工作稿 Mermaid"],
+          ["prompt", "内部工作稿 绘图提示词"],
         ].map(([kind, label]) => (
           <a
             aria-disabled={!enabled}
