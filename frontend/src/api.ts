@@ -658,6 +658,9 @@ export interface CoreFormulaPackage {
   description_insert: string;
   latex_markdown: string;
   generation_logs: string[];
+  is_fallback: boolean;
+  quality_severity: "normal" | "warning" | "high" | "critical";
+  raw_model_output: string;
 }
 
 export interface FormulaRun {

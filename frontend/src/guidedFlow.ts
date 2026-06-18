@@ -412,7 +412,16 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
   const hasConfirmedInventionPoint = draftReady || input.patentPoints.some((point) => point.selected);
   const hasCompletedDeliberation = draftReady || utilityModelLite || Boolean(latestCompletedDeliberation(input.deliberations));
   const formulaRequired = !utilityModelLite && Boolean(input.formulaRequirement?.required);
-  const hasCompletedFormula = draftReady || !formulaRequired || Boolean(input.formulaRuns?.some((run) => run.status === "completed" && run.package));
+  const hasCompletedFormula = draftReady || !formulaRequired || Boolean(
+    input.formulaRuns?.some(
+      (run) =>
+        run.status === "completed" &&
+        run.package &&
+        // Fallback packages with high or critical severity do not count as
+        // "completed" — the user must re-run formula generation or confirm.
+        !(run.package.is_fallback && (run.package.quality_severity === "high" || run.package.quality_severity === "critical"))
+    )
+  );
   const qualityChecked = isQualityChecked(
     input.filingReports,
     input.worksheets,
