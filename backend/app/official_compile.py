@@ -33,8 +33,8 @@ RESIDUAL_INTERNAL_PATTERNS = (
     "official_safe_patches",
 )
 RESIDUAL_INTERNAL_REGEXES = (
-    ("prompt", re.compile(r"(^|[\n。；;]|\s)\s*prompt\s*[:：=]", re.IGNORECASE)),
-    ("diagram", re.compile(r"(^|[\n。；;]|\s)\s*diagram\s*[:：=]", re.IGNORECASE)),
+    ("prompt", re.compile(r"(^|[\n。；;，,：:、])\s*prompt\s*[:：=]|\s+prompt\s*[:：]", re.IGNORECASE)),
+    ("diagram", re.compile(r"(^|[\n。；;，,：:、])\s*diagram\s*[:：=]|\s+diagram\s*[:：]", re.IGNORECASE)),
     ("好的，下面", re.compile(r"(^|[\n。；;])\s*好的，下面.*(撰写|生成|输出)", re.IGNORECASE)),
 )
 INTERNAL_FIELD_RE = re.compile(

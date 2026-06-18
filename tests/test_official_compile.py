@@ -112,6 +112,17 @@ def test_compiler_allows_diagram_as_technical_english_term():
     assert not any(item["pattern"] == "diagram" for item in run.blocked_items)
 
 
+def test_compiler_allows_diagram_equals_in_ordinary_prose():
+    package = _draft_package(
+        description="The controller stores diagram = block diagram data for later comparison.",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "completed"
+    assert not any(item["pattern"] == "diagram" for item in run.blocked_items)
+
+
 def test_compiler_still_blocks_prompt_field_label_and_ai_preface():
     package = _draft_package(
         title="好的，下面撰写一种控制方法",
@@ -121,7 +132,45 @@ def test_compiler_still_blocks_prompt_field_label_and_ai_preface():
     run = OfficialDraftCompiler().compile(project_id="p1", package=package)
 
     assert run.status == "blocked"
-    assert any(item["category"] == "residual_internal_text" for item in run.blocked_items)
+    assert any(
+        item["category"] == "residual_internal_text"
+        and item["section"] == "title"
+        and item["pattern"] == "好的，下面"
+        for item in run.blocked_items
+    )
+    assert any(
+        item["section"] == "drawing_description"
+        and item["pattern"] == "prompt"
+        for item in run.blocked_items
+    )
+
+
+def test_compiler_blocks_prompt_label_after_chinese_comma():
+    package = _draft_package(drawing_description="图1为流程图，prompt: 黑白线稿")
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert any(
+        item["category"] == "residual_internal_text"
+        and item["section"] == "drawing_description"
+        and item["pattern"] == "prompt"
+        for item in run.blocked_items
+    )
+
+
+def test_compiler_blocks_diagram_label_after_chinese_list_punctuation():
+    package = _draft_package(drawing_description="图1为流程图、diagram: 黑白线稿")
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert any(
+        item["category"] == "residual_internal_text"
+        and item["section"] == "drawing_description"
+        and item["pattern"] == "diagram"
+        for item in run.blocked_items
+    )
 
 
 def test_compiler_blocks_ai_preface_title_contamination():
