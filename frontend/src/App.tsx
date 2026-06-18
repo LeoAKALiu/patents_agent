@@ -49,6 +49,7 @@ import {
   ProjectMaterial,
   PatentStrategyBrief,
   ProjectRecord,
+  RuntimeDiagnostics,
   RuntimeFailure,
   RuntimeStageState,
   SearchResult,
@@ -81,6 +82,7 @@ import {
   getAgentDoctor,
   getCorpusStats,
   getHealth,
+  getRuntimeDiagnostics,
   improveProjectScore,
   importPatent,
   listClaimDefenseWorksheets,
@@ -380,6 +382,7 @@ function App() {
   const [activeExpertTool, setActiveExpertTool] = useState<ExpertToolId>(defaultExpertToolId);
   const [startChoice, setStartChoice] = useState<StartChoiceId | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
+  const [runtimeDiagnostics, setRuntimeDiagnostics] = useState<RuntimeDiagnostics | null>(null);
   const [agentDoctor, setAgentDoctor] = useState<AgentDoctorReport | null>(null);
   const [documents, setDocuments] = useState<PatentDocument[]>([]);
   const [corpusVersions, setCorpusVersions] = useState<CorpusVersion[]>([]);
@@ -646,13 +649,18 @@ function App() {
         listCorpus(),
         listProjects(),
       ]);
-      const [versionsData, statsData] = await Promise.all([listCorpusVersions(), getCorpusStats()]);
+      const [versionsData, statsData, diagData] = await Promise.all([
+        listCorpusVersions(),
+        getCorpusStats(),
+        getRuntimeDiagnostics(),
+      ]);
       setHealth(healthData);
       setAgentDoctor(doctorData);
       setDocuments(corpusData);
       setCorpusVersions(versionsData);
       setCorpusStats(statsData);
       setProjects(projectsData);
+      setRuntimeDiagnostics(diagData ?? null);
     });
   }
 
@@ -1728,6 +1736,7 @@ function App() {
             health={health}
             agentDoctor={agentDoctor}
             agentRunModeLabel={agentRunModeLabel}
+            runtimeDiagnostics={runtimeDiagnostics}
             onRefresh={refreshAll}
           />
         }

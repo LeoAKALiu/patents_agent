@@ -88,6 +88,12 @@ from backend.app.research.ledger import (
 )
 from backend.app.research.providers import ChainedResearchProvider, build_provider_chain
 from backend.app.runtime import RuntimeCancelled, RuntimeContext, RuntimeTimeout
+from backend.app.settings import (
+    QA_PROFILE_ENV,
+    data_dir_source,
+    resolve_backend_data_dir,
+    resolve_qa_profile,
+)
 from backend.app.schemas import (
     AgentDoctorReport,
     AgentFailure,
@@ -165,6 +171,35 @@ def _enforce_desktop_config_origin(request: Request) -> None:
         raise HTTPException(status_code=403, detail="Forbidden desktop config origin.")
 
 
+def _build_runtime_diagnostics(
+    *,
+    settings: Settings,
+    is_qa: bool,
+    app_path: Path | None,
+    backend_port: int | None,
+    instance_id: str | None,
+    explicit_data_dir: Path | None,
+) -> dict:
+    """Return the per-launch diagnostics block surfaced by ``/api/health``.
+
+    The block carries enough information that the Tauri frontend, the test
+    harness, and human QA can all tell *which* backend instance a given
+    window is talking to without inspecting environment variables.  See
+    ``PR-7`` for the Tauri data-dir isolation contract.
+    """
+
+    return {
+        "data_dir": str(settings.data_dir),
+        "data_dir_source": data_dir_source(explicit_data_dir),
+        "qa_profile": is_qa,
+        "app_path": str(app_path) if app_path is not None else None,
+        "backend_port": backend_port,
+        "instance_id": instance_id,
+        "qa_profile_env": QA_PROFILE_ENV,
+        "version": APP_VERSION,
+    }
+
+
 def create_app(
     data_dir: Path | None = None,
     llm_client: LLMClient | None = None,
@@ -172,11 +207,22 @@ def create_app(
     prior_art_provider: object | None = None,
     research_search_provider: DeepResearchSearchProvider | None = None,
     load_env_file: bool = True,
+    qa_profile: bool | None = None,
+    app_path: Path | None = None,
+    backend_port: int | None = None,
+    instance_id: str | None = None,
 ) -> FastAPI:
-    settings = build_settings(load_env_file=load_env_file)
-    if data_dir is not None:
-        settings.data_dir = Path(data_dir)
+    settings = build_settings(load_env_file=load_env_file, data_dir=data_dir)
     settings.data_dir.mkdir(parents=True, exist_ok=True)
+    is_qa = resolve_qa_profile(qa_profile)
+    runtime_diagnostics = _build_runtime_diagnostics(
+        settings=settings,
+        is_qa=is_qa,
+        app_path=app_path,
+        backend_port=backend_port,
+        instance_id=instance_id,
+        explicit_data_dir=data_dir,
+    )
 
     store = SQLiteStore(settings.data_dir / "patents_agent.sqlite3")
     index = create_vector_index(settings.data_dir / "chroma")
@@ -206,15 +252,24 @@ def create_app(
     app.state.disclosure_inline = prior_art_provider is not None
     app.state.generate_inline = llm_client is not None
     app.state.corpus_service = CorpusImportService(store=store, index=index, data_dir=settings.data_dir)
+    app.state.runtime_diagnostics = runtime_diagnostics
 
     @app.get("/api/health")
     def health() -> dict:
+        diag = app.state.runtime_diagnostics
         return {
             "ok": True,
             "llm_configured": not isinstance(app.state.llm, MissingLLMClient),
-            "data_dir": str(settings.data_dir),
+            "data_dir": diag["data_dir"],
+            "data_dir_source": diag["data_dir_source"],
+            "qa_profile": diag["qa_profile"],
+            "qa_profile_env": diag["qa_profile_env"],
+            "app_path": diag["app_path"],
+            "backend_port": diag["backend_port"],
+            "instance_id": diag["instance_id"],
             "model": settings.llm_model,
             "embedding_model": settings.embedding_model,
+            "version": APP_VERSION,
         }
 
     @app.get("/api/desktop-config", response_model=DesktopConfigView)

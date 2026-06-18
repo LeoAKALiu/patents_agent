@@ -27,12 +27,28 @@ const DOM_SMOKE_PROBE_INTERVAL_MS: u64 = 500;
 const REDACTED_CONFIG_FIELDS: &[&str] = &["api_key_present", "api_key_fingerprint"];
 const SECRET_PREFIX: &str = concat!("s", "k", "-");
 const SECRET_REDACTION: &str = concat!("s", "k", "-...");
+const ENV_DATA_DIR_PRIMARY: &str = "PATENTAGENT_BACKEND_DATA_DIR";
+const ENV_DATA_DIR_FALLBACK: &str = "DATA_DIR";
+const ENV_QA_PROFILE: &str = "PATENTAGENT_QA_PROFILE";
 
 #[derive(Debug, Clone, Serialize)]
 struct BackendInfo {
     base_url: String,
     health_url: String,
     port: u16,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeDiagnostics {
+    app_path: String,
+    data_dir: String,
+    data_dir_source: String,
+    backend_port: u16,
+    qa_profile: bool,
+    instance_id: String,
+    backend_health_url: String,
+    version: String,
 }
 
 struct BackendSupervisor {
@@ -58,6 +74,7 @@ impl BackendSupervisor {
 #[derive(Default)]
 struct BackendState {
     supervisor: Mutex<Option<BackendSupervisor>>,
+    diagnostics: Mutex<Option<RuntimeDiagnostics>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -133,26 +150,53 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .manage(BackendState::default())
         .setup(move |app| {
-            let data_dir = app.path().app_data_dir().unwrap_or_else(|_| {
-                std::env::temp_dir()
-                    .join("PatentAgent")
-                    .join("backend-data")
-            });
+            let app_handle = app.handle();
+            let data_dir = resolve_data_dir(app_handle);
+            let data_dir_source = data_dir_source_label();
+            let app_path = app.handle()
+                .path()
+                .app_data_dir()
+                .ok()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let is_qa = resolve_qa_profile();
+            let instance_id = generate_instance_id();
+            install_instance_lock(&data_dir, &data_dir_source);
             fs::create_dir_all(&data_dir)?;
             append_backend_startup_log(&data_dir, "setup: begin");
+            let runtime_diag = RuntimeDiagnostics {
+                app_path,
+                data_dir: data_dir.to_string_lossy().to_string(),
+                data_dir_source: data_dir_source.clone(),
+                backend_port: 0,
+                qa_profile: is_qa,
+                instance_id: instance_id.clone(),
+                backend_health_url: String::new(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            };
             match backend_root(app.handle()).and_then(|repo_root| {
                 append_backend_startup_log(
                     &data_dir,
                     &format!("backend root: {}", repo_root.display()),
                 );
-                start_backend(&repo_root, &data_dir).map_err(|err| err.to_string())
+                start_backend(&repo_root, &data_dir, &data_dir_source, is_qa, &instance_id)
+                    .map_err(|err| err.to_string())
             }) {
                 Ok(supervisor) => {
                     append_backend_startup_log(
                         &data_dir,
                         &format!("backend ready: {}", supervisor.info.health_url),
                     );
+                    let filled = RuntimeDiagnostics {
+                        backend_port: supervisor.info.port,
+                        backend_health_url: supervisor.info.health_url.clone(),
+                        ..runtime_diag
+                    };
                     let state = app.state::<BackendState>();
+                    *state
+                        .diagnostics
+                        .lock()
+                        .map_err(|_| "diagnostics lock poisoned")? = Some(filled);
                     *state
                         .supervisor
                         .lock()
@@ -179,6 +223,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_backend_base_url,
+            get_runtime_diagnostics,
             desktop_config_get,
             desktop_config_update,
             desktop_config_clear_key,
@@ -356,6 +401,15 @@ fn get_backend_base_url(state: State<'_, BackendState>) -> Result<String, String
         .map_err(|_| "backend state lock poisoned")?;
     let supervisor = guard.as_ref().ok_or("backend supervisor is not running")?;
     Ok(supervisor.info.base_url.clone())
+}
+
+#[tauri::command]
+fn get_runtime_diagnostics(state: State<'_, BackendState>) -> Result<RuntimeDiagnostics, String> {
+    let guard = state
+        .diagnostics
+        .lock()
+        .map_err(|_| "diagnostics lock poisoned")?;
+    guard.clone().ok_or_else(|| "runtime diagnostics not yet populated".to_string())
 }
 
 #[tauri::command]
@@ -566,11 +620,25 @@ fn is_backend_root(path: &Path) -> bool {
 fn start_backend(
     repo_root: &Path,
     data_dir: &Path,
+    data_dir_source: &str,
+    qa_profile: bool,
+    instance_id: &str,
 ) -> Result<BackendSupervisor, Box<dyn std::error::Error>> {
     let mut errors = Vec::new();
+    append_backend_startup_log(
+        data_dir,
+        &format!("launching backend with data_dir_source={data_dir_source}"),
+    );
     for python in python_candidates() {
         append_backend_startup_log(data_dir, &format!("trying python: {python}"));
-        match start_backend_with_python(&python, repo_root, data_dir) {
+        match start_backend_with_python(
+            &python,
+            repo_root,
+            data_dir,
+            data_dir_source,
+            qa_profile,
+            instance_id,
+        ) {
             Ok(supervisor) => return Ok(supervisor),
             Err(err) => {
                 append_backend_startup_log(data_dir, &format!("python failed: {python}: {err}"));
@@ -612,6 +680,9 @@ fn start_backend_with_python(
     python: &str,
     repo_root: &Path,
     data_dir: &Path,
+    data_dir_source: &str,
+    qa_profile: bool,
+    instance_id: &str,
 ) -> Result<BackendSupervisor, Box<dyn std::error::Error>> {
     let port = find_available_port()?;
     let base_url = format!("http://127.0.0.1:{port}");
@@ -622,27 +693,34 @@ fn start_backend_with_python(
     } else {
         format!("{}:{}", repo_root.to_string_lossy(), existing_pythonpath)
     };
-    let mut child = Command::new(&python)
-        .args([
-            "-m",
-            "uvicorn",
-            "backend.app.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            &port.to_string(),
-            "--log-level",
-            "warning",
-        ])
-        .current_dir(repo_root)
-        .env("DATA_DIR", data_dir)
-        .env("PYTHONPATH", pythonpath)
-        .env("PYTHONUNBUFFERED", "1")
-        .env("PYTHONDONTWRITEBYTECODE", "1")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
+    let data_dir_str = data_dir.to_string_lossy();
+    let mut cmd = Command::new(&python);
+    cmd.args([
+        "-m",
+        "uvicorn",
+        "backend.app.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        &port.to_string(),
+        "--log-level",
+        "warning",
+    ])
+    .current_dir(repo_root)
+    .env("DATA_DIR", data_dir_str.as_ref())
+    .env("PATENTAGENT_BACKEND_DATA_DIR", data_dir_str.as_ref())
+    .env("PATENTAGENT_QA_PROFILE", if qa_profile { "1" } else { "0" })
+    .env(
+        "PATENTAGENT_INSTANCE_ID",
+        instance_id,
+    )
+    .env("PYTHONPATH", pythonpath)
+    .env("PYTHONUNBUFFERED", "1")
+    .env("PYTHONDONTWRITEBYTECODE", "1")
+    .stdin(Stdio::null())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped());
+    let mut child = cmd.spawn()?;
 
     if let Err(err) = wait_for_health(&health_url, &mut child) {
         let _ = child.kill();
@@ -712,6 +790,103 @@ fn find_available_port() -> Result<u16, std::io::Error> {
     let port = listener.local_addr()?.port();
     drop(listener);
     Ok(port)
+}
+
+/// Resolve the directory the backend should write its data into.
+///
+/// Precedence (see ``docs/specs/patentagent-bug-fix-spec.md`` PR-7):
+/// 1. ``PATENTAGENT_BACKEND_DATA_DIR`` — the namespaced override the Tauri
+///    sidecar and QA scripts set so a packaged launch never falls through
+///    to the production application support directory.
+/// 2. ``DATA_DIR`` — legacy sidecar convention, kept as a fallback so older
+///    build pipelines keep working.
+/// 3. Tauri's ``app_data_dir`` — the production default.  We resolve it
+///    here so a missing env var still yields a sane, isolated directory
+///    (one per app identifier) instead of a relative path that would
+///    write into whatever the user's shell opened.
+fn resolve_data_dir<R: tauri::Runtime>(app_handle: &AppHandle<R>) -> PathBuf {
+    for env_name in [ENV_DATA_DIR_PRIMARY, ENV_DATA_DIR_FALLBACK] {
+        if let Ok(value) = std::env::var(env_name) {
+            if !value.is_empty() {
+                return PathBuf::from(value);
+            }
+        }
+    }
+    app_handle
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::env::temp_dir().join("PatentAgent").join("backend-data"))
+}
+
+/// Return a short label describing which source supplied the data dir.
+///
+/// Mirrors the Python ``data_dir_source`` helper so the frontend and the
+/// Tauri log lines agree on the labels.
+fn data_dir_source_label() -> String {
+    for env_name in [ENV_DATA_DIR_PRIMARY, ENV_DATA_DIR_FALLBACK] {
+        if std::env::var(env_name)
+            .map(|v| !v.is_empty())
+            .unwrap_or(false)
+        {
+            return env_name.to_string();
+        }
+    }
+    "app_data_dir".to_string()
+}
+
+/// Return whether the current launch is tagged as a QA profile run.
+///
+/// Honors the same ``PATENTAGENT_QA_PROFILE`` variable as the Python
+/// backend.  Anything that isn't ``1``/``true``/``yes``/``on`` (case
+/// insensitive) keeps QA mode off.
+fn resolve_qa_profile() -> bool {
+    match std::env::var(ENV_QA_PROFILE) {
+        Ok(raw) => matches!(
+            raw.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
+        Err(_) => false,
+    }
+}
+
+/// Return a short, opaque identifier unique to this process launch.
+///
+/// We use the process id plus a coarse timestamp so QA can correlate
+/// log lines and startup-log entries without needing a UUID dependency.
+fn generate_instance_id() -> String {
+    let pid = std::process::id();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("pid{pid}-{nanos:x}")
+}
+
+/// Drop a lockfile in the resolved data dir so QA can spot concurrent
+/// launches that share a directory.
+///
+/// The lock is informational only — we never block startup on it because
+/// the existing Tauri supervisor already prevents two supervisors from
+/// running at once on the same port.  What we do want is a forensic
+/// breadcrumb: if a QA session unexpectedly reuses a data dir, the
+/// ``source`` field tells them which env var set it.
+fn install_instance_lock(data_dir: &Path, source: &str) {
+    let lock_path = data_dir.join("instance.lock");
+    let payload = format!(
+        "{}\npid={}\nsource={}\n",
+        generate_instance_id(),
+        std::process::id(),
+        source
+    );
+    if let Some(parent) = lock_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Err(err) = fs::write(&lock_path, payload) {
+        append_backend_startup_log(
+            data_dir,
+            &format!("instance lock write failed at {}: {err}", lock_path.display()),
+        );
+    }
 }
 
 fn wait_for_health(health_url: &str, child: &mut Child) -> Result<(), String> {

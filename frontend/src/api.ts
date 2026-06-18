@@ -577,8 +577,40 @@ export interface Health {
   ok: boolean;
   llm_configured: boolean;
   data_dir: string;
+  /**
+   * Label explaining how the backend resolved `data_dir`.  Values:
+   *   - "explicit" — caller passed `data_dir` to `create_app`.
+   *   - "PATENTAGENT_BACKEND_DATA_DIR" / "DATA_DIR" — env-var source.
+   *   - "default" — Pydantic fallback (`Path("data")`).
+   *   - "app_data_dir" — Tauri production fallback (no override set).
+   */
+  data_dir_source?: string;
+  qa_profile?: boolean;
+  app_path?: string | null;
+  backend_port?: number | null;
+  instance_id?: string | null;
+  qa_profile_env?: string;
   model: string;
   embedding_model: string;
+  version?: string;
+}
+
+/**
+ * Diagnostics block returned by the Tauri `get_runtime_diagnostics`
+ * command.  Mirrors the backend `/api/health` payload but additionally
+ * carries the Tauri-resolved `app_path` and `backend_health_url` so the
+ * SystemStatusPanel can show both the Rust and Python sides of the
+ * launch without making two round trips.
+ */
+export interface RuntimeDiagnostics {
+  app_path: string;
+  data_dir: string;
+  data_dir_source: string;
+  backend_port: number;
+  qa_profile: boolean;
+  instance_id: string;
+  backend_health_url: string;
+  version: string;
 }
 
 export interface DesktopConfigView {
@@ -1342,6 +1374,28 @@ async function getTauriBackendBaseUrl(): Promise<string | null> {
       .catch(() => null);
   }
   return tauriBackendBaseUrlPromise;
+}
+
+/**
+ * Fetch the runtime diagnostics block from the Tauri sidecar.
+ *
+ * Returns `null` when the page is running outside Tauri (e.g. during
+ * `vite dev` or tests) so callers can fall back to the backend's
+ * `/api/health` payload.  The promise resolves with `null` for any
+ * failure rather than throwing — the diagnostics panel is purely
+ * informational.
+ */
+let tauriRuntimeDiagnosticsPromise: Promise<RuntimeDiagnostics | null> | null = null;
+
+export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics | null> {
+  const invoke = getTauriInvoke();
+  if (!invoke) return null;
+  if (!tauriRuntimeDiagnosticsPromise) {
+    tauriRuntimeDiagnosticsPromise = invoke<RuntimeDiagnostics>("get_runtime_diagnostics").catch(
+      () => null
+    );
+  }
+  return tauriRuntimeDiagnosticsPromise;
 }
 
 async function resolveApiUrl(url: string): Promise<string> {
