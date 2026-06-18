@@ -138,6 +138,17 @@ def test_filing_readiness_allows_technical_disclosure_reference_phrase():
     )
 
 
+def test_filing_readiness_allows_technical_generation_from_disclosure_reference():
+    package = _clean_base_package(description="根据技术交底书中记载的模型生成识别结果。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert not any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
 def test_filing_readiness_ignores_prior_art_percent_effect_context():
     package = _clean_base_package(
         description=(
@@ -249,6 +260,28 @@ def test_filing_readiness_blocks_technical_disclosure_drafting_process_phrase():
     )
 
 
+def test_filing_readiness_blocks_comma_disclosure_claims_drafting_phrase():
+    package = _clean_base_package(description="根据技术交底书，撰写权利要求书。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_blocks_comma_disclosure_spec_output_phrase():
+    package = _clean_base_package(description="根据技术交底书，输出说明书。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
 def test_filing_readiness_blocks_technical_disclosure_object_before_drafting_verb():
     package = _clean_base_package(description="根据技术交底书进行权利要求书撰写。")
 
@@ -343,6 +376,28 @@ def test_official_markdown_removes_regex_internal_trace_fragments():
     assert "根据技术交底书" not in markdown
 
 
+def test_official_markdown_removes_comma_internal_trace_fragments():
+    package = _clean_base_package(
+        claims="1. 一种方法，包括采集点云，根据技术交底书，撰写权利要求书，并生成建筑构件参数。"
+    )
+
+    markdown = official_package_to_markdown(package)
+
+    assert "1. 一种方法，包括采集点云" in markdown
+    assert "并生成建筑构件参数。" in markdown
+    assert "根据技术交底书" not in markdown
+    assert "撰写权利要求书" not in markdown
+
+
+def test_official_markdown_preserves_technical_generation_reference():
+    package = _clean_base_package(claims="1. 根据技术交底书中记载的模型生成识别结果。")
+
+    markdown = official_package_to_markdown(package)
+
+    assert "1. 根据技术交底书中记载的模型生成识别结果。" in markdown
+    assert "1.。" not in markdown
+
+
 def test_export_official_docx_cleans_pollution_and_keeps_formal_sections(tmp_path):
     output_path = tmp_path / "official.docx"
 
@@ -374,6 +429,22 @@ def test_export_official_docx_removes_regex_internal_trace_fragments(tmp_path):
     assert "1. 一种方法，包括采集点云" in text
     assert "并生成建筑构件参数。" in text
     assert "根据技术交底书" not in text
+
+
+def test_export_official_docx_removes_comma_internal_trace_fragments(tmp_path):
+    package = _clean_base_package(
+        claims="1. 一种方法，包括采集点云，根据技术交底书，输出说明书，并生成建筑构件参数。"
+    )
+    output_path = tmp_path / "official-comma-clean.docx"
+
+    export_official_docx(package, output_path)
+
+    doc = Document(output_path)
+    text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
+    assert "1. 一种方法，包括采集点云" in text
+    assert "并生成建筑构件参数。" in text
+    assert "根据技术交底书" not in text
+    assert "输出说明书" not in text
 
 
 def test_official_exports_do_not_emit_internal_contamination_markers(tmp_path):

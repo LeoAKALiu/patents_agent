@@ -40,11 +40,32 @@ _INTERNAL_TRACE_PATTERNS = (
     "主席汇总失败",
 )
 
-_INTERNAL_TRACE_REGEXES = (
-    re.compile(
-        r"根据技术交底书[^，,。；;！？!?\n]{0,30}(?:自动生成|生成|撰写|输出|补强)"
-    ),
+_TECHNICAL_DISCLOSURE_PREFIX = "根据技术交底书"
+
+_DRAFTING_ACTION_TERMS = (
+    "自动生成",
+    "生成",
+    "撰写",
+    "输出",
+    "补强",
 )
+
+_FILING_ARTIFACT_TERMS = (
+    "权利要求书",
+    "权利要求",
+    "独权",
+    "从权",
+    "说明书",
+    "摘要",
+    "正式稿",
+    "申请文件",
+    "专利文本",
+    "稿件",
+)
+
+_TECHNICAL_DISCLOSURE_BOUNDARIES = "。；;！？!?\n"
+_DRAFTING_PAIR_BOUNDARIES = "，,。；;！？!?\n"
+_DRAFTING_PAIR_MAX_GAP = 12
 
 _UNFAVORABLE_PATTERNS = (
     "可能不具备创造性",
@@ -235,7 +256,7 @@ def _scan_format_pollution(text: str, target: str) -> list[FilingReadinessIssue]
 
 def _scan_internal_traces(text: str, target: str) -> list[FilingReadinessIssue]:
     literal_matches = list(_literal_matches(_INTERNAL_TRACE_PATTERNS, text))
-    regex_matches = [match.group(0) for regex in _INTERNAL_TRACE_REGEXES for match in regex.finditer(text)]
+    disclosure_matches = _technical_disclosure_trace_matches(text)
     return [
         FilingReadinessIssue(
             category="internal_trace",
@@ -246,7 +267,7 @@ def _scan_internal_traces(text: str, target: str) -> list[FilingReadinessIssue]:
             suggestion="删除过程性表述，仅保留权利要求、说明书和附图说明内容。",
             can_auto_clean=True,
         )
-        for match in [*literal_matches, *regex_matches]
+        for match in [*literal_matches, *disclosure_matches]
     ]
 
 
@@ -318,6 +339,78 @@ def _prior_art_marker_indexes(text: str) -> list[int]:
         marker_indexes.extend(match.start() for match in re.finditer(re.escape(prior_art_marker), text))
     marker_indexes.extend(match.start() for match in _PRIOR_ART_DOCUMENT_PATTERN.finditer(text))
     return sorted(marker_indexes)
+
+
+def _technical_disclosure_trace_matches(text: str) -> list[str]:
+    return [text[start:end] for start, end in _technical_disclosure_trace_spans(text)]
+
+
+def _technical_disclosure_trace_spans(text: str) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    search_from = 0
+    while True:
+        start = text.find(_TECHNICAL_DISCLOSURE_PREFIX, search_from)
+        if start < 0:
+            return spans
+        clause_end = _next_technical_disclosure_boundary(text, start)
+        clause = text[start:clause_end]
+        trace_end = _technical_disclosure_trace_end(clause)
+        if trace_end is not None:
+            spans.append((start, start + trace_end))
+        search_from = start + len(_TECHNICAL_DISCLOSURE_PREFIX)
+
+
+def _next_technical_disclosure_boundary(text: str, start: int) -> int:
+    boundary_positions = [
+        text.find(boundary, start)
+        for boundary in _TECHNICAL_DISCLOSURE_BOUNDARIES
+        if text.find(boundary, start) >= 0
+    ]
+    return min(boundary_positions, default=len(text))
+
+
+def _technical_disclosure_trace_end(clause: str) -> int | None:
+    action_spans = _term_spans(_DRAFTING_ACTION_TERMS, clause)
+    artifact_spans = _term_spans(_FILING_ARTIFACT_TERMS, clause)
+    completions = [
+        max(action_end, artifact_end)
+        for action_start, action_end in action_spans
+        for artifact_start, artifact_end in artifact_spans
+        if _drafting_action_and_artifact_are_associated(
+            clause,
+            (action_start, action_end),
+            (artifact_start, artifact_end),
+        )
+    ]
+    return min(completions, default=None)
+
+
+def _term_spans(terms: Iterable[str], text: str) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    for term in sorted(terms, key=len, reverse=True):
+        for match in re.finditer(re.escape(term), text):
+            span = match.span()
+            if not any(_spans_overlap(span, existing) for existing in spans):
+                spans.append(span)
+    return sorted(spans)
+
+
+def _spans_overlap(first: tuple[int, int], second: tuple[int, int]) -> bool:
+    return first[0] < second[1] and second[0] < first[1]
+
+
+def _drafting_action_and_artifact_are_associated(
+    clause: str,
+    action_span: tuple[int, int],
+    artifact_span: tuple[int, int],
+) -> bool:
+    if action_span[0] <= artifact_span[0]:
+        gap = clause[action_span[1] : artifact_span[0]]
+    else:
+        gap = clause[artifact_span[1] : action_span[0]]
+    if any(boundary in gap for boundary in _DRAFTING_PAIR_BOUNDARIES):
+        return False
+    return len(gap.strip()) <= _DRAFTING_PAIR_MAX_GAP
 
 
 def _scan_subject_matter_risks(text: str, target: str) -> list[FilingReadinessIssue]:
@@ -442,13 +535,29 @@ def _clean_internal_trace_fragments(line: str) -> str:
             "，",
             cleaned,
         )
-    for regex in _INTERNAL_TRACE_REGEXES:
-        cleaned = re.sub(
-            rf"[，,；;]?\s*(?:{regex.pattern})[^，,；;。]*[，,；;]?",
-            "，",
-            cleaned,
-        )
+    cleaned = _remove_internal_trace_spans(cleaned, _technical_disclosure_trace_spans(cleaned))
     return _normalize_punctuation(cleaned)
+
+
+def _remove_internal_trace_spans(text: str, spans: list[tuple[int, int]]) -> str:
+    cleaned = text
+    for start, end in reversed(spans):
+        removal_start, removal_end = _expand_internal_trace_removal(cleaned, start, end)
+        cleaned = f"{cleaned[:removal_start]}，{cleaned[removal_end:]}"
+    return cleaned
+
+
+def _expand_internal_trace_removal(text: str, start: int, end: int) -> tuple[int, int]:
+    removal_start = start
+    while removal_start > 0 and text[removal_start - 1].isspace():
+        removal_start -= 1
+    if removal_start > 0 and text[removal_start - 1] in "，,；;":
+        removal_start -= 1
+    while end < len(text) and text[end].isspace():
+        end += 1
+    if end < len(text) and text[end] in "，,；;":
+        end += 1
+    return removal_start, end
 
 
 def _normalize_punctuation(text: str) -> str:
