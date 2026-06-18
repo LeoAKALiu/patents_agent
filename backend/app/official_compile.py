@@ -40,6 +40,9 @@ EMPTY_OFFICIAL_FIELD_RE = re.compile(
     re.IGNORECASE,
 )
 JSON_WRAPPER_RE = re.compile(r"^[{}\[\],]+$")
+CHINESE_LABEL_RE = re.compile(
+    r"""^\s*["']?(撰写说明(?:与支撑不足提示)?|支撑不足提示)["']?\s*[:：]"""
+)
 
 
 def source_draft_hash(package: DraftPackage) -> str:
@@ -311,9 +314,12 @@ def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
         return {"category": "format_pollution", "pattern": "markdown_fence"}
     if re.search(r"^好的，下面.*撰写", line):
         return {"category": "ai_preface", "pattern": "好的，下面"}
-    for pattern in ("support_gap", "support_gaps", "支撑不足提示", "撰写说明"):
+    for pattern in ("support_gap", "support_gaps"):
         if pattern in comparable_line:
             return {"category": "support_gap", "pattern": pattern}
+    chinese_match = CHINESE_LABEL_RE.match(line)
+    if chinese_match:
+        return {"category": "support_gap", "pattern": chinese_match.group(1)}
     if line.startswith("```"):
         return {"category": "format_pollution", "pattern": "markdown_fence"}
     if re.match(r"^#{1,6}\s+", line):

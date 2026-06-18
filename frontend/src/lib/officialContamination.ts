@@ -11,8 +11,6 @@ export type ContaminationMatch = { section: string; pattern: string };
 const OFFICIAL_CONTAMINATION_PATTERNS: ReadonlyArray<{ pattern: string; label: string }> = [
   { pattern: "support_gap", label: "support_gap" },
   { pattern: "support_gaps", label: "support_gaps" },
-  { pattern: "支撑不足", label: "支撑不足" },
-  { pattern: "撰写说明", label: "撰写说明" },
   { pattern: "generation_logs", label: "generation_logs" },
   { pattern: "image_prompt", label: "image_prompt" },
   { pattern: "attorney_memo", label: "attorney_memo" },
@@ -30,6 +28,7 @@ const OFFICIAL_CONTAMINATION_PATTERNS: ReadonlyArray<{ pattern: string; label: s
 const OFFICIAL_INTERNAL_FIELD_RE = /(?:^|\n)\s*(image_prompt|prompt|diagram|generation_logs|attorney_memo|system_trace|official_safe_patches)\s*[:：=]/i;
 const OFFICIAL_MERMAID_RE = /^(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt)\b/i;
 const OFFICIAL_FENCE_RE = /```/;
+const CHINESE_LABEL_RE = /^\s*["']?(撰写说明(?:与支撑不足提示)?|支撑不足提示)["']?\s*[:：]/;
 
 export function findOfficialContaminationMarkers(
   packageValue: OfficialDraftPackage,
@@ -61,6 +60,9 @@ export function findOfficialContaminationMarkers(
       }
       if (OFFICIAL_MERMAID_RE.test(trimmed)) {
         matches.push({ section, pattern: "mermaid" });
+      }
+      if (CHINESE_LABEL_RE.test(line)) {
+        matches.push({ section, pattern: "撰写说明与支撑不足提示" });
       }
     }
   }
