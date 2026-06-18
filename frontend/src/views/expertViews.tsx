@@ -26,7 +26,7 @@ const groupDescriptions: Record<string, { description: string; status: string; t
     tone: "info",
   },
   invention: {
-    description: "护城河地图和候选分案点。该内容只进入内部策略稿。",
+    description: "护城河地图和候选分案点。该内容只进入内部工作稿。",
     status: "内部策略",
     tone: "warning",
   },

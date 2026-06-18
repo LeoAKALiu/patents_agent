@@ -167,7 +167,7 @@ export function FilingReadinessView({
 
       <SectionHead
         title="提交成熟度"
-        description={project?.package ? "检查官方提交导出、内部策略稿和申请文本中的占位符、敏感表述与高风险命中项。" : "生成申请文本后可运行提交成熟度检查。"}
+        description={project?.package ? "检查官方提交导出、内部工作稿和申请文本中的占位符、敏感表述与高风险命中项。" : "生成申请文本后可运行提交成熟度检查。"}
         actions={(
           <button
             className="btn btn-primary"
@@ -181,7 +181,7 @@ export function FilingReadinessView({
         )}
       />
 
-      <SettingsGroup title="导出门禁" description="正式提交稿、内部策略稿与检查报告分离展示，避免把内部材料混进正式稿。">
+      <SettingsGroup title="导出门禁" description="正式提交稿、内部工作稿与检查报告分离展示，避免把内部材料混进正式稿。">
         {project && canExport ? (
           <div className="grid gap-3">
             {report?.status === "high_risk" && (
@@ -249,7 +249,7 @@ export function FilingReadinessView({
               />
               <InfoCard
                 icon={<Info size={18} />}
-                title="内部策略稿"
+                title="内部工作稿"
                 description="仅供内部复核，可能含护城河、风险说明和策略备注。"
                 tone="info"
                 meta={<span className="tag tag-info">内部材料</span>}

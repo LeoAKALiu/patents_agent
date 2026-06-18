@@ -328,6 +328,33 @@ def test_official_export_requires_recompile_when_draft_changes(tmp_path):
     assert "Official draft compile is required for the current draft" in response.json()["detail"]
 
 
+def test_locked_official_gate_refuses_formal_but_keeps_legacy_internal(tmp_path):
+    # PR-2: while the formal export gate is locked (no compile, no review),
+    # the official endpoints must refuse (409) and only the legacy /export.*
+    # internal-working-draft endpoints may serve (200). This proves a locked
+    # gate cannot hand out a formal draft via the legacy path — the legacy
+    # export is the internal working draft, never the 正式提交稿.
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _draft_package())
+
+    # Gate is locked: no official compile run, no post-draft review yet.
+    for ext in ("docx", "md"):
+        official = client.get(f"/api/projects/{project_id}/official-export.{ext}")
+        assert official.status_code == 409, ext
+        assert "Official draft compile is required for the current draft" in official.json()["detail"]
+
+    # Legacy internal-working-draft endpoints remain available (the internal path).
+    legacy_md = client.get(f"/api/projects/{project_id}/export.md")
+    assert legacy_md.status_code == 200
+    assert "权利要求书" in legacy_md.text
+
+    legacy_docx = client.get(f"/api/projects/{project_id}/export.docx")
+    assert legacy_docx.status_code == 200
+    assert legacy_docx.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+
 def _create_project_with_package(client: TestClient, package: DraftPackage) -> str:
     project_id = client.post(
         "/api/projects",

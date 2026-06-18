@@ -103,7 +103,7 @@ export function ExportView({
 
       <SettingsGroup
         title="导出边界"
-        description="正式提交稿、内部策略稿和风险说明使用不同容器，避免内部会审内容进入可提交文件。"
+        description="正式提交稿、内部工作稿和风险说明使用不同容器，避免内部会审内容进入可提交文件。"
       >
         <div className="boundary-grid">
           <BoundaryCard
@@ -113,7 +113,7 @@ export function ExportView({
           />
           <BoundaryCard
             tone="internal"
-            title="内部策略稿"
+            title="内部工作稿"
             description="保留会审结论、护城河、支撑缺口和补强建议，仅供内部复核，不作为提交稿。"
           />
           <BoundaryCard
@@ -200,13 +200,18 @@ export function ExportView({
 
       <SettingsGroup
         title="导出文件"
-        description="正式稿导出受门禁控制；内部材料始终带有策略语境，请不要直接提交。"
+        description="正式提交稿受门禁控制；内部工作稿始终带有策略语境，不可作为正式提交稿。"
       >
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div
+        className="grid grid-cols-2 sm:grid-cols-3 gap-4"
+        aria-label="正式提交稿导出"
+        data-testid="official-export-grid"
+      >
         <a
           aria-disabled={!officialAllowed}
           className={exportLinkClass(officialAllowed, true)}
           href={officialAllowed && project ? officialExportUrl(project.id, "docx") : undefined}
+          data-testid="official-export-docx"
         >
           <Download size={18} />
           <span>正式提交稿 DOCX</span>
@@ -215,6 +220,7 @@ export function ExportView({
           aria-disabled={!officialAllowed}
           className={exportLinkClass(officialAllowed, true)}
           href={officialAllowed && project ? officialExportUrl(project.id, "md") : undefined}
+          data-testid="official-export-md"
         >
           <Download size={18} />
           <span>正式提交稿 MD</span>
@@ -251,6 +257,22 @@ export function ExportView({
             </button>
           </>
         )}
+      </div>
+
+      <div className="callout callout-warn" data-testid="internal-export-notice">
+        <AlertTriangle size={18} aria-hidden="true" />
+        <div>
+          <strong>以下为内部工作稿</strong>
+          <p>
+            内部工作稿未经过正式稿清污与成稿会审，可能包含策略备注、护城河、支撑缺口或绘图素材，仅供内部复核，不可作为正式提交稿。
+          </p>
+        </div>
+      </div>
+      <div
+        className="grid grid-cols-2 sm:grid-cols-3 gap-4"
+        aria-label="内部工作稿导出"
+        data-testid="internal-export-grid"
+      >
         {[
           ["docx", "内部工作稿 DOCX"],
           ["md", "内部工作稿 Markdown"],
@@ -262,9 +284,10 @@ export function ExportView({
             className={exportLinkClass(enabled)}
             href={enabled && project ? exportUrl(project.id, kind as "docx" | "md" | "mmd" | "prompt") : undefined}
             key={kind}
+            data-testid={`internal-export-${kind}`}
           >
             <Download size={18} />
-            <span>{label}</span>
+            <span>内部工作稿 {label}</span>
           </a>
         ))}
       </div>

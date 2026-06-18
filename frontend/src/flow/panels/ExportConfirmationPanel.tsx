@@ -122,9 +122,13 @@ export function ExportConfirmationPanel({
           <Download size={18} />
           <span>正式提交稿 MD</span>
         </a>
-        <a className="export-link" href={exportUrl(project.id, "md")}>
+        <a
+          className="export-link"
+          href={exportUrl(project.id, "md")}
+          data-testid="internal-export-md"
+        >
           <Download size={18} />
-          <span>内部策略稿 MD</span>
+          <span>内部工作稿 MD</span>
         </a>
         {filingReport && (
           <a className="export-link" href={filingReadinessReportUrl(project.id, filingReport.id)}>
