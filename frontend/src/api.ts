@@ -380,6 +380,30 @@ export interface ProjectRecord {
   package: DraftPackage | null;
   created_at: string;
   updated_at: string;
+  applicant: string;
+  inventors: string;
+  technical_field: string;
+  background: string;
+  pain_point: string;
+  technical_solution: string;
+  innovation: string;
+  embodiments: string;
+  beneficial_effects: string;
+}
+
+export interface ProjectUpdate {
+  name?: string;
+  draft_text?: string;
+  patent_type?: PatentType;
+  applicant?: string;
+  inventors?: string;
+  technical_field?: string;
+  background?: string;
+  pain_point?: string;
+  technical_solution?: string;
+  innovation?: string;
+  embodiments?: string;
+  beneficial_effects?: string;
 }
 
 export interface ProjectMaterial {
@@ -524,10 +548,34 @@ export interface DisclosureRun {
   retry_of?: string | null;
 }
 
+export interface ExportReadiness {
+  export_allowed: boolean;
+  draft_required: boolean;
+  official_compile_required: boolean;
+  post_draft_review_required: boolean;
+  next_action: "generate_draft" | "run_official_compile" | "run_post_draft_review" | "export_ready";
+  reason: string;
+  compile_run_id?: string;
+  review_run_id?: string;
+  official_package_hash?: string;
+  current_source_draft_hash?: string;
+  has_review_run?: boolean;
+  review_export_allowed?: boolean;
+}
+
 export interface Health {
   ok: boolean;
   llm_configured: boolean;
   data_dir: string;
+  model: string;
+  embedding_model: string;
+}
+
+export interface SystemInfo {
+  app_version: string;
+  data_dir: string;
+  source_kind: "tauri" | "web";
+  python_version: string;
   model: string;
   embedding_model: string;
 }
@@ -784,6 +832,10 @@ export async function getHealth(): Promise<Health> {
   return request<Health>("/api/health");
 }
 
+export async function getSystemInfo(): Promise<SystemInfo> {
+  return request<SystemInfo>("/api/system/info");
+}
+
 export async function getDesktopConfig(): Promise<DesktopConfigView> {
   return request<DesktopConfigView>("/api/desktop-config");
 }
@@ -893,15 +945,35 @@ export async function createProject(
   name: string,
   draftText: string,
   patentType: PatentType = PATENT_TYPE_INVENTION,
+  metadata?: Partial<ProjectUpdate>,
 ): Promise<ProjectRecord> {
+  const body: Record<string, unknown> = {
+    name,
+    draft_text: draftText,
+    patent_type: patentType,
+  };
+  if (metadata) {
+    for (const [key, value] of Object.entries(metadata)) {
+      if (value !== undefined && value !== "") {
+        body[key] = value;
+      }
+    }
+  }
   return request<ProjectRecord>("/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name,
-      draft_text: draftText,
-      patent_type: patentType,
-    }),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateProject(
+  projectId: string,
+  updates: ProjectUpdate,
+): Promise<ProjectRecord> {
+  return request<ProjectRecord>(`/api/projects/${projectId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
   });
 }
 
@@ -1190,6 +1262,10 @@ export async function retryFormulaRun(projectId: string, runId: string): Promise
 
 export function formulaMarkdownUrl(projectId: string, runId: string): string {
   return `/api/projects/${projectId}/formula-runs/${runId}/latex.md`;
+}
+
+export async function getExportReadiness(projectId: string): Promise<ExportReadiness> {
+  return request<ExportReadiness>(`/api/projects/${projectId}/export-readiness`);
 }
 
 export async function startOfficialCompileRun(projectId: string): Promise<OfficialCompileRun> {

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import time
 import uuid
 from itertools import combinations
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -116,6 +118,7 @@ from backend.app.schemas import (
     CorpusImportJobCreate,
     ProjectMaterial,
     ProjectCreate,
+    ProjectUpdate,
     ProjectRecord,
     RuntimeFailure,
     SectionType,
@@ -152,6 +155,48 @@ def _enforce_desktop_config_origin(request: Request) -> None:
     origin = request.headers.get("origin")
     if origin and origin not in LOCAL_RENDERER_ORIGINS:
         raise HTTPException(status_code=403, detail="Forbidden desktop config origin.")
+
+
+def _ascii_download_filename(raw: str) -> str:
+    """Extract the ASCII subset of a filename, preserving the extension.
+
+    Keeps alphanumeric chars, dots, hyphens, underscores, and spaces.
+    Strips leading/trailing whitespace. Falls back to ``download`` (with
+    the original extension when present) for names whose stem contains no
+    ASCII alphanumeric characters — this avoids producing bare fallbacks
+    like ``.docx`` or ``-.md`` for pure-CJK project names.
+    """
+    ascii_chars = [ch for ch in raw if ch.isascii() and (ch.isalnum() or ch in "._- ")]
+    stripped = "".join(ascii_chars).strip()
+    if not stripped or not any(ch.isalnum() for ch in stripped):
+        # Entire name is non-ASCII or empty — use a safe fallback.
+        if "." in raw:
+            ext = raw.rsplit(".", 1)[-1]
+            ext_clean = "".join(ch for ch in ext if ch.isalnum())
+            if ext_clean:
+                return f"download.{ext_clean}"
+        return "download"
+    # When the stem (before the last dot) has no alphanumeric ASCII content,
+    # the fallback is effectively a bare extension like ``.md``.  Prepend
+    # ``download`` to give clients a useful filename.
+    if "." in stripped:
+        stem_part = stripped.rsplit(".", 1)[0]
+        if not any(ch.isalnum() for ch in stem_part):
+            ext = stripped.rsplit(".", 1)[1]
+            return f"download.{ext}"
+    return stripped
+
+
+def _content_disposition_header(filename: str) -> dict[str, str]:
+    """Build a Content-Disposition header dict with UTF-8 encoded filename.
+
+    Returns both an ASCII fallback (``filename=``) and a UTF-8 encoded
+    filename (``filename*=UTF-8''...``) for maximum browser compatibility.
+    """
+    safe = filename.replace("/", "_").replace("\\", "_").strip()
+    ascii_fallback = _ascii_download_filename(safe)
+    encoded = quote(safe)
+    return {"Content-Disposition": f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{encoded}'}
 
 
 def create_app(
@@ -404,6 +449,15 @@ def create_app(
             name=payload.name,
             draft_text=payload.draft_text,
             patent_type=payload.patent_type,
+            applicant=payload.applicant,
+            inventors=payload.inventors,
+            technical_field=payload.technical_field,
+            background=payload.background,
+            pain_point=payload.pain_point,
+            technical_solution=payload.technical_solution,
+            innovation=payload.innovation,
+            embodiments=payload.embodiments,
+            beneficial_effects=payload.beneficial_effects,
         )
         stored = store.create_project(project)
         return stored.model_dump(mode="json")
@@ -412,6 +466,17 @@ def create_app(
     def get_project(project_id: str) -> dict:
         project = _require_project(store, project_id)
         return project.model_dump(mode="json")
+
+    @app.put("/api/projects/{project_id}")
+    def update_project(project_id: str, payload: ProjectUpdate) -> dict:
+        project = _require_project(store, project_id)
+        updates = payload.model_dump(exclude_unset=True)
+        if not updates:
+            return project.model_dump(mode="json")
+        updated = store.update_project(project_id, updates)
+        if updated is None:
+            raise HTTPException(status_code=404, detail="Project not found.")
+        return updated.model_dump(mode="json")
 
     @app.delete("/api/projects/{project_id}")
     def delete_project(project_id: str) -> dict:
@@ -1526,6 +1591,79 @@ def create_app(
             raise HTTPException(status_code=404, detail="Official compile run not found.")
         return PlainTextResponse(official_compile_run_to_markdown(run), media_type="text/markdown; charset=utf-8")
 
+    @app.get("/api/projects/{project_id}/export-readiness")
+    def export_readiness(project_id: str) -> dict:
+        """Return structured export readiness state.
+
+        After official compile, the compile report may show ``completed`` with
+        ``blocked_items=none``, which can mislead users into thinking export is
+        ready.  This endpoint exposes the full gate chain so the UI can show a
+        specific lock reason and CTA instead of a generic 409 on the export link.
+        """
+        project = _require_project(store, project_id)
+        package = project.package
+        if not package:
+            return {
+                "export_allowed": False,
+                "draft_required": True,
+                "official_compile_required": False,
+                "post_draft_review_required": False,
+                "next_action": "generate_draft",
+                "reason": "请先生成专利初稿后再导出。",
+            }
+        current_source_hash = source_draft_hash(package)
+        compile_run = store.get_latest_completed_official_compile_run(project_id)
+        compile_current = (
+            compile_run
+            and compile_run.official_package
+            and compile_run.source_draft_hash == current_source_hash
+        )
+        if not compile_current:
+            return {
+                "export_allowed": False,
+                "draft_required": False,
+                "official_compile_required": True,
+                "post_draft_review_required": False,
+                "next_action": "run_official_compile",
+                "reason": "当前初稿尚未编译为正式稿。请先生成正式稿（清除内部痕迹后生成可提交版本）。",
+                "current_source_draft_hash": current_source_hash,
+            }
+        latest_matching_review = next(
+            (
+                run
+                for run in store.list_post_draft_review_runs(project_id)
+                if run.status == "completed"
+                and run.draft_package_hash == current_source_hash
+                and run.official_compile_run_id == compile_run.id
+                and run.official_package_hash == compile_run.official_package_hash
+            ),
+            None,
+        )
+        if not latest_matching_review or not latest_matching_review.export_allowed:
+            return {
+                "export_allowed": False,
+                "draft_required": False,
+                "official_compile_required": False,
+                "post_draft_review_required": True,
+                "next_action": "run_post_draft_review",
+                "reason": "正式稿编译已完成，但需通过成稿后多智能体会审后方可导出。会审将检查权利要求质量、说明书清洁度、技术硬度和内部痕迹，通过后即可解锁正式导出。",
+                "compile_run_id": compile_run.id,
+                "official_package_hash": compile_run.official_package_hash,
+                "current_source_draft_hash": current_source_hash,
+                "has_review_run": latest_matching_review is not None,
+                "review_export_allowed": latest_matching_review.export_allowed if latest_matching_review else False,
+            }
+        return {
+            "export_allowed": True,
+            "draft_required": False,
+            "official_compile_required": False,
+            "post_draft_review_required": False,
+            "next_action": "export_ready",
+            "reason": "正式导出已就绪。请专业人员最终复核后提交。",
+            "compile_run_id": compile_run.id,
+            "review_run_id": latest_matching_review.id,
+        }
+
     @app.get("/api/projects/{project_id}/official-export.docx")
     def export_project_official_docx(project_id: str) -> FileResponse:
         project = _require_project(store, project_id)
@@ -1535,47 +1673,71 @@ def create_app(
             compile_run.official_package,
             settings.data_dir / "exports" / f"{project.id}-official.docx",
         )
-        return FileResponse(
+        response = FileResponse(
             output_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             filename=f"{project.name}-正式提交稿.docx",
         )
+        response.headers["Content-Disposition"] = _content_disposition_header(
+            f"{project.name}-正式提交稿.docx"
+        )["Content-Disposition"]
+        return response
 
     @app.get("/api/projects/{project_id}/official-export.md")
     def export_project_official_markdown(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
         compile_run = _require_official_export_gate(store, project_id, package)
-        return PlainTextResponse(official_package_to_markdown(compile_run.official_package), media_type="text/markdown; charset=utf-8")
+        return PlainTextResponse(
+            official_package_to_markdown(compile_run.official_package),
+            media_type="text/markdown; charset=utf-8",
+            headers=_content_disposition_header(f"{project.name}-正式提交稿.md"),
+        )
 
     @app.get("/api/projects/{project_id}/export.docx")
     def export_project_docx(project_id: str) -> FileResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
         output_path = export_docx(package, settings.data_dir / "exports" / f"{project.id}.docx")
-        return FileResponse(
+        response = FileResponse(
             output_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             filename=f"{project.name}.docx",
         )
+        response.headers["Content-Disposition"] = _content_disposition_header(
+            f"{project.name}.docx"
+        )["Content-Disposition"]
+        return response
 
     @app.get("/api/projects/{project_id}/export.md")
     def export_project_markdown(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        return PlainTextResponse(package_to_markdown(package), media_type="text/markdown; charset=utf-8")
+        return PlainTextResponse(
+            package_to_markdown(package),
+            media_type="text/markdown; charset=utf-8",
+            headers=_content_disposition_header(f"{project.name}.md"),
+        )
 
     @app.get("/api/projects/{project_id}/diagram.mmd")
     def export_project_mermaid(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        return PlainTextResponse(package.mermaid, media_type="text/plain; charset=utf-8")
+        return PlainTextResponse(
+            package.mermaid,
+            media_type="text/plain; charset=utf-8",
+            headers=_content_disposition_header(f"{project.name}.mmd"),
+        )
 
     @app.get("/api/projects/{project_id}/image-prompt.md")
     def export_project_image_prompt(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        return PlainTextResponse(package.image_prompt, media_type="text/markdown; charset=utf-8")
+        return PlainTextResponse(
+            package.image_prompt,
+            media_type="text/markdown; charset=utf-8",
+            headers=_content_disposition_header(f"{project.name}-绘图提示词.md"),
+        )
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/export.docx")
     def export_disclosure_run_docx(project_id: str, run_id: str) -> FileResponse:
@@ -1583,18 +1745,26 @@ def create_app(
         run = _require_disclosure_run(store, project_id, run_id)
         package = _require_disclosure_package(run)
         output_path = export_disclosure_docx(package, Path(run.run_dir) / "disclosure.docx", Path(run.run_dir))
-        return FileResponse(
+        response = FileResponse(
             output_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             filename=f"{project.name}-技术交底书.docx",
         )
+        response.headers["Content-Disposition"] = _content_disposition_header(
+            f"{project.name}-技术交底书.docx"
+        )["Content-Disposition"]
+        return response
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/export.md")
     def export_disclosure_run_markdown(project_id: str, run_id: str) -> PlainTextResponse:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         run = _require_disclosure_run(store, project_id, run_id)
         package = _require_disclosure_package(run)
-        return PlainTextResponse(disclosure_to_markdown(package), media_type="text/markdown; charset=utf-8")
+        return PlainTextResponse(
+            disclosure_to_markdown(package),
+            media_type="text/markdown; charset=utf-8",
+            headers=_content_disposition_header(f"{project.name}-技术交底书.md"),
+        )
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/diagram.mmd")
     def export_disclosure_run_mermaid(project_id: str, run_id: str) -> PlainTextResponse:

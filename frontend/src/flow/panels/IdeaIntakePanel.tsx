@@ -21,7 +21,21 @@ export interface IdeaIntakePanelProps {
   busyElapsedSeconds: number;
   fixedGoalMode?: PatentGoalMode;
   initialIntakeMode?: "idea" | "external";
-  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) => Promise<void>;
+  onCreateIdeaProject: (payload: {
+    name: string;
+    idea: string;
+    mode: PatentGoalMode;
+    patentType: PatentType;
+    applicant?: string;
+    inventors?: string;
+    technical_field?: string;
+    background?: string;
+    pain_point?: string;
+    technical_solution?: string;
+    innovation?: string;
+    embodiments?: string;
+    beneficial_effects?: string;
+  }) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
   onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
@@ -59,6 +73,16 @@ export function IdeaIntakePanel({
   const [mode, setMode] = useState<PatentGoalMode>("stable");
   const [patentType, setPatentType] = useState<PatentType>(fixedGoalMode === "utility" ? "utility_model" : "invention");
   const [intakeMode, setIntakeMode] = useState<"idea" | "external">(initialIntakeMode ?? "idea");
+  const [showMetadata, setShowMetadata] = useState(false);
+  const [applicant, setApplicant] = useState(project?.applicant ?? "");
+  const [inventors, setInventors] = useState(project?.inventors ?? "");
+  const [technicalField, setTechnicalField] = useState(project?.technical_field ?? "");
+  const [background, setBackground] = useState(project?.background ?? "");
+  const [painPoint, setPainPoint] = useState(project?.pain_point ?? "");
+  const [technicalSolution, setTechnicalSolution] = useState(project?.technical_solution ?? "");
+  const [innovation, setInnovation] = useState(project?.innovation ?? "");
+  const [embodiments, setEmbodiments] = useState(project?.embodiments ?? "");
+  const [beneficialEffects, setBeneficialEffects] = useState(project?.beneficial_effects ?? "");
   const canSubmit = Boolean(name.trim() && idea.trim() && !project);
   const effectiveMode = fixedGoalMode ?? mode;
   const effectivePatentType: PatentType = fixedGoalMode === "utility" ? "utility_model" : patentType;
@@ -87,7 +111,21 @@ export function IdeaIntakePanel({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
-    await onCreateIdeaProject({ name: name.trim(), idea: idea.trim(), mode: effectiveMode, patentType: effectivePatentType });
+    await onCreateIdeaProject({
+      name: name.trim(),
+      idea: idea.trim(),
+      mode: effectiveMode,
+      patentType: effectivePatentType,
+      applicant: applicant.trim() || undefined,
+      inventors: inventors.trim() || undefined,
+      technical_field: technicalField.trim() || undefined,
+      background: background.trim() || undefined,
+      pain_point: painPoint.trim() || undefined,
+      technical_solution: technicalSolution.trim() || undefined,
+      innovation: innovation.trim() || undefined,
+      embodiments: embodiments.trim() || undefined,
+      beneficial_effects: beneficialEffects.trim() || undefined,
+    });
   }
 
   useEffect(() => {
@@ -182,6 +220,100 @@ export function IdeaIntakePanel({
                 </div>
               </div>
             </div>
+
+            {/* Structured metadata fields */}
+            {!project && (
+              <div className="settings-group">
+                <div className="settings-group-header">
+                  <h3>结构化元数据（可选）</h3>
+                  <p>填写以下字段可提升后续发明点提炼精度和说明书生成质量。所有字段均为可选，可留空由系统自动生成。</p>
+                </div>
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => setShowMetadata((v) => !v)}
+                >
+                  {showMetadata ? "收起元数据字段" : "展开元数据字段"}
+                </button>
+                {showMetadata && (
+                  <div className="guided-field-grid" style={{ marginTop: "0.75rem" }}>
+                    <label className="field">
+                      <span>申请人</span>
+                      <input
+                        value={applicant}
+                        onChange={(event) => setApplicant(event.target.value)}
+                        placeholder="例如：焕城智慧科技（济南）有限公司"
+                      />
+                    </label>
+                    <label className="field">
+                      <span>发明人</span>
+                      <input
+                        value={inventors}
+                        onChange={(event) => setInventors(event.target.value)}
+                        placeholder="例如：刘博"
+                      />
+                    </label>
+                    <label className="field field-wide">
+                      <span>技术领域</span>
+                      <input
+                        value={technicalField}
+                        onChange={(event) => setTechnicalField(event.target.value)}
+                        placeholder="例如：计算机视觉、建筑信息建模"
+                      />
+                    </label>
+                    <label className="field field-wide">
+                      <span>背景技术</span>
+                      <textarea
+                        value={background}
+                        onChange={(event) => setBackground(event.target.value)}
+                        placeholder="描述现有技术的不足和行业痛点..."
+                      />
+                    </label>
+                    <label className="field field-wide">
+                      <span>技术痛点</span>
+                      <textarea
+                        value={painPoint}
+                        onChange={(event) => setPainPoint(event.target.value)}
+                        placeholder="本发明要解决的核心问题..."
+                      />
+                    </label>
+                    <label className="field field-wide">
+                      <span>技术方案</span>
+                      <textarea
+                        value={technicalSolution}
+                        onChange={(event) => setTechnicalSolution(event.target.value)}
+                        placeholder="描述技术方案的详细内容..."
+                      />
+                    </label>
+                    <label className="field field-wide">
+                      <span>创新点</span>
+                      <textarea
+                        value={innovation}
+                        onChange={(event) => setInnovation(event.target.value)}
+                        placeholder="与现有技术的区别和核心创新..."
+                      />
+                    </label>
+                    <label className="field field-wide">
+                      <span>实施例</span>
+                      <textarea
+                        value={embodiments}
+                        onChange={(event) => setEmbodiments(event.target.value)}
+                        placeholder="具体的实施方式示例..."
+                      />
+                    </label>
+                    <label className="field field-wide">
+                      <span>有益效果</span>
+                      <textarea
+                        value={beneficialEffects}
+                        onChange={(event) => setBeneficialEffects(event.target.value)}
+                        placeholder="本发明带来的技术效果和优势..."
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+
             {fixedGoalMode !== "utility" && (
               <div className="settings-group">
                 <div className="settings-group-header">

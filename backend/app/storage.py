@@ -288,8 +288,13 @@ class SQLiteStore:
         with self.connection:
             self.connection.execute(
                 """
-                insert into projects(id, name, draft_text, patent_type, package_json)
-                values (?, ?, ?, ?, ?)
+                insert into projects(
+                    id, name, draft_text, patent_type, package_json,
+                    applicant, inventors, technical_field, background,
+                    pain_point, technical_solution, innovation, embodiments,
+                    beneficial_effects
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     project.id,
@@ -299,6 +304,15 @@ class SQLiteStore:
                     json.dumps(project.package.model_dump(mode="json"), ensure_ascii=False)
                     if project.package
                     else None,
+                    project.applicant,
+                    project.inventors,
+                    project.technical_field,
+                    project.background,
+                    project.pain_point,
+                    project.technical_solution,
+                    project.innovation,
+                    project.embodiments,
+                    project.beneficial_effects,
                 ),
             )
         return self.get_project(project.id) or project
@@ -330,6 +344,44 @@ class SQLiteStore:
                 self.connection.execute(f"delete from {table} where project_id = ?", (project_id,))
             cursor = self.connection.execute("delete from projects where id = ?", (project_id,))
         return cursor.rowcount > 0
+
+    def update_project(self, project_id: str, updates: dict) -> ProjectRecord | None:
+        project = self.get_project(project_id)
+        if project is None:
+            return None
+        field_map = {
+            "name": "name",
+            "draft_text": "draft_text",
+            "patent_type": "patent_type",
+            "applicant": "applicant",
+            "inventors": "inventors",
+            "technical_field": "technical_field",
+            "background": "background",
+            "pain_point": "pain_point",
+            "technical_solution": "technical_solution",
+            "innovation": "innovation",
+            "embodiments": "embodiments",
+            "beneficial_effects": "beneficial_effects",
+        }
+        set_clauses = []
+        values = []
+        for field, col in field_map.items():
+            if field in updates and updates[field] is not None:
+                val = updates[field]
+                if field == "patent_type":
+                    val = _patent_type_to_db(val)
+                set_clauses.append(f"{col} = ?")
+                values.append(val)
+        if not set_clauses:
+            return project
+        set_clauses.append("updated_at = current_timestamp")
+        values.append(project_id)
+        with self.connection:
+            self.connection.execute(
+                f"update projects set {', '.join(set_clauses)} where id = ?",
+                values,
+            )
+        return self.get_project(project_id)
 
     def update_project_package(self, project_id: str, package: DraftPackage) -> None:
         with self.connection:
@@ -1124,9 +1176,18 @@ class SQLiteStore:
                 create table if not exists projects (
                     id text primary key,
                     name text not null,
-                    draft_text text not null,
+                    draft_text text not null default '',
                     patent_type text not null default 'invention',
                     package_json text,
+                    applicant text not null default '',
+                    inventors text not null default '',
+                    technical_field text not null default '',
+                    background text not null default '',
+                    pain_point text not null default '',
+                    technical_solution text not null default '',
+                    innovation text not null default '',
+                    embodiments text not null default '',
+                    beneficial_effects text not null default '',
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp
                 );
@@ -1380,6 +1441,16 @@ class SQLiteStore:
             )
             self._migrate_project_patent_points_primary_key()
             self._ensure_column("projects", "patent_type", "text not null default 'invention'")
+            self._ensure_column("projects", "draft_text", "text not null default ''")
+            self._ensure_column("projects", "applicant", "text not null default ''")
+            self._ensure_column("projects", "inventors", "text not null default ''")
+            self._ensure_column("projects", "technical_field", "text not null default ''")
+            self._ensure_column("projects", "background", "text not null default ''")
+            self._ensure_column("projects", "pain_point", "text not null default ''")
+            self._ensure_column("projects", "technical_solution", "text not null default ''")
+            self._ensure_column("projects", "innovation", "text not null default ''")
+            self._ensure_column("projects", "embodiments", "text not null default ''")
+            self._ensure_column("projects", "beneficial_effects", "text not null default ''")
             self._ensure_column("deliberation_runs", "logs_json", "text not null default '[]'")
             self._ensure_column("deliberation_runs", "runtime_state_json", "text")
             self._ensure_column("deliberation_runs", "failure_details_json", "text not null default '[]'")
@@ -1476,6 +1547,13 @@ class SQLiteStore:
             patent_type = PatentType(raw_patent_type) if raw_patent_type else PatentType.INVENTION
         except ValueError:
             patent_type = PatentType.INVENTION
+
+        def _safe_str(key: str) -> str:
+            try:
+                return row[key] or ""
+            except (IndexError, KeyError):
+                return ""
+
         return ProjectRecord(
             id=row["id"],
             name=row["name"],
@@ -1484,6 +1562,15 @@ class SQLiteStore:
             package=DraftPackage(**json.loads(package_json)) if package_json else None,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            applicant=_safe_str("applicant"),
+            inventors=_safe_str("inventors"),
+            technical_field=_safe_str("technical_field"),
+            background=_safe_str("background"),
+            pain_point=_safe_str("pain_point"),
+            technical_solution=_safe_str("technical_solution"),
+            innovation=_safe_str("innovation"),
+            embodiments=_safe_str("embodiments"),
+            beneficial_effects=_safe_str("beneficial_effects"),
         )
 
     def _external_draft_source_from_row(self, row: sqlite3.Row) -> ExternalDraftSource:

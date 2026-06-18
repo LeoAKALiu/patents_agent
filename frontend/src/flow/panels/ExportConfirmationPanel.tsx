@@ -26,6 +26,7 @@ export interface ExportConfirmationPanelProps {
   currentDraftHash: string;
   officialCompileRun: OfficialCompileRun | null;
   onOpenExpertTool: ExpertToolOpener;
+  onNavigateToPostReview?: () => void;
 }
 
 export function ExportConfirmationPanel({
@@ -36,6 +37,7 @@ export function ExportConfirmationPanel({
   currentDraftHash,
   officialCompileRun,
   onOpenExpertTool,
+  onNavigateToPostReview,
 }: ExportConfirmationPanelProps) {
   if (!project?.package) {
     return (
@@ -44,21 +46,39 @@ export function ExportConfirmationPanel({
       </section>
     );
   }
-  const officialAllowed = Boolean(
-    postDraftReview?.export_allowed
+  const compileCurrent = Boolean(
+    officialCompileRun?.status === "completed"
+      && officialCompileRun.official_package
+      && officialCompileRun.source_draft_hash === currentDraftHash,
+  );
+  const reviewPassed = Boolean(
+    postDraftReview?.status === "completed"
+      && postDraftReview.export_allowed
       && postDraftReview.draft_package_hash === currentDraftHash
       && postDraftReview.official_compile_run_id === officialCompileRun?.id,
   );
+  const officialAllowed = compileCurrent && reviewPassed;
+  // Lock reason depends on which gate is failing.
+  const lockReason: string | null = officialAllowed
+    ? null
+    : !compileCurrent
+      ? "请先生成正式稿。当前初稿尚未通过正式稿编译清除内部痕迹，无法导出正式提交稿。"
+      : "正式稿编译已完成，但需通过成稿后多智能体会审。会审将检查权利要求质量、说明书清洁度、技术硬度和内部痕迹，通过后即可解锁正式导出。";
+  const lockAction: string | null = officialAllowed
+    ? null
+    : !compileCurrent
+      ? "run_official_compile"
+      : "run_post_draft_review";
 
   return (
     <section className="grid gap-4">
       <StatusStrip
         aria-label="导出前状态"
         items={[
-          { label: "正式稿", value: officialAllowed ? "已解锁" : "锁定中" },
+          { label: "正式稿编译", value: compileCurrent ? "已完成" : "未完成" },
+          { label: "成稿会审", value: reviewPassed ? "已通过" : compileCurrent ? "等待会审" : "等待编译" },
+          { label: "正式导出", value: officialAllowed ? "已解锁" : "锁定中" },
           { label: "提交成熟度", value: filingReport?.status === "high_risk" ? "高风险" : filingReport ? "已检查" : "未检查" },
-          { label: "初稿完善", value: completionRun ? "有报告" : "无报告" },
-          { label: "当前哈希", value: currentDraftHash ? currentDraftHash.slice(0, 12) : "未生成" },
         ]}
       />
 
@@ -80,7 +100,18 @@ export function ExportConfirmationPanel({
             <FileText size={18} aria-hidden="true" />
             <div>
               <strong>正式稿入口已锁定</strong>
-              <p>请先生成正式稿，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。</p>
+              <p>{lockReason}</p>
+              {lockAction === "run_post_draft_review" && onNavigateToPostReview && (
+                <button
+                  className="btn btn-primary"
+                  onClick={onNavigateToPostReview}
+                  type="button"
+                  style={{ marginTop: "0.5rem" }}
+                >
+                  <ShieldCheck size={16} aria-hidden="true" />
+                  <span>前往成稿会审</span>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -89,7 +120,11 @@ export function ExportConfirmationPanel({
           <BoundaryCard
             tone="official"
             title="正式稿"
-            description={officialAllowed ? `已通过成稿会审，可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}` : "等待正式稿编译和成稿会审通过后解锁。"}
+            description={officialAllowed
+              ? `已通过成稿会审，可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}`
+              : compileCurrent
+                ? `编译已完成，等待成稿会审通过：${officialCompileRun?.official_package_hash.slice(0, 12)}`
+                : "等待正式稿编译和成稿会审通过后解锁。"}
           />
           <BoundaryCard
             tone="internal"
