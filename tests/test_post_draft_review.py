@@ -189,6 +189,37 @@ def test_post_draft_review_hash_mismatch_invalidates_export_gate(tmp_path):
     assert "current draft" in export_response.json()["detail"]
 
 
+def test_blocked_post_draft_review_can_be_resolved_by_editing_current_draft_package(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert compile_response.status_code == 200
+    assert compile_response.json()["status"] == "completed"
+    blocked_review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert blocked_review["export_allowed"] is False
+
+    revised = _package(description="说明书已补充贡献矩阵和后验更新流程。")
+    update_response = client.patch(f"/api/projects/{project_id}/package", json=revised.model_dump(mode="json"))
+
+    assert update_response.status_code == 200
+    updated_project = update_response.json()
+    assert updated_project["package"]["description"] == revised.description
+
+    stale_export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert stale_export.status_code == 409
+    assert "Official draft compile is required" in stale_export.json()["detail"]
+
+    client.app.state.llm = _review_llm(export_allowed=True)
+    recompile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert recompile_response.status_code == 200
+    assert recompile_response.json()["status"] == "completed"
+    repaired_review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert repaired_review["export_allowed"] is True
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 200
+
+
 def test_invalid_json_post_draft_review_downgrades_role_and_completes(tmp_path):
     """One reviewer returning non-JSON is downgraded to blocked (not a whole-run
     crash); the review completes fail-closed. Other reviewers run normally."""

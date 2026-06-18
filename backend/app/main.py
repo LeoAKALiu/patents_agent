@@ -1565,6 +1565,12 @@ def create_app(
         package = _require_package(project)
         return PlainTextResponse(package_to_markdown(package), media_type="text/markdown; charset=utf-8")
 
+    @app.patch("/api/projects/{project_id}/package", response_model=ProjectRecord)
+    def update_project_package(project_id: str, package: DraftPackage) -> ProjectRecord:
+        _require_project(store, project_id)
+        store.update_project_package(project_id, package)
+        return _require_project(store, project_id)
+
     @app.get("/api/projects/{project_id}/diagram.mmd")
     def export_project_mermaid(project_id: str) -> PlainTextResponse:
         project = _require_project(store, project_id)

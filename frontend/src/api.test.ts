@@ -11,6 +11,7 @@ import {
   retryPostDraftReview,
   retryProjectDeliberation,
   retryProjectDisclosure,
+  updateProjectPackage,
   uploadCorpusJobFile,
   uploadProjectMaterial,
 } from "./api";
@@ -114,6 +115,38 @@ describe("runtime control API", () => {
       3,
       "http://127.0.0.1:18234/api/projects/project-1/materials",
       expect.objectContaining({ method: "POST", body: expect.any(FormData) }),
+    );
+  });
+
+  it("patches the current draft package for manual blocker repair", async () => {
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify({ id: "project-1", package: { title: "修订稿" } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await updateProjectPackage("project-1", {
+      title: "修订稿",
+      abstract: "摘要",
+      claims: "1. 权利要求。",
+      description: "说明书",
+      drawing_description: "图1。",
+      mermaid: "",
+      image_prompt: "",
+      review_findings: [],
+      citations: [],
+      generation_logs: [],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-1/package",
+      expect.objectContaining({
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: expect.stringContaining('"title":"修订稿"'),
+      }),
     );
   });
 });

@@ -111,6 +111,7 @@ import {
   startFormulaRun,
   startOfficialCompileRun,
   startPostDraftReview,
+  updateProjectPackage,
   updateProjectPatentPoint,
   uploadCorpusJobFile,
   uploadExternalDraftSource,
@@ -1188,6 +1189,24 @@ function App() {
     });
   }
 
+  async function handleSaveDraftPackage(packageValue: DraftPackage) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("draft-package-save", async () => {
+      const updatedProject = await updateProjectPackage(projectId, packageValue);
+      setProjects((current) => current.map((project) => (project.id === projectId ? updatedProject : project)));
+      setLastExport(null);
+      await Promise.all([
+        loadFilingReports(projectId),
+        loadWorksheets(projectId),
+        loadCompletionRuns(projectId),
+        loadOfficialCompileRuns(projectId),
+        loadPostDraftReviews(projectId),
+      ]);
+      setMessage("已保存当前内部初稿。请重新编译正式稿，再运行成稿会审。");
+    });
+  }
+
   async function handleCancelDisclosureRun(runId: string) {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
@@ -1823,6 +1842,7 @@ function App() {
             onCancelFormulaRun={(runId) => void handleCancelFormulaRun(runId)}
             onRetryFormulaRun={(runId) => void handleRetryFormulaRun(runId)}
             onStartOfficialCompile={() => void handleStartOfficialCompile()}
+            onSaveDraftPackage={(packageValue) => handleSaveDraftPackage(packageValue)}
             onStartPostDraftReview={() => void handleStartPostDraftReview()}
             onCancelPostDraftReviewRun={(runId) => void handleCancelPostDraftReviewRun(runId)}
             onRetryPostDraftReviewRun={(runId) => void handleRetryPostDraftReviewRun(runId)}
