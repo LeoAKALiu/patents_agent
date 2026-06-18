@@ -475,10 +475,23 @@ function App() {
         lastExport.officialPackageHash ?? "",
       ].join(":")
     : "";
-  const activeMainSection = mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   const activeExpertToolEntry = expertToolGroups
     .flatMap((group) => group.tools)
     .find((tool) => tool.id === activeExpertTool);
+  const activeShellSection =
+    activeSection === "expert"
+      ? {
+          label: "专家工具",
+          description: activeExpertToolEntry
+            ? `${activeExpertToolEntry.label}：${activeExpertToolEntry.description}`
+            : "高级能力按任务分组，结果可回写主流程或保留为内部材料。",
+        }
+      : activeSection === "utility"
+        ? {
+            label: "实用新型",
+            description: "从结构方案撰写实用新型，聚焦部件连接关系、安装位置和附图说明。",
+          }
+        : mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   selectedProjectIdRef.current = selectedProject?.id ?? "";
 
   useEffect(() => {
@@ -1693,6 +1706,8 @@ function App() {
 
       <main className="main-area">
         <ShellTopbar
+          title={activeShellSection.label}
+          subtitle={activeShellSection.description}
           onRefresh={refreshAll}
           statusLabel={busy ? "处理中" : "空闲"}
           statusVariant={busy ? "busy" : "idle"}

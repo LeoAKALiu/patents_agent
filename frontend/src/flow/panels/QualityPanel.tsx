@@ -1,6 +1,4 @@
-import { Gauge, Loader2, Wand2 } from "@/lib/icons";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, CheckCircle2, ClipboardList, Gauge, Info, Loader2, ShieldCheck, Wand2 } from "@/lib/icons";
 import type {
   ClaimDefenseWorksheet,
   DraftCompletionRun,
@@ -8,7 +6,14 @@ import type {
 } from "@/api";
 import { qualitySummaryFromRuns, type GuidedActionGate } from "@/guidedFlow";
 import { GuidedOperationConsole } from "../runtimeWidgets";
-import { ActionGateHint, GuidedScoreTile, type ExpertToolOpener } from "../parts";
+import { ActionGateHint, type ExpertToolOpener } from "../parts";
+import {
+  ActionDock,
+  InfoCard,
+  SectionHead,
+  SettingsGroup,
+  StatusStrip,
+} from "@/ui/EnterpriseSurface";
 
 export interface QualityPanelProps {
   actionGate: GuidedActionGate;
@@ -21,6 +26,18 @@ export interface QualityPanelProps {
   onImproveScore: () => void;
   onAcceptPatch: (runId: string, patchId: string) => void;
   onOpenExpertTool: ExpertToolOpener;
+}
+
+function severityTagClass(severity: string): string {
+  if (severity === "high") return "tag tag-danger";
+  if (severity === "medium") return "tag tag-warn";
+  return "tag tag-info";
+}
+
+function severityTone(severity: string): "danger" | "warn" | "info" {
+  if (severity === "high") return "danger";
+  if (severity === "medium") return "warn";
+  return "info";
 }
 
 export function QualityPanel({
@@ -37,33 +54,80 @@ export function QualityPanel({
 }: QualityPanelProps) {
   const summary = qualitySummaryFromRuns({ filingReport, worksheet, completionRun });
   const actionsDisabled = !actionGate.allowed || Boolean(busy);
+  const hasAnyResult = Boolean(filingReport || worksheet || completionRun);
+  const proposedPatches = completionRun?.patches.filter((patch) => patch.status === "proposed").slice(0, 3) ?? [];
+
   return (
-    <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
-      <div className="flex items-start justify-between gap-3.5">
-        <div>
-          <h3>质量检查与补强</h3>
-          <p>依次运行提交成熟度、权利要求防线、初稿完善和审查意见。</p>
+    <section className="surface-panel guided-quality-panel">
+      <SectionHead
+        title="质量检查与补强"
+        description="依次运行提交成熟度、权利要求防线、初稿完善和审查意见。"
+        actions={<Gauge size={22} />}
+      />
+
+      <StatusStrip
+        aria-label="质量检查摘要"
+        items={[
+          { label: "状态", value: summary.statusLabel },
+          { label: "授权稳定性", value: summary.authorizationStability === null ? "未评分" : `${summary.authorizationStability}/100` },
+          { label: "保护范围", value: summary.protectionScope === null ? "未评分" : `${summary.protectionScope}/100` },
+          { label: "提交成熟度", value: summary.filingMaturity === null ? "未评分" : `${summary.filingMaturity}/100` },
+        ]}
+      />
+
+      {hasAnyResult && (
+        <div className="callout callout-info">
+          <span className="tag tag-info">已有结果</span>
+          <div>
+            <strong>可以继续补强，也可以重新运行质量检查。</strong>
+            <p>当前摘要包含 {summary.issueCount} 个成熟度命中、{summary.supportGapCount} 个支撑缺口和 {summary.taskCount} 个完善任务。</p>
+          </div>
         </div>
-        <Gauge size={24} />
-      </div>
-      {(filingReport || worksheet || completionRun) && (
-        <p className="workflow-hint">已获得部分检查结果。可以继续补强，也可以重新运行质量检查。</p>
       )}
-      <div className="button-row">
-        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("readiness")} type="button">
-          查看提交成熟度
-        </Button>
-        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("claimDefense")} type="button">
-          查看权利要求防线
-        </Button>
-        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("completion")} type="button">
-          查看初稿完善
-        </Button>
-      </div>
+
+      <SettingsGroup title="检查入口" description="进入对应专家视图查看完整报告，当前面板只保留工作流必看的摘要。">
+        <div className="quality-tool-grid">
+          <InfoCard
+            icon={<ClipboardList size={18} />}
+            title="提交成熟度"
+            description={filingReport ? `${summary.issueCount} 项命中` : "检查占位符、敏感表述和正式稿风险。"}
+            tone={filingReport?.status === "high_risk" ? "danger" : filingReport?.status === "warning" ? "warn" : "info"}
+            action={(
+              <button className="btn btn-secondary" onClick={() => onOpenExpertTool("readiness")} type="button">
+                查看
+              </button>
+            )}
+          />
+          <InfoCard
+            icon={<ShieldCheck size={18} />}
+            title="权利要求防线"
+            description={worksheet ? `${worksheet.feature_records.length} 个特征，${worksheet.support_gaps.length} 个支撑缺口` : "标记区别特征、支撑缺口与从属兜底。"}
+            tone={(worksheet?.support_gaps.length ?? 0) > 0 ? "warn" : "info"}
+            action={(
+              <button className="btn btn-secondary" onClick={() => onOpenExpertTool("claimDefense")} type="button">
+                查看
+              </button>
+            )}
+          />
+          <InfoCard
+            icon={<Gauge size={18} />}
+            title="初稿完善"
+            description={completionRun ? `${completionRun.tasks.length} 个任务，${proposedPatches.length} 个候选补丁` : "生成补强任务和候选 patch。"}
+            tone={proposedPatches.length > 0 ? "warn" : "info"}
+            action={(
+              <button className="btn btn-secondary" onClick={() => onOpenExpertTool("completion")} type="button">
+                查看
+              </button>
+            )}
+          />
+        </div>
+      </SettingsGroup>
+
       <ActionGateHint gate={actionGate} />
-      <div className="button-row">
-        <Button
-          variant="glass-primary"
+
+      <ActionDock meta={actionGate.allowed ? "运行会刷新成熟度、防线和完善结果；一键提升会尝试采纳可进入工作稿的补丁。" : actionGate.reason}>
+        <button
+          className="btn btn-primary"
           disabled={actionsDisabled}
           onClick={onRunQualityChecks}
           title={actionGate.reason || undefined}
@@ -71,9 +135,9 @@ export function QualityPanel({
         >
           {busy === "guided-quality" ? <Loader2 className="spin" size={17} /> : <Gauge size={17} />}
           <span>运行质量检查</span>
-        </Button>
-        <Button
-          variant="glass-primary"
+        </button>
+        <button
+          className="btn btn-secondary"
           disabled={actionsDisabled}
           onClick={onImproveScore}
           title={actionGate.reason || undefined}
@@ -81,42 +145,50 @@ export function QualityPanel({
         >
           {busy === "score-improve" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
           <span>一键提升分数</span>
-        </Button>
-      </div>
+        </button>
+      </ActionDock>
+
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "guided-quality"} />
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "score-improve"} />
-      <div className="guided-score-grid">
-        <GuidedScoreTile label="状态" value={summary.statusLabel} />
-        <GuidedScoreTile
-          label="授权稳定性"
-          value={summary.authorizationStability === null ? "未评分" : `${summary.authorizationStability}/100`}
-        />
-        <GuidedScoreTile label="保护范围" value={summary.protectionScope === null ? "未评分" : `${summary.protectionScope}/100`} />
-        <GuidedScoreTile label="提交成熟度" value={summary.filingMaturity === null ? "未评分" : `${summary.filingMaturity}/100`} />
-      </div>
-      {filingReport?.issues.slice(0, 5).map((issue, index) => (
-        <article className={`finding ${issue.severity}`} key={`${issue.category}-${index}`}>
-          <span>{issue.severity === "high" ? "高" : issue.severity === "medium" ? "中" : "低"}</span>
-          <div>
-            <strong>{issue.category}</strong>
-            <p>{issue.message}</p>
-            <p>{issue.suggestion}</p>
+
+      {filingReport?.issues.length ? (
+        <SettingsGroup title="风险命中" description="仅展示前 5 条工作流必看项，完整列表在提交成熟度视图中。">
+          <div className="dense-list">
+            {filingReport.issues.slice(0, 5).map((issue, index) => (
+              <InfoCard
+                icon={issue.severity === "high" ? <AlertTriangle size={18} /> : issue.severity === "medium" ? <Info size={18} /> : <CheckCircle2 size={18} />}
+                title={issue.category}
+                description={issue.message}
+                tone={severityTone(issue.severity)}
+                meta={<span className={severityTagClass(issue.severity)}>{issue.severity === "high" ? "高风险" : issue.severity === "medium" ? "中风险" : "低风险"}</span>}
+                key={`${issue.category}-${index}`}
+              >
+                <p>{issue.suggestion}</p>
+              </InfoCard>
+            ))}
           </div>
-        </article>
-      ))}
-      {completionRun?.patches
-        .filter((patch) => patch.status === "proposed")
-        .slice(0, 3)
-        .map((patch) => (
-          <article className="guided-choice" key={patch.id}>
-            <h4>{patch.rationale}</h4>
-            <p>{patch.risk_delta}</p>
-            <pre className="patch-preview">{patch.after_text}</pre>
-            <Button variant="glass-primary" onClick={() => onAcceptPatch(completionRun.id, patch.id)} type="button">
-              接受补强建议
-            </Button>
-          </article>
-        ))}
+        </SettingsGroup>
+      ) : null}
+
+      {completionRun && proposedPatches.length ? (
+        <SettingsGroup title="候选补强" description="接受后会更新工作稿，正式导出需要重新绑定后续检查。">
+          <div className="dense-list">
+            {proposedPatches.map((patch) => (
+              <InfoCard
+                title={patch.rationale}
+                description={patch.risk_delta}
+                meta={<span className={patch.can_enter_official_draft ? "tag tag-success" : "tag tag-warn"}>{patch.can_enter_official_draft ? "可进入官方稿" : "仅内部参考"}</span>}
+                key={patch.id}
+              >
+                <pre className="patch-preview">{patch.after_text}</pre>
+                <button className="btn btn-primary" onClick={() => onAcceptPatch(completionRun.id, patch.id)} type="button">
+                  接受补强建议
+                </button>
+              </InfoCard>
+            ))}
+          </div>
+        </SettingsGroup>
+      ) : null}
     </section>
   );
 }

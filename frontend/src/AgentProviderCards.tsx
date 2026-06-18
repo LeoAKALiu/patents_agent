@@ -87,7 +87,7 @@ export function AgentProviderCards({
     return <p className="workflow-hint">智能体诊断尚未刷新，请稍候或点击刷新。</p>;
   }
   return (
-    <div className="agent-provider-scroll my-3">
+    <div className="agent-provider-grid my-3">
       {providers.map((provider) => {
         const enabled = provider.required || selectedProviders.includes(provider.id);
         const canToggle = !provider.required && provider.selectable && !disabled;
@@ -95,14 +95,14 @@ export function AgentProviderCards({
         return (
           <article
             className={[
-              "agent-provider-card grid gap-2 p-3 rounded-lg border bg-app-subtle",
+              "agent-provider-card flex flex-col gap-2 p-3 rounded-lg border bg-app-subtle h-full",
               enabled
                 ? "border-app-accent/40 shadow-[inset_3px_0_0_var(--action-primary)]"
                 : "border-app-border",
             ].filter(Boolean).join(" ")}
             key={`${role}-${provider.id}`}
           >
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 min-w-0">
               <div className="min-w-0">
                 <strong className="block text-app-fg text-sm truncate">{provider.label}</strong>
                 <span className="block text-app-muted text-[11px] truncate">{provider.model_version || "模型版本未声明"}</span>
@@ -115,13 +115,13 @@ export function AgentProviderCards({
                 <AlertTriangle size={18} className="shrink-0" />
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant={authDisplay.variant}>
+            <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden">
+              <Badge variant={authDisplay.variant} className="shrink-0">
                 {authDisplay.icon}
                 {authDisplay.label}
               </Badge>
-              <Badge variant={enabled ? "success" : "neutral"}>
-                {provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}
+              <Badge variant={enabled ? "success" : "neutral"} className="shrink-0 min-w-0">
+                <span className="truncate">{provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}</span>
               </Badge>
             </div>
             <p className="text-app-muted text-[11px] leading-snug m-0">{providerHint(provider)}</p>
@@ -131,7 +131,7 @@ export function AgentProviderCards({
             {provider.repair_suggestion && !provider.selectable && (
               <p className="text-app-muted text-[11px] m-0">{provider.repair_suggestion}</p>
             )}
-            <label className={`flex items-center gap-2 font-semibold text-xs ${canToggle ? "" : "opacity-50 cursor-not-allowed"}`}>
+            <label className={`flex items-center gap-2 font-semibold text-xs mt-auto ${canToggle ? "" : "opacity-50 cursor-not-allowed"}`}>
               <input
                 checked={enabled}
                 disabled={!canToggle}

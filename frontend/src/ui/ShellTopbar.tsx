@@ -1,9 +1,12 @@
 import { type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 export interface ShellTopbarProps {
+  /** Page title shown on the left side of the enterprise shell */
+  title?: ReactNode;
+  /** Secondary page copy shown under the title */
+  subtitle?: ReactNode;
   /** Slot for the right side (actions, status, etc.) */
   actions?: ReactNode;
   /** Project selector (optional select element) */
@@ -17,13 +20,15 @@ export interface ShellTopbarProps {
   extraActions?: ReactNode;
 }
 
-function statusChipVariant(variant: "idle" | "busy" | "error"): "default" | "warning" | "destructive" {
-  if (variant === "busy") return "warning";
-  if (variant === "error") return "destructive";
-  return "default";
+function statusChipClass(variant: "idle" | "busy" | "error"): string {
+  if (variant === "busy") return "tag tag-warn";
+  if (variant === "error") return "tag tag-danger";
+  return "tag tag-info";
 }
 
 export function ShellTopbar({
+  title,
+  subtitle,
   actions,
   projectSelector,
   statusLabel,
@@ -33,17 +38,21 @@ export function ShellTopbar({
 }: ShellTopbarProps) {
   return (
     <header className="topbar">
+      {(title || subtitle) && (
+        <div className="topbar-main page-title">
+          {title && <h1>{title}</h1>}
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+      )}
+
       <div className="top-actions">
         <div className="topbar-actions-group">
           {projectSelector}
 
           {statusLabel && (
-            <Badge
-              variant={statusChipVariant(statusV)}
-              className="h-10 px-3 text-xs flex items-center"
-            >
+            <span className={statusChipClass(statusV)}>
               {statusLabel}
-            </Badge>
+            </span>
           )}
 
           {actions}

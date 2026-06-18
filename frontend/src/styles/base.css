@@ -6,8 +6,8 @@
      -apple-system/SF Pro stack that diverged from --font-display.
    • body font-size now var(--fs-body) (15px) — was 14px; spec bumps
      the cramped 13–14px base. line-height stays CJK-friendly 1.6.
-   • Canvas is the brand mesh (the backdrop the glass refracts); was a
-     flat --surface-base fill.
+   • Canvas is now a flat, light enterprise workspace surface. The older
+     brand mesh tokens remain for compatibility, but are not painted here.
    CJK handling (proportional-width, break-word, text-spacing-trim) kept.
    ────────────────────────────────────────────────────────────────── */
 
@@ -22,16 +22,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  overflow-x: hidden;
 
-  /* Mesh canvas: brand-tinted radial gradients over a warm near-white.
-     The frost layers (.glass*) refract this, so keep tints soft. */
-  background-color: var(--canvas);
-  background-image:
-    radial-gradient(at 0% 0%,    var(--mesh-1) 0, transparent 55%),
-    radial-gradient(at 100% 0%,  var(--mesh-2) 0, transparent 55%),
-    radial-gradient(at 50% 100%, var(--mesh-3) 0, transparent 60%);
-  background-attachment: fixed;
+  background: var(--surface-base);
 
   color: var(--text-primary);
   font-family: var(--font-display);
@@ -47,6 +39,7 @@ body {
   /* CSS Text Level 4; Chromium 124+ only. Tauri ships Chromium so this
      is safe here, but it is not portable to a generic web build. */
   text-spacing-trim: space-all;
+  overflow-x: hidden;
 }
 
 button, input, select, textarea { font: inherit; }
