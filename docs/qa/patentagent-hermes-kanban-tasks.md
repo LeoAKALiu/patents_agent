@@ -1,7 +1,7 @@
 # PatentAgent Hermes Kanban Tasks
 
 测试日期：2026-06-18  
-最近更新：2026-06-19 04:29
+最近更新：2026-06-19 04:42
 看板：`patentagent-qa-bugfix`  
 说明：本清单仅同步到 Hermes Kanban，不涉及 Linear。
 
@@ -12,7 +12,7 @@
 | PR-14 clean | `t_f2be2e01` | P0 | done, integrated | `bigmodelworker` | `codex/pr-14-tauri-frontend-assets-clean` |
 | PR-15 clean | `t_7b44a196` | P1 | blocked, decomposed | `bigmodelworker` | `codex/pr-15-project-metadata-clean` |
 | PR-15A clean | `t_21b014eb` | P1 | done, cherry-picked into integration | `bigmodelworker` | `codex/pr-15a-project-metadata-backend-clean` |
-| PR-15B clean | `t_cf40449f` | P1 | running | `kimiworker` | `codex/pr-15b-project-metadata-frontend-clean` |
+| PR-15B clean | `t_cf40449f` | P1 | done, merged into integration | `kimiworker` | `codex/pr-15b-project-metadata-frontend-clean` |
 | PR-16A clean | `t_241f3d03` | P2 | done, merged into integration | `bigmodelworker` | `codex/pr-16-official-export-readiness-api-clean` |
 | PR-16B clean | `t_cf6c0876` | P2 | done, merged into integration | `kimiworker` | `codex/pr-16-official-export-gate-ui-clean` |
 | PR-17 clean | `t_c839241b` | P2 | done, cherry-picked into integration | `deepseekworker` | `codex/pr-17-download-ascii-fallback-clean` |
@@ -143,6 +143,8 @@ Hermes ID：backend `t_21b014eb`; frontend `t_cf40449f`
 - PR-15A `t_21b014eb` 已 cherry-pick 到集成分支，commit `741eacf`。冲突处理仅拼接 `tests/test_api.py` 尾部 helper 与新增 metadata 测试。
 - 验证：PR worktree `python3 -m pytest tests/test_api.py -q -p no:cacheprovider` 11 passed；集成分支 `python3 -m pytest tests/test_api.py tests/test_official_compile.py tests/test_content_disposition.py -q -p no:cacheprovider` 59 passed。
 - 范围边界：PR-15A 接受“申请人/发明人暂为 metadata-only，不写入初稿导出”的后端契约；PR-15B 仍需补前端录入/编辑/保存/回显和用户提示。
+- PR-15B `t_cf40449f` 已合入集成分支，merge commit `1d02091`。外部实现 `d6ceab1` 后由 reviewer 追加 `9e47879`，修复清空已保存 metadata 字段时空字符串被转为 `null`、后端不覆盖的问题。
+- 验证：合并后 `npm --prefix frontend test` 17 files / 216 tests passed，`npm --prefix frontend run build` 通过，`python3 -m pytest tests/test_api.py tests/test_official_compile.py tests/test_content_disposition.py -q -p no:cacheprovider` 59 passed。
 
 ## PR-16：Clarify Official Export Gate and Review CTA
 
