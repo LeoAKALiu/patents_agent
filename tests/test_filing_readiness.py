@@ -237,6 +237,19 @@ def test_filing_readiness_ignores_prior_art_problem_effect_despite_current_marke
     assert not any(issue.category == "unverified_effect" for issue in report.issues)
 
 
+def test_filing_readiness_flags_current_improvement_effect_after_prior_art_targeting():
+    package = _clean_base_package(
+        description="本申请针对对比文件CN123456公开的方案进行改进，可提升15%识别速度，解决准确性不足的问题。"
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=False)
+
+    assert any(
+        issue.category == "unverified_effect" and issue.matched_text == "提升15%"
+        for issue in report.issues
+    )
+
+
 def test_filing_readiness_allows_defensive_unverified_example_wording():
     package = _clean_base_package(
         description=(
@@ -287,6 +300,39 @@ def test_filing_readiness_flags_system_unverified_data_admission():
 
 def test_filing_readiness_blocks_technical_disclosure_drafting_process_phrase():
     package = _clean_base_package(description="根据技术交底书进行撰写权利要求书。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_blocks_action_only_disclosure_drafting_phrase():
+    package = _clean_base_package(description="根据技术交底书撰写。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_blocks_action_only_disclosure_strengthening_phrase():
+    package = _clean_base_package(description="根据技术交底书补强。")
+
+    report = assess_filing_readiness("project-1", package, verified_effects=True)
+
+    assert any(
+        issue.category == "internal_trace" and "根据技术交底书" in issue.matched_text
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_blocks_action_only_disclosure_auto_generation_phrase():
+    package = _clean_base_package(description="根据技术交底书自动生成。")
 
     report = assess_filing_readiness("project-1", package, verified_effects=True)
 
@@ -434,6 +480,19 @@ def test_official_markdown_preserves_technical_generation_reference():
     assert "1.。" not in markdown
 
 
+def test_official_markdown_removes_action_only_disclosure_trace():
+    package = _clean_base_package(
+        claims="1. 一种方法，包括采集点云，根据技术交底书撰写，并生成建筑构件参数。"
+    )
+
+    markdown = official_package_to_markdown(package)
+
+    assert "1. 一种方法，包括采集点云" in markdown
+    assert "并生成建筑构件参数。" in markdown
+    assert "根据技术交底书" not in markdown
+    assert "撰写" not in markdown
+
+
 def test_official_markdown_removes_multi_artifact_disclosure_trace():
     package = _clean_base_package(
         claims="1. 一种方法，包括采集点云，根据技术交底书撰写权利要求书和说明书，并生成建筑构件参数。"
@@ -512,6 +571,22 @@ def test_export_official_docx_removes_multi_action_disclosure_trace(tmp_path):
     assert "根据技术交底书" not in text
     assert "补强独权" not in text
     assert "并撰写说明书" not in text
+
+
+def test_export_official_docx_removes_action_only_disclosure_trace(tmp_path):
+    package = _clean_base_package(
+        claims="1. 一种方法，包括采集点云，根据技术交底书自动生成，并生成建筑构件参数。"
+    )
+    output_path = tmp_path / "official-action-only-clean.docx"
+
+    export_official_docx(package, output_path)
+
+    doc = Document(output_path)
+    text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
+    assert "1. 一种方法，包括采集点云" in text
+    assert "并生成建筑构件参数。" in text
+    assert "根据技术交底书" not in text
+    assert "自动生成" not in text
 
 
 def test_official_exports_do_not_emit_internal_contamination_markers(tmp_path):

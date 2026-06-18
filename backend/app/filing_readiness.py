@@ -50,6 +50,12 @@ _DRAFTING_ACTION_TERMS = (
     "补强",
 )
 
+_ACTION_ONLY_DRAFTING_TERMS = (
+    "自动生成",
+    "撰写",
+    "补强",
+)
+
 _FILING_ARTIFACT_TERMS = (
     "权利要求书",
     "权利要求",
@@ -114,6 +120,19 @@ _COMPARATIVE_EFFECT_MARKERS = (
     "相较于",
     "相比",
     "比较",
+)
+
+_PRIOR_ART_CAVEAT_MARKERS = (
+    "但",
+    "但是",
+    "然而",
+    "不过",
+)
+
+_PRIOR_ART_PROBLEM_MARKERS = (
+    "问题",
+    "风险",
+    "缺陷",
 )
 
 _EFFECT_CONTEXT_BOUNDARIES = "。；;！？!?\n"
@@ -363,7 +382,18 @@ def _is_prior_art_problem_effect_context(
     marker_index: int,
 ) -> bool:
     targeted_prefix = context_before_effect[:marker_index]
-    return "针对" in targeted_prefix and "问题" in context_after_effect
+    if "针对" not in targeted_prefix:
+        return False
+    caveat_index = _first_marker_index(_PRIOR_ART_CAVEAT_MARKERS, context_after_effect)
+    if caveat_index < 0:
+        return False
+    caveat_context = context_after_effect[caveat_index:]
+    return any(marker in caveat_context for marker in _PRIOR_ART_PROBLEM_MARKERS)
+
+
+def _first_marker_index(markers: Iterable[str], text: str) -> int:
+    indexes = [text.find(marker) for marker in markers if marker in text]
+    return min(indexes, default=-1)
 
 
 def _prior_art_marker_indexes(text: str) -> list[int]:
@@ -405,6 +435,7 @@ def _next_technical_disclosure_boundary(text: str, start: int) -> int:
 def _technical_disclosure_trace_end(clause: str) -> int | None:
     action_spans = _term_spans(_DRAFTING_ACTION_TERMS, clause)
     artifact_spans = _term_spans(_FILING_ARTIFACT_TERMS, clause)
+    action_only_spans = _term_spans(_ACTION_ONLY_DRAFTING_TERMS, clause)
     completions = [
         max(action_end, artifact_end)
         for action_start, action_end in action_spans
@@ -415,6 +446,7 @@ def _technical_disclosure_trace_end(clause: str) -> int | None:
             (artifact_start, artifact_end),
         )
     ]
+    completions.extend(action_end for _, action_end in action_only_spans)
     return max(completions, default=None)
 
 
