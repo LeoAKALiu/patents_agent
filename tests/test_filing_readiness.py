@@ -201,6 +201,42 @@ def test_filing_readiness_flags_current_invention_comparative_prior_art_effect()
     )
 
 
+def test_filing_readiness_flags_comparative_prior_art_effect_without_current_marker():
+    package = _clean_base_package(
+        description="相较于对比文件CN123456公开的方案，可提升15%识别速度。"
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=False)
+
+    assert any(
+        issue.category == "unverified_effect" and issue.matched_text == "提升15%"
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_flags_compared_with_prior_art_effect():
+    package = _clean_base_package(
+        description="与对比文件CN123456公开的方案相比，可提升15%识别速度。"
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=False)
+
+    assert any(
+        issue.category == "unverified_effect" and issue.matched_text == "提升15%"
+        for issue in report.issues
+    )
+
+
+def test_filing_readiness_ignores_prior_art_problem_effect_despite_current_marker():
+    package = _clean_base_package(
+        description="本申请针对对比文件CN123456公开的方案可提升15%但依赖云端的问题，提出边缘缓存策略。"
+    )
+
+    report = assess_filing_readiness("project-1", package, verified_effects=False)
+
+    assert not any(issue.category == "unverified_effect" for issue in report.issues)
+
+
 def test_filing_readiness_allows_defensive_unverified_example_wording():
     package = _clean_base_package(
         description=(
@@ -398,6 +434,20 @@ def test_official_markdown_preserves_technical_generation_reference():
     assert "1.。" not in markdown
 
 
+def test_official_markdown_removes_multi_artifact_disclosure_trace():
+    package = _clean_base_package(
+        claims="1. 一种方法，包括采集点云，根据技术交底书撰写权利要求书和说明书，并生成建筑构件参数。"
+    )
+
+    markdown = official_package_to_markdown(package)
+
+    assert "1. 一种方法，包括采集点云" in markdown
+    assert "并生成建筑构件参数。" in markdown
+    assert "根据技术交底书" not in markdown
+    assert "撰写权利要求书" not in markdown
+    assert "和说明书" not in markdown
+
+
 def test_export_official_docx_cleans_pollution_and_keeps_formal_sections(tmp_path):
     output_path = tmp_path / "official.docx"
 
@@ -445,6 +495,23 @@ def test_export_official_docx_removes_comma_internal_trace_fragments(tmp_path):
     assert "并生成建筑构件参数。" in text
     assert "根据技术交底书" not in text
     assert "输出说明书" not in text
+
+
+def test_export_official_docx_removes_multi_action_disclosure_trace(tmp_path):
+    package = _clean_base_package(
+        claims="1. 一种方法，包括采集点云，根据技术交底书补强独权并撰写说明书，并生成建筑构件参数。"
+    )
+    output_path = tmp_path / "official-multi-action-clean.docx"
+
+    export_official_docx(package, output_path)
+
+    doc = Document(output_path)
+    text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
+    assert "1. 一种方法，包括采集点云" in text
+    assert "并生成建筑构件参数。" in text
+    assert "根据技术交底书" not in text
+    assert "补强独权" not in text
+    assert "并撰写说明书" not in text
 
 
 def test_official_exports_do_not_emit_internal_contamination_markers(tmp_path):

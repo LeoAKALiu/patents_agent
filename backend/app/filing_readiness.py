@@ -110,6 +110,12 @@ _EFFECT_OWNERSHIP_TRANSITION_MARKERS = (
     "提出一种",
 )
 
+_COMPARATIVE_EFFECT_MARKERS = (
+    "相较于",
+    "相比",
+    "比较",
+)
+
 _EFFECT_CONTEXT_BOUNDARIES = "。；;！？!?\n"
 
 _CURRENT_INVENTION_MARKER_PATTERN = "|".join(re.escape(marker) for marker in _CURRENT_INVENTION_MARKERS)
@@ -291,7 +297,7 @@ def _scan_unfavorable_statements(text: str, target: str) -> list[FilingReadiness
 def _scan_unverified_effects(text: str, target: str) -> list[FilingReadinessIssue]:
     issues: list[FilingReadinessIssue] = []
     for match in _UNVERIFIED_EFFECT_PATTERN.finditer(text):
-        if _is_prior_art_effect_attribution(text, match.start()):
+        if _is_prior_art_effect_attribution(text, match.start(), match.end()):
             continue
         issues.append(
             FilingReadinessIssue(
@@ -307,12 +313,14 @@ def _scan_unverified_effects(text: str, target: str) -> list[FilingReadinessIssu
     return issues
 
 
-def _is_prior_art_effect_attribution(text: str, effect_start: int) -> bool:
+def _is_prior_art_effect_attribution(text: str, effect_start: int, effect_end: int) -> bool:
     context_start = (
         max(text.rfind(boundary, 0, effect_start) for boundary in _EFFECT_CONTEXT_BOUNDARIES) + 1
     )
+    context_end = _next_effect_context_boundary(text, effect_end)
     context_before_effect = text[context_start:effect_start]
-    if any(marker in context_before_effect for marker in _CURRENT_INVENTION_MARKERS):
+    context_after_effect = text[effect_end:context_end]
+    if any(marker in context_before_effect for marker in _COMPARATIVE_EFFECT_MARKERS):
         return False
     for marker_index in _prior_art_marker_indexes(context_before_effect):
         marker_to_effect = context_before_effect[marker_index:]
@@ -328,9 +336,34 @@ def _is_prior_art_effect_attribution(text: str, effect_start: int) -> bool:
         has_solution_transition = any(
             transition in after_attribution for transition in _EFFECT_OWNERSHIP_TRANSITION_MARKERS
         )
+        has_current_marker = any(marker in context_before_effect for marker in _CURRENT_INVENTION_MARKERS)
+        if has_current_marker and not _is_prior_art_problem_effect_context(
+            context_before_effect,
+            context_after_effect,
+            marker_index,
+        ):
+            continue
         if not has_solution_transition:
             return True
     return False
+
+
+def _next_effect_context_boundary(text: str, effect_end: int) -> int:
+    boundary_positions = [
+        text.find(boundary, effect_end)
+        for boundary in _EFFECT_CONTEXT_BOUNDARIES
+        if text.find(boundary, effect_end) >= 0
+    ]
+    return min(boundary_positions, default=len(text))
+
+
+def _is_prior_art_problem_effect_context(
+    context_before_effect: str,
+    context_after_effect: str,
+    marker_index: int,
+) -> bool:
+    targeted_prefix = context_before_effect[:marker_index]
+    return "针对" in targeted_prefix and "问题" in context_after_effect
 
 
 def _prior_art_marker_indexes(text: str) -> list[int]:
@@ -382,7 +415,7 @@ def _technical_disclosure_trace_end(clause: str) -> int | None:
             (artifact_start, artifact_end),
         )
     ]
-    return min(completions, default=None)
+    return max(completions, default=None)
 
 
 def _term_spans(terms: Iterable[str], text: str) -> list[tuple[int, int]]:
