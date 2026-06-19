@@ -75,6 +75,16 @@ jobs:
       - name: Build frontend for Tauri context
         working-directory: frontend
         run: npm run build
+      - name: Stage backend sidecar placeholder for cargo check
+        # tauri::generate_context! resolves bundle.resources at compile time.
+        # The real PyInstaller sidecar (build/backend/patentagent-backend) is
+        # only produced by the Tauri beforeBuildCommand, which does not run for
+        # `cargo check`/`cargo test`. Stage a stub so the resource path resolves;
+        # this job never executes the backend, so a placeholder is sufficient.
+        run: |
+          mkdir -p build/backend/patentagent-backend
+          printf '#!/bin/sh\nexit 0\n' > build/backend/patentagent-backend/patentagent-backend
+          chmod +x build/backend/patentagent-backend/patentagent-backend
       - name: Show Rust toolchain
         run: |
           rustc --version
