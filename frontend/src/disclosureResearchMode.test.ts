@@ -65,6 +65,15 @@ const project: ProjectRecord = {
   package: null,
   created_at: "2026-06-07T00:00:00Z",
   updated_at: "2026-06-07T00:00:00Z",
+  applicant: "",
+  inventors: "",
+  technical_field: "",
+  background: "",
+  pain_point: "",
+  technical_solution: "",
+  innovation: "",
+  embodiments: "",
+  beneficial_effects: "",
 };
 
 const processedMaterial: ProjectMaterial = {

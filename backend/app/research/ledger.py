@@ -98,6 +98,20 @@ class SourceLedger(BaseModel):
     def total_citations(self) -> int:
         return sum(len(entry.citations) for entry in self.entries if entry.status == "ok")
 
+    def total_unique_citations(self) -> int:
+        return len(self.unique_citation_keys())
+
+    def unique_citation_keys(self) -> set[str]:
+        keys: set[str] = set()
+        for entry in self.entries:
+            if entry.status != "ok":
+                continue
+            for citation in entry.citations:
+                key = _citation_key(citation)
+                if key:
+                    keys.add(key)
+        return keys
+
     def provider_warnings(self) -> list[str]:
         warnings: list[str] = []
         for entry in self.entries:
@@ -114,6 +128,7 @@ class SourceLedger(BaseModel):
             "entries": [entry.model_dump(mode="json") for entry in self.entries],
             "total_hits": self.total_hits(),
             "total_citations": self.total_citations(),
+            "total_unique_citations": self.total_unique_citations(),
             "provider_warnings": self.provider_warnings(),
         }
 
@@ -124,7 +139,8 @@ class SourceLedger(BaseModel):
         - medium: 1-4 references or at least one provider with hits
         - high: 5+ references from multiple providers
         """
-        hits = self.total_hits()
+        unique_citations = self.total_unique_citations()
+        hits = unique_citations or self.total_hits()
         ok_providers = {entry.provider for entry in self.entries if entry.status == "ok" and entry.retained_count > 0}
         if hits == 0:
             return "low"
@@ -166,3 +182,16 @@ def citation_snapshot(hit: Any, *, max_abstract_length: int = 200) -> dict[str, 
         "source": source,
         "abstract_snippet": abstract,
     }
+
+
+def _citation_key(citation: dict[str, str]) -> str:
+    publication_number = (citation.get("publication_number") or "").strip()
+    if publication_number:
+        return f"pub:{publication_number.upper()}"
+    url = (citation.get("url") or "").strip()
+    if url:
+        return f"url:{url.lower()}"
+    title = (citation.get("title") or "").strip()
+    if title:
+        return f"title:{title.lower()}"
+    return ""

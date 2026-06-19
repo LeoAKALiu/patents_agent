@@ -7,6 +7,7 @@ from typing import Any
 from backend.app.disclosure.prior_art import PriorArtProvider
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
+from backend.app.project_metadata import format_project_metadata_block
 from backend.app.research.ledger import SourceLedger, citation_snapshot
 from backend.app.runtime import RuntimeContext
 from backend.app.schemas import (
@@ -270,6 +271,15 @@ class DisclosureGenerator:
                     }
                 )
             )
+        if not any(charts_by_candidate.values()):
+            unverified_note = (
+                "已检索到公开现有技术，但模型未形成可绑定 Claim Chart；"
+                "差异结论需人工复核后才能用于查新判断。"
+            )
+            return [
+                hit.model_copy(update={"differentiators": []})
+                for hit in enriched
+            ], unverified_note, {}
         return enriched, str(data.get("prior_art_differences") or "与公开文献的区别已在交底书正文中进一步展开。"), charts_by_candidate
 
 
@@ -336,6 +346,8 @@ def _scan_prompt(project: ProjectRecord, materials: str) -> str:
 }}
 
 项目：{project.name}
+结构化项目元数据：
+{format_project_metadata_block(project)}
 Draft：
 {project.draft_text}
 
@@ -368,6 +380,8 @@ def _points_prompt(project: ProjectRecord, materials: str, scan: dict, context: 
 }}
 
 项目：{project.name}
+结构化项目元数据：
+{format_project_metadata_block(project)}
 扫描摘要：{json.dumps(scan, ensure_ascii=False)}
 用户指定专利点：
 {strategic_context}
@@ -395,6 +409,8 @@ def _points_prompt(project: ProjectRecord, materials: str, scan: dict, context: 
 }}
 
 项目：{project.name}
+结构化项目元数据：
+{format_project_metadata_block(project)}
 扫描摘要：{json.dumps(scan, ensure_ascii=False)}
 用户指定专利点：
 {strategic_context}
@@ -416,6 +432,8 @@ def _terms_prompt(
 只输出 JSON array，例如 ["外立面 挂接 连接结构", "传感器 模块 安装支架"]。
 
 项目：{project.name}
+结构化项目元数据：
+{format_project_metadata_block(project)}
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
 用户指定专利点：
 {strategic_context}
@@ -425,6 +443,8 @@ def _terms_prompt(
 只输出 JSON array，例如 ["神经网络 缺陷 检测", "图像 质量 评估"]。
 
 项目：{project.name}
+结构化项目元数据：
+{format_project_metadata_block(project)}
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
 用户指定专利点：
 {strategic_context}

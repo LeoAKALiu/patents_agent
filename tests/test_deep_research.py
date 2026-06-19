@@ -156,6 +156,64 @@ def test_patent_deep_researcher_produces_packet_with_findings() -> None:
     assert packet.evidence_ledger[0]["publication_number"] == "CN123456789A"
 
 
+def test_deep_research_plan_prompt_includes_project_metadata() -> None:
+    llm = FakeLLMClient(_deep_research_llm_responses())
+    provider = FakeDeepResearchProvider(hits=[])
+    researcher = PatentDeepResearcher(llm=llm, search_provider=provider, max_cycles=1)
+    project = ProjectRecord(
+        id="proj-meta",
+        name="道路病害检测",
+        draft_text="一种道路病害检测方法。",
+        technical_field="计算机视觉、市政工程检测",
+        background="人工巡检效率低。",
+        pain_point="夜间检测误检率高。",
+        technical_solution="可见光、红外和激光雷达多模态融合。",
+        innovation="跨模态特征对齐。",
+        embodiments="车载多传感器巡检。",
+        beneficial_effects="夜间检测准确率提升。",
+    )
+
+    researcher.research(project=project, candidates=[_user_candidate("p1")])
+
+    plan_call = next(call for call in llm.calls if call.stage == "deep_research_plan")
+    assert "计算机视觉、市政工程检测" in plan_call.user_prompt
+    assert "跨模态特征对齐" in plan_call.user_prompt
+    assert "夜间检测准确率提升" in plan_call.user_prompt
+
+
+def test_deep_research_broadens_queries_after_empty_cycle() -> None:
+    class EmptyThenHitProvider:
+        def __init__(self) -> None:
+            self.calls: list[tuple[list[str], int]] = []
+
+        def search(self, terms: list[str], limit: int) -> tuple[list[PriorArtHit], list[str]]:
+            self.calls.append((list(terms), limit))
+            if len(self.calls) == 1:
+                return [], []
+            return [_prior_art_hit()], []
+
+    llm = FakeLLMClient(_deep_research_llm_responses())
+    provider = EmptyThenHitProvider()
+    researcher = PatentDeepResearcher(llm=llm, search_provider=provider, max_cycles=1)
+    project = ProjectRecord(
+        id="proj-retry",
+        name="图像缺陷识别",
+        draft_text="一种基于神经网络的图像缺陷识别方法。",
+    )
+
+    packet, _stages = researcher.research(
+        project=project,
+        candidates=[_user_candidate("p1")],
+        selected_candidate_id="p1",
+    )
+
+    assert len(provider.calls) == 2
+    assert any("图像缺陷识别" in term for term in provider.calls[1][0])
+    assert packet.status == "completed"
+    assert packet.evidence_ledger, "expected evidence ledger entries"
+    assert packet.evidence_ledger[0]["publication_number"] == "CN123456789A"
+
+
 def test_patent_deep_researcher_handles_empty_prior_art() -> None:
     llm = FakeLLMClient(_deep_research_llm_responses())
     provider = FakeDeepResearchProvider(hits=[], warnings=["live search returned no hits"])

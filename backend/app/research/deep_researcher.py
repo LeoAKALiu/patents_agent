@@ -41,6 +41,7 @@ from typing import Any, Protocol
 
 from backend.app.disclosure.prior_art import PriorArtProvider
 from backend.app.llm import LLMClient
+from backend.app.project_metadata import format_project_metadata_block
 from backend.app.runtime import RuntimeContext
 from backend.app.research.evidence import EvidenceLedger, ground_findings
 from backend.app.schemas import (
@@ -135,6 +136,8 @@ def _plan_prompt(project: ProjectRecord, candidates_block: str) -> str:
 }}
 
 项目：{project.name}
+结构化项目元数据：
+{format_project_metadata_block(project)}
 Draft 摘要：{project.draft_text[:1500]}
 候选专利点：
 {candidates_block}
@@ -341,6 +344,16 @@ class PatentDeepResearcher:
                     subtask=f"cycle {cycle} public search",
                 )
             cycle_hits, provider_warnings = self._search.search(queries, self._hits_per_cycle)
+            retry_queries: list[str] = []
+            if not cycle_hits:
+                retry_queries = _broaden_empty_result_queries(project, focused_candidates, query_plan, queries)
+                if retry_queries:
+                    retry_hits, retry_warnings = self._search.search(retry_queries, self._hits_per_cycle)
+                    provider_warnings.extend(retry_warnings)
+                    if retry_hits:
+                        all_queries.extend(retry_queries)
+                        queries = _dedupe([*queries, *retry_queries])
+                        cycle_hits = retry_hits
             warnings.extend(provider_warnings)
             # ---- extract: record every hit into the evidence ledger ------
             for hit in cycle_hits:
@@ -351,6 +364,7 @@ class PatentDeepResearcher:
                     "payload": {
                         "hits": [hit.model_dump(mode="json") for hit in cycle_hits],
                         "warnings": provider_warnings,
+                        "retry_queries": retry_queries,
                     },
                 }
             )
@@ -724,6 +738,34 @@ def _candidates_block(candidates: list[PatentPointCandidate], project: ProjectRe
             }
         )
     return json.dumps(serialized, ensure_ascii=False, indent=2)
+
+
+def _broaden_empty_result_queries(
+    project: ProjectRecord,
+    candidates: list[PatentPointCandidate],
+    query_plan: list[str],
+    current_queries: list[str],
+) -> list[str]:
+    seeds: list[str] = [
+        project.name,
+        project.technical_field,
+        project.technical_solution,
+        project.innovation,
+        project.pain_point,
+        project.draft_text[:80],
+        *query_plan,
+    ]
+    for candidate in candidates[:3]:
+        seeds.extend(
+            [
+                candidate.title,
+                candidate.technical_problem,
+                candidate.innovation,
+                candidate.technical_solution,
+            ]
+        )
+    current = {query.strip() for query in current_queries if query.strip()}
+    return [query for query in _dedupe([seed.strip() for seed in seeds if seed and seed.strip()]) if query not in current][:6]
 
 
 def _fallback_plan(project: ProjectRecord) -> dict[str, Any]:

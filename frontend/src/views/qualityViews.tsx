@@ -6,15 +6,19 @@ import {
   AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
+  Download,
+  FileText,
   Info,
   Scale,
   Search,
   ShieldCheck,
 } from "@/lib/icons";
-import type {
-  ClaimDefenseWorksheet,
-  ProjectRecord,
-  ReviewFinding,
+import {
+  grantabilityReportUrl,
+  type GrantabilityReport,
+  type ClaimDefenseWorksheet,
+  type ProjectRecord,
+  type ReviewFinding,
 } from "@/api";
 import {
   featureClassificationLabel,
@@ -44,6 +48,180 @@ function severityTagClass(severity: string): string {
 
 function EmptyMessage({ children }: { children: string }) {
   return <p className="empty">{children}</p>;
+}
+
+function grantabilityStatusLabel(status: string): string {
+  if (status === "high") return "授权前景较强";
+  if (status === "medium") return "授权前景中等";
+  if (status === "uncertain") return "证据不足";
+  return "授权风险较高";
+}
+
+function grantabilityTone(status: string, failClosed: boolean): "danger" | "warn" | "success" | "info" {
+  if (failClosed || status === "low") return "danger";
+  if (status === "uncertain" || status === "medium") return "warn";
+  if (status === "high") return "success";
+  return "info";
+}
+
+export function GrantabilityView({
+  project,
+  report,
+  reports,
+  busy,
+  onGenerate,
+}: {
+  project: ProjectRecord | null;
+  report: GrantabilityReport | null;
+  reports: GrantabilityReport[];
+  busy: string;
+  onGenerate: () => void;
+}) {
+  const chartCount = report?.claim_chart.length ?? 0;
+  const noveltyStrong = report?.novelty_attacks.filter((attack) => attack.attack_strength === "strong").length ?? 0;
+  const inventiveStrong = report?.inventive_step_attacks.filter((attack) => attack.attack_strength === "strong").length ?? 0;
+  const lowEvidenceCount = report?.low_evidence_flags.length ?? 0;
+  const tone = report ? grantabilityTone(report.status, report.fail_closed) : "info";
+
+  return (
+    <div className="grid gap-4">
+      <StatusStrip
+        aria-label="授权前景状态"
+        items={[
+          { label: "当前状态", value: report ? grantabilityStatusLabel(report.status) : "未生成" },
+          { label: "Claim Chart", value: `${chartCount} 项` },
+          { label: "强攻击", value: `${noveltyStrong + inventiveStrong} 项` },
+          { label: "证据标记", value: `${lowEvidenceCount} 项` },
+        ]}
+      />
+
+      <SectionHead
+        title="授权前景"
+        description={project?.package ? "基于当前申请文本、交底查新、发明点和 Deep Research 结果生成新颖性与创造性攻击分析。" : "生成申请文本后可运行授权前景分析。"}
+        actions={(
+          <button
+            className="btn btn-primary"
+            disabled={!project?.package || busy === "grantability"}
+            onClick={onGenerate}
+            type="button"
+          >
+            <Search size={18} />
+            <span>生成报告</span>
+          </button>
+        )}
+      />
+
+      <SettingsGroup title="结论摘要" description="低证据场景默认 fail closed，不把少量或重复文献包装成高可授权性。">
+        <div className="boundary-grid">
+          <InfoCard
+            icon={report?.fail_closed ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+            title={report ? grantabilityStatusLabel(report.status) : "等待生成"}
+            description={report?.overall_assessment || "运行后显示整体授权前景、主要风险和建议收敛方向。"}
+            tone={tone}
+            meta={report ? <span className={`tag tag-${tone}`}>{report.fail_closed ? "Fail closed" : "可复核"}</span> : <span className="tag">无报告</span>}
+          />
+          <InfoCard
+            icon={<FileText size={18} />}
+            title="最接近现有技术"
+            description={report?.closest_prior_art_summary || "报告会汇总最接近文献和引用来源。"}
+            tone={report?.closest_prior_art_summary ? "info" : "warn"}
+            meta={<span className="tag">{report?.source_ledger_citations.length ?? 0} 条引用</span>}
+          />
+        </div>
+      </SettingsGroup>
+
+      <div className="quality-split-grid">
+        <SettingsGroup title="Claim Chart" description="逐项映射权利要求特征、现有技术覆盖和建议收窄方向。">
+          <div className="dense-list">
+            {report?.claim_chart.map((row, index) => (
+              <InfoCard
+                icon={<Scale size={18} />}
+                title={row.claim_ref || `特征 ${index + 1}`}
+                description={row.feature_text}
+                tone={row.overbreadth_risk ? "warn" : "info"}
+                meta={(
+                  <>
+                    <span className={row.overbreadth_risk ? "tag tag-warn" : "tag tag-info"}>{row.support_status}</span>
+                    <span className="tag">{row.closest_prior_art_refs.length} 个现有技术引用</span>
+                  </>
+                )}
+                key={`${row.claim_ref}-${index}`}
+              >
+                {row.novelty_distinction && <p>{row.novelty_distinction}</p>}
+                {row.recommended_scope_adjustment && <p>{row.recommended_scope_adjustment}</p>}
+              </InfoCard>
+            ))}
+            {!report && <EmptyMessage>生成报告后显示 Claim Chart。</EmptyMessage>}
+            {report && report.claim_chart.length === 0 && <EmptyMessage>暂无可映射特征。</EmptyMessage>}
+          </div>
+        </SettingsGroup>
+
+        <SettingsGroup title="风险与历史" description="新颖性、创造性攻击和历史报告分开留痕。">
+          <div className="dense-list">
+            {report?.novelty_attacks.map((attack, index) => (
+              <InfoCard
+                icon={<AlertTriangle size={18} />}
+                title={`新颖性攻击 ${index + 1}`}
+                description={attack.overlap_analysis || attack.feature_text}
+                tone={severityTone(attack.attack_strength === "strong" ? "high" : attack.attack_strength === "moderate" ? "medium" : "low")}
+                meta={<span className={severityTagClass(attack.attack_strength === "strong" ? "high" : attack.attack_strength === "moderate" ? "medium" : "low")}>{attack.attack_strength}</span>}
+                key={`${attack.feature_text}-${index}`}
+              />
+            ))}
+            {report?.inventive_step_attacks.map((attack, index) => (
+              <InfoCard
+                icon={<ShieldCheck size={18} />}
+                title={`创造性组合 ${index + 1}`}
+                description={attack.combination_rationale || attack.defense_suggestion}
+                tone={severityTone(attack.attack_strength === "strong" ? "high" : attack.attack_strength === "moderate" ? "medium" : "low")}
+                meta={<span className={severityTagClass(attack.attack_strength === "strong" ? "high" : attack.attack_strength === "moderate" ? "medium" : "low")}>{attack.attack_strength}</span>}
+                key={`${attack.title}-${index}`}
+              />
+            ))}
+            {report?.low_evidence_flags.map((flag, index) => (
+              <InfoCard
+                icon={<Info size={18} />}
+                title={`证据标记 ${index + 1}`}
+                description={flag}
+                tone="warn"
+                key={`${flag}-${index}`}
+              />
+            ))}
+            {!report && <EmptyMessage>生成报告后显示风险条目。</EmptyMessage>}
+            {report && !report.novelty_attacks.length && !report.inventive_step_attacks.length && !report.low_evidence_flags.length && (
+              <EmptyMessage>暂无额外风险条目。</EmptyMessage>
+            )}
+            {reports.map((item) => (
+              <InfoCard
+                title={item.created_at}
+                description={`${item.claim_chart.length} 个特征，${item.source_ledger_citations.length} 条引用`}
+                meta={<span className="tag">{grantabilityStatusLabel(item.status)}</span>}
+                key={item.id}
+              />
+            ))}
+          </div>
+        </SettingsGroup>
+      </div>
+
+      <ActionDock meta={report ? `最新报告：${grantabilityStatusLabel(report.status)}，${chartCount} 个特征映射。` : "生成后可导出 Markdown 报告供代理师复核。"}>
+        <button
+          className="btn btn-primary"
+          disabled={!project?.package || busy === "grantability"}
+          onClick={onGenerate}
+          type="button"
+        >
+          <Search size={18} />
+          <span>生成报告</span>
+        </button>
+        {project && report && (
+          <a className="btn btn-secondary" href={grantabilityReportUrl(project.id, report.id)}>
+            <Download size={18} />
+            <span>导出报告</span>
+          </a>
+        )}
+      </ActionDock>
+    </div>
+  );
 }
 
 export function ClaimDefenseView({

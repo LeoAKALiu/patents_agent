@@ -48,6 +48,7 @@ export type ExpertToolId =
   | "deliberate"
   | "write"
   | "readiness"
+  | "grantability"
   | "claimDefense"
   | "completion"
   | "review"
@@ -252,6 +253,7 @@ export const expertToolGroups: ExpertToolGroup[] = [
     label: "质检",
     tools: [
       { id: "readiness", label: "提交成熟度", description: "检查正式稿清洁度", icon: ClipboardCheck },
+      { id: "grantability", label: "授权前景", description: "分析现有技术攻击和可授权性", icon: SearchCheck },
       { id: "claimDefense", label: "权利要求防线", description: "分析区别特征和支撑缺口", icon: Scale },
       { id: "completion", label: "初稿完善", description: "生成补强任务和候选补丁", icon: Gauge },
       { id: "review", label: "审查修改", description: "生成审查意见", icon: SearchCheck },
@@ -634,6 +636,7 @@ export function guidedBusyLabel(value: string): string {
   if (value === "external-draft-upload") return "正在上传外部初稿";
   if (value === "patent-point-select") return "正在保存主路线和后备路线";
   if (value === "project-delete") return "正在删除项目";
+  if (value === "grantability") return "正在生成授权前景报告";
   if (value === "claim-defense") return "正在生成权利要求防线";
   if (value === "filing-readiness") return "正在检查提交成熟度";
   if (value === "completion") return "正在运行初稿完善";

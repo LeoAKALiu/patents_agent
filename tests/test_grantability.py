@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from backend.app.grantability import (
+    _collect_prior_art,
     generate_grantability_report,
     grantability_report_to_markdown,
 )
+from backend.app.storage import SQLiteStore
 from backend.app.schemas import (
     ClaimChartItem,
     DeepResearchFinding,
@@ -311,6 +313,73 @@ def test_generate_basic_grantability_report() -> None:
     assert report.novelty_attacks
 
 
+def test_grantability_dedupes_claim_chart_refs_case_insensitively() -> None:
+    disclosure = DisclosureRun(
+        id="disc-case",
+        project_id="proj-case",
+        status="completed",
+        package=DisclosurePackage(
+            title="case",
+            summary="",
+            materials_summary="",
+            prior_art_hits=[
+                PriorArtHit(
+                    id="PA-1",
+                    source="Google Patents",
+                    query="case",
+                    title="",
+                    publication_number=None,
+                    url="",
+                    abstract="公开了基础特征。",
+                )
+            ],
+            prior_art_differences="",
+            body_markdown="",
+            mermaid="",
+            image_prompt="",
+        ),
+    )
+    point = PatentPointCandidate(
+        id="pp-case",
+        title="大小写去重",
+        technical_problem="重复 prior art",
+        innovation="差异特征",
+        technical_solution="基础特征与差异特征组合",
+        protection_focus=["基础特征", "差异特征"],
+        claim_chart=[
+            ClaimChartItem(
+                prior_art_id="pa-1",
+                prior_art_title="",
+                overlapping_features=["基础特征"],
+                differentiating_features=["差异特征"],
+            )
+        ],
+    )
+
+    hits = _collect_prior_art([disclosure], [point], None)
+    assert len(hits) == 1
+    assert hits[0].id == "PA-1"
+    assert hits[0].source == "Google Patents"
+
+    report = generate_grantability_report(
+        project_id="proj-case",
+        package=DraftPackage(
+            title="case",
+            abstract="",
+            claims="1. 一种方法，其特征在于，包括基础特征与差异特征。",
+            description="基础特征与差异特征组合。",
+            drawing_description="",
+            mermaid="",
+            image_prompt="",
+        ),
+        disclosures=[disclosure],
+        patent_points=[point],
+    )
+    assert report.claim_chart[0].closest_prior_art_refs == ["PA-1"]
+    assert report.claim_chart[0].novelty_attack is not None
+    assert report.claim_chart[0].novelty_attack.prior_art_ref == "PA-1"
+
+
 def test_generate_grantability_with_deep_research() -> None:
     """Deep-research packets contribute additional prior-art refs."""
     report = generate_grantability_report(
@@ -329,6 +398,56 @@ def test_generate_grantability_with_deep_research() -> None:
         if "publication_number" in cit
     )
     assert has_deep_research_ref
+
+
+def test_deep_research_packets_extracted_from_disclosure_stage_results() -> None:
+    from backend.app.main import _deep_research_packets_from_disclosures
+
+    packet = _sample_deep_research()
+    disclosure = DisclosureRun(
+        id="disc-deep",
+        project_id="proj-2",
+        status="completed",
+        package=DisclosurePackage(
+            title="交底",
+            summary="摘要",
+            materials_summary="",
+            body_markdown="# body",
+            mermaid="",
+            image_prompt="",
+        ),
+        stage_results=[
+            {
+                "phase": "deep_research_final",
+                "payload": {"packet": packet.model_dump(mode="json")},
+            }
+        ],
+    )
+
+    packets = _deep_research_packets_from_disclosures([disclosure])
+
+    assert len(packets) == 1
+    assert packets[0].findings[0].evidence[0].publication_number == "CN119131263B"
+
+
+def test_grantability_reports_persist_in_store(tmp_path) -> None:
+    store = SQLiteStore(tmp_path / "patents_agent.sqlite3")
+    report = generate_grantability_report(
+        project_id="proj-store",
+        package=_sample_package(),
+        disclosures=[_sample_disclosure()],
+        patent_points=_sample_patent_points(),
+        deep_research_packets=[_sample_deep_research()],
+    )
+
+    stored = store.create_grantability_report(report)
+    listed = store.list_grantability_reports("proj-store")
+    loaded = store.get_grantability_report("proj-store", stored.id)
+
+    assert stored.id == report.id
+    assert [item.id for item in listed] == [report.id]
+    assert loaded is not None
+    assert loaded.closest_prior_art_summary == report.closest_prior_art_summary
 
 
 def test_generate_grantability_with_strategy_brief() -> None:
