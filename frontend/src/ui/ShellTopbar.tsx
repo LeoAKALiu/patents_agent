@@ -50,7 +50,7 @@ export function ShellTopbar({
           {projectSelector}
 
           {statusLabel && (
-            <span className={statusChipClass(statusV)}>
+            <span className={`${statusChipClass(statusV)} topbar-status-chip`}>
               {statusLabel}
             </span>
           )}
@@ -61,6 +61,7 @@ export function ShellTopbar({
             <Button
               variant="outline"
               size="icon"
+              className="topbar-refresh-button"
               onClick={onRefresh}
               title="刷新运行状态"
               aria-label="刷新运行状态"

@@ -61,6 +61,24 @@ def test_parse_backend_process_accepts_python_venv_executable() -> None:
     )
 
 
+def test_parse_backend_process_accepts_bundled_backend_executable() -> None:
+    smoke = load_smoke_script()
+
+    parsed = smoke.parse_backend_process(
+        "12345 12344 /Applications/PatentAgent.app/Contents/Resources/"
+        "patentagent-backend/patentagent-backend --host 127.0.0.1 --port 51002 "
+        "--log-level warning"
+    )
+
+    assert parsed == smoke.BackendProcess(
+        pid=12345,
+        ppid=12344,
+        port=51002,
+        command="/Applications/PatentAgent.app/Contents/Resources/patentagent-backend/"
+        "patentagent-backend --host 127.0.0.1 --port 51002 --log-level warning",
+    )
+
+
 def test_spctl_rejection_is_classified_as_not_notarized() -> None:
     smoke = load_smoke_script()
 
@@ -233,9 +251,13 @@ def test_smoke_script_requires_bundled_backend_and_does_not_inject_repo_root() -
     source = SCRIPT_PATH.read_text(encoding="utf-8")
 
     assert "BUNDLED_BACKEND_RELATIVE" in source
+    assert "BUNDLED_BACKEND_EXECUTABLE_RELATIVE" in source
     assert "Contents/Resources/backend/app/main.py" in source
+    assert "Contents/Resources/patentagent-backend/patentagent-backend" in source
     assert "bundled_backend_ok" in source
+    assert "bundled_backend_executable_ok" in source
     assert "Copied app bundled backend is missing" in source
+    assert "Copied app bundled backend executable is missing" in source
     assert "PATENTAGENT_REPO_ROOT" not in source
     assert "PATENTAGENT_PYTHON" not in source
     assert "LAUNCHPAD_PATH" in source

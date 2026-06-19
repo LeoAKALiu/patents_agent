@@ -39,7 +39,7 @@ export function PostDraftRepairEditor({
   onPatchApplied,
 }: PostDraftRepairEditorProps) {
   const [selectedIssue, setSelectedIssue] = useState<DraftReviewIssue | null>(
-    null,
+    () => session?.issues[0] ?? null,
   );
   const [sectionValues, setSectionValues] = useState<Record<string, string>>(
     {},
@@ -55,7 +55,7 @@ export function PostDraftRepairEditor({
   useEffect(() => {
     if (session) {
       setSectionValues({ ...session.sections });
-      setSelectedIssue(null);
+      setSelectedIssue(session.issues[0] ?? null);
       setPatch(null);
       setGenerating(false);
       setApplying(false);

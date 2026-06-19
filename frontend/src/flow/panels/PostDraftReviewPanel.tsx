@@ -36,6 +36,7 @@ export interface PostDraftReviewPanelProps {
   actionGate: GuidedActionGate;
   project: ProjectRecord | null;
   review: PostDraftReviewRun | null;
+  repairReview?: PostDraftReviewRun | null;
   runs: PostDraftReviewRun[];
   currentDraftHash: string;
   currentPackage: DraftPackage | null;
@@ -57,6 +58,7 @@ export function PostDraftReviewPanel({
   actionGate,
   project,
   review,
+  repairReview,
   runs,
   currentDraftHash,
   currentPackage,
@@ -86,6 +88,10 @@ export function PostDraftReviewPanel({
   const blocked = Boolean(review?.status === "completed" && !review.export_allowed);
   const activeRun = guidedActiveRun(runs);
   const reviewBusy = busy === "post-draft-review" || Boolean(activeRun);
+  const activeRepairReview = repairReview ?? review;
+  const showingHistoricalRepairReview = Boolean(
+    activeRepairReview && (!review || activeRepairReview.id !== review.id),
+  );
   const safePatchCount = review
     ? review.chair_result?.official_safe_patches.length
       || review.role_results.reduce((count, result) => count + result.official_safe_patches.length, 0)
@@ -93,7 +99,7 @@ export function PostDraftReviewPanel({
   const applyingSafePatches = busy === "post-draft-safe-patch";
   const polishing = busy === "kimi-language-polish";
   const savingDraft = busy === "draft-save";
-  const reviewIssues = useMemo(() => collectPostDraftIssues(review), [review]);
+  const reviewIssues = useMemo(() => collectPostDraftIssues(activeRepairReview), [activeRepairReview]);
 
   useEffect(() => {
     if (!editorOpen) {
@@ -115,11 +121,11 @@ export function PostDraftReviewPanel({
   }
 
   async function openRepairEditor() {
-    if (!project || !review) return;
+    if (!project || !activeRepairReview) return;
     setRepairSessionLoading(true);
     setRepairSessionError("");
     try {
-      const session = await getPostDraftRepairSession(project.id, review.id);
+      const session = await getPostDraftRepairSession(project.id, activeRepairReview.id);
       setRepairSession(session);
       setRepairEditorOpen(true);
     } catch {
@@ -245,7 +251,7 @@ export function PostDraftReviewPanel({
             </button>
             <button
               className="btn btn-primary"
-              disabled={!currentPackage || !review || repairSessionLoading}
+              disabled={!currentPackage || !activeRepairReview || repairSessionLoading}
               onClick={() => void openRepairEditor()}
               type="button"
             >
@@ -254,6 +260,11 @@ export function PostDraftReviewPanel({
             </button>
           </div>
           {repairSessionError && <p className="workflow-hint">{repairSessionError}</p>}
+          {showingHistoricalRepairReview && (
+            <p className="workflow-hint">
+              已有历史会审记录，但不属于当前正式稿；可参考阻断项人工修正，保存后需重新编译正式稿并重新成稿会审。
+            </p>
+          )}
           {currentPackage ? (
             <div className="draft-editor-summary">
               <strong>{currentPackage.title || "未命名初稿"}</strong>

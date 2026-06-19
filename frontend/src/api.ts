@@ -631,15 +631,6 @@ export interface Health {
   embedding_model: string;
 }
 
-export interface SystemInfo {
-  app_version: string;
-  data_dir: string;
-  source_kind: "tauri" | "web";
-  python_version: string;
-  model: string;
-  embedding_model: string;
-}
-
 export interface DesktopConfigView {
   provider: string;
   base_url: string;
@@ -932,10 +923,6 @@ export interface CorpusStats {
 
 export async function getHealth(): Promise<Health> {
   return request<Health>("/api/health");
-}
-
-export async function getSystemInfo(): Promise<SystemInfo> {
-  return request<SystemInfo>("/api/system/info");
 }
 
 export async function getDesktopConfig(): Promise<DesktopConfigView> {

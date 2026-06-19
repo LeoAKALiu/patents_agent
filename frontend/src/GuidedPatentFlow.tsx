@@ -60,6 +60,7 @@ import {
   resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
   selectLatestMatchingPostDraftReview,
+  selectLatestRepairablePostDraftReview,
   type GuidedActionGate,
   type GuidedFlowState,
   type GuidedStepId,
@@ -226,6 +227,10 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
     props.postDraftReviews,
     latestOfficialCompileRun,
   );
+  const latestRepairablePostDraftReview = selectLatestRepairablePostDraftReview(
+    props.postDraftReviews,
+    props.currentSourceDraftHash,
+  );
   const [manualViewStepId, setManualViewStepId] = useState<GuidedStepId | null>(null);
 
   useEffect(() => {
@@ -381,6 +386,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           actionGate={postDraftReviewActionGate(state, state.currentStepId, displayedStepId)}
           project={props.project}
           review={latestMatchingPostDraftReview}
+          repairReview={latestRepairablePostDraftReview}
           runs={props.postDraftReviews}
           currentDraftHash={props.currentDraftHash}
           currentPackage={props.currentPackage}

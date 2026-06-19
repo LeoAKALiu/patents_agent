@@ -167,14 +167,14 @@ export function StartChoiceScreen({ onSelect }: { onSelect: (choice: StartChoice
           <h3>选择起步方式</h3>
           <p>每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。</p>
         </div>
-        <div className="start-choice-grid">
+        <div className="start-choice-list">
           {v1StartChoices.map((choice) => {
             const Icon = iconForChoice[choice.id];
             const meta = choiceMeta[choice.id];
             const pillTone = choice.id === "utility" ? "success" : choice.id === "external" ? "warning" : "info";
             return (
               <button
-                className="info-card start-choice-config-card"
+                className="info-card start-choice-config-card start-choice-row"
                 key={choice.id}
                 onClick={() => onSelect(choice.id)}
                 type="button"

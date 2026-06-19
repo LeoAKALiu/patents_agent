@@ -124,6 +124,17 @@ struct DesktopConfigUpdatePayload {
     clear_api_key: Option<bool>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum BackendLaunchMode {
+    SourceDev,
+    Packaged,
+}
+
+struct BackendRoot {
+    path: PathBuf,
+    launch_mode: BackendLaunchMode,
+}
+
 fn main() {
     let dom_smoke_done = Arc::new(AtomicBool::new(false));
     let dom_smoke_done_for_setup = Arc::clone(&dom_smoke_done);
@@ -140,12 +151,17 @@ fn main() {
             });
             fs::create_dir_all(&data_dir)?;
             append_backend_startup_log(&data_dir, "setup: begin");
-            match backend_root(app.handle()).and_then(|repo_root| {
+            match backend_root(app.handle()).and_then(|backend| {
                 append_backend_startup_log(
                     &data_dir,
-                    &format!("backend root: {}", repo_root.display()),
+                    &format!(
+                        "backend root: {} ({:?})",
+                        backend.path.display(),
+                        backend.launch_mode
+                    ),
                 );
-                start_backend(&repo_root, &data_dir).map_err(|err| err.to_string())
+                start_backend(&backend.path, &data_dir, backend.launch_mode)
+                    .map_err(|err| err.to_string())
             }) {
                 Ok(supervisor) => {
                     append_backend_startup_log(
@@ -530,14 +546,20 @@ fn open_folder(
     })
 }
 
-fn backend_root(app_handle: &AppHandle) -> Result<PathBuf, String> {
+fn backend_root(app_handle: &AppHandle) -> Result<BackendRoot, String> {
     if let Some(path) = std::env::var_os("PATENTAGENT_REPO_ROOT").map(PathBuf::from) {
-        return ensure_backend_root(path);
+        return ensure_backend_root(path).map(|path| BackendRoot {
+            path,
+            launch_mode: BackendLaunchMode::SourceDev,
+        });
     }
 
     if let Ok(resource_dir) = app_handle.path().resource_dir() {
         if is_backend_root(&resource_dir) {
-            return Ok(resource_dir);
+            return Ok(BackendRoot {
+                path: resource_dir,
+                launch_mode: BackendLaunchMode::Packaged,
+            });
         }
     }
 
@@ -545,7 +567,10 @@ fn backend_root(app_handle: &AppHandle) -> Result<PathBuf, String> {
         .parent()
         .ok_or("CARGO_MANIFEST_DIR has no parent")?
         .to_path_buf();
-    ensure_backend_root(dev_root)
+    ensure_backend_root(dev_root).map(|path| BackendRoot {
+        path,
+        launch_mode: BackendLaunchMode::SourceDev,
+    })
 }
 
 fn ensure_backend_root(path: PathBuf) -> Result<PathBuf, String> {
@@ -566,8 +591,27 @@ fn is_backend_root(path: &Path) -> bool {
 fn start_backend(
     repo_root: &Path,
     data_dir: &Path,
+    launch_mode: BackendLaunchMode,
 ) -> Result<BackendSupervisor, Box<dyn std::error::Error>> {
     let mut errors = Vec::new();
+    if launch_mode == BackendLaunchMode::Packaged {
+        if let Some(executable) = bundled_backend_executable(repo_root) {
+            append_backend_startup_log(
+                data_dir,
+                &format!("trying bundled backend: {}", executable.display()),
+            );
+            match start_backend_with_executable(&executable, data_dir) {
+                Ok(supervisor) => return Ok(supervisor),
+                Err(err) => {
+                    append_backend_startup_log(
+                        data_dir,
+                        &format!("bundled backend failed: {}: {err}", executable.display()),
+                    );
+                    errors.push(format!("{}: {err}", executable.display()));
+                }
+            }
+        }
+    }
     for python in python_candidates() {
         append_backend_startup_log(data_dir, &format!("trying python: {python}"));
         match start_backend_with_python(&python, repo_root, data_dir) {
@@ -579,10 +623,17 @@ fn start_backend(
         }
     }
     Err(format!(
-        "backend did not start with any Python interpreter: {}",
+        "backend did not start with bundled backend or any Python interpreter: {}",
         errors.join(" | ")
     )
     .into())
+}
+
+fn bundled_backend_executable(repo_root: &Path) -> Option<PathBuf> {
+    let executable = repo_root
+        .join("patentagent-backend")
+        .join("patentagent-backend");
+    executable.is_file().then_some(executable)
 }
 
 fn python_candidates() -> Vec<String> {
@@ -637,6 +688,55 @@ fn start_backend_with_python(
         .current_dir(repo_root)
         .env("DATA_DIR", data_dir)
         .env("PYTHONPATH", pythonpath)
+        .env("PYTHONUNBUFFERED", "1")
+        .env("PYTHONDONTWRITEBYTECODE", "1")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    if let Err(err) = wait_for_health(&health_url, &mut child) {
+        let _ = child.kill();
+        let _ = child.wait();
+        let stdout = read_child_pipe(&mut child.stdout);
+        let stderr = read_child_pipe(&mut child.stderr);
+        return Err(format!(
+            "{err}; backend stdout: {}; backend stderr: {}",
+            summarize_process_output(&stdout),
+            summarize_process_output(&stderr)
+        )
+        .into());
+    }
+
+    Ok(BackendSupervisor {
+        child,
+        info: BackendInfo {
+            base_url,
+            health_url,
+            port,
+        },
+    })
+}
+
+fn start_backend_with_executable(
+    executable: &Path,
+    data_dir: &Path,
+) -> Result<BackendSupervisor, Box<dyn std::error::Error>> {
+    let port = find_available_port()?;
+    let base_url = format!("http://127.0.0.1:{port}");
+    let health_url = format!("{base_url}{HEALTH_PATH}");
+    let current_dir = executable.parent().unwrap_or(data_dir);
+    let mut child = Command::new(executable)
+        .args([
+            "--host",
+            "127.0.0.1",
+            "--port",
+            &port.to_string(),
+            "--log-level",
+            "warning",
+        ])
+        .current_dir(current_dir)
+        .env("DATA_DIR", data_dir)
         .env("PYTHONUNBUFFERED", "1")
         .env("PYTHONDONTWRITEBYTECODE", "1")
         .stdin(Stdio::null())

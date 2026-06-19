@@ -49,15 +49,10 @@ describe("PostDraftRepairEditor", () => {
       />,
     );
 
-    expect(screen.getByText("阻断")).toBeTruthy();
+    expect(screen.getAllByText("阻断").length).toBeGreaterThan(0);
     expect(screen.getByDisplayValue(/方法方法/)).toBeTruthy();
 
-    // Click on an issue to select it, which reveals inspector buttons
-    const issueButton = screen.getByRole("button", {
-      name: /标题存在重复词汇/,
-    });
-    await userEvent.click(issueButton);
-
+    // The first issue is selected by default so the inspector is useful immediately.
     expect(
       screen.getByRole("button", { name: "人工修正" }),
     ).toBeTruthy();
@@ -175,7 +170,7 @@ describe("PostDraftRepairEditor", () => {
         onSave={vi.fn()}
       />,
     );
-    expect(screen.getByText(/初稿已变更/)).toBeTruthy();
+    expect(screen.getAllByText(/初稿已变更/).length).toBeGreaterThan(0);
   });
 
   it("selecting a different issue clears patch state", async () => {

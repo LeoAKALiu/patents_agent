@@ -22,6 +22,9 @@ APP_BUNDLE_NAME = "PatentAgent.app"
 APP_EXECUTABLE_RELATIVE = Path("Contents/MacOS/patentagent-tauri")
 CODE_SIGNATURE_RELATIVE = Path("Contents/_CodeSignature/CodeResources")
 BUNDLED_BACKEND_RELATIVE = Path("Contents/Resources/backend/app/main.py")
+BUNDLED_BACKEND_EXECUTABLE_RELATIVE = Path(
+    "Contents/Resources/patentagent-backend/patentagent-backend"
+)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_BUNDLE_IDENTIFIER = "xin.liubo.patentagent"
 APP_DATA_DIR = Path.home() / "Library" / "Application Support" / APP_BUNDLE_IDENTIFIER
@@ -34,8 +37,8 @@ SPCTL_TRANSIENT_STATUSES = {
     "assessment-tool-error-invalid-resource-directory",
 }
 BACKEND_RE = re.compile(
-    r"(?P<command>(?:\S*/)?(?:python(?:3(?:\.\d+)?)?|Python)\s+-m\s+uvicorn\s+"
-    r"backend\.app\.main:app\s+--host\s+127\.0\.0\.1\s+--port\s+"
+    r"(?P<command>(?:(?:\S*/)?(?:python(?:3(?:\.\d+)?)?|Python)\s+-m\s+uvicorn\s+"
+    r"backend\.app\.main:app|(?:\S*/)?patentagent-backend)\s+--host\s+127\.0\.0\.1\s+--port\s+"
     r"(?P<port>\d+)(?:\s+.*)?)"
 )
 
@@ -563,6 +566,8 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         "bundle_metadata": None,
         "bundled_backend_ok": False,
         "bundled_backend": None,
+        "bundled_backend_executable_ok": False,
+        "bundled_backend_executable": None,
         "backend_startup": None,
         "restore_prompt_dismissed": False,
         "codesign_strict_ok": False,
@@ -605,6 +610,13 @@ def run_smoke(dmg: Path, keep_artifacts: bool) -> dict[str, Any]:
         summary["bundled_backend_ok"] = bundled_backend.is_file()
         if not bundled_backend.is_file():
             raise SmokeError(f"Copied app bundled backend is missing: {bundled_backend}")
+        bundled_backend_executable = copied_app / BUNDLED_BACKEND_EXECUTABLE_RELATIVE
+        summary["bundled_backend_executable"] = str(bundled_backend_executable)
+        summary["bundled_backend_executable_ok"] = bundled_backend_executable.is_file()
+        if not bundled_backend_executable.is_file():
+            raise SmokeError(
+                f"Copied app bundled backend executable is missing: {bundled_backend_executable}"
+            )
         bundle_metadata = validate_bundle_metadata(copied_app)
         summary["bundle_metadata"] = asdict(bundle_metadata)
         summary["bundle_metadata_ok"] = bundle_metadata.ok

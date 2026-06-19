@@ -213,6 +213,10 @@ v1.1.0 release branch 额外加入桌面启动诊断和 DOM smoke：启动失败
 
 桌面端打包、验证和发布边界见 `docs/release/v1.1.0-tauri-release-gate.md` 与 `docs/release/v1.1.0-tauri-packaging.md`。
 
+### 开发协作防回退规则
+
+后续 Codex/Hermes/worker 开发前先读根目录 `AGENTS.md`。该文件记录本项目的分支、UI、DMG 打包和验收防错规则，尤其用于避免从错误分支、旧 worktree、旧挂载 DMG 或仅有设计稿的状态继续开发。
+
 ### v1.1.0 确定性质量门禁
 
 release/v1.1.0 使用单一 smoke 命令验证核心链路和 golden E2E 报告：

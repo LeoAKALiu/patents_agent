@@ -570,6 +570,52 @@ export function selectLatestMatchingPostDraftReview(
   }, null);
 }
 
+function hasReviewItems(items: unknown[] | undefined): boolean {
+  return Array.isArray(items) && items.some((item) => String(item).trim().length > 0);
+}
+
+function hasRepairablePostDraftReviewIssues(review: PostDraftReviewRun): boolean {
+  const topLevelRewriteSuggestions = (review as PostDraftReviewRun & { rewrite_suggestions?: unknown[] })
+    .rewrite_suggestions;
+  const chairResult = review.chair_result;
+  return hasReviewItems(review.blocking_issues)
+    || hasReviewItems(review.contamination_hits)
+    || hasReviewItems(topLevelRewriteSuggestions)
+    || review.role_results.some((role) =>
+      hasReviewItems(role.blocking_issues)
+      || hasReviewItems(role.contamination_hits)
+      || hasReviewItems(role.rewrite_suggestions)
+    )
+    || Boolean(chairResult && (
+      hasReviewItems(chairResult.blocking_issues)
+      || hasReviewItems(chairResult.contamination_hits)
+      || hasReviewItems(chairResult.description_rewrite_tasks)
+      || hasReviewItems(chairResult.next_actions)
+    ));
+}
+
+export function selectLatestRepairablePostDraftReview(
+  reviews: PostDraftReviewRun[],
+  currentSourceDraftHash = "",
+): PostDraftReviewRun | null {
+  const completed = reviews.filter((review) =>
+    review.status === "completed" && hasRepairablePostDraftReviewIssues(review)
+  );
+  if (completed.length === 0) {
+    return null;
+  }
+  const currentDraftReviews = currentSourceDraftHash
+    ? completed.filter((review) => review.draft_package_hash === currentSourceDraftHash)
+    : [];
+  const candidates = currentDraftReviews.length > 0 ? currentDraftReviews : completed;
+  return candidates.reduce<PostDraftReviewRun | null>((latest, review) => {
+    if (!latest) {
+      return review;
+    }
+    return postDraftReviewTime(review) > postDraftReviewTime(latest) ? review : latest;
+  }, null);
+}
+
 function postDraftReviewTime(review: PostDraftReviewRun): number {
   return Date.parse(review.updated_at || review.created_at || "") || 0;
 }
