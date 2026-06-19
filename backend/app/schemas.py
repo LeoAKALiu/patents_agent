@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -749,6 +749,36 @@ class PostDraftSafePatchApplyResult(BaseModel):
     previous_draft_hash: str = ""
     current_draft_hash: str = ""
     package: DraftPackage
+
+
+class DraftIssueAnchor(BaseModel):
+    type: Literal["text", "section", "missing"]
+    section: Literal["title", "abstract", "claims", "description", "drawing_description", "unknown"]
+    start: int | None = None
+    end: int | None = None
+    snippet: str | None = None
+
+
+class DraftReviewIssue(BaseModel):
+    id: str
+    kind: Literal["blocking", "hit", "suggestion"]
+    severity: Literal["critical", "high", "medium", "low"]
+    source: str
+    message: str
+    snippet: str | None = None
+    target_section: Literal["title", "abstract", "claims", "description", "drawing_description", "unknown"]
+    anchor: DraftIssueAnchor
+    status: Literal["open", "fixed", "skipped", "stale", "unanchored"] = "open"
+
+
+class PostDraftRepairSession(BaseModel):
+    project_id: str
+    review_run_id: str
+    draft_package_hash: str | None = None
+    current_draft_hash: str | None = None
+    stale: bool = False
+    issues: list[DraftReviewIssue] = Field(default_factory=list)
+    sections: dict[str, str] = Field(default_factory=dict)
 
 
 class ProjectMaterial(BaseModel):
