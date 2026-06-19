@@ -112,6 +112,11 @@ export interface DraftPackage {
   core_formula_summary?: string | null;
 }
 
+export type DraftPackageManualUpdate = Pick<
+  DraftPackage,
+  "title" | "abstract" | "claims" | "description" | "drawing_description"
+>;
+
 export interface OfficialFigurePlanItem {
   figure_no: string;
   title: string;
@@ -827,6 +832,18 @@ export interface PostDraftReviewRun {
   updated_at: string;
 }
 
+export interface PostDraftSafePatchApplyResult {
+  project_id: string;
+  review_run_id: string;
+  applied_count: number;
+  skipped_count: number;
+  applied_actions: string[];
+  skipped_patches: string[];
+  previous_draft_hash: string;
+  current_draft_hash: string;
+  package: DraftPackage;
+}
+
 export interface CorpusQualityReport {
   total_files: number;
   processed_files: number;
@@ -1188,6 +1205,17 @@ export async function reviewProject(projectId: string): Promise<DraftPackage> {
   return request<DraftPackage>(`/api/projects/${projectId}/review`, { method: "POST" });
 }
 
+export async function updateProjectDraftPackage(
+  projectId: string,
+  payload: DraftPackageManualUpdate,
+): Promise<DraftPackage> {
+  return request<DraftPackage>(`/api/projects/${projectId}/draft-package`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function createFilingReadinessReport(projectId: string): Promise<FilingReadinessReport> {
   return request<FilingReadinessReport>(`/api/projects/${projectId}/filing-readiness`, { method: "POST" });
 }
@@ -1373,6 +1401,16 @@ export async function startPostDraftReview(projectId: string, providers?: string
 
 export async function listPostDraftReviews(projectId: string): Promise<{ runs: PostDraftReviewRun[]; current_draft_hash: string }> {
   return request<{ runs: PostDraftReviewRun[]; current_draft_hash: string }>(`/api/projects/${projectId}/post-draft-reviews`);
+}
+
+export async function applyPostDraftSafePatches(
+  projectId: string,
+  runId: string,
+): Promise<PostDraftSafePatchApplyResult> {
+  return request<PostDraftSafePatchApplyResult>(
+    `/api/projects/${projectId}/post-draft-reviews/${runId}/apply-safe-patches`,
+    { method: "POST" },
+  );
 }
 
 export async function cancelPostDraftReview(projectId: string, runId: string): Promise<PostDraftReviewRun> {

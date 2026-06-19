@@ -97,6 +97,7 @@ from backend.app.schemas import (
     DisclosureRun,
     DisclosureRunCreate,
     DraftCompletionRun,
+    DraftPackageManualUpdate,
     ExternalDraftIntakeConfirmRequest,
     ExternalDraftReviewBundle,
     ExternalDraftSourceCreate,
@@ -116,6 +117,7 @@ from backend.app.schemas import (
     PatentStrategyBrief,
     PostDraftReviewRun,
     PostDraftReviewRunCreate,
+    PostDraftSafePatchApplyResult,
     ProposedPatch,
     CorpusImportJobCreate,
     ProjectMaterial,
@@ -1252,6 +1254,14 @@ def create_app(
         store.update_project_package(project_id, package)
         return package.model_dump(mode="json")
 
+    @app.put("/api/projects/{project_id}/draft-package")
+    def update_draft_package(project_id: str, payload: DraftPackageManualUpdate) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        updated = package.model_copy(update=payload.model_dump())
+        store.update_project_package(project_id, updated)
+        return updated.model_dump(mode="json")
+
     @app.post("/api/projects/{project_id}/filing-readiness")
     def create_filing_readiness_report(project_id: str) -> dict:
         project = _require_project(store, project_id)
@@ -1563,6 +1573,17 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         return run.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/apply-safe-patches")
+    def apply_post_draft_safe_patches(project_id: str, run_id: str) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        run = store.get_post_draft_review_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Post-draft review run not found.")
+        result = _apply_post_draft_safe_patches(project_id=project_id, package=package, run=run)
+        store.update_project_package(project_id, result.package)
+        return result.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/cancel")
     def cancel_post_draft_review(project_id: str, run_id: str) -> dict:
@@ -2941,6 +2962,192 @@ def _apply_completion_patch(
     if patch.target_section == "drawing":
         return package.model_copy(update={"drawing_description": _insert_or_append(package.drawing_description, patch, "补充附图说明")})
     return package
+
+
+def _apply_post_draft_safe_patches(
+    *,
+    project_id: str,
+    package: DraftPackage,
+    run: PostDraftReviewRun,
+) -> PostDraftSafePatchApplyResult:
+    previous_hash = source_draft_hash(package)
+    if run.draft_package_hash and run.draft_package_hash != previous_hash:
+        raise HTTPException(
+            status_code=409,
+            detail="Post-draft review safe patches are stale for the current draft.",
+        )
+    raw_patches = _post_draft_safe_patch_payloads(run)
+    if not raw_patches:
+        raise HTTPException(status_code=409, detail="Post-draft review did not provide official safe patches.")
+
+    current_package = package
+    applied_actions: list[str] = []
+    skipped_patches: list[str] = []
+    for raw_patch in raw_patches:
+        patch_payload = _parse_post_draft_safe_patch(raw_patch)
+        if not patch_payload:
+            skipped_patches.append(_safe_patch_label(raw_patch, "invalid_json"))
+            continue
+        patched_package, action_label = _apply_post_draft_safe_patch(current_package, patch_payload)
+        if not action_label or patched_package == current_package:
+            skipped_patches.append(_safe_patch_label(raw_patch, "no_change"))
+            continue
+        current_package = patched_package
+        applied_actions.append(action_label)
+
+    if not applied_actions:
+        raise HTTPException(status_code=409, detail="No applicable official safe patches changed the current draft.")
+
+    current_package = current_package.model_copy(
+        update={
+            "generation_logs": [
+                *current_package.generation_logs,
+                f"post_draft_review: applied official safe patches from run {run.id}",
+            ]
+        }
+    )
+    return PostDraftSafePatchApplyResult(
+        project_id=project_id,
+        review_run_id=run.id,
+        applied_count=len(applied_actions),
+        skipped_count=len(skipped_patches),
+        applied_actions=applied_actions,
+        skipped_patches=skipped_patches,
+        previous_draft_hash=previous_hash,
+        current_draft_hash=source_draft_hash(current_package),
+        package=current_package,
+    )
+
+
+def _post_draft_safe_patch_payloads(run: PostDraftReviewRun) -> list[str]:
+    if run.chair_result and run.chair_result.official_safe_patches:
+        return list(run.chair_result.official_safe_patches)
+    patches: list[str] = []
+    for role_result in run.role_results:
+        patches.extend(role_result.official_safe_patches)
+    return patches
+
+
+def _parse_post_draft_safe_patch(raw_patch: str) -> dict[str, object] | None:
+    text = raw_patch.strip()
+    if not text:
+        return None
+    if not text.startswith("{"):
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            text = text[start : end + 1]
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _apply_post_draft_safe_patch(
+    package: DraftPackage,
+    payload: dict[str, object],
+) -> tuple[DraftPackage, str]:
+    action = str(payload.get("action") or "").strip()
+    target = str(payload.get("target") or "").strip()
+    section = target.split()[0].strip().lower()
+    data = package.model_dump()
+
+    if section == "title":
+        replacement = _patch_content(payload)
+        if action in {"replace", "replace_with"} and replacement:
+            data["title"] = replacement
+            return DraftPackage(**data), "title: replace"
+
+    if section in {"abstract", "claims", "drawing_description"}:
+        replacement = _patch_content(payload)
+        if action in {"replace", "replace_with"} and replacement:
+            data[section] = replacement
+            return DraftPackage(**data), f"{section}: replace"
+
+    if section == "description":
+        description = str(data["description"])
+        if action == "remove_all_instances_of":
+            markers = _patch_string_list(payload.get("content"))
+            data["description"] = _remove_post_draft_internal_blocks(description, markers)
+            return DraftPackage(**data), "description: remove internal markers"
+        if action == "replace":
+            original = str(payload.get("original") or "")
+            patched = str(payload.get("patched") or payload.get("content") or "")
+            if original and patched and original in description:
+                data["description"] = description.replace(original, patched)
+                return DraftPackage(**data), "description: replace passage"
+        if action == "replace_with":
+            replacement = _patch_content(payload)
+            if replacement:
+                data["description"] = replacement
+                return DraftPackage(**data), "description: replace"
+
+    return package, ""
+
+
+def _patch_content(payload: dict[str, object]) -> str:
+    value = payload.get("content")
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _patch_string_list(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    return []
+
+
+def _remove_post_draft_internal_blocks(text: str, markers: list[str]) -> str:
+    internal_markers = [
+        *markers,
+        "好的，根据",
+        "多代理会审",
+        "多Agent会审",
+        "主席",
+        "补充权利要求",
+        "针对权利要求特征",
+        "中间状态记录",
+        "input_data",
+        "processing_rule",
+        "intermediate_state",
+        "confidence_record",
+        "伪代码",
+        "支撑材料缺失风险提醒",
+        "提交前",
+        "补强建议",
+        "support_gap",
+        "attorney_memo",
+        "official_safe_patches",
+    ]
+    cleaned_blocks: list[str] = []
+    for block in re.split(r"\n\s*\n", text):
+        stripped = block.strip()
+        if not stripped:
+            continue
+        if any(marker and marker in stripped for marker in internal_markers):
+            continue
+        lines: list[str] = []
+        for raw_line in stripped.splitlines():
+            line = raw_line.strip()
+            if not line or re.fullmatch(r"-{3,}", line):
+                continue
+            if any(marker and marker in line for marker in internal_markers):
+                continue
+            line = re.sub(r"^\*\*(.+?)\*\*$", r"\1", line)
+            line = re.sub(r"\*\*(.+?)\*\*", r"\1", line)
+            lines.append(line)
+        if lines:
+            cleaned_blocks.append("\n".join(lines))
+    return "\n\n".join(cleaned_blocks).strip()
+
+
+def _safe_patch_label(raw_patch: str, reason: str) -> str:
+    label = raw_patch.strip().replace("\n", " ")
+    if len(label) > 160:
+        label = f"{label[:157]}..."
+    return f"{reason}: {label or '<empty>'}"
 
 
 def _patch_has_real_evidence_refs(patch: ProposedPatch) -> bool:

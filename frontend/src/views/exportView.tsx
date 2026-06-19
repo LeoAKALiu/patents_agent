@@ -62,10 +62,12 @@ export function ExportView({
   const enabled = canExportPackage(packageValue);
   const officialAllowed = Boolean(
     enabled
+      && officialCompileRun?.status === "completed"
+      && officialCompileRun.official_package
+      && officialCompileRun.source_draft_hash === currentSourceDraftHash
       && postDraftReview?.status === "completed"
       && postDraftReview.export_allowed
-      && postDraftReview.draft_package_hash === currentDraftHash
-      && postDraftReview.draft_package_hash === currentSourceDraftHash
+      && postDraftReview.draft_package_hash === officialCompileRun.source_draft_hash
       && postDraftReview.official_compile_run_id === officialCompileRun?.id
       && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );

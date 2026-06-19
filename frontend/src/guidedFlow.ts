@@ -625,8 +625,10 @@ export function qualitySummaryFromRuns(input: {
 
 export function guidedBusyLabel(value: string): string {
   if (value === "guided-quality") return "正在运行质量检查";
+  if (value === "draft-save") return "正在保存当前内部初稿";
   if (value === "official-compile") return "正在生成正式稿";
   if (value === "post-draft-review") return "正在运行成稿会审";
+  if (value === "post-draft-safe-patch") return "正在应用会审安全补丁";
   if (value === "score-improve") return "正在一键提升分数";
   if (value === "disclosure") return "正在提炼发明点";
   if (value === "generate") return "正在生成专利初稿";
@@ -732,6 +734,21 @@ function operationLogSteps(value: string): Array<{ at: number; text: string }> {
       { at: 12, text: "收集阻断项、问题项和可提交补强建议" },
       { at: 25, text: "等待模型或服务返回" },
       { at: 45, text: "主席综合裁决并写入导出门禁" },
+    ];
+  }
+  if (value === "post-draft-safe-patch") {
+    return [
+      { at: 0, text: "读取成稿会审绑定版本和安全补丁" },
+      { at: 1, text: "校验当前初稿哈希，避免应用过期补丁" },
+      { at: 2, text: "将安全补丁写回当前内部初稿" },
+      { at: 3, text: "刷新正式稿编译和成稿会审状态" },
+    ];
+  }
+  if (value === "draft-save") {
+    return [
+      { at: 0, text: "校验当前项目和内部初稿" },
+      { at: 1, text: "保存人工修订的标题、摘要、权利要求、说明书和附图说明" },
+      { at: 2, text: "刷新质量检查、正式稿编译和成稿会审状态" },
     ];
   }
   if (value === "official-compile") {
