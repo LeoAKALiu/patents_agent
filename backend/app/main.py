@@ -21,7 +21,7 @@ from backend.app.claim_defense import generate_claim_defense_worksheet
 from backend.app.core_formula import assess_formula_need, formula_package_to_markdown, generate_formula_run
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
-from backend.app.deliberation.providers import repair_suggestion_for_failure
+from backend.app.deliberation.providers import AgentProviderRunner, repair_suggestion_for_failure
 from backend.app.disclosure.exporter import disclosure_to_markdown, export_disclosure_docx, write_disclosure_artifacts
 from backend.app.disclosure.generator import DisclosureGenerator
 from backend.app.disclosure.material_parser import read_project_material_text
@@ -45,6 +45,7 @@ from backend.app.filing_readiness import (
 )
 from backend.app.generator import PatentDraftGenerator
 from backend.app.grantability import generate_grantability_report, grantability_report_to_markdown
+from backend.app.kimi_language_polish import run_kimi_language_polish
 from backend.app.desktop_config import (
     DesktopConfig,
     DesktopConfigError,
@@ -1693,6 +1694,24 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Official compile run not found.")
         return PlainTextResponse(official_compile_run_to_markdown(run), media_type="text/markdown; charset=utf-8")
+
+    @app.post("/api/projects/{project_id}/official-compile-runs/{run_id}/kimi-language-polish")
+    async def create_kimi_language_polish_run(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        source_run = store.get_official_compile_run(project_id, run_id)
+        if not source_run:
+            raise HTTPException(status_code=404, detail="Official compile run not found.")
+        if source_run.status != "completed" or not source_run.official_package:
+            raise HTTPException(status_code=409, detail="Completed official draft compile is required before Kimi language polish.")
+        runner = app.state.provider_runner or AgentProviderRunner()
+        run = await run_kimi_language_polish(
+            project_id=project_id,
+            source_run=source_run,
+            provider_runner=runner,
+            workdir=settings.data_dir / "official-language-polish-runs" / project_id / uuid.uuid4().hex,
+        )
+        stored = store.create_official_compile_run(run)
+        return stored.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/export-readiness")
     def export_readiness(project_id: str) -> dict:

@@ -157,6 +157,7 @@ export type GuidedPatentFlowProps = {
   onCancelFormulaRun: (runId: string) => void;
   onRetryFormulaRun: (runId: string) => void;
   onStartOfficialCompile: () => void;
+  onStartKimiLanguagePolish: () => void;
   onStartPostDraftReview: () => void;
   onApplyPostDraftSafePatches: (runId: string) => void;
   onSaveDraftPackage: (payload: DraftPackageManualUpdate) => void;
@@ -389,6 +390,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartPostDraftReview={props.onStartPostDraftReview}
+          onStartKimiLanguagePolish={props.onStartKimiLanguagePolish}
           onApplySafePatches={props.onApplyPostDraftSafePatches}
           onSaveDraftPackage={props.onSaveDraftPackage}
           onCancelRun={props.onCancelPostDraftReviewRun}

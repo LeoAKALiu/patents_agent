@@ -109,6 +109,7 @@ import {
   retryProjectDisclosure,
   runCorpusJob,
   searchCorpus,
+  startKimiOfficialLanguagePolish,
   startProjectDisclosure,
   startProjectDeliberation,
   startExternalDraftIntakeRun,
@@ -1250,6 +1251,23 @@ function App() {
     });
   }
 
+  async function handleStartKimiLanguagePolish() {
+    if (!selectedProject?.package || !latestOfficialCompileRun?.official_package) return;
+    const projectId = selectedProject.id;
+    const runId = latestOfficialCompileRun.id;
+    await withStatus("kimi-language-polish", async () => {
+      const run = await startKimiOfficialLanguagePolish(projectId, runId);
+      const stillSelected = await loadOfficialCompileRuns(projectId);
+      if (!stillSelected) return;
+      await loadPostDraftReviews(projectId);
+      setMessage(
+        run.status === "completed"
+          ? "Kimi 成稿语言润色完成。润色稿已生成新的正式稿版本，请重新运行成稿会审。"
+          : `Kimi 成稿语言润色${pipelineRunStatusLabel(run.status)}`,
+      );
+    });
+  }
+
   async function handleCancelDisclosureRun(runId: string) {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
@@ -1911,6 +1929,7 @@ function App() {
             onCancelFormulaRun={(runId) => void handleCancelFormulaRun(runId)}
             onRetryFormulaRun={(runId) => void handleRetryFormulaRun(runId)}
             onStartOfficialCompile={() => void handleStartOfficialCompile()}
+            onStartKimiLanguagePolish={() => void handleStartKimiLanguagePolish()}
             onStartPostDraftReview={() => void handleStartPostDraftReview()}
             onApplyPostDraftSafePatches={(runId) => void handleApplyPostDraftSafePatches(runId)}
             onSaveDraftPackage={(payload) => void handleSaveDraftPackage(payload)}

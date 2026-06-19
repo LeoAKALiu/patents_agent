@@ -42,6 +42,7 @@ export interface PostDraftReviewPanelProps {
   busy: string;
   busyElapsedSeconds: number;
   onStartPostDraftReview: () => void;
+  onStartKimiLanguagePolish: () => void;
   onApplySafePatches: (runId: string) => void;
   onSaveDraftPackage: (payload: DraftPackageManualUpdate) => void | Promise<void>;
   onCancelRun: (runId: string) => void;
@@ -62,6 +63,7 @@ export function PostDraftReviewPanel({
   busy,
   busyElapsedSeconds,
   onStartPostDraftReview,
+  onStartKimiLanguagePolish,
   onApplySafePatches,
   onSaveDraftPackage,
   onCancelRun,
@@ -82,6 +84,7 @@ export function PostDraftReviewPanel({
       || review.role_results.reduce((count, result) => count + result.official_safe_patches.length, 0)
     : 0;
   const applyingSafePatches = busy === "post-draft-safe-patch";
+  const polishing = busy === "kimi-language-polish";
   const savingDraft = busy === "draft-save";
   const reviewIssues = useMemo(() => collectPostDraftIssues(review), [review]);
 
@@ -245,19 +248,31 @@ export function PostDraftReviewPanel({
         onToggleProvider={onToggleProvider}
       />
       <ActionGateHint gate={actionGate} />
-      <ActionDock meta="会审结果必须与当前成稿哈希和正式稿哈希匹配，才会放行正式导出。">
+      <ActionDock meta="会审结果必须与当前成稿哈希和正式稿哈希匹配，才会放行正式导出。润色会生成新的正式稿版本。">
+        {officialCompileRun?.official_package && (
+          <button
+            className="btn btn-secondary"
+            disabled={!actionGate.allowed || Boolean(busy)}
+            onClick={onStartKimiLanguagePolish}
+            title={actionGate.reason || undefined}
+            type="button"
+          >
+            {polishing ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
+            <span>{polishing ? "Kimi 润色中" : "Kimi 成稿语言润色"}</span>
+          </button>
+        )}
         <button
           className="btn btn-primary"
-        disabled={!actionGate.allowed || reviewBusy}
-        onClick={onStartPostDraftReview}
-        title={actionGate.reason || undefined}
-        type="button"
-      >
-        {reviewBusy ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
-        <span>{activeRun ? "成稿会审中" : review ? "重新成稿会审" : "启动成稿会审"}</span>
+          disabled={!actionGate.allowed || reviewBusy || Boolean(busy)}
+          onClick={onStartPostDraftReview}
+          title={actionGate.reason || undefined}
+          type="button"
+        >
+          {reviewBusy ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
+          <span>{activeRun ? "成稿会审中" : review ? "重新成稿会审" : "启动成稿会审"}</span>
         </button>
       </ActionDock>
-      <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "post-draft-review"} />
+      <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "post-draft-review" || polishing} />
       <GuidedRuntimeConsole run={activeRun} label="成稿会审运行中" busy={busy} onCancel={onCancelRun} />
       <GuidedRuntimeFailures run={runs[0] ?? null} />
       <GuidedRuntimeActions run={runs[0] ?? null} disabled={Boolean(busy)} onRetry={onRetryRun} />

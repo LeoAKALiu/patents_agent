@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from backend.app.deliberation.providers import ProviderTaskResult
 from backend.app.official_compile import (
     OfficialDraftCompiler,
 )
@@ -315,6 +316,62 @@ def test_review_for_previous_compile_run_cannot_unlock_latest_compile(tmp_path):
     assert "Post-draft multi-agent review is required" in response.json()["detail"]
 
 
+def test_kimi_language_polish_creates_new_official_compile_version_and_requires_review(tmp_path):
+    provider_runner = _KimiPolishProviderRunner(
+        {
+            "title": "一种城市体检指标驱动的无人机主动采集方法",
+            "abstract": "本发明公开一种依据城市体检指标置信度主动生成采集任务的无人机采集方法。",
+            "claims": "1. 一种城市体检指标驱动的无人机主动采集方法，包括获取指标置信度并生成采集任务。",
+            "description": "本发明涉及无人机主动采集技术领域。系统依据指标置信度生成采集任务，并输出任务包。",
+            "drawing_description": "图1为本发明无人机主动采集方法的流程示意图。",
+            "attorney_memo": ["已进行中文专利语言润色，未改变技术边界。"],
+        }
+    )
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=_review_llm(export_allowed=True),
+            provider_runner=provider_runner,
+            load_env_file=False,
+        )
+    )
+    project_id = _create_project_with_package(client, _draft_package())
+    original_compile = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    passed_review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert passed_review["export_allowed"] is True
+
+    response = client.post(
+        f"/api/projects/{project_id}/official-compile-runs/{original_compile['id']}/kimi-language-polish",
+        json={},
+    )
+
+    assert response.status_code == 200
+    polished = response.json()
+    assert provider_runner.provider_ids == ["kimicode"]
+    assert provider_runner.labels == ["kimi official language polish"]
+    assert polished["id"] != original_compile["id"]
+    assert polished["status"] == "completed"
+    assert polished["source_draft_hash"] == original_compile["source_draft_hash"]
+    assert polished["official_package_hash"] != original_compile["official_package_hash"]
+    assert polished["official_package"]["title"] == "一种城市体检指标驱动的无人机主动采集方法"
+    assert polished["official_package"]["claims"].startswith("1. 一种城市体检指标驱动")
+    assert polished["official_package"]["compile_warnings"] == ["kimi_language_polished"]
+    assert any(note["category"] == "kimi_language_polish" for note in polished["sidecar_notes"])
+    assert any(log["provider_id"] == "kimicode" for log in polished["logs"])
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 409
+    assert "Post-draft multi-agent review is required" in export_response.json()["detail"]
+
+    new_review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert new_review["export_allowed"] is True
+    assert new_review["official_compile_run_id"] == polished["id"]
+    assert new_review["official_package_hash"] == polished["official_package_hash"]
+    unlocked_export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert unlocked_export.status_code == 200
+    assert "城市体检指标驱动的无人机主动采集方法" in unlocked_export.text
+
+
 def test_official_export_requires_recompile_when_draft_changes(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _draft_package())
@@ -380,6 +437,24 @@ def _review_llm(*, export_allowed: bool) -> FakeLLMClient:
 """.replace("'", '"'),
         }
     )
+
+
+class _KimiPolishProviderRunner:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+        self.provider_ids: list[str] = []
+        self.labels: list[str] = []
+
+    async def run_json_task(self, *, provider_id: str, label: str, **kwargs) -> ProviderTaskResult:
+        self.provider_ids.append(provider_id)
+        self.labels.append(label)
+        return ProviderTaskResult(
+            provider_id=provider_id,
+            payload=self.payload,
+            stdout="{}",
+            stderr="",
+            attempts=1,
+        )
 
 
 def _role_json(role: str, status: str, blocking_issues: list[str]) -> str:
