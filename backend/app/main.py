@@ -72,7 +72,7 @@ from backend.app.post_draft_review import (
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
-from backend.app.post_draft_repair import normalize_post_draft_issues
+from backend.app.post_draft_repair import normalize_post_draft_issues, create_repair_patch_payload, apply_section_patch
 from backend.app.rag import LocalVectorIndex, create_vector_index
 from backend.app.research.deep_researcher import (
     DeepResearchSearchProvider,
@@ -103,6 +103,9 @@ from backend.app.schemas import (
     ExternalDraftReviewBundle,
     ExternalDraftSourceCreate,
     DraftPackage,
+    DraftRepairPatch,
+    DraftRepairPatchCreate,
+    DraftRepairPatchApplyResult,
     DraftReviewIssue,
     EvidenceBinding,
     FormulaRun,
@@ -1606,6 +1609,127 @@ def create_app(
             stale=bool(review_hash and review_hash != current_hash),
             issues=issues,
             sections=sections,
+        )
+
+    @app.post(
+        "/api/projects/{project_id}/post-draft-reviews/{run_id}/repair-patches",
+        response_model=DraftRepairPatch,
+    )
+    def create_post_draft_repair_patch(
+        project_id: str, run_id: str, payload: DraftRepairPatchCreate
+    ) -> DraftRepairPatch:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        review = _get_post_draft_review_or_404(store, project_id, run_id)
+
+        # Verify the issue exists in the current session
+        sections = {
+            "title": package.title,
+            "abstract": package.abstract,
+            "claims": package.claims,
+            "description": package.description,
+            "drawing_description": package.drawing_description,
+        }
+        raw_issues = normalize_post_draft_issues(review.model_dump(), sections)
+        issue_ids = {item["id"] for item in raw_issues}
+        if payload.issue_id not in issue_ids:
+            raise HTTPException(status_code=404, detail="Issue not found in current repair session.")
+
+        current_hash = source_draft_hash(package)
+        if payload.draft_package_hash and payload.draft_package_hash != current_hash:
+            raise HTTPException(status_code=409, detail="Draft package has changed since the repair session was opened.")
+
+        patch_dict = create_repair_patch_payload(
+            issue_id=payload.issue_id,
+            target_section=payload.target_section,
+            draft_package_hash=current_hash,
+            selected_text=payload.selected_text,
+            nearby_context=payload.nearby_context,
+            project_id=project_id,
+            review_run_id=run_id,
+        )
+
+        if patch_dict["status"] == "stale":
+            raise HTTPException(status_code=422, detail="Selected text is required to create a repair patch.")
+
+        if patch_dict["status"] == "unsafe":
+            unsafe_terms = ", ".join(patch_dict.get("risk_notes", []))
+            raise HTTPException(
+                status_code=422,
+                detail=f"Patch text is unsafe. Detected markers: {unsafe_terms}. Manually clean the source text before regenerating.",
+            )
+
+        patch = DraftRepairPatch.model_validate(patch_dict)
+        # Store the patch in-memory for later apply
+        _repair_patch_store()[patch.id] = patch
+        return patch
+
+    @app.post(
+        "/api/projects/{project_id}/post-draft-reviews/{run_id}/repair-patches/{patch_id}/apply",
+        response_model=DraftRepairPatchApplyResult,
+    )
+    def apply_post_draft_repair_patch(project_id: str, run_id: str, patch_id: str) -> DraftRepairPatchApplyResult:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        _get_post_draft_review_or_404(store, project_id, run_id)
+
+        patch = _repair_patch_store().get(patch_id)
+        if not patch:
+            raise HTTPException(status_code=404, detail="Repair patch not found. Re-create the patch first.")
+
+        if patch.project_id != project_id or patch.review_run_id != run_id:
+            raise HTTPException(status_code=404, detail="Repair patch not found for this review run.")
+
+        current_hash = source_draft_hash(package)
+        if patch.draft_package_hash != current_hash:
+            raise HTTPException(
+                status_code=409,
+                detail="Draft package has changed since the patch was created. Re-open the repair session.",
+            )
+
+        if patch.status == "applied":
+            raise HTTPException(status_code=409, detail="Patch has already been applied.")
+
+        if patch.status != "proposed":
+            raise HTTPException(status_code=422, detail=f"Cannot apply a patch with status {patch.status}.")
+
+        section_attr = {
+            "title": "title",
+            "abstract": "abstract",
+            "claims": "claims",
+            "description": "description",
+            "drawing_description": "drawing_description",
+        }.get(patch.target_section)
+        if not section_attr:
+            raise HTTPException(status_code=422, detail=f"Unknown target section: {patch.target_section}")
+
+        section_text = getattr(package, section_attr, "")
+        try:
+            new_section_text = apply_section_patch(section_text, patch.original, patch.patched)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Patch original text is no longer present in the draft section.",
+            ) from exc
+
+        updated_package = package.model_copy(update={section_attr: new_section_text})
+        updated_package = updated_package.model_copy(
+            update={
+                "generation_logs": [
+                    *updated_package.generation_logs,
+                    f"post_draft_repair: applied AI patch {patch_id} to {patch.target_section} (issue {patch.issue_id})",
+                ]
+            }
+        )
+        store.update_project_package(project_id, updated_package)
+
+        # Mark the patch as applied so it can't be re-applied
+        applied_patch = patch.model_copy(update={"status": "applied"})
+        _repair_patch_store()[patch.id] = applied_patch
+
+        return DraftRepairPatchApplyResult(
+            package=updated_package,
+            current_draft_hash=source_draft_hash(updated_package),
         )
 
     @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/apply-safe-patches")
@@ -3456,6 +3580,13 @@ def _run_mode(active_count: int) -> str:
     if active_count == 1:
         return "minimal"
     return "blocked"
+
+
+_repair_patches: dict[str, DraftRepairPatch] = {}
+
+
+def _repair_patch_store() -> dict[str, DraftRepairPatch]:
+    return _repair_patches
 
 
 app = create_app()

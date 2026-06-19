@@ -168,3 +168,101 @@ def normalize_post_draft_issues(review: dict[str, Any], sections: dict[str, str]
             }
         )
     return issues
+
+
+# --- PR3: single-issue AI patch lifecycle ----------------------------------
+
+UNSAFE_PATCH_TERMS = (
+    "好的，根据",
+    "注：",
+    "待验证",
+    "主席",
+    "补充实施方式",
+    "需补充",
+    "提交前补充",
+    "{\"action\"",
+    "\"patched\"",
+)
+
+
+def validate_repair_patch_text(text: str) -> list[str]:
+    """Return any unsafe-patch terms found in *text*."""
+    return [term for term in UNSAFE_PATCH_TERMS if term in text]
+
+
+def apply_section_patch(section_text: str, original: str, patched: str) -> str:
+    """Replace **original** with **patched** in *section_text* once.
+
+    Raises :exc:`ValueError` when *original* is not present.
+    """
+    if original not in section_text:
+        raise ValueError("Patch original text is no longer present")
+    return section_text.replace(original, patched, 1)
+
+
+def _deterministic_patch_text(original: str) -> str:
+    """Clean known internal terms from *original* without calling an external model."""
+    text = original
+    text = re.sub(r"方法方法", "方法", text)
+    text = re.sub(r"颠覆", "改变", text)
+    text = re.sub(r"好的，根据", "", text)
+    for term in ("注：", "待验证", "补充实施方式", "需补充", "提交前补充"):
+        text = text.replace(term, "")
+    text = re.sub(r"主席[^，。,\n]{0,10}", "", text)
+    return text.strip()
+
+
+def create_repair_patch_payload(
+    issue_id: str,
+    target_section: str,
+    draft_package_hash: str,
+    selected_text: str | None,
+    nearby_context: str | None,
+    *,
+    project_id: str | None = None,
+    review_run_id: str | None = None,
+) -> dict[str, Any]:
+    """Deterministic single-issue patch proposal.
+
+    Returns a dict with keys ``id``, ``issue_id``, ``status``,
+    ``target_section``, ``original``, ``patched``, ``diff_summary``,
+    ``risk_notes``, ``draft_package_hash``.
+    """
+    original = (selected_text or nearby_context or "").strip()
+    if not original:
+        return {
+            "id": _patch_id(issue_id, project_id=project_id, review_run_id=review_run_id),
+            "issue_id": issue_id,
+            "project_id": project_id or "",
+            "review_run_id": review_run_id or "",
+            "status": "stale",
+            "target_section": target_section,
+            "original": "",
+            "patched": "",
+            "diff_summary": "No selected text to patch.",
+            "risk_notes": [],
+            "draft_package_hash": draft_package_hash,
+        }
+
+    patched = _deterministic_patch_text(original)
+    patched_risks = validate_repair_patch_text(patched)
+    cleaned_terms = validate_repair_patch_text(original)
+    status: Literal["proposed", "stale", "unsafe", "applied"] = "unsafe" if patched_risks else "proposed"
+    return {
+        "id": _patch_id(issue_id, project_id=project_id, review_run_id=review_run_id),
+        "issue_id": issue_id,
+        "project_id": project_id or "",
+        "review_run_id": review_run_id or "",
+        "status": status,
+        "target_section": target_section,
+        "original": original,
+        "patched": patched,
+        "diff_summary": "补丁仍含不安全标记" if patched_risks else "清理重复与内部引导语",
+        "risk_notes": patched_risks or cleaned_terms,
+        "draft_package_hash": draft_package_hash,
+    }
+
+
+def _patch_id(issue_id: str, *, project_id: str | None = None, review_run_id: str | None = None) -> str:
+    digest = hashlib.sha1(f"patch:{project_id or ''}:{review_run_id or ''}:{issue_id}".encode("utf-8")).hexdigest()[:12]
+    return f"patch-{digest}"
