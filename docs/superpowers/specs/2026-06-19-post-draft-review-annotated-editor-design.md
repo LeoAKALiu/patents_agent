@@ -255,9 +255,9 @@ AI patch 必须满足：
 - `DraftRepairInspector.tsx`
   - 右侧修复面板。
   - 展示当前 issue、patch diff、操作按钮。
-- `postDraftRepairAnchors.ts`
-  - 纯函数：把 review run + draft package 转换成 issue anchors。
-  - 必须有单元测试。
+- `postDraftRepairAnchors.ts`（已后端化）
+  - 原计划前端纯函数；2026-06-19 QA 确认定位逻辑已完全由后端 `backend/app/post_draft_repair.py` 中的 `normalize_post_draft_issues` 和 `locate_issue_anchor` 实现，通过 `GET repair-session` API 返回。
+  - 前端回退层当前无需实现；若未来需要离线本地定位可在此文件添加。
 
 首版建议不要直接引入复杂富文本库。可先使用“textarea 编辑 + 只读高亮预览”的组合：
 
@@ -317,9 +317,9 @@ AI patch 必须满足：
 
 ### Phase 1：标注数据层
 
-- 新增 `postDraftRepairAnchors.ts` 纯函数。
-- 后端可先不建新表，repair session 由 review run 和当前 package 即时计算。
-- 前端在现有大编辑器中展示 issue anchors 和章节级定位。
+- 后端 `post_draft_repair.py` 实现 issue 标准化与定位锚定（`normalize_post_draft_issues`、`locate_issue_anchor`）。
+- `GET repair-session` API 即时计算，无需持久化新表。
+- 前端消费 `PostDraftRepairSession` 响应并在编辑器中展示 issue anchors 和章节级定位。
 
 ### Phase 2：全屏三栏编辑器
 
