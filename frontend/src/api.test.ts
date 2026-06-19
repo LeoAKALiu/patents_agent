@@ -11,6 +11,7 @@ import {
   retryPostDraftReview,
   retryProjectDeliberation,
   retryProjectDisclosure,
+  startKimiOfficialLanguagePolish,
   uploadCorpusJobFile,
   uploadProjectMaterial,
 } from "./api";
@@ -61,6 +62,10 @@ describe("runtime control API", () => {
       {
         action: retryPostDraftReview,
         url: "/api/projects/project-1/post-draft-reviews/run-1/retry",
+      },
+      {
+        action: startKimiOfficialLanguagePolish,
+        url: "/api/projects/project-1/official-compile-runs/run-1/kimi-language-polish",
       },
     ];
 

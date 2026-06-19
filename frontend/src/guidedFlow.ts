@@ -627,6 +627,7 @@ export function guidedBusyLabel(value: string): string {
   if (value === "guided-quality") return "正在运行质量检查";
   if (value === "draft-save") return "正在保存当前内部初稿";
   if (value === "official-compile") return "正在生成正式稿";
+  if (value === "kimi-language-polish") return "正在进行 Kimi 成稿语言润色";
   if (value === "post-draft-review") return "正在运行成稿会审";
   if (value === "post-draft-safe-patch") return "正在应用会审安全补丁";
   if (value === "score-improve") return "正在一键提升分数";
@@ -757,6 +758,15 @@ function operationLogSteps(value: string): Array<{ at: number; text: string }> {
       { at: 2, text: "移除内部提示、会审痕迹和非正式内容" },
       { at: 5, text: "检查正式稿必备章节并排除交叉项目内容" },
       { at: 8, text: "生成正式稿包、hash 和编译报告" },
+    ];
+  }
+  if (value === "kimi-language-polish") {
+    return [
+      { at: 0, text: "锁定当前正式稿版本" },
+      { at: 2, text: "分发成稿语言润色任务给 KimiCode" },
+      { at: 8, text: "优化中文专利措辞、术语一致性和句式" },
+      { at: 20, text: "重新运行正式稿清洁检查并计算新 hash" },
+      { at: 35, text: "写入新的正式稿版本，等待重新成稿会审" },
     ];
   }
   if (value === "score-improve") {

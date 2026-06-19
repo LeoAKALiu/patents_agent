@@ -1409,6 +1409,12 @@ export async function startOfficialCompileRun(projectId: string): Promise<Offici
   });
 }
 
+export async function startKimiOfficialLanguagePolish(projectId: string, runId: string): Promise<OfficialCompileRun> {
+  return request<OfficialCompileRun>(`/api/projects/${projectId}/official-compile-runs/${runId}/kimi-language-polish`, {
+    method: "POST",
+  });
+}
+
 export async function listOfficialCompileRuns(
   projectId: string,
 ): Promise<{ runs: OfficialCompileRun[]; current_source_draft_hash: string }> {

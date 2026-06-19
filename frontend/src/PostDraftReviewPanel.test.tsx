@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { PostDraftReviewPanel } from "./flow/panels/PostDraftReviewPanel";
-import type { DraftPackage, PostDraftReviewRun } from "./api";
+import type { DraftPackage, OfficialCompileRun, PostDraftReviewRun } from "./api";
 
 const draftPackage: DraftPackage = {
   title: "一种基于城市体检指标置信度的无人机主动采集方法",
@@ -59,6 +59,31 @@ const blockedReview: PostDraftReviewRun = {
   updated_at: "2026-06-19T00:00:00Z",
 };
 
+const officialCompileRun: OfficialCompileRun = {
+  id: "compile-1",
+  project_id: "project-1",
+  status: "completed",
+  source_draft_hash: "draft-hash-123456",
+  official_package_hash: "official-hash-123456",
+  official_package: {
+    title: "一种基于城市体检指标置信度的无人机主动采集方法",
+    abstract: "本发明公开一种无人机主动采集方法。",
+    claims: "1. 一种方法，包括基于置信度热力图生成采集任务。",
+    description: "本发明涉及无人机主动采集技术领域。",
+    drawing_description: "图1为方法流程图。",
+    figure_plan: [],
+    compile_warnings: [],
+    source_draft_hash: "draft-hash-123456",
+    official_package_hash: "official-hash-123456",
+  },
+  contamination_removed: [],
+  blocked_items: [],
+  sidecar_notes: [],
+  logs: [],
+  created_at: "2026-06-19T00:00:00Z",
+  updated_at: "2026-06-19T00:00:00Z",
+};
+
 describe("PostDraftReviewPanel repair workbench", () => {
   it("renders a scrollable repair workbench and draft editor entry", () => {
     const html = renderToStaticMarkup(
@@ -69,12 +94,13 @@ describe("PostDraftReviewPanel repair workbench", () => {
         runs: [blockedReview],
         currentDraftHash: "draft-hash-123456",
         currentPackage: draftPackage,
-        officialCompileRun: null,
+        officialCompileRun,
         doctor: null,
         selectedProviders: [],
         busy: "",
         busyElapsedSeconds: 0,
         onStartPostDraftReview: () => undefined,
+        onStartKimiLanguagePolish: () => undefined,
         onApplySafePatches: () => undefined,
         onSaveDraftPackage: () => undefined,
         onCancelRun: () => undefined,
@@ -88,5 +114,7 @@ describe("PostDraftReviewPanel repair workbench", () => {
     expect(html).toContain("打开大编辑器");
     expect(html).toContain("人工修正");
     expect(html).toContain("一键AI修正");
+    expect(html).toContain("Kimi 成稿语言润色");
+    expect(html).toContain("润色会生成新的正式稿版本");
   });
 });
