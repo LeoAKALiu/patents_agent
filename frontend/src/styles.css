@@ -1467,6 +1467,13 @@ input:focus, select:focus, textarea:focus {
   font-size: 12px;
 }
 
+.draft-editor-header .icon-button {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+}
+
 .draft-editor-body {
   display: grid;
   gap: 12px;
