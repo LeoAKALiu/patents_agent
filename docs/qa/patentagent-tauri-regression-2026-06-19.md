@@ -102,6 +102,7 @@ Health：
 
 测试路径：发明专利，默认 app data dir，端口 `64601`。
 测试项目：`Tauri发明专利Smoke-多模态检索草案生成方法`，虚构数据，测试后已删除。
+导出文件：`docs/qa/artifacts/tauri-invention-patent-draft.docx`
 
 结果：
 
@@ -139,6 +140,7 @@ Health：
 - 多智能体会审以 full 模式调用 `codex/deepseek/claude`，状态 completed。
 - 会审后生成仍要求核心公式包；公式包运行 completed，质量 `normal`。
 - 携带 `formula_run_id` 后生成内部工作稿并导出 MD/DOCX 成功。
+- DOCX 原始导出保存在 app data `exports/835138c1708143598ff06a7c60887b53-internal.docx`，已复制到 QA artifacts；抽查 DOCX XML 包含标题、`多模态`、`权利要求` 与内部工作稿边界提示。
 
 ## Previous Issues
 
