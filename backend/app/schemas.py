@@ -352,6 +352,14 @@ class ProjectUpdate(BaseModel):
     beneficial_effects: str | None = None
 
 
+class DraftPackageManualUpdate(BaseModel):
+    title: str
+    abstract: str
+    claims: str
+    description: str
+    drawing_description: str
+
+
 class ProjectRecord(BaseModel):
     id: str
     name: str
@@ -729,6 +737,18 @@ class PostDraftReviewRun(BaseModel):
     retry_of: str | None = None
     created_at: str = ""
     updated_at: str = ""
+
+
+class PostDraftSafePatchApplyResult(BaseModel):
+    project_id: str
+    review_run_id: str
+    applied_count: int = 0
+    skipped_count: int = 0
+    applied_actions: list[str] = Field(default_factory=list)
+    skipped_patches: list[str] = Field(default_factory=list)
+    previous_draft_hash: str = ""
+    current_draft_hash: str = ""
+    package: DraftPackage
 
 
 class ProjectMaterial(BaseModel):

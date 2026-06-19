@@ -23,7 +23,7 @@ export interface ExportConfirmationPanelProps {
   filingReport: FilingReadinessReport | null;
   completionRun: DraftCompletionRun | null;
   postDraftReview: PostDraftReviewRun | null;
-  currentDraftHash: string;
+  currentSourceDraftHash: string;
   officialCompileRun: OfficialCompileRun | null;
   onOpenExpertTool: ExpertToolOpener;
   onNavigateToPostReview?: () => void;
@@ -34,7 +34,7 @@ export function ExportConfirmationPanel({
   filingReport,
   completionRun,
   postDraftReview,
-  currentDraftHash,
+  currentSourceDraftHash,
   officialCompileRun,
   onOpenExpertTool,
   onNavigateToPostReview,
@@ -49,13 +49,14 @@ export function ExportConfirmationPanel({
   const compileCurrent = Boolean(
     officialCompileRun?.status === "completed"
       && officialCompileRun.official_package
-      && officialCompileRun.source_draft_hash === currentDraftHash,
+      && officialCompileRun.source_draft_hash === currentSourceDraftHash,
   );
   const reviewPassed = Boolean(
     postDraftReview?.status === "completed"
       && postDraftReview.export_allowed
-      && postDraftReview.draft_package_hash === currentDraftHash
-      && postDraftReview.official_compile_run_id === officialCompileRun?.id,
+      && postDraftReview.draft_package_hash === officialCompileRun?.source_draft_hash
+      && postDraftReview.official_compile_run_id === officialCompileRun?.id
+      && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
   const officialAllowed = compileCurrent && reviewPassed;
   // Lock reason depends on which gate is failing.

@@ -1299,6 +1299,192 @@ input:focus, select:focus, textarea:focus {
   align-items: start;
 }
 
+/* ── Post-Draft Repair Workbench ─────────────────────────────── */
+.post-review-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.post-review-issues,
+.post-review-draft {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-base);
+  padding: 12px;
+}
+
+.post-review-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.post-review-panel-heading h4 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 15px;
+}
+
+.post-review-panel-heading p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.review-issue-scroll {
+  display: grid;
+  gap: 10px;
+  max-height: min(58vh, 620px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.review-issue-card {
+  display: grid;
+  gap: 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  padding: 11px;
+}
+
+.review-issue-card p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.review-issue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.draft-editor-summary {
+  display: grid;
+  gap: 10px;
+  min-height: 220px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  padding: 12px;
+}
+
+.draft-editor-summary strong {
+  color: var(--text-strong);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.draft-editor-summary p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.draft-editor-summary dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: auto 0 0;
+}
+
+.draft-editor-summary dl div {
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  padding: 8px;
+}
+
+.draft-editor-summary dt,
+.draft-editor-summary dd {
+  margin: 0;
+  font-size: 12px;
+}
+
+.draft-editor-summary dt { color: var(--text-soft); }
+.draft-editor-summary dd { color: var(--text-strong); font-weight: 700; }
+
+.draft-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklch, black, transparent 58%);
+  padding: 24px;
+}
+
+.draft-editor-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(1180px, 96vw);
+  height: min(900px, 92vh);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-base);
+  box-shadow: var(--shadow-lg);
+}
+
+.draft-editor-header,
+.draft-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.draft-editor-footer {
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 0;
+}
+
+.draft-editor-header h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 18px;
+}
+
+.draft-editor-header p,
+.draft-editor-footer span {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.draft-editor-body {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px;
+}
+
+.draft-editor-textarea {
+  min-height: 220px;
+  resize: vertical;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.draft-editor-textarea.compact { min-height: 110px; }
+.draft-editor-textarea.tall { min-height: 340px; }
+
 /* ── External Draft ───────────────────────────────────────────── */
 .external-draft-side-entry {
   border-color: color-mix(in oklch, var(--action-primary), transparent 80%);
@@ -2467,7 +2653,13 @@ input:focus, select:focus, textarea:focus {
   .external-draft-source-row { align-items: stretch; flex-direction: column; }
   .external-draft-source-row .icon-button { width: 100%; }
   .status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .workbench-grid { grid-template-columns: 1fr; }
+  .workbench-grid,
+  .post-review-workbench { grid-template-columns: 1fr; }
+  .review-issue-scroll { max-height: 420px; }
+  .draft-editor-dialog {
+    width: 100%;
+    height: 94vh;
+  }
   .boundary-grid { grid-template-columns: 1fr; }
   .section-head {
     align-items: stretch;
@@ -2528,6 +2720,15 @@ input:focus, select:focus, textarea:focus {
   .status-strip { grid-template-columns: 1fr; }
   .workspace { padding: 12px; }
   .panel { padding: 14px; }
+  .draft-editor-overlay { padding: 10px; }
+  .draft-editor-header,
+  .draft-editor-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .draft-editor-summary dl { grid-template-columns: 1fr; }
+  .draft-editor-textarea,
+  .draft-editor-textarea.tall { min-height: 240px; }
   .info-card {
     grid-template-columns: 1fr;
   }

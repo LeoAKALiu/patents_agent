@@ -29,6 +29,8 @@ import {
   type ClaimDefenseWorksheet,
   type DeliberationRun,
   type DisclosureRun,
+  type DraftPackage,
+  type DraftPackageManualUpdate,
   type DraftCompletionRun,
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
@@ -114,6 +116,7 @@ export type GuidedPatentFlowProps = {
   currentSourceDraftHash: string;
   postDraftReviews: PostDraftReviewRun[];
   currentDraftHash: string;
+  currentPackage: DraftPackage | null;
   agentDoctor: AgentDoctorReport | null;
   selectedDeliberationProviders: string[];
   selectedFormulaProviders: string[];
@@ -155,6 +158,8 @@ export type GuidedPatentFlowProps = {
   onRetryFormulaRun: (runId: string) => void;
   onStartOfficialCompile: () => void;
   onStartPostDraftReview: () => void;
+  onApplyPostDraftSafePatches: (runId: string) => void;
+  onSaveDraftPackage: (payload: DraftPackageManualUpdate) => void;
   onCancelPostDraftReviewRun: (runId: string) => void;
   onRetryPostDraftReviewRun: (runId: string) => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
@@ -377,12 +382,15 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           review={latestMatchingPostDraftReview}
           runs={props.postDraftReviews}
           currentDraftHash={props.currentDraftHash}
+          currentPackage={props.currentPackage}
           officialCompileRun={latestOfficialCompileRun}
           doctor={props.agentDoctor}
           selectedProviders={props.selectedDeliberationProviders}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartPostDraftReview={props.onStartPostDraftReview}
+          onApplySafePatches={props.onApplyPostDraftSafePatches}
+          onSaveDraftPackage={props.onSaveDraftPackage}
           onCancelRun={props.onCancelPostDraftReviewRun}
           onRetryRun={props.onRetryPostDraftReviewRun}
           onToggleProvider={props.onToggleDeliberationProvider}
@@ -394,7 +402,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           filingReport={latestFilingReport}
           completionRun={latestCompletionRun}
           postDraftReview={latestMatchingPostDraftReview}
-          currentDraftHash={props.currentDraftHash}
+          currentSourceDraftHash={props.currentSourceDraftHash}
           officialCompileRun={latestOfficialCompileRun}
           onOpenExpertTool={props.onOpenExpertTool}
         />

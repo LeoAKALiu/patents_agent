@@ -56,6 +56,7 @@ import {
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
   acceptCompletionPatch,
+  applyPostDraftSafePatches,
   cancelFormulaRun,
   cancelPostDraftReview,
   cancelProjectDeliberation,
@@ -114,6 +115,7 @@ import {
   startFormulaRun,
   startOfficialCompileRun,
   startPostDraftReview,
+  updateProjectDraftPackage,
   updateProjectPatentPoint,
   uploadCorpusJobFile,
   uploadExternalDraftSource,
@@ -882,13 +884,14 @@ function App() {
       // Sidecar is always allowed; it doesn't depend on the post-draft review gate.
     } else if (format === "docx" || format === "md") {
       const allowed = Boolean(
+        latestOfficialCompileRun.status === "completed" &&
+        latestOfficialCompileRun.official_package &&
+        latestOfficialCompileRun.source_draft_hash === currentSourceDraftHash &&
         latestPostDraftReview?.status === "completed" &&
         latestPostDraftReview.export_allowed &&
-        latestPostDraftReview.draft_package_hash === currentDraftHash &&
-        latestPostDraftReview.draft_package_hash === currentSourceDraftHash &&
+        latestPostDraftReview.draft_package_hash === latestOfficialCompileRun.source_draft_hash &&
         latestPostDraftReview.official_compile_run_id === latestOfficialCompileRun.id &&
-        latestPostDraftReview.official_package_hash ===
-          latestOfficialCompileRun.official_package_hash,
+        latestPostDraftReview.official_package_hash === latestOfficialCompileRun.official_package_hash,
       );
       if (!allowed) {
         setError(
@@ -1197,6 +1200,40 @@ function App() {
           run.export_allowed ? "允许正式导出" : pipelineRunStatusLabel(run.status)
         }`,
       );
+    });
+  }
+
+  async function handleApplyPostDraftSafePatches(runId: string) {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("post-draft-safe-patch", async () => {
+      const result = await applyPostDraftSafePatches(projectId, runId);
+      const stillSelected = await refreshProjectsPreservingSelection(projectId);
+      if (!stillSelected) return;
+      setFilingReports([]);
+      setWorksheets([]);
+      setCompletionRuns([]);
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
+      setMessage(
+        `已应用 ${result.applied_count} 条会审安全补丁，当前初稿已变更。请重新运行质量检查、正式稿编译和成稿会审。`,
+      );
+    });
+  }
+
+  async function handleSaveDraftPackage(payload: Pick<DraftPackage, "title" | "abstract" | "claims" | "description" | "drawing_description">) {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("draft-save", async () => {
+      await updateProjectDraftPackage(projectId, payload);
+      const stillSelected = await refreshProjectsPreservingSelection(projectId);
+      if (!stillSelected) return;
+      setFilingReports([]);
+      setWorksheets([]);
+      setCompletionRuns([]);
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
+      setMessage("当前内部初稿已保存。请重新运行质量检查、正式稿编译和成稿会审。");
     });
   }
 
@@ -1842,6 +1879,7 @@ function App() {
             currentSourceDraftHash={currentSourceDraftHash}
             postDraftReviews={postDraftReviews}
             currentDraftHash={currentDraftHash}
+            currentPackage={currentPackage}
             agentDoctor={agentDoctor}
             selectedDeliberationProviders={selectedDeliberationProviders}
             selectedFormulaProviders={selectedFormulaProviders}
@@ -1874,6 +1912,8 @@ function App() {
             onRetryFormulaRun={(runId) => void handleRetryFormulaRun(runId)}
             onStartOfficialCompile={() => void handleStartOfficialCompile()}
             onStartPostDraftReview={() => void handleStartPostDraftReview()}
+            onApplyPostDraftSafePatches={(runId) => void handleApplyPostDraftSafePatches(runId)}
+            onSaveDraftPackage={(payload) => void handleSaveDraftPackage(payload)}
             onCancelPostDraftReviewRun={(runId) => void handleCancelPostDraftReviewRun(runId)}
             onRetryPostDraftReviewRun={(runId) => void handleRetryPostDraftReviewRun(runId)}
             onToggleDeliberationProvider={handleToggleDeliberationProvider}

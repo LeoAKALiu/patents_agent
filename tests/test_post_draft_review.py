@@ -151,6 +151,50 @@ def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_pat
     assert "attorney_memo" in report_response.text
 
 
+def test_apply_post_draft_safe_patches_updates_draft_and_invalidates_old_compile(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_safe_patch_review_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="一种城市体检指标驱动无人机主动采集方法方法",
+            claims="好的，根据交底书撰写权利要求。\n1. 一种旧方法。",
+            description=(
+                "本发明涉及无人机任务规划技术领域，说明书包括贡献矩阵和后验更新流程。\n\n"
+                "补充实施方式：\n"
+                "在一个实施例中，针对权利要求特征“主席修订权利要求1”，系统接收 input_data 并形成中间状态记录。\n\n"
+                "具体实施方式中，系统根据指标置信度生成采集任务。"
+            ),
+            drawing_description="好的，根据您提供的材料，图1为系统流程图。",
+        ),
+    )
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert compile_run["status"] == "completed"
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert review["export_allowed"] is False
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/apply-safe-patches")
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["applied_count"] == 4
+    assert result["previous_draft_hash"] == review["draft_package_hash"]
+    assert result["current_draft_hash"] != review["draft_package_hash"]
+    package = result["package"]
+    assert package["title"] == "一种城市体检指标驱动无人机主动采集方法"
+    assert package["claims"].startswith("1. 一种城市体检指标驱动无人机主动采集方法")
+    assert package["drawing_description"] == "图1为系统流程图。"
+    assert "补充实施方式" not in package["description"]
+    assert "主席修订" not in package["description"]
+    assert "input_data" not in package["description"]
+
+    project = client.get(f"/api/projects/{project_id}").json()
+    assert project["package"]["title"] == package["title"]
+
+    export_response = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export_response.status_code == 409
+    assert "current draft" in export_response.json()["detail"]
+
+
 def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compile(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
@@ -187,6 +231,40 @@ def test_post_draft_review_hash_mismatch_invalidates_export_gate(tmp_path):
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
     assert export_response.status_code == 409
     assert "current draft" in export_response.json()["detail"]
+
+
+def test_manual_draft_package_update_preserves_metadata_and_changes_hash(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="旧标题",
+            claims="1. 旧权利要求。",
+            generation_logs=["manual editor regression guard"],
+            image_prompt="保留的内部绘图提示",
+        ),
+    )
+    before = client.get(f"/api/projects/{project_id}/post-draft-reviews").json()["current_draft_hash"]
+
+    response = client.put(
+        f"/api/projects/{project_id}/draft-package",
+        json={
+            "title": "一种基于城市体检指标置信度的无人机主动采集方法",
+            "abstract": "本发明公开一种按置信度主动采集的方法。",
+            "claims": "1. 一种方法，包括基于置信度热力图生成采集任务。",
+            "description": "本发明涉及无人机主动采集技术领域。",
+            "drawing_description": "图1为方法流程图。",
+        },
+    )
+
+    assert response.status_code == 200
+    package = response.json()
+    assert package["title"] == "一种基于城市体检指标置信度的无人机主动采集方法"
+    assert package["claims"].startswith("1. 一种方法")
+    assert package["generation_logs"] == ["manual editor regression guard"]
+    assert package["image_prompt"] == "保留的内部绘图提示"
+    after = client.get(f"/api/projects/{project_id}/post-draft-reviews").json()["current_draft_hash"]
+    assert after != before
 
 
 def test_invalid_json_post_draft_review_downgrades_role_and_completes(tmp_path):
@@ -351,6 +429,66 @@ def _review_llm(*, export_allowed: bool) -> FakeLLMClient:
   "next_actions": ["修复 blocking 后重新会审。"]
 }}
 """.replace("'", '"'),
+        }
+    )
+
+
+def _safe_patch_review_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "status": "blocked",
+  "blocking_issues": ["权利要求含内部引导语。"],
+  "contamination_hits": ["好的，根据"],
+  "rewrite_suggestions": ["替换为干净权利要求。"],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "blocked",
+  "blocking_issues": ["说明书含补充实施方式和内部标记。"],
+  "contamination_hits": ["补充实施方式", "主席修订"],
+  "rewrite_suggestions": ["删除内部污染段落。"],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "blocked",
+  "blocking_issues": ["需重新会审技术硬度。"],
+  "contamination_hits": [],
+  "rewrite_suggestions": ["补充量化实施例。"],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "blocked",
+  "export_allowed": false,
+  "blocking_issues": ["需要先应用安全补丁并重新会审。"],
+  "contamination_hits": ["内部引导语", "补充实施方式"],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": ["重新运行正式稿编译。"],
+  "official_safe_patches": [
+    "{\\"action\\": \\"replace\\", \\"target\\": \\"title\\", \\"content\\": \\"一种城市体检指标驱动无人机主动采集方法\\"}",
+    "{\\"action\\": \\"replace_with\\", \\"target\\": \\"claims\\", \\"content\\": \\"1. 一种城市体检指标驱动无人机主动采集方法，其特征在于，包括：根据城市体检指标置信度生成无人机采集任务。\\"}",
+    "{\\"action\\": \\"remove_all_instances_of\\", \\"target\\": \\"description\\", \\"content\\": [\\"补充实施方式：\\", \\"主席修订\\", \\"待验证\\"]}",
+    "{\\"action\\": \\"replace\\", \\"target\\": \\"drawing_description\\", \\"content\\": \\"图1为系统流程图。\\"}"
+  ],
+  "attorney_memo": ["安全补丁只写回工作稿，不允许直接导出。"],
+  "next_actions": ["重新编译正式稿", "重新成稿会审"]
+}
+""",
         }
     )
 
