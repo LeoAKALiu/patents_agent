@@ -66,10 +66,41 @@ def test_source_ledger_totals_and_confidence() -> None:
     e3 = ledger.start(provider="arxiv", kind="arxiv", query="q3")
     e3.mark_ok(
         hit_count=2, parsed_count=2, dedupe_count=0, retained_count=2,
-        citations=[{"publication_number": "2401.00001", "title": "paper", "url": "http://arxiv", "source": "arXiv", "abstract_snippet": "abstract"}],
+        citations=[
+            {"publication_number": "2401.00001", "title": "paper", "url": "http://arxiv/1", "source": "arXiv", "abstract_snippet": "abstract"},
+            {"publication_number": "2401.00002", "title": "paper2", "url": "http://arxiv/2", "source": "arXiv", "abstract_snippet": "abstract"},
+            {"publication_number": "2401.00003", "title": "paper3", "url": "http://arxiv/3", "source": "arXiv", "abstract_snippet": "abstract"},
+            {"publication_number": "2401.00004", "title": "paper4", "url": "http://arxiv/4", "source": "arXiv", "abstract_snippet": "abstract"},
+        ],
     )
     assert ledger.research_confidence() == "high"
     assert ledger.total_hits() == 5
+
+
+def test_research_confidence_uses_unique_citations() -> None:
+    ledger = SourceLedger()
+    e1 = ledger.start(provider="patent", kind="patent", query="q1")
+    e1.mark_ok(
+        hit_count=3,
+        parsed_count=3,
+        retained_count=3,
+        citations=[
+            {"publication_number": "CN100A", "title": "重复文献", "url": "https://example.test/CN100A", "source": "Google Patents", "abstract_snippet": ""}
+        ],
+    )
+    e2 = ledger.start(provider="google_patents", kind="patent", query="q2")
+    e2.mark_ok(
+        hit_count=3,
+        parsed_count=3,
+        retained_count=3,
+        citations=[
+            {"publication_number": "CN100A", "title": "重复文献", "url": "https://example.test/CN100A", "source": "Google Patents", "abstract_snippet": ""}
+        ],
+    )
+
+    assert ledger.total_hits() == 6
+    assert ledger.total_unique_citations() == 1
+    assert ledger.research_confidence() == "medium"
 
 
 def test_source_ledger_stage_payload_includes_warnings() -> None:

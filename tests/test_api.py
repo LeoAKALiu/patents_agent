@@ -3,7 +3,15 @@ from fastapi.testclient import TestClient
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.patent_mode import UTILITY_MODEL_MODE_PREFIX
-from backend.app.schemas import DeliberationRun, DeliberationStageResult, PatentStrategyBrief
+from backend.app.schemas import (
+    DeliberationRun,
+    DeliberationStageResult,
+    DisclosurePackage,
+    DisclosureRun,
+    DraftPackage,
+    PatentStrategyBrief,
+    PriorArtHit,
+)
 
 
 def _test_app_without_env(tmp_path):
@@ -501,6 +509,79 @@ def test_create_project_with_empty_metadata_defaults_and_no_update(tmp_path):
     assert updated["innovation"] == "后端补齐的创新点。"
     # Still empty
     assert updated["beneficial_effects"] == ""
+
+
+def test_grantability_report_api_generates_persists_and_exports(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    project_response = client.post(
+        "/api/projects",
+        json={"name": "授权前景项目", "draft_text": "一种声学视觉融合巡检方法。"},
+    )
+    project_id = project_response.json()["id"]
+    store = client.app.state.store
+    store.update_project_package(
+        project_id,
+        DraftPackage(
+            title="声学视觉融合巡检方法",
+            abstract="通过声学异常窗口触发视觉局部复检。",
+            claims="1. 一种巡检方法，其特征在于，声学异常窗口触发视觉局部复检，并形成复检状态记录。",
+            description="本实施例中，声学异常窗口触发视觉局部复检，并形成复检状态记录。",
+            drawing_description="",
+            mermaid="",
+            image_prompt="",
+        ),
+    )
+    disclosure = DisclosureRun(
+        id="disc-grantability",
+        project_id=project_id,
+        status="completed",
+        package=DisclosurePackage(
+            title="声学视觉融合巡检交底",
+            summary="通过声学异常窗口触发视觉局部复检。",
+            materials_summary="",
+            prior_art_hits=[
+                PriorArtHit(
+                    id="pa-1",
+                    source="Google Patents",
+                    query="声学 巡检",
+                    title="一种声学巡检方法",
+                    publication_number="CN100A",
+                    url="https://patents.google.com/patent/CN100A",
+                    abstract="公开了声学巡检。",
+                ),
+                PriorArtHit(
+                    id="pa-2",
+                    source="CNIPA EPUB",
+                    query="视觉 复检",
+                    title="一种视觉复检方法",
+                    publication_number="CN200A",
+                    url="https://patents.google.com/patent/CN200A",
+                    abstract="公开了视觉复检。",
+                ),
+            ],
+            prior_art_differences="现有技术未公开声学异常窗口触发视觉局部复检。",
+            body_markdown="# 交底",
+            mermaid="",
+            image_prompt="",
+            research_confidence="medium",
+        ),
+    )
+    store.create_disclosure_run(disclosure)
+
+    created = client.post(f"/api/projects/{project_id}/grantability-reports")
+    assert created.status_code == 200
+    report = created.json()
+    assert report["project_id"] == project_id
+    assert report["closest_prior_art_summary"]
+    assert report["source_ledger_citations"]
+
+    listed = client.get(f"/api/projects/{project_id}/grantability-reports")
+    assert listed.status_code == 200
+    assert listed.json()["reports"][0]["id"] == report["id"]
+
+    exported = client.get(f"/api/projects/{project_id}/grantability-reports/{report['id']}/export.md")
+    assert exported.status_code == 200
+    assert "# 授权前景分析报告" in exported.text
 
 
 def test_export_draft_omits_applicant_and_inventor_per_product_spec(tmp_path):

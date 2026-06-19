@@ -6,6 +6,7 @@ from backend.app.grantability import (
     generate_grantability_report,
     grantability_report_to_markdown,
 )
+from backend.app.storage import SQLiteStore
 from backend.app.schemas import (
     ClaimChartItem,
     DeepResearchFinding,
@@ -329,6 +330,56 @@ def test_generate_grantability_with_deep_research() -> None:
         if "publication_number" in cit
     )
     assert has_deep_research_ref
+
+
+def test_deep_research_packets_extracted_from_disclosure_stage_results() -> None:
+    from backend.app.main import _deep_research_packets_from_disclosures
+
+    packet = _sample_deep_research()
+    disclosure = DisclosureRun(
+        id="disc-deep",
+        project_id="proj-2",
+        status="completed",
+        package=DisclosurePackage(
+            title="交底",
+            summary="摘要",
+            materials_summary="",
+            body_markdown="# body",
+            mermaid="",
+            image_prompt="",
+        ),
+        stage_results=[
+            {
+                "phase": "deep_research_final",
+                "payload": {"packet": packet.model_dump(mode="json")},
+            }
+        ],
+    )
+
+    packets = _deep_research_packets_from_disclosures([disclosure])
+
+    assert len(packets) == 1
+    assert packets[0].findings[0].evidence[0].publication_number == "CN119131263B"
+
+
+def test_grantability_reports_persist_in_store(tmp_path) -> None:
+    store = SQLiteStore(tmp_path / "patents_agent.sqlite3")
+    report = generate_grantability_report(
+        project_id="proj-store",
+        package=_sample_package(),
+        disclosures=[_sample_disclosure()],
+        patent_points=_sample_patent_points(),
+        deep_research_packets=[_sample_deep_research()],
+    )
+
+    stored = store.create_grantability_report(report)
+    listed = store.list_grantability_reports("proj-store")
+    loaded = store.get_grantability_report("proj-store", stored.id)
+
+    assert stored.id == report.id
+    assert [item.id for item in listed] == [report.id]
+    assert loaded is not None
+    assert loaded.closest_prior_art_summary == report.closest_prior_art_summary
 
 
 def test_generate_grantability_with_strategy_brief() -> None:

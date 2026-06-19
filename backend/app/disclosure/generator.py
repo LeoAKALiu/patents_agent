@@ -270,6 +270,15 @@ class DisclosureGenerator:
                     }
                 )
             )
+        if not any(charts_by_candidate.values()):
+            unverified_note = (
+                "已检索到公开现有技术，但模型未形成可绑定 Claim Chart；"
+                "差异结论需人工复核后才能用于查新判断。"
+            )
+            return [
+                hit.model_copy(update={"differentiators": []})
+                for hit in enriched
+            ], unverified_note, {}
         return enriched, str(data.get("prior_art_differences") or "与公开文献的区别已在交底书正文中进一步展开。"), charts_by_candidate
 
 
@@ -336,6 +345,8 @@ def _scan_prompt(project: ProjectRecord, materials: str) -> str:
 }}
 
 项目：{project.name}
+结构化项目元数据：
+{_project_metadata_block(project)}
 Draft：
 {project.draft_text}
 
@@ -368,6 +379,8 @@ def _points_prompt(project: ProjectRecord, materials: str, scan: dict, context: 
 }}
 
 项目：{project.name}
+结构化项目元数据：
+{_project_metadata_block(project)}
 扫描摘要：{json.dumps(scan, ensure_ascii=False)}
 用户指定专利点：
 {strategic_context}
@@ -395,6 +408,8 @@ def _points_prompt(project: ProjectRecord, materials: str, scan: dict, context: 
 }}
 
 项目：{project.name}
+结构化项目元数据：
+{_project_metadata_block(project)}
 扫描摘要：{json.dumps(scan, ensure_ascii=False)}
 用户指定专利点：
 {strategic_context}
@@ -416,6 +431,8 @@ def _terms_prompt(
 只输出 JSON array，例如 ["外立面 挂接 连接结构", "传感器 模块 安装支架"]。
 
 项目：{project.name}
+结构化项目元数据：
+{_project_metadata_block(project)}
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
 用户指定专利点：
 {strategic_context}
@@ -425,11 +442,27 @@ def _terms_prompt(
 只输出 JSON array，例如 ["神经网络 缺陷 检测", "图像 质量 评估"]。
 
 项目：{project.name}
+结构化项目元数据：
+{_project_metadata_block(project)}
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
 用户指定专利点：
 {strategic_context}
 扫描摘要：{json.dumps(scan, ensure_ascii=False)}
 """
+
+
+def _project_metadata_block(project: ProjectRecord) -> str:
+    rows = [
+        ("技术领域", project.technical_field),
+        ("背景技术", project.background),
+        ("技术痛点", project.pain_point),
+        ("结构化技术方案", project.technical_solution),
+        ("结构化创新点", project.innovation),
+        ("实施例", project.embodiments),
+        ("有益效果", project.beneficial_effects),
+    ]
+    lines = [f"- {label}: {value.strip()}" for label, value in rows if value and value.strip()]
+    return "\n".join(lines) if lines else "（未填写）"
 
 
 def _relevance_prompt(

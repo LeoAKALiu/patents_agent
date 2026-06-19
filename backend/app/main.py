@@ -44,6 +44,7 @@ from backend.app.filing_readiness import (
     readiness_report_to_markdown,
 )
 from backend.app.generator import PatentDraftGenerator
+from backend.app.grantability import generate_grantability_report, grantability_report_to_markdown
 from backend.app.desktop_config import (
     DesktopConfig,
     DesktopConfigError,
@@ -112,6 +113,7 @@ from backend.app.schemas import (
     PatentPointCandidate,
     PatentPointCreate,
     PatentPointUpdate,
+    PatentStrategyBrief,
     PostDraftReviewRun,
     PostDraftReviewRunCreate,
     ProposedPatch,
@@ -1281,6 +1283,52 @@ def create_app(
         if not report:
             raise HTTPException(status_code=404, detail="Filing readiness report not found.")
         return PlainTextResponse(readiness_report_to_markdown(report), media_type="text/markdown; charset=utf-8")
+
+    @app.post("/api/projects/{project_id}/grantability-reports")
+    def create_grantability_report(project_id: str) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        disclosures = store.list_disclosure_runs(project_id)
+        patent_points = store.list_project_patent_points(project_id)
+        strategy_brief = _latest_strategy_brief(store, project_id)
+        report = generate_grantability_report(
+            project_id=project_id,
+            package=package,
+            disclosures=disclosures,
+            patent_points=patent_points,
+            strategy_brief=strategy_brief,
+            deep_research_packets=_deep_research_packets_from_disclosures(disclosures),
+        )
+        stored = store.create_grantability_report(report)
+        return stored.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/grantability-reports")
+    def list_grantability_reports(project_id: str) -> dict:
+        project = _require_project(store, project_id)
+        current_hash = source_draft_hash(project.package) if project.package else ""
+        return {
+            "reports": [
+                report.model_dump(mode="json")
+                for report in store.list_grantability_reports(project_id)
+            ],
+            "current_source_draft_hash": current_hash,
+        }
+
+    @app.get("/api/projects/{project_id}/grantability-reports/{report_id}")
+    def get_grantability_report(project_id: str, report_id: str) -> dict:
+        _require_project(store, project_id)
+        report = store.get_grantability_report(project_id, report_id)
+        if not report:
+            raise HTTPException(status_code=404, detail="Grantability report not found.")
+        return report.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/grantability-reports/{report_id}/export.md")
+    def export_grantability_report(project_id: str, report_id: str) -> PlainTextResponse:
+        _require_project(store, project_id)
+        report = store.get_grantability_report(project_id, report_id)
+        if not report:
+            raise HTTPException(status_code=404, detail="Grantability report not found.")
+        return PlainTextResponse(grantability_report_to_markdown(report), media_type="text/markdown; charset=utf-8")
 
     @app.post("/api/projects/{project_id}/claim-defense-worksheets")
     def create_claim_defense_worksheet(project_id: str) -> dict:
@@ -2739,6 +2787,45 @@ def _build_evidence_bindings_for_project(store: SQLiteStore, project: ProjectRec
         formula_runs=formula_runs,
     )
     return materials, disclosures, patent_points, formula_runs, evidence_bindings
+
+
+def _deep_research_packets_from_disclosures(disclosures: list[DisclosureRun]) -> list[DeepResearchPacket]:
+    packets: list[DeepResearchPacket] = []
+    seen: set[str] = set()
+    for disclosure in disclosures:
+        for stage in disclosure.stage_results:
+            for raw_packet in _deep_research_packet_payloads(stage):
+                try:
+                    packet = DeepResearchPacket.model_validate(raw_packet)
+                except (TypeError, ValueError, ValidationError):
+                    continue
+                key = _hash_payload(packet.model_dump(mode="json"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                packets.append(packet)
+    return packets
+
+
+def _deep_research_packet_payloads(payload: object) -> list[dict[str, object]]:
+    if not isinstance(payload, dict):
+        return []
+    packets: list[dict[str, object]] = []
+    for key in ("packet", "deep_research_packet", "research_packet"):
+        candidate = payload.get(key)
+        if isinstance(candidate, dict):
+            packets.append(candidate)
+    nested = payload.get("payload")
+    if isinstance(nested, dict):
+        packets.extend(_deep_research_packet_payloads(nested))
+    return packets
+
+
+def _latest_strategy_brief(store: SQLiteStore, project_id: str) -> PatentStrategyBrief | None:
+    for run in store.list_deliberation_runs(project_id):
+        if _is_strict_completed_deliberation(run) and run.strategy_brief is not None:
+            return run.strategy_brief
+    return None
 
 
 def _cached_llm(

@@ -480,6 +480,49 @@ def test_disclosure_ignores_claim_chart_for_unknown_prior_art_hit(tmp_path):
     assert [chart["prior_art_id"] for chart in relevance_payload["claim_charts"]] == ["h1"]
 
 
+def test_disclosure_relevance_without_bound_claim_chart_is_marked_unverified(tmp_path):
+    llm = FakeLLMClient(
+        {
+            "disclosure_scan": '{"summary":"外立面逆建模","materials_summary":"材料覆盖","technical_keywords":["外立面"],"implementation_gaps":[]}',
+            "patent_points": '{"candidates":[{"id":"p1","title":"遮挡洞口补全","technical_problem":"遮挡导致漏识别","innovation":"多视角互证补全洞口","technical_solution":"融合点云和图像补全洞口边界","beneficial_effects":["降低漏检"],"protection_focus":["方法"],"grantability_score":0.8,"rationale":"完整"}],"selected_candidate_id":"p1"}',
+            "prior_art_terms": '["外立面 洞口 补全"]',
+            "prior_art_relevance": '{"prior_art_differences":"现有技术未公开遮挡洞口补全。","hits":[{"id":"h1","relevance_summary":"公开点云建模。","differentiators":["未公开遮挡洞口补全"]}],"claim_charts":[]}',
+            "disclosure_body": "# 交底书",
+            "disclosure_mermaid": "flowchart TD",
+            "disclosure_image_prompt": "黑白线稿",
+            "disclosure_self_check": "[]",
+        }
+    )
+    provider = StaticPriorArtProvider(
+        hits=[
+            PriorArtHit(
+                id="h1",
+                source="Google Patents",
+                query="外立面 洞口 补全",
+                title="一种点云建模方法",
+                publication_number="CN100A",
+                url="https://patents.google.com/patent/CN100A",
+                abstract="公开点云建模。",
+            )
+        ]
+    )
+    package, stage_results, _warnings = DisclosureGenerator(llm, provider).generate(
+        project=ProjectRecord(
+            id="project-1",
+            name="外立面逆建模",
+            draft_text="一种外立面逆建模方法。",
+        ),
+        materials=[],
+        context_chunks=[],
+        max_prior_art_results=8,
+    )
+
+    assert "未形成可绑定 Claim Chart" in package.prior_art_differences
+    assert package.prior_art_hits[0].differentiators == []
+    relevance_payload = next(item["payload"] for item in stage_results if item["phase"] == "prior_art_relevance")
+    assert relevance_payload["claim_charts"] == []
+
+
 def test_draft_generation_prompt_marks_unverified_schemes_as_optional(tmp_path):
     llm = FakeLLMClient(
         {

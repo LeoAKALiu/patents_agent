@@ -79,6 +79,45 @@ def test_parse_cnipa_epub_html_extracts_abstract_and_dedupes():
     assert hits[0].abstract == "本发明涉及图像缺陷检测。"
 
 
+def test_disclosure_research_prompts_include_structured_project_metadata():
+    llm = FakeLLMClient(
+        {
+            "disclosure_scan": '{"summary":"多模态道路病害检测","materials_summary":"无","technical_keywords":["道路病害"],"implementation_gaps":[]}',
+            "patent_points": '{"candidates":[{"id":"p1","title":"跨模态病害检测","technical_problem":"夜间检测误检率高","innovation":"跨模态特征对齐","technical_solution":"融合可见光、红外和激光雷达","beneficial_effects":["夜间准确率提升"],"protection_focus":["方法"],"grantability_score":0.8,"rationale":"完整"}],"selected_candidate_id":"p1"}',
+            "prior_art_terms": '["道路病害 多模态 检测"]',
+            "disclosure_body": "# 交底书",
+            "disclosure_mermaid": "flowchart TD",
+            "disclosure_image_prompt": "黑白线稿",
+            "disclosure_self_check": "[]",
+        }
+    )
+    generator = DisclosureGenerator(llm, StaticPriorArtProvider())
+    project = ProjectRecord(
+        id="project-meta",
+        name="道路病害检测",
+        draft_text="一种道路病害检测方法。",
+        technical_field="计算机视觉、市政工程检测",
+        background="人工巡检效率低且夜间漏检。",
+        pain_point="光照变化导致误检率高。",
+        technical_solution="可见光、红外和激光雷达多模态融合。",
+        innovation="跨模态特征对齐。",
+        embodiments="车载多传感器在经十路巡检。",
+        beneficial_effects="夜间检测准确率提升。",
+    )
+
+    generator.generate(
+        project=project,
+        materials=[],
+        context_chunks=[],
+        max_prior_art_results=0,
+    )
+
+    prompts = {call.stage: call.user_prompt for call in llm.calls}
+    assert "计算机视觉、市政工程检测" in prompts["disclosure_scan"]
+    assert "跨模态特征对齐" in prompts["prior_art_terms"]
+    assert "夜间检测准确率提升" in prompts["prior_art_terms"]
+
+
 def test_disclosure_generator_runs_pipeline_and_records_prior_art():
     llm = _disclosure_llm()
     provider = StaticPriorArtProvider(hits=[_prior_art_hit()])

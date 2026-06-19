@@ -37,6 +37,7 @@ import {
   FilingReadinessReport,
   FormulaNeedAssessment,
   FormulaRun,
+  GrantabilityReport,
   Health,
   OfficialCompileRun,
   type OfficialDraftPackage,
@@ -65,6 +66,7 @@ import {
   createDraftCompletionRun,
   createExternalDraftSource,
   createFilingReadinessReport,
+  createGrantabilityReport,
   createProject,
   createProjectPatentPoint,
   deleteProject,
@@ -88,6 +90,7 @@ import {
   listExternalDraftIntakeRuns,
   listExternalDraftSources,
   listFilingReadinessReports,
+  listGrantabilityReports,
   listProjectDisclosures,
   listProjectDeliberations,
   listFormulaRuns,
@@ -161,7 +164,7 @@ import {
   CorpusView,
   CreateProjectView,
 } from "./views/projectViews";
-import { ClaimDefenseView, ReviewView } from "./views/qualityViews";
+import { ClaimDefenseView, GrantabilityView, ReviewView } from "./views/qualityViews";
 import { FilingReadinessView, DraftCompletionView } from "./views/filingViews";
 import {
   canExportPackage,
@@ -406,6 +409,7 @@ function App() {
   const [disclosureResearchMode, setDisclosureResearchMode] =
     useState<"standard" | "free_deep_research">("standard");
   const [filingReports, setFilingReports] = useState<FilingReadinessReport[]>([]);
+  const [grantabilityReports, setGrantabilityReports] = useState<GrantabilityReport[]>([]);
   const [worksheets, setWorksheets] = useState<ClaimDefenseWorksheet[]>([]);
   const [completionRuns, setCompletionRuns] = useState<DraftCompletionRun[]>([]);
   const [externalDraftSources, setExternalDraftSources] = useState<ExternalDraftSource[]>([]);
@@ -460,6 +464,7 @@ function App() {
   const currentFormulaRun = formulaRuns.find((run) => run.status === "completed" && run.package) ?? null;
   const visiblePatentPoints = patentPointsProjectId === selectedProject?.id ? patentPoints : [];
   const latestFilingReport = filingReports[0] ?? null;
+  const latestGrantabilityReport = grantabilityReports[0] ?? null;
   const latestWorksheet = worksheets[0] ?? null;
   const latestCompletionRun = completionRuns[0] ?? null;
   const latestOfficialCompileRun = selectCurrentOfficialCompileRun(officialCompileRuns, currentSourceDraftHash);
@@ -571,10 +576,12 @@ function App() {
       setPatentPoints([]);
       setPatentPointsProjectId("");
       setFilingReports([]);
+      setGrantabilityReports([]);
       setWorksheets([]);
       setCompletionRuns([]);
       void loadPatentPoints(selectedProject.id);
       void loadFilingReports(selectedProject.id);
+      void loadGrantabilityReports(selectedProject.id);
       void loadWorksheets(selectedProject.id);
       void loadCompletionRuns(selectedProject.id);
     } else {
@@ -585,6 +592,7 @@ function App() {
       setFormulaRuns([]);
       setPatentPoints([]);
       setFilingReports([]);
+      setGrantabilityReports([]);
       setWorksheets([]);
       setCompletionRuns([]);
       setExternalDraftSources([]);
@@ -690,6 +698,23 @@ function App() {
     } catch {
       if (selectedProjectIdRef.current === projectId) {
         setFilingReports([]);
+      }
+      return false;
+    }
+  }
+
+  async function loadGrantabilityReports(projectId: string): Promise<boolean> {
+    try {
+      const { reports, current_source_draft_hash } = await listGrantabilityReports(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setGrantabilityReports(reports);
+      setCurrentSourceDraftHash(current_source_draft_hash);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setGrantabilityReports([]);
       }
       return false;
     }
@@ -1338,6 +1363,7 @@ function App() {
     const projectId = selectedProject.id;
     await withStatus("guided-quality", async () => {
       const report = await createFilingReadinessReport(projectId);
+      const grantability = await createGrantabilityReport(projectId);
       const worksheet = await createClaimDefenseWorksheet(projectId);
       const completion = await createDraftCompletionRun(projectId);
       const nextProjects = await listProjects();
@@ -1345,16 +1371,29 @@ function App() {
       setProjects(nextProjects);
       setSelectedProjectId(projectId);
       setFilingReports((current) => [report, ...current.filter((item) => item.id !== report.id)]);
+      setGrantabilityReports((current) => [grantability, ...current.filter((item) => item.id !== grantability.id)]);
       setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== worksheet.id)]);
       setCompletionRuns((current) => [completion, ...current.filter((item) => item.id !== completion.id)]);
       await Promise.all([
         loadFilingReports(projectId),
+        loadGrantabilityReports(projectId),
         loadWorksheets(projectId),
         loadCompletionRuns(projectId),
         loadOfficialCompileRuns(projectId),
         loadPostDraftReviews(projectId),
       ]);
       setMessage(`质量检查完成：整体评分 ${completion.scorecard.overall}/100`);
+    });
+  }
+
+  async function handleCreateGrantabilityReport() {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("grantability", async () => {
+      const report = await createGrantabilityReport(projectId);
+      const stillSelected = await loadGrantabilityReports(projectId);
+      if (!stillSelected) return;
+      setMessage(`授权前景报告已生成：${report.claim_chart.length} 个特征映射`);
     });
   }
 
@@ -1369,6 +1408,7 @@ function App() {
       setSelectedProjectId(projectId);
       await Promise.all([
         loadFilingReports(projectId),
+        loadGrantabilityReports(projectId),
         loadWorksheets(projectId),
         loadCompletionRuns(projectId),
         loadOfficialCompileRuns(projectId),
@@ -1612,6 +1652,16 @@ function App() {
             currentSourceDraftHash={currentSourceDraftHash}
             busy={busy}
             onRun={handleRunFilingReadiness}
+          />
+        );
+      case "grantability":
+        return (
+          <GrantabilityView
+            project={selectedProject}
+            report={latestGrantabilityReport}
+            reports={grantabilityReports}
+            busy={busy}
+            onGenerate={handleCreateGrantabilityReport}
           />
         );
       case "claimDefense":

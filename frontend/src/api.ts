@@ -175,6 +175,61 @@ export interface FilingReadinessReport {
   created_at: string;
 }
 
+export type FeaturePlacement =
+  | "independent_claim_required"
+  | "dependent_claim_optional"
+  | "description_only_support"
+  | "should_delete";
+
+export interface NoveltyAttack {
+  feature_text: string;
+  prior_art_title: string;
+  prior_art_ref: string;
+  citation_source: string;
+  overlap_analysis: string;
+  attack_strength: "strong" | "moderate" | "weak" | "none";
+  evidence_quality: "verified" | "unverified" | "low";
+}
+
+export interface InventiveStepAttackCombo {
+  title: string;
+  primary_reference: string;
+  secondary_references: string[];
+  combination_rationale: string;
+  attack_strength: "strong" | "moderate" | "weak";
+  defense_suggestion: string;
+}
+
+export interface GrantabilityClaimChartRow {
+  claim_ref: string;
+  feature_text: string;
+  feature_placement: FeaturePlacement;
+  closest_prior_art_refs: string[];
+  novelty_distinction: string;
+  novelty_attack?: NoveltyAttack | null;
+  inventive_step_combos: InventiveStepAttackCombo[];
+  support_status: "strong" | "partial" | "weak" | "missing";
+  overbreadth_risk: boolean;
+  recommended_scope_adjustment: string;
+}
+
+export interface GrantabilityReport {
+  id: string;
+  project_id: string;
+  status: "high" | "medium" | "low" | "uncertain";
+  overall_assessment: string;
+  closest_prior_art_summary: string;
+  claim_chart: GrantabilityClaimChartRow[];
+  novelty_attacks: NoveltyAttack[];
+  inventive_step_attacks: InventiveStepAttackCombo[];
+  risk_summary: Record<string, string>;
+  low_evidence_flags: string[];
+  fail_closed: boolean;
+  recommendation: string;
+  source_ledger_citations: Array<Record<string, unknown>>;
+  created_at: string;
+}
+
 export interface FeatureRecord {
   feature_id: string;
   text: string;
@@ -1147,6 +1202,26 @@ export async function listFilingReadinessReports(
 
 export function filingReadinessReportUrl(projectId: string, reportId: string): string {
   return `/api/projects/${projectId}/filing-readiness/${reportId}/export.md`;
+}
+
+export async function createGrantabilityReport(projectId: string): Promise<GrantabilityReport> {
+  return request<GrantabilityReport>(`/api/projects/${projectId}/grantability-reports`, { method: "POST" });
+}
+
+export async function listGrantabilityReports(
+  projectId: string,
+): Promise<{ reports: GrantabilityReport[]; current_source_draft_hash: string }> {
+  return request<{ reports: GrantabilityReport[]; current_source_draft_hash: string }>(
+    `/api/projects/${projectId}/grantability-reports`,
+  );
+}
+
+export async function getGrantabilityReport(projectId: string, reportId: string): Promise<GrantabilityReport> {
+  return request<GrantabilityReport>(`/api/projects/${projectId}/grantability-reports/${reportId}`);
+}
+
+export function grantabilityReportUrl(projectId: string, reportId: string): string {
+  return `/api/projects/${projectId}/grantability-reports/${reportId}/export.md`;
 }
 
 export async function createClaimDefenseWorksheet(projectId: string): Promise<ClaimDefenseWorksheet> {

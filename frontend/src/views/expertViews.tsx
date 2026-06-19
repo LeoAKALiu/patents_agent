@@ -36,7 +36,7 @@ const groupDescriptions: Record<string, { description: string; status: string; t
     tone: "info",
   },
   quality: {
-    description: "提交成熟度、权利要求防线、初稿完善和审查修改。",
+    description: "提交成熟度、授权前景、权利要求防线、初稿完善和审查修改。",
     status: "门禁",
     tone: "warning",
   },
@@ -55,6 +55,7 @@ const toolStatuses: Record<ExpertToolId, { label: string; action: string; tone: 
   deliberate: { label: "策略生成", action: "进入", tone: "info" },
   write: { label: "高级", action: "打开", tone: "neutral" },
   readiness: { label: "门禁", action: "进入", tone: "warning" },
+  grantability: { label: "查新", action: "生成", tone: "warning" },
   claimDefense: { label: "运行", action: "打开", tone: "info" },
   completion: { label: "补强", action: "打开", tone: "info" },
   review: { label: "审查", action: "打开", tone: "info" },

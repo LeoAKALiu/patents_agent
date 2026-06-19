@@ -19,6 +19,7 @@ from backend.app.schemas import (
     ExternalDraftSource,
     FilingReadinessReport,
     FormulaRun,
+    GrantabilityReport,
     OfficialCompileRun,
     OfficialDraftPackage,
     PatentAsset,
@@ -340,6 +341,7 @@ class SQLiteStore:
                 "filing_readiness_reports",
                 "claim_defense_worksheets",
                 "draft_completion_runs",
+                "grantability_reports",
             ]:
                 self.connection.execute(f"delete from {table} where project_id = ?", (project_id,))
             cursor = self.connection.execute("delete from projects where id = ?", (project_id,))
@@ -531,6 +533,35 @@ class SQLiteStore:
             (project_id, report_id),
         ).fetchone()
         return self._filing_readiness_report_from_row(row) if row else None
+
+    def create_grantability_report(self, report: GrantabilityReport) -> GrantabilityReport:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into grantability_reports(id, project_id, report_json)
+                values (?, ?, ?)
+                """,
+                (
+                    report.id,
+                    report.project_id,
+                    json.dumps(report.model_dump(mode="json"), ensure_ascii=False),
+                ),
+            )
+        return report
+
+    def list_grantability_reports(self, project_id: str) -> list[GrantabilityReport]:
+        rows = self.connection.execute(
+            "select * from grantability_reports where project_id = ? order by created_at desc, rowid desc",
+            (project_id,),
+        ).fetchall()
+        return [self._grantability_report_from_row(row) for row in rows]
+
+    def get_grantability_report(self, project_id: str, report_id: str) -> GrantabilityReport | None:
+        row = self.connection.execute(
+            "select * from grantability_reports where project_id = ? and id = ?",
+            (project_id, report_id),
+        ).fetchone()
+        return self._grantability_report_from_row(row) if row else None
 
     def create_claim_defense_worksheet(self, worksheet: ClaimDefenseWorksheet) -> ClaimDefenseWorksheet:
         with self.connection:
@@ -1325,6 +1356,14 @@ class SQLiteStore:
                     foreign key(project_id) references projects(id)
                 );
 
+                create table if not exists grantability_reports (
+                    id text primary key,
+                    project_id text not null,
+                    report_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
                 create table if not exists draft_completion_runs (
                     id text primary key,
                     project_id text not null,
@@ -1635,6 +1674,12 @@ class SQLiteStore:
         if not worksheet.created_at:
             worksheet = worksheet.model_copy(update={"created_at": row["created_at"]})
         return worksheet
+
+    def _grantability_report_from_row(self, row: sqlite3.Row) -> GrantabilityReport:
+        report = GrantabilityReport.model_validate(json.loads(row["report_json"]))
+        if not report.created_at:
+            report = report.model_copy(update={"created_at": row["created_at"]})
+        return report
 
     def _draft_completion_run_from_row(self, row: sqlite3.Row) -> DraftCompletionRun:
         run = DraftCompletionRun.model_validate(json.loads(row["run_json"]))
