@@ -1485,6 +1485,293 @@ input:focus, select:focus, textarea:focus {
 .draft-editor-textarea.compact { min-height: 110px; }
 .draft-editor-textarea.tall { min-height: 340px; }
 
+/* ── Post-Draft Annotated Repair Editor ───────────────────────── */
+.repair-editor-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(1320px, 96vw);
+  height: min(900px, 92vh);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-base);
+  box-shadow: var(--shadow-lg);
+}
+
+.repair-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(420px, 1fr) minmax(260px, 340px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.repair-issue-rail {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+}
+
+.repair-issue-rail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.repair-issue-rail-header h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.repair-issue-scroll {
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+
+.repair-issue-group {
+  margin-bottom: 10px;
+}
+
+.repair-issue-group-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 6px;
+}
+
+.repair-issue-count {
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.repair-issue-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 6px 6px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background .12s, border-color .12s;
+}
+
+.repair-issue-item:hover {
+  background: var(--surface-base);
+  border-color: var(--border-subtle);
+}
+
+.repair-issue-item.selected {
+  background: var(--surface-raised);
+  border-color: color-mix(in oklch, var(--action-primary), transparent 70%);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--action-primary), transparent 85%);
+}
+
+.repair-issue-severity {
+  color: var(--text-soft);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.repair-issue-severity[data-severity="critical"] { color: var(--danger); }
+.repair-issue-severity[data-severity="high"] { color: var(--warn); }
+
+.repair-issue-message {
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.repair-document-pane {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+
+.annotated-draft-section {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  padding: 10px 12px;
+  transition: border-color .12s;
+}
+
+.annotated-draft-section.selected {
+  border-color: color-mix(in oklch, var(--action-primary), transparent 60%);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--action-primary), transparent 80%);
+}
+
+.annotated-draft-section textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.annotated-draft-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.annotated-draft-section-badge {
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.annotated-draft-section-badge.badge-text-anchor {
+  background: color-mix(in oklch, var(--success), transparent 85%);
+  color: var(--success);
+}
+
+.annotated-draft-section-badge.badge-section {
+  background: color-mix(in oklch, var(--info), transparent 85%);
+  color: var(--info);
+}
+
+.annotated-draft-section-badge.badge-missing {
+  background: color-mix(in oklch, var(--warn), transparent 85%);
+  color: var(--warn);
+}
+
+.annotated-draft-snippet {
+  margin: 2px 0 0;
+  color: var(--text-soft);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.repair-inspector {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  border-left: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+}
+
+.repair-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.repair-inspector-header h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.repair-inspector-body {
+  display: grid;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+
+.repair-inspector-field {
+  display: grid;
+  gap: 2px;
+}
+
+.repair-inspector-label {
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.repair-inspector-value {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.repair-inspector-value[data-severity="critical"] { color: var(--danger); font-weight: 700; }
+.repair-inspector-value[data-severity="high"] { color: var(--warn); font-weight: 700; }
+
+.repair-inspector-message p {
+  margin: 4px 0 0;
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.repair-inspector-snippet {
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-soft);
+  white-space: pre-wrap;
+}
+
+.repair-inspector-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.repair-inspector-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* ── Mobile: single column ────────────────────────────────────── */
+@media (max-width: 760px) {
+  .repair-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(200px, 1fr) auto;
+    overflow-y: auto;
+  }
+
+  .repair-issue-rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .repair-issue-scroll {
+    max-height: 180px;
+  }
+
+  .repair-document-pane {
+    max-height: none;
+  }
+
+  .repair-inspector {
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
 /* ── External Draft ───────────────────────────────────────────── */
 .external-draft-side-entry {
   border-color: color-mix(in oklch, var(--action-primary), transparent 80%);
