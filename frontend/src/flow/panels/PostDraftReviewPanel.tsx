@@ -5,10 +5,12 @@ import { AgentProviderCards } from "@/AgentProviderCards";
 import { Badge } from "@/components/ui/badge";
 import {
   postDraftReviewReportUrl,
+  getPostDraftRepairSession,
   type AgentDoctorReport,
   type DraftPackage,
   type DraftPackageManualUpdate,
   type OfficialCompileRun,
+  type PostDraftRepairSession,
   type PostDraftReviewRun,
   type ProjectRecord,
 } from "@/api";
@@ -28,6 +30,7 @@ import {
   guidedActiveRun,
 } from "../runtimeWidgets";
 import { ActionGateHint } from "../parts";
+import { PostDraftRepairEditor } from "./PostDraftRepairEditor";
 
 export interface PostDraftReviewPanelProps {
   actionGate: GuidedActionGate;
@@ -73,6 +76,10 @@ export function PostDraftReviewPanel({
   const [draftEditor, setDraftEditor] = useState<DraftPackageManualUpdate | null>(() =>
     currentPackage ? editableDraftFields(currentPackage) : null,
   );
+  const [repairEditorOpen, setRepairEditorOpen] = useState(false);
+  const [repairSession, setRepairSession] = useState<PostDraftRepairSession | null>(null);
+  const [repairSessionLoading, setRepairSessionLoading] = useState(false);
+  const [repairSessionError, setRepairSessionError] = useState("");
   const passed = Boolean(review?.status === "completed" && review.export_allowed);
   const blocked = Boolean(review?.status === "completed" && !review.export_allowed);
   const activeRun = guidedActiveRun(runs);
@@ -102,6 +109,21 @@ export function PostDraftReviewPanel({
     if (!draftEditor) return;
     await onSaveDraftPackage(draftEditor);
     setEditorOpen(false);
+  }
+
+  async function openRepairEditor() {
+    if (!project || !review) return;
+    setRepairSessionLoading(true);
+    setRepairSessionError("");
+    try {
+      const session = await getPostDraftRepairSession(project.id, review.id);
+      setRepairSession(session);
+      setRepairEditorOpen(true);
+    } catch {
+      setRepairSessionError("无法打开标注式修复编辑器，请刷新运行状态后重试。");
+    } finally {
+      setRepairSessionLoading(false);
+    }
   }
 
   function updateDraftField(field: keyof DraftPackageManualUpdate, value: string) {
@@ -218,7 +240,17 @@ export function PostDraftReviewPanel({
               <PenLine size={15} />
               <span>打开大编辑器</span>
             </button>
+            <button
+              className="btn btn-primary"
+              disabled={!currentPackage || !review || repairSessionLoading}
+              onClick={() => void openRepairEditor()}
+              type="button"
+            >
+              {repairSessionLoading ? <Loader2 className="spin" size={15} /> : <PenLine size={15} />}
+              <span>打开标注式修复编辑器</span>
+            </button>
           </div>
+          {repairSessionError && <p className="workflow-hint">{repairSessionError}</p>}
           {currentPackage ? (
             <div className="draft-editor-summary">
               <strong>{currentPackage.title || "未命名初稿"}</strong>
@@ -350,6 +382,18 @@ export function PostDraftReviewPanel({
             </footer>
           </section>
         </div>
+      )}
+      {repairEditorOpen && repairSession && (
+        <PostDraftRepairEditor
+          open={repairEditorOpen}
+          session={repairSession}
+          saving={savingDraft}
+          onClose={() => setRepairEditorOpen(false)}
+          onSave={async (fields) => {
+            await onSaveDraftPackage(fields);
+            setRepairEditorOpen(false);
+          }}
+        />
       )}
     </section>
   );

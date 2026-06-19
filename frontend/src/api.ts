@@ -844,6 +844,36 @@ export interface PostDraftSafePatchApplyResult {
   package: DraftPackage;
 }
 
+export type DraftIssueAnchor = {
+  type: "text" | "section" | "missing";
+  section: "title" | "abstract" | "claims" | "description" | "drawing_description" | "unknown";
+  start?: number | null;
+  end?: number | null;
+  snippet?: string | null;
+};
+
+export type DraftReviewIssue = {
+  id: string;
+  kind: "blocking" | "hit" | "suggestion";
+  severity: "critical" | "high" | "medium" | "low";
+  source: string;
+  message: string;
+  snippet?: string | null;
+  target_section: DraftIssueAnchor["section"];
+  anchor: DraftIssueAnchor;
+  status: "open" | "fixed" | "skipped" | "stale" | "unanchored";
+};
+
+export type PostDraftRepairSession = {
+  project_id: string;
+  review_run_id: string;
+  draft_package_hash?: string | null;
+  current_draft_hash?: string | null;
+  stale: boolean;
+  issues: DraftReviewIssue[];
+  sections: Record<string, string>;
+};
+
 export interface CorpusQualityReport {
   total_files: number;
   processed_files: number;
@@ -1410,6 +1440,15 @@ export async function applyPostDraftSafePatches(
   return request<PostDraftSafePatchApplyResult>(
     `/api/projects/${projectId}/post-draft-reviews/${runId}/apply-safe-patches`,
     { method: "POST" },
+  );
+}
+
+export async function getPostDraftRepairSession(
+  projectId: string,
+  runId: string,
+): Promise<PostDraftRepairSession> {
+  return request<PostDraftRepairSession>(
+    `/api/projects/${projectId}/post-draft-reviews/${runId}/repair-session`,
   );
 }
 
