@@ -72,6 +72,7 @@ from backend.app.post_draft_review import (
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
+from backend.app.post_draft_repair import normalize_post_draft_issues
 from backend.app.rag import LocalVectorIndex, create_vector_index
 from backend.app.research.deep_researcher import (
     DeepResearchSearchProvider,
@@ -102,6 +103,7 @@ from backend.app.schemas import (
     ExternalDraftReviewBundle,
     ExternalDraftSourceCreate,
     DraftPackage,
+    DraftReviewIssue,
     EvidenceBinding,
     FormulaRun,
     FormulaRunCreate,
@@ -117,6 +119,7 @@ from backend.app.schemas import (
     PatentStrategyBrief,
     PostDraftReviewRun,
     PostDraftReviewRunCreate,
+    PostDraftRepairSession,
     PostDraftSafePatchApplyResult,
     ProposedPatch,
     CorpusImportJobCreate,
@@ -1573,6 +1576,37 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         return run.model_dump(mode="json")
+
+    @app.get(
+        "/api/projects/{project_id}/post-draft-reviews/{run_id}/repair-session",
+        response_model=PostDraftRepairSession,
+    )
+    def get_post_draft_repair_session(project_id: str, run_id: str) -> PostDraftRepairSession:
+        project = _require_project(store, project_id)
+        if not project.package:
+            raise HTTPException(status_code=404, detail="Draft package not found")
+        review = _get_post_draft_review_or_404(store, project_id, run_id)
+
+        sections = {
+            "title": project.package.title,
+            "abstract": project.package.abstract,
+            "claims": project.package.claims,
+            "description": project.package.description,
+            "drawing_description": project.package.drawing_description,
+        }
+        current_hash = source_draft_hash(project.package)
+        review_hash = getattr(review, "draft_package_hash", None)
+        raw_issues = normalize_post_draft_issues(review.model_dump(), sections)
+        issues = [DraftReviewIssue.model_validate(item) for item in raw_issues]
+        return PostDraftRepairSession(
+            project_id=project_id,
+            review_run_id=run_id,
+            draft_package_hash=review_hash,
+            current_draft_hash=current_hash,
+            stale=bool(review_hash and review_hash != current_hash),
+            issues=issues,
+            sections=sections,
+        )
 
     @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/apply-safe-patches")
     def apply_post_draft_safe_patches(project_id: str, run_id: str) -> dict:
@@ -3206,6 +3240,13 @@ def _require_package(project: ProjectRecord) -> DraftPackage:
     if not project.package:
         raise HTTPException(status_code=409, detail="Generate a draft before export.")
     return project.package
+
+
+def _get_post_draft_review_or_404(store: SQLiteStore, project_id: str, run_id: str) -> PostDraftReviewRun:
+    run = store.get_post_draft_review_run(project_id, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Post-draft review run not found.")
+    return run
 
 
 def _require_latest_completed_official_compile(
