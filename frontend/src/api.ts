@@ -1458,6 +1458,52 @@ export async function getPostDraftRepairSession(
   );
 }
 
+export type DraftRepairPatch = {
+  id: string;
+  issue_id: string;
+  project_id: string;
+  review_run_id: string;
+  status: "proposed" | "stale" | "unsafe" | "applied";
+  target_section: "title" | "abstract" | "claims" | "description" | "drawing_description";
+  original: string;
+  patched: string;
+  diff_summary: string;
+  risk_notes: string[];
+  draft_package_hash: string;
+};
+
+export async function createDraftRepairPatch(
+  projectId: string,
+  runId: string,
+  payload: {
+    issue_id: string;
+    draft_package_hash: string;
+    target_section: DraftRepairPatch["target_section"];
+    selected_text?: string | null;
+    nearby_context?: string | null;
+  },
+): Promise<DraftRepairPatch> {
+  return request<DraftRepairPatch>(
+    `/api/projects/${projectId}/post-draft-reviews/${runId}/repair-patches`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function applyDraftRepairPatch(
+  projectId: string,
+  runId: string,
+  patchId: string,
+): Promise<{ package: DraftPackage; current_draft_hash: string }> {
+  return request<{ package: DraftPackage; current_draft_hash: string }>(
+    `/api/projects/${projectId}/post-draft-reviews/${runId}/repair-patches/${patchId}/apply`,
+    { method: "POST" },
+  );
+}
+
 export async function cancelPostDraftReview(projectId: string, runId: string): Promise<PostDraftReviewRun> {
   return request<PostDraftReviewRun>(`/api/projects/${projectId}/post-draft-reviews/${runId}/cancel`, { method: "POST" });
 }

@@ -408,6 +408,7 @@ export function PostDraftReviewPanel({
             await onSaveDraftPackage(fields);
             setRepairEditorOpen(false);
           }}
+          onPatchApplied={onSaveDraftPackage}
         />
       )}
     </section>
