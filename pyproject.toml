@@ -24,6 +24,9 @@ dev = [
 chroma = [
   "chromadb>=0.5.5",
 ]
+packaging = [
+  "pyinstaller>=6.0.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import math
 import re
 from collections import Counter
@@ -146,8 +147,13 @@ class _ChromaHashEmbedding:
 def _hash_embedding(text: str, dimensions: int = 128) -> list[float]:
     vector = [0.0] * dimensions
     for token, count in _vectorize(text).items():
-        vector[hash(token) % dimensions] += float(count)
+        vector[_stable_token_bucket(token, dimensions)] += float(count)
     norm = math.sqrt(sum(value * value for value in vector))
     if not norm:
         return vector
     return [value / norm for value in vector]
+
+
+def _stable_token_bucket(token: str, dimensions: int) -> int:
+    digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(digest, "big") % dimensions

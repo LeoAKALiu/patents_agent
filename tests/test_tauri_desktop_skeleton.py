@@ -38,7 +38,15 @@ def test_tauri_v2_scaffold_is_the_only_desktop_runtime() -> None:
     assert build["frontendDist"] == "../frontend/dist"
     assert build["devUrl"] == "http://127.0.0.1:5173"
     assert "npm --prefix frontend run build" in build["beforeBuildCommand"]
+    assert "PyInstaller scripts/backend.spec" in build["beforeBuildCommand"]
     assert "__pycache__" in build["beforeBuildCommand"]
+    project = tomllib.loads(read(ROOT / "pyproject.toml"))
+    packaging_dependencies = project["project"]["optional-dependencies"].get("packaging", [])
+    assert any(dependency.lower().startswith("pyinstaller") for dependency in packaging_dependencies)
+    gitignore = read(ROOT / ".gitignore")
+    assert "\nbuild/\n" in f"\n{gitignore}\n"
+    assert (ROOT / "scripts" / "backend.spec").exists()
+    assert (ROOT / "scripts" / "backend_server.py").exists()
     assert tauri_config["bundle"]["icon"] == [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -46,7 +54,10 @@ def test_tauri_v2_scaffold_is_the_only_desktop_runtime() -> None:
         "icons/icon.icns",
         "icons/icon.ico",
     ]
-    assert tauri_config["bundle"]["resources"] == {"../backend": "backend"}
+    assert tauri_config["bundle"]["resources"] == {
+        "../backend": "backend",
+        "../build/backend/patentagent-backend": "patentagent-backend",
+    }
 
 
 def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
@@ -56,13 +67,22 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     assert "PATENTAGENT_REPO_ROOT" in main_rs
     assert ".resource_dir()" in main_rs
     assert 'path.join("backend").join("app").join("main.py").is_file()' in main_rs
+    assert "enum BackendLaunchMode" in main_rs
+    assert "struct BackendRoot" in main_rs
+    assert "BackendLaunchMode::SourceDev" in main_rs
+    assert "BackendLaunchMode::Packaged" in main_rs
     assert "fn python_candidates" in main_rs
+    assert "fn bundled_backend_executable" in main_rs
+    assert "fn start_backend_with_executable" in main_rs
+    assert "if launch_mode == BackendLaunchMode::Packaged" in main_rs
+    assert "trying bundled backend:" in main_rs
+    assert "patentagent-backend" in main_rs
     assert "PATENTAGENT_PYTHON" in main_rs
     assert "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3" in main_rs
     assert "/usr/local/bin/python3" in main_rs
     assert '"python3"' in main_rs
     assert "fn start_backend_with_python" in main_rs
-    assert "backend did not start with any Python interpreter" in main_rs
+    assert "backend did not start with bundled backend or any Python interpreter" in main_rs
     assert "backend-startup-error.txt" in main_rs
     assert "backend-startup.log" in main_rs
     assert "patentagent-tauri-startup.log" in main_rs

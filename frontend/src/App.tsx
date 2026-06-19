@@ -483,23 +483,6 @@ function App() {
         lastExport.officialPackageHash ?? "",
       ].join(":")
     : "";
-  const activeExpertToolEntry = expertToolGroups
-    .flatMap((group) => group.tools)
-    .find((tool) => tool.id === activeExpertTool);
-  const activeShellSection =
-    activeSection === "expert"
-      ? {
-          label: "专家工具",
-          description: activeExpertToolEntry
-            ? `${activeExpertToolEntry.label}：${activeExpertToolEntry.description}`
-            : "高级能力按任务分组，结果可回写主流程或保留为内部材料。",
-        }
-      : activeSection === "utility"
-        ? {
-            label: "实用新型",
-            description: "从结构方案撰写实用新型，聚焦部件连接关系、安装位置和附图说明。",
-          }
-        : mainSections.find((section) => section.id === activeSection) ?? mainSections[0];
   selectedProjectIdRef.current = selectedProject?.id ?? "";
 
   useEffect(() => {
@@ -1811,8 +1794,6 @@ function App() {
 
       <main className="main-area">
         <ShellTopbar
-          title={activeShellSection.label}
-          subtitle={activeShellSection.description}
           onRefresh={refreshAll}
           statusLabel={busy ? "处理中" : "空闲"}
           statusVariant={busy ? "busy" : "idle"}
@@ -1828,19 +1809,34 @@ function App() {
               {!(activeSection === "generate" && !selectedProject && !startChoice) && (
                 <>
                   {activeSection !== "expert" && (
-                    <Button variant="outline" onClick={() => setActiveSection("expert")} type="button">
+                    <Button
+                      variant="outline"
+                      className="topbar-action-button"
+                      onClick={() => setActiveSection("expert")}
+                      type="button"
+                    >
                       <Gauge size={16} />
                       <span>专家工具</span>
                     </Button>
                   )}
                   {activeSection === "expert" && (
-                    <Button variant="outline" onClick={() => setActiveSection("generate")} type="button">
+                    <Button
+                      variant="outline"
+                      className="topbar-action-button"
+                      onClick={() => setActiveSection("generate")}
+                      type="button"
+                    >
                       <Wand2 size={16} />
                       <span>返回向导</span>
                     </Button>
                   )}
                   {(startChoice || activeSection === "expert") && (
-                    <Button variant="outline" onClick={returnToStartChoices} type="button">
+                    <Button
+                      variant="outline"
+                      className="topbar-action-button"
+                      onClick={returnToStartChoices}
+                      type="button"
+                    >
                       <ClipboardList size={16} />
                       <span>返回三选一</span>
                     </Button>

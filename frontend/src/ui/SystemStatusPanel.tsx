@@ -13,9 +13,11 @@ export interface SystemStatusPanelProps {
 
 function StatusRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 h-10 min-w-0">
-      <span className="text-xs text-app-muted truncate">{label}</span>
-      {children}
+    <div className="flex h-10 min-w-0 items-center justify-between gap-3">
+      <span className="min-w-0 flex-1 truncate text-xs text-app-muted">{label}</span>
+      <div className="flex min-w-0 max-w-[7.25rem] shrink-0 justify-end overflow-hidden [&>*]:min-w-0 [&>*]:max-w-full [&>*]:truncate">
+        {children}
+      </div>
     </div>
   );
 }
@@ -28,8 +30,8 @@ export function SystemStatusPanel({
   onRefresh,
 }: SystemStatusPanelProps) {
   return (
-    <div className="grid gap-2.5">
-      <div className="p-3 rounded-lg border border-app-border bg-app-surface">
+    <div className="grid min-w-0 max-w-full gap-2.5 overflow-hidden">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-app-border bg-app-surface p-3">
         <h3 className="text-xs font-semibold text-app-muted mb-1">当前项目</h3>
         <StatusRow label={selectedProject?.name ?? "未选择"}>
           {selectedProject?.package ? (
@@ -44,9 +46,9 @@ export function SystemStatusPanel({
         </StatusRow>
       </div>
 
-      <div className="p-3 rounded-lg border border-app-border bg-app-surface">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-app-border bg-app-surface p-3">
         <h3 className="text-xs font-semibold text-app-muted mb-1">模型与智能体</h3>
-        <div className="grid">
+        <div className="grid min-w-0">
           <StatusRow label="基础模型">
             {health?.llm_configured ? (
               <Badge variant="success" className="min-w-[4.5em] justify-center">

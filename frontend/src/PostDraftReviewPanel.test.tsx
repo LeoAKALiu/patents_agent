@@ -1,9 +1,10 @@
 import { createElement } from "react";
+import { render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { PostDraftReviewPanel } from "./flow/panels/PostDraftReviewPanel";
-import type { DraftPackage, OfficialCompileRun, PostDraftReviewRun } from "./api";
+import type { DraftPackage, OfficialCompileRun, PostDraftReviewRun, ProjectRecord } from "./api";
 
 const draftPackage: DraftPackage = {
   title: "一种基于城市体检指标置信度的无人机主动采集方法",
@@ -84,6 +85,25 @@ const officialCompileRun: OfficialCompileRun = {
   updated_at: "2026-06-19T00:00:00Z",
 };
 
+const project: ProjectRecord = {
+  id: "project-1",
+  name: "基于城市体检指标置信度的无人机主动采集方法",
+  draft_text: "",
+  patent_type: "invention",
+  package: draftPackage,
+  created_at: "2026-06-19T00:00:00Z",
+  updated_at: "2026-06-19T00:00:00Z",
+  applicant: "",
+  inventors: "",
+  technical_field: "",
+  background: "",
+  pain_point: "",
+  technical_solution: "",
+  innovation: "",
+  embodiments: "",
+  beneficial_effects: "",
+};
+
 describe("PostDraftReviewPanel repair workbench", () => {
   it("renders a scrollable repair workbench and draft editor entry", () => {
     const html = renderToStaticMarkup(
@@ -116,5 +136,36 @@ describe("PostDraftReviewPanel repair workbench", () => {
     expect(html).toContain("一键AI修正");
     expect(html).toContain("Kimi 成稿语言润色");
     expect(html).toContain("润色会生成新的正式稿版本");
+  });
+
+  it("enables the annotated repair editor from a repairable historical review without treating it as export-current", () => {
+    render(
+      <PostDraftReviewPanel
+        actionGate={{ allowed: true, reason: "" }}
+        project={project}
+        review={null}
+        repairReview={blockedReview}
+        runs={[blockedReview]}
+        currentDraftHash="draft-hash-123456"
+        currentPackage={draftPackage}
+        officialCompileRun={null}
+        doctor={null}
+        selectedProviders={[]}
+        busy=""
+        busyElapsedSeconds={0}
+        onStartPostDraftReview={() => undefined}
+        onStartKimiLanguagePolish={() => undefined}
+        onApplySafePatches={() => undefined}
+        onSaveDraftPackage={() => undefined}
+        onCancelRun={() => undefined}
+        onRetryRun={() => undefined}
+        onToggleProvider={() => undefined}
+      />,
+    );
+
+    const openButton = screen.getByRole("button", { name: "打开标注式修复编辑器" });
+    expect((openButton as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText("说明书包含内部注释。")).toBeTruthy();
+    expect(screen.getByText(/已有历史会审记录/)).toBeTruthy();
   });
 });

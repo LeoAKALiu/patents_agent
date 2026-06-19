@@ -87,7 +87,7 @@ export function AgentProviderCards({
     return <p className="workflow-hint">智能体诊断尚未刷新，请稍候或点击刷新。</p>;
   }
   return (
-    <div className="agent-provider-grid my-3">
+    <div className="agent-provider-grid">
       {providers.map((provider) => {
         const enabled = provider.required || selectedProviders.includes(provider.id);
         const canToggle = !provider.required && provider.selectable && !disabled;
@@ -95,43 +95,42 @@ export function AgentProviderCards({
         return (
           <article
             className={[
-              "agent-provider-card flex flex-col gap-2 p-3 rounded-lg border bg-app-subtle h-full",
-              enabled
-                ? "border-app-accent/40 shadow-[inset_3px_0_0_var(--action-primary)]"
-                : "border-app-border",
+              "agent-provider-card",
+              enabled ? "is-enabled" : "",
+              !provider.selectable ? "is-locked" : "",
             ].filter(Boolean).join(" ")}
             key={`${role}-${provider.id}`}
           >
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <div className="min-w-0">
-                <strong className="block text-app-fg text-sm truncate">{provider.label}</strong>
-                <span className="block text-app-muted text-[11px] truncate">{provider.model_version || "模型版本未声明"}</span>
+            <div className="agent-provider-head">
+              <div className="agent-provider-title">
+                <strong>{provider.label}</strong>
+                <span>{provider.model_version || "模型版本未声明"}</span>
               </div>
               {provider.required ? (
-                <LockKeyhole size={18} className="shrink-0" />
+                <LockKeyhole size={18} aria-hidden="true" />
               ) : provider.available ? (
-                <CheckCircle2 size={18} className="shrink-0" />
+                <CheckCircle2 size={18} aria-hidden="true" />
               ) : (
-                <AlertTriangle size={18} className="shrink-0" />
+                <AlertTriangle size={18} aria-hidden="true" />
               )}
             </div>
-            <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden">
-              <Badge variant={authDisplay.variant} className="shrink-0">
+            <div className="agent-provider-status">
+              <Badge variant={authDisplay.variant}>
                 {authDisplay.icon}
                 {authDisplay.label}
               </Badge>
-              <Badge variant={enabled ? "success" : "neutral"} className="shrink-0 min-w-0">
-                <span className="truncate">{provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}</span>
+              <Badge variant={enabled ? "success" : "neutral"}>
+                <span>{provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}</span>
               </Badge>
             </div>
-            <p className="text-app-muted text-[11px] leading-snug m-0">{providerHint(provider)}</p>
+            <p className="agent-provider-copy">{providerHint(provider)}</p>
             {provider.diagnostic && !provider.selectable && (
-              <p className="text-app-muted text-[11px] m-0">{provider.diagnostic}</p>
+              <p className="agent-provider-copy">{provider.diagnostic}</p>
             )}
             {provider.repair_suggestion && !provider.selectable && (
-              <p className="text-app-muted text-[11px] m-0">{provider.repair_suggestion}</p>
+              <p className="agent-provider-copy">{provider.repair_suggestion}</p>
             )}
-            <label className={`flex items-center gap-2 font-semibold text-xs mt-auto ${canToggle ? "" : "opacity-50 cursor-not-allowed"}`}>
+            <label className={`agent-provider-toggle ${canToggle ? "" : "is-disabled"}`}>
               <input
                 checked={enabled}
                 disabled={!canToggle}
@@ -139,8 +138,10 @@ export function AgentProviderCards({
                 type="checkbox"
                 size={14}
               />
-              <span>{provider.required ? "必选席不可关闭" : provider.selectable ? "加入本轮" : "不可用"}</span>
-              {!provider.selectable && <CircleSlash size={15} />}
+              <span className="agent-provider-toggle-label">
+                {provider.required ? "必选席不可关闭" : provider.selectable ? "加入本轮" : "不可用"}
+              </span>
+              {!provider.selectable && <CircleSlash size={15} aria-hidden="true" />}
             </label>
           </article>
         );

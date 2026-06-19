@@ -1,3 +1,9 @@
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from backend.app.rag import LocalVectorIndex
 from backend.app.schemas import PatentChunk, SectionType
 
@@ -37,3 +43,18 @@ def test_vector_search_prefers_same_domain_and_section_without_mixing_claims():
     assert [result.chunk.id for result in results] == ["claim-ai", "claim-civil"]
     assert all(result.chunk.section_type == SectionType.CLAIMS for result in results)
     assert results[0].score > results[1].score
+
+
+def test_chroma_hash_embedding_is_stable_across_python_hash_seeds():
+    code = (
+        "import json;"
+        "from backend.app.rag import _hash_embedding;"
+        "print(json.dumps(_hash_embedding('图像 neural 图像 缺陷', 32)))"
+    )
+
+    def embedding_for_seed(seed: str) -> list[float]:
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        output = subprocess.check_output([sys.executable, "-c", code], cwd=Path.cwd(), env=env, text=True)
+        return json.loads(output)
+
+    assert embedding_for_seed("1") == embedding_for_seed("2")

@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm --prefix frontend run dev",
     "devUrl": "http://127.0.0.1:5173",
-    "beforeBuildCommand": "find backend -type d -name __pycache__ -prune -exec rm -rf {} + && npm --prefix frontend run build",
+    "beforeBuildCommand": "find backend -type d -name __pycache__ -prune -exec rm -rf {} + && npm --prefix frontend run build && PYINSTALLER_CONFIG_DIR=build/pyinstaller-cache python3 -m PyInstaller scripts/backend.spec --noconfirm --distpath build/backend --workpath build/pyinstaller-work",
     "frontendDist": "../frontend/dist"
   },
   "app": {
@@ -36,7 +36,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../backend": "backend"
+      "../backend": "backend",
+      "../build/backend/patentagent-backend": "patentagent-backend"
     },
     "category": "Productivity",
     "macOS": {

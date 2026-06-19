@@ -40,6 +40,7 @@ import {
   qualitySummaryFromRuns,
   resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
+  selectLatestRepairablePostDraftReview,
   utilityModelModePrefix,
   v1StartChoices,
   type GuidedStepId,
@@ -1137,6 +1138,46 @@ describe("deriveGuidedFlowState", () => {
     expect(state.hasCompletedOfficialCompile).toBe(true);
     expect(state.hasPassedPostDraftReview).toBe(false);
     expect(state.exportReady).toBe(false);
+  });
+
+  it("does not expose a clean passed post-draft review as repairable", () => {
+    const staleReview = {
+      ...passedPostDraftReview,
+      id: "review-for-stale-compile",
+      draft_package_hash: "stale-draft-hash",
+      official_compile_run_id: "stale-compile",
+      official_package_hash: "stale-official-hash",
+      created_at: "2026-06-02T00:02:00Z",
+      updated_at: "2026-06-02T00:02:00Z",
+    };
+
+    expect(
+      selectLatestRepairablePostDraftReview([staleReview], "draft-hash"),
+    ).toBeNull();
+  });
+
+  it("still exposes the latest blocked post-draft review as repairable when it is not export-current", () => {
+    const staleReview = {
+      ...passedPostDraftReview,
+      id: "review-for-stale-compile",
+      draft_package_hash: "stale-draft-hash",
+      official_compile_run_id: "stale-compile",
+      official_package_hash: "stale-official-hash",
+      export_allowed: false,
+      blocking_issues: ["正式稿支持不足。"],
+      chair_result: {
+        ...passedPostDraftReview.chair_result!,
+        status: "blocked" as const,
+        export_allowed: false,
+        blocking_issues: ["正式稿支持不足。"],
+      },
+      created_at: "2026-06-02T00:02:00Z",
+      updated_at: "2026-06-02T00:02:00Z",
+    };
+
+    expect(
+      selectLatestRepairablePostDraftReview([staleReview], "draft-hash")?.id,
+    ).toBe("review-for-stale-compile");
   });
 
   it("uses the latest matching post-draft review instead of an older pass", () => {
