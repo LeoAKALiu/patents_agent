@@ -2216,6 +2216,67 @@ input:focus, select:focus, textarea:focus {
   background: color-mix(in oklch, var(--info), transparent 93%);
 }
 
+.callout-error {
+  border-color: var(--danger);
+  background: color-mix(in oklch, var(--danger), transparent 91%);
+}
+.callout-error strong { color: var(--danger); }
+
+/* ── Repair patch preview ──────────────────────────────────────── */
+.repair-patch-preview {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklch, var(--action-primary), transparent 60%);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+}
+
+.repair-patch-status {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 99px;
+}
+.repair-patch-status[data-status="proposed"] {
+  color: var(--action-primary);
+  background: color-mix(in oklch, var(--action-primary), transparent 85%);
+}
+.repair-patch-status[data-status="unsafe"] {
+  color: var(--danger);
+  background: color-mix(in oklch, var(--danger), transparent 85%);
+}
+.repair-patch-status[data-status="stale"] {
+  color: var(--warn);
+  background: color-mix(in oklch, var(--warn), transparent 85%);
+}
+.repair-patch-status[data-status="applied"] {
+  color: var(--success);
+  background: color-mix(in oklch, var(--success), transparent 85%);
+}
+
+.repair-patch-original {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  background: color-mix(in oklch, var(--danger), transparent 91%);
+}
+
+.repair-patch-patched {
+  color: var(--success-dim);
+  background: color-mix(in oklch, var(--success), transparent 92%);
+}
+
+.repair-patch-risks {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: var(--text-soft);
+  line-height: 1.55;
+}
+.repair-patch-risks li::marker {
+  color: var(--warn);
+}
+
 .risk-banner {
   min-width: 0;
 }
