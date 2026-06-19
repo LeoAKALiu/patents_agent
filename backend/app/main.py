@@ -73,7 +73,12 @@ from backend.app.post_draft_review import (
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
-from backend.app.post_draft_repair import normalize_post_draft_issues, create_repair_patch_payload, apply_section_patch
+from backend.app.post_draft_repair import (
+    apply_section_patch,
+    create_repair_patch_payload,
+    normalize_post_draft_issues,
+    validate_repair_patch_text,
+)
 from backend.app.rag import LocalVectorIndex, create_vector_index
 from backend.app.research.deep_researcher import (
     DeepResearchSearchProvider,
@@ -1637,6 +1642,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="Issue not found in current repair session.")
 
         current_hash = source_draft_hash(package)
+        _ensure_post_draft_review_current(review, current_hash)
         if payload.draft_package_hash and payload.draft_package_hash != current_hash:
             raise HTTPException(status_code=409, detail="Draft package has changed since the repair session was opened.")
 
@@ -1672,7 +1678,7 @@ def create_app(
     def apply_post_draft_repair_patch(project_id: str, run_id: str, patch_id: str) -> DraftRepairPatchApplyResult:
         project = _require_project(store, project_id)
         package = _require_package(project)
-        _get_post_draft_review_or_404(store, project_id, run_id)
+        review = _get_post_draft_review_or_404(store, project_id, run_id)
 
         patch = _repair_patch_store().get(patch_id)
         if not patch:
@@ -1682,6 +1688,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="Repair patch not found for this review run.")
 
         current_hash = source_draft_hash(package)
+        _ensure_post_draft_review_current(review, current_hash)
         if patch.draft_package_hash != current_hash:
             raise HTTPException(
                 status_code=409,
@@ -3169,6 +3176,12 @@ def _apply_post_draft_safe_patches(
         if not action_label or patched_package == current_package:
             skipped_patches.append(_safe_patch_label(raw_patch, "no_change"))
             continue
+        unsafe_terms = _unsafe_post_draft_safe_patch_terms(current_package, patched_package)
+        if unsafe_terms:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Official safe patch contains unsafe draft markers: {', '.join(unsafe_terms)}.",
+            )
         current_package = patched_package
         applied_actions.append(action_label)
 
@@ -3203,6 +3216,26 @@ def _post_draft_safe_patch_payloads(run: PostDraftReviewRun) -> list[str]:
     for role_result in run.role_results:
         patches.extend(role_result.official_safe_patches)
     return patches
+
+
+def _ensure_post_draft_review_current(run: PostDraftReviewRun, current_hash: str) -> None:
+    if run.draft_package_hash and run.draft_package_hash != current_hash:
+        raise HTTPException(
+            status_code=409,
+            detail="Post-draft review is stale for the current draft. Recompile and re-run post-draft review.",
+        )
+
+
+def _unsafe_post_draft_safe_patch_terms(before: DraftPackage, after: DraftPackage) -> list[str]:
+    findings: list[str] = []
+    for section in ("title", "abstract", "claims", "description", "drawing_description"):
+        before_text = getattr(before, section, "") or ""
+        after_text = getattr(after, section, "") or ""
+        if before_text == after_text:
+            continue
+        for term in validate_repair_patch_text(after_text):
+            findings.append(f"{section}:{term}")
+    return findings
 
 
 def _parse_post_draft_safe_patch(raw_patch: str) -> dict[str, object] | None:

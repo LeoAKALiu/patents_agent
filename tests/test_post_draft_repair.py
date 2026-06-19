@@ -10,8 +10,8 @@ from backend.app.post_draft_repair import (
     validate_repair_patch_text,
 )
 from backend.app.llm import FakeLLMClient
-from backend.app.main import create_app
-from backend.app.schemas import DraftPackage, DraftRepairPatchCreate
+from backend.app.main import create_app, _repair_patch_store
+from backend.app.schemas import DraftPackage, DraftRepairPatch, DraftRepairPatchCreate
 
 
 def test_infer_target_section_from_chinese_messages():
@@ -556,6 +556,49 @@ def test_repair_patch_create_422_for_unsafe_text(tmp_path):
     assert "unsafe" in detail.lower() or "不" in detail
 
 
+def test_repair_patch_create_409_when_review_run_is_stale_even_with_current_hash(tmp_path):
+    """A stale review run cannot mint a patch by sending the latest draft hash."""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_repair_session_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="一种基于城市体检指标置信度的无人机主动采集方法方法",
+            claims="好的，根据交底书撰写权利要求。",
+        ),
+    )
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+
+    mutated = _package(
+        title="一种基于城市体检指标置信度的无人机主动采集方法方法",
+        abstract="本发明公开了一种已经人工修改过的摘要。",
+        claims="好的，根据交底书撰写权利要求。",
+    )
+    client.app.state.store.update_project_package(project_id, mutated)
+
+    session = client.get(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-session"
+    ).json()
+    assert session["stale"] is True
+    current_hash = session["current_draft_hash"]
+    title_issues = [i for i in session["issues"] if i["kind"] == "blocking" and i["target_section"] == "title"]
+    assert title_issues
+
+    payload = DraftRepairPatchCreate(
+        issue_id=title_issues[0]["id"],
+        draft_package_hash=current_hash,
+        target_section="title",
+        selected_text="方法方法",
+    )
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches",
+        json=payload.model_dump(),
+    )
+
+    assert response.status_code == 409
+    assert "stale" in response.json()["detail"].lower()
+
+
 def test_repair_patch_apply_409_when_stale(tmp_path):
     """POST apply returns 409 when the draft hash has changed since patch creation."""
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_repair_session_llm(), load_env_file=False))
@@ -600,6 +643,51 @@ def test_repair_patch_apply_409_when_stale(tmp_path):
         f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches/{patch_id}/apply",
     )
     assert apply_resp.status_code == 409
+
+
+def test_repair_patch_apply_409_when_review_run_is_stale_even_with_current_hash_patch(tmp_path):
+    """Apply re-checks the review-run hash, not only the stored patch hash."""
+    _repair_patch_store().clear()
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_repair_session_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="一种基于城市体检指标置信度的无人机主动采集方法方法",
+            claims="好的，根据交底书撰写权利要求。",
+        ),
+    )
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+
+    mutated = _package(
+        title="一种基于城市体检指标置信度的无人机主动采集方法方法",
+        abstract="本发明公开了一种已经人工修改过的摘要。",
+        claims="好的，根据交底书撰写权利要求。",
+    )
+    client.app.state.store.update_project_package(project_id, mutated)
+    current_hash = client.get(f"/api/projects/{project_id}/post-draft-reviews").json()["current_draft_hash"]
+
+    patch = DraftRepairPatch(
+        id="patch-stale-review-current-hash",
+        issue_id="blocking-manual",
+        project_id=project_id,
+        review_run_id=review["id"],
+        status="proposed",
+        target_section="title",
+        original="方法方法",
+        patched="方法",
+        diff_summary="test patch",
+        risk_notes=[],
+        draft_package_hash=current_hash,
+    )
+    _repair_patch_store()[patch.id] = patch
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches/{patch.id}/apply",
+    )
+
+    assert response.status_code == 409
+    assert "stale" in response.json()["detail"].lower()
 
 
 def test_repair_patch_apply_writes_through_package(tmp_path):

@@ -195,6 +195,24 @@ def test_apply_post_draft_safe_patches_updates_draft_and_invalidates_old_compile
     assert "current draft" in export_response.json()["detail"]
 
 
+def test_apply_post_draft_safe_patches_rejects_unsafe_replacement_text(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_unsafe_safe_patch_review_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(title="一种城市体检指标驱动无人机主动采集方法"),
+    )
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert compile_run["status"] == "completed"
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/apply-safe-patches")
+
+    assert response.status_code == 422
+    assert "unsafe" in response.json()["detail"].lower()
+    project = client.get(f"/api/projects/{project_id}").json()
+    assert project["package"]["title"] == "一种城市体检指标驱动无人机主动采集方法"
+
+
 def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compile(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
@@ -487,6 +505,63 @@ def _safe_patch_review_llm() -> FakeLLMClient:
   ],
   "attorney_memo": ["安全补丁只写回工作稿，不允许直接导出。"],
   "next_actions": ["重新编译正式稿", "重新成稿会审"]
+}
+""",
+        }
+    )
+
+
+def _unsafe_safe_patch_review_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "status": "blocked",
+  "blocking_issues": ["标题含内部备注。"],
+  "contamination_hits": ["注："],
+  "rewrite_suggestions": ["替换为干净标题。"],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "blocked",
+  "export_allowed": false,
+  "blocking_issues": ["需要先清理内部痕迹。"],
+  "contamination_hits": ["注："],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [
+    "{\\"action\\": \\"replace\\", \\"target\\": \\"title\\", \\"content\\": \\"注：内部标题\\"}"
+  ],
+  "attorney_memo": [],
+  "next_actions": ["重新生成安全补丁"]
 }
 """,
         }
