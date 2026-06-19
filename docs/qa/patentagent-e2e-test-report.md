@@ -8,9 +8,9 @@
 
 ## 结论
 
-整体结论：核心后端链路跑通，真实 Tauri 打包客户端未跑通。
+整体结论：核心后端链路跑通；初测时真实 Tauri 打包客户端黑屏，后续 clean PR 合入后已通过 Tauri DMG 回归。
 
-- Tauri 客户端：`tauri build --debug` 产物可启动后端，但窗口黑屏，真实 UI E2E 被阻塞。
+- Tauri 客户端：初测 `tauri build --debug` 产物可启动后端但窗口黑屏；2026-06-19 回归见 `docs/qa/patentagent-tauri-regression-2026-06-19.md`，新 debug DMG 的 renderer DOM smoke 已确认 app shell/sidebar/topbar 非空。
 - 降级链路：使用同一前端/后端代码、Fake LLM 和 deterministic provider runner 完成 API/前端服务链路验证。
 - 导出结果：内部工作稿 docx/md、技术交底 md、正式编译报告、post-draft review 报告、正式提交稿 docx/md 均成功导出。
 - 高优先级问题：P0/P1 2 个，P2 2 个，P3 1 个。
@@ -20,7 +20,7 @@
 | 项 | 结果 |
 | --- | --- |
 | macOS Tauri 构建 | `npm exec --yes --package @tauri-apps/cli@^2 -- tauri build --debug` 成功 |
-| Tauri app 启动 | 后端健康，窗口黑屏 |
+| Tauri app 启动 | 初测黑屏；2026-06-19 新 DMG smoke 通过，`renderer_dom_smoke.ok=true` |
 | Tauri 后端健康 | `ok=true`, `data_dir=/tmp/patentagent-e2e-tauri-20260618`, `qa_profile=true`, `llm_configured=false` |
 | Agent doctor | `status=ready`, active providers: `codex`, `deepseek`, `claude` |
 | Codex CLI 删除影响 | 不影响会审前置检查：`codex` 解析到 `/Applications/Codex.app/Contents/Resources/codex`, `resolver_source=bundle` |
