@@ -781,6 +781,33 @@ class PostDraftRepairSession(BaseModel):
     sections: dict[str, str] = Field(default_factory=dict)
 
 
+class DraftRepairPatchCreate(BaseModel):
+    issue_id: str
+    draft_package_hash: str
+    target_section: Literal["title", "abstract", "claims", "description", "drawing_description"]
+    selected_text: str | None = None
+    nearby_context: str | None = None
+
+
+class DraftRepairPatch(BaseModel):
+    id: str
+    issue_id: str
+    project_id: str
+    review_run_id: str
+    status: Literal["proposed", "stale", "unsafe", "applied"]
+    target_section: Literal["title", "abstract", "claims", "description", "drawing_description"]
+    original: str
+    patched: str
+    diff_summary: str
+    risk_notes: list[str] = Field(default_factory=list)
+    draft_package_hash: str
+
+
+class DraftRepairPatchApplyResult(BaseModel):
+    package: DraftPackage
+    current_draft_hash: str
+
+
 class ProjectMaterial(BaseModel):
     id: str
     project_id: str

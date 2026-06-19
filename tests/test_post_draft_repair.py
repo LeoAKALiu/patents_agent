@@ -1,13 +1,17 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.post_draft_repair import (
+    apply_section_patch,
+    create_repair_patch_payload,
     infer_target_section,
     locate_issue_anchor,
     normalize_post_draft_issues,
+    validate_repair_patch_text,
 )
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
-from backend.app.schemas import DraftPackage
+from backend.app.schemas import DraftPackage, DraftRepairPatchCreate
 
 
 def test_infer_target_section_from_chinese_messages():
@@ -396,3 +400,253 @@ def _repair_session_llm() -> FakeLLMClient:
 """,
         }
     )
+
+
+# --- PR3: single-issue AI patch lifecycle tests ------------------------------
+
+
+def test_validate_repair_patch_text_rejects_unsafe_terms():
+    """validate_repair_patch_text flags known internal/contamination markers."""
+    assert validate_repair_patch_text("安全文字") == []
+    assert "注：" in validate_repair_patch_text("注：内部备注")
+    assert "待验证" in validate_repair_patch_text("待验证的段落")
+    assert "主席" in validate_repair_patch_text("主席修订补强")
+    assert "补充实施方式" in validate_repair_patch_text("补充实施方式段落")
+    assert "需补充" in validate_repair_patch_text("需补充某些材料")
+    assert "提交前补充" in validate_repair_patch_text("需在提交前补充")
+    assert "{\"action\"" in validate_repair_patch_text('{"action": "delete"}')
+    assert "\"patched\"" in validate_repair_patch_text('包含"patched"字段的 JSON')
+
+
+def test_apply_section_patch_replaces_original():
+    """apply_section_patch replaces the first occurrence of original text."""
+    section = "原标题方法方法存在重复"
+    result = apply_section_patch(section, "方法方法", "方法")
+    assert result == "原标题方法存在重复"
+
+
+def test_apply_section_patch_raises_when_original_not_found():
+    """apply_section_patch raises ValueError when original text is absent."""
+    with pytest.raises(ValueError, match="no longer present"):
+        apply_section_patch("一些文字", "不存在的原文", "替换")
+
+
+def test_create_repair_patch_payload_proposed():
+    """A clean selected text produces a proposed patch after deterministic cleaning."""
+    payload = create_repair_patch_payload(
+        issue_id="blocking-abc",
+        target_section="title",
+        draft_package_hash="h1",
+        selected_text="方法方法颠覆",
+        nearby_context=None,
+    )
+    assert payload["id"].startswith("patch-")
+    assert payload["issue_id"] == "blocking-abc"
+    assert payload["status"] == "proposed"
+    assert payload["original"] == "方法方法颠覆"
+    assert "方法" in payload["patched"]
+    assert "方法方法" not in payload["patched"]
+    assert payload["risk_notes"] == []
+    assert payload["draft_package_hash"] == "h1"
+
+
+def test_create_repair_patch_payload_allows_cleaned_source_contamination():
+    payload = create_repair_patch_payload(
+        issue_id="blocking-clean-source",
+        target_section="claims",
+        draft_package_hash="h1",
+        selected_text="好的，根据交底书撰写权利要求。",
+        nearby_context=None,
+    )
+    assert payload["status"] == "proposed"
+    assert "好的，根据" not in payload["patched"]
+    assert "好的，根据" in payload["risk_notes"]
+
+
+def test_create_repair_patch_payload_unsafe():
+    """A selected text that can't be fully cleaned produces an unsafe patch."""
+    payload = create_repair_patch_payload(
+        issue_id="blocking-xyz",
+        target_section="description",
+        draft_package_hash="h1",
+        selected_text='{"action": "delete", "patched": "内部 JSON"}',
+        nearby_context=None,
+    )
+    assert payload["status"] == "unsafe"
+    assert len(payload["risk_notes"]) > 0
+
+
+def test_create_repair_patch_endpoint(tmp_path):
+    """POST repair-patches creates a deterministic patch for a known issue."""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_repair_session_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="一种基于城市体检指标置信度的无人机主动采集方法方法",
+            claims="好的，根据您提供的交底书，权利要求1描述了一种旧的方法。\n*(注：内部备注)**",
+            description="本发明颠覆了固定航线模式。",
+        ),
+    )
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    session = client.get(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-session"
+    ).json()
+
+    # Find a blocking issue for the title
+    title_issues = [i for i in session["issues"] if i["kind"] == "blocking" and i["target_section"] == "title"]
+    assert len(title_issues) > 0
+    issue_id = title_issues[0]["id"]
+
+    payload = DraftRepairPatchCreate(
+        issue_id=issue_id,
+        draft_package_hash=session["current_draft_hash"],
+        target_section="title",
+        selected_text="方法方法",
+        nearby_context=None,
+    )
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches",
+        json=payload.model_dump(),
+    )
+    assert response.status_code == 200
+    patch = response.json()
+    assert patch["issue_id"] == issue_id
+    assert patch["project_id"] == project_id
+    assert patch["review_run_id"] == review["id"]
+    assert patch["status"] == "proposed"
+    assert patch["target_section"] == "title"
+    assert patch["original"] == "方法方法"
+
+
+def test_repair_patch_create_422_for_unsafe_text(tmp_path):
+    """POST repair-patches returns 422 when selected_text is contaminated beyond cleaning."""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_repair_session_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="一种方法",
+            claims="1. 权利要求。",
+            description="注：待验证补充实施方式",
+        ),
+    )
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    session = client.get(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-session"
+    ).json()
+
+    blocking_issues = [i for i in session["issues"] if i["kind"] == "blocking"]
+    assert blocking_issues
+    issue_id = blocking_issues[0]["id"]
+
+    payload = DraftRepairPatchCreate(
+        issue_id=issue_id,
+        draft_package_hash=session["current_draft_hash"],
+        target_section="description",
+        selected_text='{"action": "replace", "patched": "内部 JSON"}',
+        nearby_context=None,
+    )
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches",
+        json=payload.model_dump(),
+    )
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert "unsafe" in detail.lower() or "不" in detail
+
+
+def test_repair_patch_apply_409_when_stale(tmp_path):
+    """POST apply returns 409 when the draft hash has changed since patch creation."""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_repair_session_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="一种基于城市体检指标置信度的无人机主动采集方法方法",
+            claims="好的，根据交底书撰写权利要求。",
+        ),
+    )
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    session = client.get(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-session"
+    ).json()
+
+    title_issues = [i for i in session["issues"] if i["kind"] == "blocking" and i["target_section"] == "title"]
+    assert title_issues
+    issue_id = title_issues[0]["id"]
+
+    # Create patch against current draft
+    create_payload = DraftRepairPatchCreate(
+        issue_id=issue_id,
+        draft_package_hash=session["current_draft_hash"],
+        target_section="title",
+        selected_text="方法方法",
+    )
+    patch_resp = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches",
+        json=create_payload.model_dump(),
+    )
+    assert patch_resp.status_code == 200
+    patch = patch_resp.json()
+    patch_id = patch["id"]
+
+    # Mutate the package to change the draft hash
+    mutated = _package(title="完全不同的新标题")
+    client.app.state.store.update_project_package(project_id, mutated)
+
+    # Apply should fail with 409 because the patch is stale
+    apply_resp = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches/{patch_id}/apply",
+    )
+    assert apply_resp.status_code == 409
+
+
+def test_repair_patch_apply_writes_through_package(tmp_path):
+    """POST apply writes safe patch into the draft package, changing its hash."""
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_repair_session_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="一种基于城市体检指标置信度的无人机主动采集方法方法",
+            claims="好的，根据交底书撰写权利要求。",
+        ),
+    )
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    session = client.get(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-session"
+    ).json()
+
+    title_issues = [i for i in session["issues"] if i["kind"] == "blocking" and i["target_section"] == "title"]
+    assert title_issues
+    issue_id = title_issues[0]["id"]
+
+    create_payload = DraftRepairPatchCreate(
+        issue_id=issue_id,
+        draft_package_hash=session["current_draft_hash"],
+        target_section="title",
+        selected_text="方法方法",
+    )
+    patch_resp = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches",
+        json=create_payload.model_dump(),
+    )
+    assert patch_resp.status_code == 200
+    patch = patch_resp.json()
+    patch_id = patch["id"]
+
+    apply_resp = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches/{patch_id}/apply",
+    )
+    assert apply_resp.status_code == 200
+    result = apply_resp.json()
+    assert "package" in result
+    assert result["package"]["title"] != "一种基于城市体检指标置信度的无人机主动采集方法方法"
+    assert "方法方法" not in result["package"]["title"]
+    assert result["current_draft_hash"] is not None
+
+    second_apply = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches/{patch_id}/apply",
+    )
+    assert second_apply.status_code == 409
