@@ -156,4 +156,4 @@ python3 -m pytest tests/test_deep_research.py tests/test_research_providers.py t
 npm --prefix frontend test -- --run
 ```
 
-- [ ] Commit all changes and create PR with summary and test plan.
+- [x] Commit all changes and create PR with summary and test plan.
