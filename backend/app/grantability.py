@@ -133,16 +133,17 @@ def _collect_prior_art(
     for d in disclosures:
         if d.package:
             for hit in d.package.prior_art_hits:
-                key = (hit.publication_number or hit.title or hit.id).strip().upper()
-                if key and key not in seen:
-                    seen.add(key)
+                keys = _prior_art_hit_keys(hit)
+                if keys and not keys.intersection(seen):
+                    seen.update(keys)
                     hits.append(hit)
     # Optionally pull hits referenced by patent-point claim charts.
     for pt in patent_points:
         for item in pt.claim_chart:
             # Create a synthetic PriorArtHit for chart items with prior-art refs.
-            if item.prior_art_id and item.prior_art_id not in seen:
-                seen.add(item.prior_art_id)
+            keys = _prior_art_identity_keys(item.prior_art_id, item.prior_art_title)
+            if item.prior_art_id and keys and not keys.intersection(seen):
+                seen.update(keys)
                 hits.append(
                     PriorArtHit(
                         id=item.prior_art_id,
@@ -158,9 +159,9 @@ def _collect_prior_art(
         for packet in deep_research_packets:
             for finding in packet.findings:
                 for ref in finding.evidence:
-                    key = (ref.publication_number or ref.title).strip().upper()
-                    if key and key not in seen:
-                        seen.add(key)
+                    keys = _prior_art_identity_keys(ref.publication_number, ref.title, ref.url)
+                    if keys and not keys.intersection(seen):
+                        seen.update(keys)
                         hits.append(
                             PriorArtHit(
                                 id=ref.publication_number or ref.title,
@@ -173,6 +174,19 @@ def _collect_prior_art(
                             )
                         )
     return hits
+
+
+def _prior_art_identity_keys(*values: str | None) -> set[str]:
+    keys: set[str] = set()
+    for value in values:
+        cleaned = (value or "").strip()
+        if cleaned:
+            keys.add(cleaned.upper())
+    return keys
+
+
+def _prior_art_hit_keys(hit: PriorArtHit) -> set[str]:
+    return _prior_art_identity_keys(hit.publication_number, hit.title, hit.id, hit.url)
 
 
 def _collect_claim_chart_items(
@@ -229,7 +243,8 @@ def _build_claim_chart(
         # Map prior-art refs to titles.
         pa_titles: list[str] = []
         for ref in pa_refs:
-            matching = [h for h in prior_art_hits if h.id == ref or h.title == ref]
+            ref_keys = _prior_art_identity_keys(ref)
+            matching = [h for h in prior_art_hits if ref_keys.intersection(_prior_art_hit_keys(h))]
             if matching:
                 pa_titles.append(matching[0].title or matching[0].id)
             else:
@@ -241,7 +256,8 @@ def _build_claim_chart(
         # Build novelty attack if closest prior art exists.
         novelty_attack = None
         for pa in prior_art_hits:
-            if pa.id in pa_refs or pa.title in pa_refs:
+            pa_keys = _prior_art_hit_keys(pa)
+            if any(_prior_art_identity_keys(ref).intersection(pa_keys) for ref in pa_refs):
                 novelty_attack = _build_single_novelty_attack(feat_text, pa)
                 break
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from backend.app.grantability import (
+    _collect_prior_art,
     generate_grantability_report,
     grantability_report_to_markdown,
 )
@@ -310,6 +311,73 @@ def test_generate_basic_grantability_report() -> None:
 
     # At least one novelty attack should exist.
     assert report.novelty_attacks
+
+
+def test_grantability_dedupes_claim_chart_refs_case_insensitively() -> None:
+    disclosure = DisclosureRun(
+        id="disc-case",
+        project_id="proj-case",
+        status="completed",
+        package=DisclosurePackage(
+            title="case",
+            summary="",
+            materials_summary="",
+            prior_art_hits=[
+                PriorArtHit(
+                    id="PA-1",
+                    source="Google Patents",
+                    query="case",
+                    title="",
+                    publication_number=None,
+                    url="",
+                    abstract="公开了基础特征。",
+                )
+            ],
+            prior_art_differences="",
+            body_markdown="",
+            mermaid="",
+            image_prompt="",
+        ),
+    )
+    point = PatentPointCandidate(
+        id="pp-case",
+        title="大小写去重",
+        technical_problem="重复 prior art",
+        innovation="差异特征",
+        technical_solution="基础特征与差异特征组合",
+        protection_focus=["基础特征", "差异特征"],
+        claim_chart=[
+            ClaimChartItem(
+                prior_art_id="pa-1",
+                prior_art_title="",
+                overlapping_features=["基础特征"],
+                differentiating_features=["差异特征"],
+            )
+        ],
+    )
+
+    hits = _collect_prior_art([disclosure], [point], None)
+    assert len(hits) == 1
+    assert hits[0].id == "PA-1"
+    assert hits[0].source == "Google Patents"
+
+    report = generate_grantability_report(
+        project_id="proj-case",
+        package=DraftPackage(
+            title="case",
+            abstract="",
+            claims="1. 一种方法，其特征在于，包括基础特征与差异特征。",
+            description="基础特征与差异特征组合。",
+            drawing_description="",
+            mermaid="",
+            image_prompt="",
+        ),
+        disclosures=[disclosure],
+        patent_points=[point],
+    )
+    assert report.claim_chart[0].closest_prior_art_refs == ["PA-1"]
+    assert report.claim_chart[0].novelty_attack is not None
+    assert report.claim_chart[0].novelty_attack.prior_art_ref == "PA-1"
 
 
 def test_generate_grantability_with_deep_research() -> None:

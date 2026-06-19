@@ -41,6 +41,7 @@ from typing import Any, Protocol
 
 from backend.app.disclosure.prior_art import PriorArtProvider
 from backend.app.llm import LLMClient
+from backend.app.project_metadata import format_project_metadata_block
 from backend.app.runtime import RuntimeContext
 from backend.app.research.evidence import EvidenceLedger, ground_findings
 from backend.app.schemas import (
@@ -136,7 +137,7 @@ def _plan_prompt(project: ProjectRecord, candidates_block: str) -> str:
 
 项目：{project.name}
 结构化项目元数据：
-{_project_metadata_block(project)}
+{format_project_metadata_block(project)}
 Draft 摘要：{project.draft_text[:1500]}
 候选专利点：
 {candidates_block}
@@ -737,20 +738,6 @@ def _candidates_block(candidates: list[PatentPointCandidate], project: ProjectRe
             }
         )
     return json.dumps(serialized, ensure_ascii=False, indent=2)
-
-
-def _project_metadata_block(project: ProjectRecord) -> str:
-    rows = [
-        ("技术领域", project.technical_field),
-        ("背景技术", project.background),
-        ("技术痛点", project.pain_point),
-        ("结构化技术方案", project.technical_solution),
-        ("结构化创新点", project.innovation),
-        ("实施例", project.embodiments),
-        ("有益效果", project.beneficial_effects),
-    ]
-    lines = [f"- {label}: {value.strip()}" for label, value in rows if value and value.strip()]
-    return "\n".join(lines) if lines else "（未填写）"
 
 
 def _broaden_empty_result_queries(
