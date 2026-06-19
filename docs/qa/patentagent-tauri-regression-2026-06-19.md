@@ -1,7 +1,7 @@
 # PatentAgent Tauri Regression - 2026-06-19
 
-分支：`codex/patentagent-e2e-qa-integration`  
-测试对象：新构建 debug DMG  
+分支：`codex/patentagent-e2e-qa-integration`
+测试对象：新构建 debug DMG
 DMG：`/private/tmp/patents-agent-e2e-integration/src-tauri/target/debug/bundle/dmg/PatentAgent_1.1.0_aarch64.dmg`
 
 ## 结论
@@ -12,6 +12,7 @@ DMG：`/private/tmp/patents-agent-e2e-integration/src-tauri/target/debug/bundle/
 - 旧 P1 “结构化项目信息无法独立保存/编辑”在 live packaged backend 回归中已解决：9 个 metadata 字段可创建、GET/list 回显、PUT 局部更新、空字符串清空。
 - 基础模型配置在默认 app data dir 下可用：`llm_configured=true`，model `deepseek-v4-pro`。
 - 实用新型轻量路径的真实 AI 生成与内部稿导出通过。
+- 发明专利完整路径的真实多智能体会审、核心公式包、AI 生成与内部稿导出通过。
 
 ## 证据
 
@@ -53,7 +54,7 @@ Smoke artifacts：`/private/tmp/patents-tauri-dmg-smoke-babjdu2_`
 
 ### Live Packaged Backend Regression
 
-测试实例：从新 DMG app 直接启动，默认 app data dir，端口 `63620`。  
+测试实例：从新 DMG app 直接启动，默认 app data dir，端口 `63620`。
 Health：
 
 ```json
@@ -79,7 +80,7 @@ Health：
 
 ### Live AI Generate Smoke
 
-测试路径：实用新型轻量版，默认 app data dir，端口 `63620`。  
+测试路径：实用新型轻量版，默认 app data dir，端口 `63620`。
 测试项目：`Tauri生成Smoke-模块化检索终端`，虚构数据，测试后已删除。
 
 结果：
@@ -97,6 +98,48 @@ Health：
 }
 ```
 
+### Live Invention Patent Full Path
+
+测试路径：发明专利，默认 app data dir，端口 `64601`。
+测试项目：`Tauri发明专利Smoke-多模态检索草案生成方法`，虚构数据，测试后已删除。
+
+结果：
+
+```json
+{
+  "ok": true,
+  "model": "deepseek-v4-pro",
+  "direct_generate_blocked_without_deliberation": true,
+  "deliberation": {
+    "status": "completed",
+    "providers": ["codex", "deepseek", "claude"],
+    "run_mode": "full",
+    "failure_count": 0
+  },
+  "formula_required": true,
+  "formula_run": {
+    "status": "completed",
+    "quality_severity": "normal",
+    "providers": ["codex", "deepseek", "claude"]
+  },
+  "draft_generated": true,
+  "generated_title": "一种Tauri发明专利Smoke-多模态检索草案生成方法方法",
+  "claims_chars": 2427,
+  "description_chars": 5914,
+  "abstract_chars": 324,
+  "export_md_bytes": 38005,
+  "export_docx_bytes": 46412,
+  "final_elapsed_seconds": 201.84
+}
+```
+
+说明：
+
+- 发明专利直接 `/generate` 在无会审时返回 409，确认 strict deliberation gate 生效。
+- 多智能体会审以 full 模式调用 `codex/deepseek/claude`，状态 completed。
+- 会审后生成仍要求核心公式包；公式包运行 completed，质量 `normal`。
+- 携带 `formula_run_id` 后生成内部工作稿并导出 MD/DOCX 成功。
+
 ## Previous Issues
 
 | 问题 | 状态 | 证据 |
@@ -111,8 +154,8 @@ Health：
 
 ### QA-REG-001: Computer Use cannot attach to temporary Tauri windows in this environment
 
-严重程度：P3 / 测试工具阻塞  
-影响：无法完成逐点击 UI 录屏式测试；改用 Tauri renderer DOM smoke + live packaged backend/API + build/test 组合验证。  
+严重程度：P3 / 测试工具阻塞
+影响：无法完成逐点击 UI 录屏式测试；改用 Tauri renderer DOM smoke + live packaged backend/API + build/test 组合验证。
 观察：
 
 - `mcp__computer_use.get_app_state` 对 `/private/tmp/.../PatentAgent.app` 和临时 QA bundle 均返回 `cgWindowNotFound`。
@@ -127,7 +170,14 @@ Health：
 
 ### QA-REG-002: Isolated `PATENTAGENT_BACKEND_DATA_DIR` does not inherit model credentials
 
-严重程度：P3 / 环境说明  
-影响：使用隔离数据目录启动 app 时 `llm_configured=false`，不适合验证“已配置基础模型”的 AI 路径。  
-证据：`/private/tmp/patentagent-tauri-regression-data` 实例 health 返回 `llm_configured=false`，默认 app data dir 实例返回 `llm_configured=true`。  
+严重程度：P3 / 环境说明
+影响：使用隔离数据目录启动 app 时 `llm_configured=false`，不适合验证“已配置基础模型”的 AI 路径。
+证据：`/private/tmp/patentagent-tauri-regression-data` 实例 health 返回 `llm_configured=false`，默认 app data dir 实例返回 `llm_configured=true`。
 建议：如果需要既隔离数据又继承模型配置，应提供单独的 QA config import/export 或测试专用 env 注入方式。
+
+### QA-REG-003: Invention-patent generated title duplicated terminal noun
+
+严重程度：P3 / 生成质量
+影响：不阻塞生成和导出，但正式初稿标题需要人工修正，降低首稿可信度。
+证据：发明专利完整路径生成标题为 `一种Tauri发明专利Smoke-多模态检索草案生成方法方法`。
+建议：在标题生成 prompt 和后处理层增加重复尾词规范化，例如去除 `方法方法`、`系统系统`、`装置装置` 等重复结尾。
