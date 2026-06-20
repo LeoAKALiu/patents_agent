@@ -1945,8 +1945,8 @@ input:focus, select:focus, textarea:focus {
   min-height: 40px;
 }
 
-.repair-inspector-dismiss {
-  flex: 0 0 40px !important;
+.repair-inspector-actions .repair-inspector-dismiss {
+  flex: 0 0 40px;
   padding-inline: 0;
 }
 

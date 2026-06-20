@@ -174,7 +174,14 @@ fi
 
 log "detaching stale /Volumes/PatentAgent if present"
 if hdiutil info | grep -q '/Volumes/PatentAgent'; then
-  run hdiutil detach /Volumes/PatentAgent || run hdiutil detach -force /Volumes/PatentAgent || true
+  if run hdiutil detach /Volumes/PatentAgent; then
+    log "detached stale /Volumes/PatentAgent"
+  elif run hdiutil detach -force /Volumes/PatentAgent; then
+    log "force-detached stale /Volumes/PatentAgent"
+  else
+    printf 'Unable to detach stale /Volumes/PatentAgent. Close any running PatentAgent app and retry.\n' >&2
+    exit 1
+  fi
 else
   log "no stale /Volumes/PatentAgent mount found"
 fi
