@@ -81,15 +81,19 @@ This prevents a reviewer from opening a stale DMG with the same default filename
 
 ## Required Packaged UI Checks
 
-Run the normal build and smoke commands first:
+Run the standardized package script first:
 
 ```bash
-npm --prefix frontend run test
-npm --prefix frontend run build
-cargo tauri build --bundles dmg --ci
-hdiutil verify src-tauri/target/release/bundle/dmg/PatentAgent_1.1.0_aarch64.dmg
-python3 scripts/tauri_dmg_smoke.py src-tauri/target/release/bundle/dmg/PatentAgent_1.1.0_aarch64.dmg --keep-artifacts
+scripts/package_dmg.sh
 ```
+
+For merge/release handoff, use the full gate:
+
+```bash
+scripts/package_dmg.sh --full
+```
+
+The script records source identity, dirty worktree state, stale `/Volumes/PatentAgent` handling, the identity-bearing DMG path, `hdiutil verify`, DMG smoke, Tauri DOM smoke, SHA256, size, and a single report at `.artifacts/dmg/<timestamp>-<sha>/report.md`.
 
 Then perform a visual or browser-level check against the packaged renderer. At minimum cover these regressions:
 
@@ -146,6 +150,8 @@ UI screenshots checked:
 - no shell horizontal overflow: pass/fail
 Notarization: not run / pass / fail
 ```
+
+When `scripts/package_dmg.sh` was used, copy these fields from its generated `report.md` instead of re-running ad hoc shell commands.
 
 ## Incident Memory
 

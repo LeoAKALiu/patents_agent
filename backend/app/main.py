@@ -1637,8 +1637,9 @@ def create_app(
             "drawing_description": package.drawing_description,
         }
         raw_issues = normalize_post_draft_issues(review.model_dump(), sections)
-        issue_ids = {item["id"] for item in raw_issues}
-        if payload.issue_id not in issue_ids:
+        issues_by_id = {item["id"]: item for item in raw_issues}
+        issue = issues_by_id.get(payload.issue_id)
+        if issue is None:
             raise HTTPException(status_code=404, detail="Issue not found in current repair session.")
 
         current_hash = source_draft_hash(package)
@@ -1650,10 +1651,12 @@ def create_app(
             issue_id=payload.issue_id,
             target_section=payload.target_section,
             draft_package_hash=current_hash,
-            selected_text=payload.selected_text,
+            selected_text=payload.selected_text or _repair_issue_anchor_snippet(issue),
             nearby_context=payload.nearby_context,
             project_id=project_id,
             review_run_id=run_id,
+            issue_message=str(issue.get("message") or ""),
+            llm=None if isinstance(app.state.llm, MissingLLMClient) else app.state.llm,
         )
 
         if patch_dict["status"] == "stale":
@@ -3382,6 +3385,18 @@ def _append_once(original: str, heading: str, addition: str) -> str:
     if addition in original:
         return original
     return f"{original.rstrip()}\n\n{heading}：\n{addition}\n"
+
+
+def _repair_issue_anchor_snippet(issue: dict) -> str | None:
+    anchor = issue.get("anchor")
+    if isinstance(anchor, dict):
+        snippet = anchor.get("snippet")
+        if isinstance(snippet, str) and snippet.strip():
+            return snippet.strip()
+    snippet = issue.get("snippet")
+    if isinstance(snippet, str) and snippet.strip():
+        return snippet.strip()
+    return None
 
 
 def _build_llm(settings: Settings, desktop_config: DesktopConfig | None = None) -> LLMClient:

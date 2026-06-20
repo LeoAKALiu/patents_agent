@@ -33,6 +33,7 @@ const PATCH_STATUS_LABELS: Record<DraftRepairPatch["status"], string> = {
 
 export interface DraftRepairInspectorProps {
   issue: DraftReviewIssue | null;
+  sectionText: string;
   stale: boolean;
   patch: DraftRepairPatch | null;
   generating: boolean;
@@ -45,6 +46,7 @@ export interface DraftRepairInspectorProps {
 
 export function DraftRepairInspector({
   issue,
+  sectionText,
   stale,
   patch,
   generating,
@@ -58,7 +60,7 @@ export function DraftRepairInspector({
     return (
       <aside className="repair-inspector" aria-label="标注式修复详情面板">
         <div className="repair-inspector-header">
-          <h4>问题详情</h4>
+          <h4>修复面板</h4>
         </div>
         <div className="empty-panel compact">
           <strong>未选择问题</strong>
@@ -71,6 +73,9 @@ export function DraftRepairInspector({
   const targetPatchable = issue.target_section !== "unknown";
   const canGenerate = !stale && !generating && targetPatchable;
   const generateDisabled = !canGenerate;
+  const anchorModeLabel = anchorModeText(issue.anchor.type);
+  const anchorSnippet = issue.anchor.snippet ?? issue.snippet ?? issue.message;
+  const anchorContext = buildAnchorContext(issue, sectionText);
 
   const canApply = patch && patch.status === "proposed" && !applying;
   const applyDisabledReason: string | null = !patch
@@ -86,7 +91,7 @@ export function DraftRepairInspector({
   return (
     <aside className="repair-inspector" aria-label="标注式修复详情面板">
       <div className="repair-inspector-header">
-        <h4>问题详情</h4>
+        <h4>修复面板</h4>
         <Badge
           variant={
             issue.kind === "blocking"
@@ -101,38 +106,56 @@ export function DraftRepairInspector({
         </Badge>
       </div>
       <div className="repair-inspector-body">
-        <div className="repair-inspector-field">
-          <span className="repair-inspector-label">严重程度</span>
-          <span className="repair-inspector-value" data-severity={issue.severity}>
-            {ISSUE_SEVERITY_LABELS[issue.severity]}
-          </span>
-        </div>
-        <div className="repair-inspector-field">
-          <span className="repair-inspector-label">目标段落</span>
-          <span className="repair-inspector-value">
-            {SECTION_LABELS[issue.target_section] || issue.target_section}
-          </span>
-        </div>
-        <div className="repair-inspector-field">
-          <span className="repair-inspector-label">定位方式</span>
-          <span className="repair-inspector-value">
-            {issue.anchor.type === "text"
-              ? "文本匹配"
-              : issue.anchor.type === "section"
-                ? "段落推断"
-                : "未定位"}
-          </span>
-        </div>
-        <div className="repair-inspector-message">
-          <span className="repair-inspector-label">问题描述</span>
-          <p>{issue.message}</p>
-        </div>
-        {issue.snippet && (
-          <div className="repair-inspector-message">
-            <span className="repair-inspector-label">匹配片段</span>
-            <p className="repair-inspector-snippet">{issue.snippet}</p>
+        <section className="repair-inspector-summary" aria-label="当前问题摘要">
+          <div className="repair-inspector-chip-row">
+            <span className="repair-inspector-chip" data-severity={issue.severity}>
+              {ISSUE_SEVERITY_LABELS[issue.severity]}
+            </span>
+            <span className="repair-inspector-chip">
+              {SECTION_LABELS[issue.target_section] || issue.target_section}
+            </span>
+            <span className="repair-inspector-chip">{anchorModeLabel}</span>
           </div>
+          <p className="repair-inspector-summary-text">{issue.message}</p>
+        </section>
+
+        <section className="repair-anchor-card" aria-label="问题定位上下文">
+          <div className="repair-anchor-card-header">
+            <span>命中文本</span>
+            <span>
+              {SECTION_LABELS[issue.anchor.section] ||
+                SECTION_LABELS[issue.target_section] ||
+                issue.target_section}
+            </span>
+          </div>
+          <p className="repair-anchor-snippet">
+            {anchorSnippet || "未找到可直接匹配的文本片段"}
+          </p>
+          {anchorContext && (
+            <p className="repair-anchor-context">
+              {anchorContext.before && <span>{anchorContext.before}</span>}
+              <mark>{anchorContext.match}</mark>
+              {anchorContext.after && <span>{anchorContext.after}</span>}
+            </p>
+          )}
+        </section>
+
+        {!patch && (
+          <RepairActions
+            patch={patch}
+            applying={applying}
+            generating={generating}
+            generateDisabled={generateDisabled}
+            stale={stale}
+            targetPatchable={targetPatchable}
+            canApply={canApply}
+            applyDisabledReason={applyDisabledReason}
+            onApplyPatch={onApplyPatch}
+            onDismissPatch={onDismissPatch}
+            onGeneratePatch={onGeneratePatch}
+          />
         )}
+
         {stale && (
           <div className="callout callout-warn">
             <div>
@@ -191,6 +214,22 @@ export function DraftRepairInspector({
           </div>
         )}
 
+        {patch && (
+          <RepairActions
+            patch={patch}
+            applying={applying}
+            generating={generating}
+            generateDisabled={generateDisabled}
+            stale={stale}
+            targetPatchable={targetPatchable}
+            canApply={canApply}
+            applyDisabledReason={applyDisabledReason}
+            onApplyPatch={onApplyPatch}
+            onDismissPatch={onDismissPatch}
+            onGeneratePatch={onGeneratePatch}
+          />
+        )}
+
         {patch && patch.status === "applied" && (
           <div className="callout callout-success">
             <div>
@@ -202,66 +241,131 @@ export function DraftRepairInspector({
           </div>
         )}
       </div>
-      <div className="repair-inspector-actions">
-        <button
-          className="btn btn-secondary"
-          type="button"
-          title="在中间正文区直接修改对应段落"
-        >
-          <PenLine size={15} />
-          <span>人工修正</span>
-        </button>
-        {patch ? (
-          <>
-            <button
-              className="btn btn-primary"
-              type="button"
-              disabled={!canApply || applying}
-              onClick={onApplyPatch}
-              title={applyDisabledReason ?? "将 AI 修正写回当前初稿"}
-            >
-              {applying ? (
-                <Loader2 className="spin" size={15} />
-              ) : (
-                <CheckCircle size={15} />
-              )}
-              <span>{applying ? "正在应用" : "应用 AI 修正"}</span>
-            </button>
-            <button
-              className="btn btn-ghost"
-              type="button"
-              onClick={onDismissPatch}
-              disabled={applying}
-              title="放弃当前生成的补丁"
-            >
-              <XCircle size={14} />
-            </button>
-          </>
-        ) : (
+    </aside>
+  );
+}
+
+interface RepairActionsProps {
+  patch: DraftRepairPatch | null;
+  applying: boolean;
+  generating: boolean;
+  generateDisabled: boolean;
+  stale: boolean;
+  targetPatchable: boolean;
+  canApply: boolean | null;
+  applyDisabledReason: string | null;
+  onGeneratePatch: () => void;
+  onApplyPatch: () => void;
+  onDismissPatch: () => void;
+}
+
+function RepairActions({
+  patch,
+  applying,
+  generating,
+  generateDisabled,
+  stale,
+  targetPatchable,
+  canApply,
+  applyDisabledReason,
+  onGeneratePatch,
+  onApplyPatch,
+  onDismissPatch,
+}: RepairActionsProps) {
+  return (
+    <div className="repair-inspector-actions">
+      <button
+        className="btn btn-secondary"
+        type="button"
+        title="在中间正文区直接修改对应段落"
+      >
+        <PenLine size={15} />
+        <span>人工修正</span>
+      </button>
+      {patch ? (
+        <>
           <button
             className="btn btn-primary"
             type="button"
-            disabled={generateDisabled}
-            onClick={onGeneratePatch}
-            title={
-              stale
-                ? "初稿已变更，AI 修正不可用"
-                : !targetPatchable
-                  ? "该问题未定位到可修正段落，请人工修正"
+            disabled={!canApply || applying}
+            onClick={onApplyPatch}
+            title={applyDisabledReason ?? "将 AI 修正写回当前初稿"}
+          >
+            {applying ? (
+              <Loader2 className="spin" size={15} />
+            ) : (
+              <CheckCircle size={15} />
+            )}
+            <span>{applying ? "正在应用" : "应用 AI 修正"}</span>
+          </button>
+          <button
+            className="btn btn-ghost repair-inspector-dismiss"
+            type="button"
+            onClick={onDismissPatch}
+            disabled={applying}
+            title="放弃当前生成的补丁"
+            aria-label="放弃当前生成的补丁"
+          >
+            <XCircle size={14} />
+          </button>
+        </>
+      ) : (
+        <button
+          className="btn btn-primary"
+          type="button"
+          disabled={generateDisabled}
+          onClick={onGeneratePatch}
+          title={
+            stale
+              ? "初稿已变更，AI 修正不可用"
+              : !targetPatchable
+                ? "该问题未定位到可修正段落，请人工修正"
                 : generating
                   ? "正在生成 AI 修正"
                   : "为此问题生成 AI 修正补丁"
-            }
-          >
-            {generating ? (
-              <Loader2 className="spin" size={15} />
-            ) : (
-              <Wand2 size={15} />
-            )}
-            <span>{generating ? "正在生成" : "生成 AI 修正"}</span>
-          </button>
-        )}
-      </div>
-    </aside>
+          }
+        >
+          {generating ? (
+            <Loader2 className="spin" size={15} />
+          ) : (
+            <Wand2 size={15} />
+          )}
+          <span>{generating ? "正在生成" : "生成 AI 修正"}</span>
+        </button>
+      )}
+    </div>
   );
+}
+
+function anchorModeText(anchorType: DraftReviewIssue["anchor"]["type"]): string {
+  if (anchorType === "text") return "文本匹配";
+  if (anchorType === "section") return "段落推断";
+  return "未定位";
+}
+
+function buildAnchorContext(
+  issue: DraftReviewIssue,
+  sectionText: string,
+): { before: string; match: string; after: string } | null {
+  const anchorStart = issue.anchor.start;
+  const anchorEnd = issue.anchor.end;
+  if (
+    issue.anchor.type !== "text" ||
+    typeof anchorStart !== "number" ||
+    typeof anchorEnd !== "number" ||
+    !sectionText
+  ) {
+    return null;
+  }
+
+  const start = Math.max(0, anchorStart);
+  const end = Math.min(sectionText.length, anchorEnd);
+  if (start >= end) return null;
+
+  const contextSize = 34;
+  return {
+    before: sectionText.slice(Math.max(0, start - contextSize), start),
+    match: sectionText.slice(start, end),
+    after: sectionText.slice(end, Math.min(sectionText.length, end + contextSize)),
+  };
 }
