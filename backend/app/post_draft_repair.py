@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
-from typing import Any, Literal
+from typing import Any, Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.app.llm import LLMClient
 
 SectionName = Literal["title", "abstract", "claims", "description", "drawing_description", "unknown"]
 
@@ -221,6 +225,8 @@ def create_repair_patch_payload(
     *,
     project_id: str | None = None,
     review_run_id: str | None = None,
+    issue_message: str | None = None,
+    llm: LLMClient | None = None,
 ) -> dict[str, Any]:
     """Deterministic single-issue patch proposal.
 
@@ -244,6 +250,20 @@ def create_repair_patch_payload(
             "draft_package_hash": draft_package_hash,
         }
 
+    llm_patch = _try_llm_repair_patch(
+        issue_id=issue_id,
+        target_section=target_section,
+        draft_package_hash=draft_package_hash,
+        original=original,
+        nearby_context=nearby_context,
+        issue_message=issue_message,
+        project_id=project_id,
+        review_run_id=review_run_id,
+        llm=llm,
+    )
+    if llm_patch is not None:
+        return llm_patch
+
     patched = _deterministic_patch_text(original)
     patched_risks = validate_repair_patch_text(patched)
     cleaned_terms = validate_repair_patch_text(original)
@@ -266,3 +286,97 @@ def create_repair_patch_payload(
 def _patch_id(issue_id: str, *, project_id: str | None = None, review_run_id: str | None = None) -> str:
     digest = hashlib.sha1(f"patch:{project_id or ''}:{review_run_id or ''}:{issue_id}".encode("utf-8")).hexdigest()[:12]
     return f"patch-{digest}"
+
+
+REPAIR_PATCH_SYSTEM_PROMPT = """你是中国专利正式稿的局部修稿助手。
+只对给定片段做最小必要修改，目标是提高正式稿清洁度、权利要求可执行性和说明书支撑一致性。
+不要新增未在上下文中出现的技术事实，不要输出解释性前言，不要保留内部会审痕迹。
+只输出 JSON 对象：{"patched":"修正后的片段","diff_summary":"一句话说明修改","risk_notes":["需要人工确认的风险"]}。"""
+
+
+def _try_llm_repair_patch(
+    *,
+    issue_id: str,
+    target_section: str,
+    draft_package_hash: str,
+    original: str,
+    nearby_context: str | None,
+    issue_message: str | None,
+    project_id: str | None,
+    review_run_id: str | None,
+    llm: LLMClient | None,
+) -> dict[str, Any] | None:
+    if llm is None:
+        return None
+
+    try:
+        raw = llm.complete_stage(
+            "post_draft_repair_patch",
+            REPAIR_PATCH_SYSTEM_PROMPT,
+            _repair_patch_prompt(
+                issue_message=issue_message,
+                target_section=target_section,
+                original=original,
+                nearby_context=nearby_context,
+            ),
+        )
+        parsed = _parse_llm_patch_json(raw)
+    except Exception:
+        return None
+
+    patched = str(parsed.get("patched") or "").strip()
+    if not patched:
+        return None
+
+    patched_risks = validate_repair_patch_text(patched)
+    if patched_risks:
+        return None
+
+    risk_notes = parsed.get("risk_notes")
+    if not isinstance(risk_notes, list):
+        risk_notes = []
+
+    return {
+        "id": _patch_id(issue_id, project_id=project_id, review_run_id=review_run_id),
+        "issue_id": issue_id,
+        "project_id": project_id or "",
+        "review_run_id": review_run_id or "",
+        "status": "proposed",
+        "target_section": target_section,
+        "original": original,
+        "patched": patched,
+        "diff_summary": str(parsed.get("diff_summary") or "生成正式稿局部修正").strip(),
+        "risk_notes": [str(note).strip() for note in risk_notes if str(note).strip()],
+        "draft_package_hash": draft_package_hash,
+    }
+
+
+def _repair_patch_prompt(
+    *,
+    issue_message: str | None,
+    target_section: str,
+    original: str,
+    nearby_context: str | None,
+) -> str:
+    return (
+        f"问题：{issue_message or '未提供'}\n"
+        f"目标段落：{target_section}\n"
+        f"待修片段：\n{original}\n\n"
+        f"附近上下文：\n{nearby_context or original}\n\n"
+        "请返回一个只替换待修片段的正式稿 patch。"
+    )
+
+
+def _parse_llm_patch_json(raw: str) -> dict[str, Any]:
+    text = raw.strip()
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start < 0 or end <= start:
+            raise
+        payload = json.loads(text[start : end + 1])
+    if not isinstance(payload, dict):
+        raise ValueError("LLM patch response must be a JSON object")
+    return payload

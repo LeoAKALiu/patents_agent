@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -476,6 +478,59 @@ def test_create_repair_patch_payload_unsafe():
     assert len(payload["risk_notes"]) > 0
 
 
+def test_create_repair_patch_payload_uses_llm_patch_when_valid():
+    """A configured LLM can propose a narrow patent-text repair patch."""
+    llm = FakeLLMClient(
+        {
+            "post_draft_repair_patch": json.dumps(
+                {
+                    "patched": "当P超过预设阈值时，对候选路径执行局部回退并重排关联任务。",
+                    "diff_summary": "补强阈值触发后的执行动作",
+                    "risk_notes": ["需确认局部回退和任务重排均有说明书支撑。"],
+                },
+                ensure_ascii=False,
+            )
+        }
+    )
+
+    payload = create_repair_patch_payload(
+        issue_id="blocking-claims",
+        target_section="claims",
+        draft_package_hash="h1",
+        selected_text="当P超过预设阈值时",
+        nearby_context="当P超过预设阈值时，对候选路径执行局部回退。",
+        issue_message="权利要求1缺少触发后的任务重排限定。",
+        llm=llm,
+    )
+
+    assert payload["status"] == "proposed"
+    assert payload["original"] == "当P超过预设阈值时"
+    assert payload["patched"] == "当P超过预设阈值时，对候选路径执行局部回退并重排关联任务。"
+    assert payload["diff_summary"] == "补强阈值触发后的执行动作"
+    assert payload["risk_notes"] == ["需确认局部回退和任务重排均有说明书支撑。"]
+    assert llm.calls[0].stage == "post_draft_repair_patch"
+    assert "权利要求1缺少触发后的任务重排限定" in llm.calls[0].user_prompt
+
+
+def test_create_repair_patch_payload_falls_back_when_llm_output_is_invalid():
+    """Invalid LLM output should not block the existing safe deterministic repair."""
+    llm = FakeLLMClient({"post_draft_repair_patch": "not-json"})
+
+    payload = create_repair_patch_payload(
+        issue_id="blocking-clean-source",
+        target_section="claims",
+        draft_package_hash="h1",
+        selected_text="好的，根据交底书撰写权利要求。",
+        nearby_context=None,
+        issue_message="权利要求含内部引导语。",
+        llm=llm,
+    )
+
+    assert payload["status"] == "proposed"
+    assert "好的，根据" not in payload["patched"]
+    assert payload["diff_summary"] == "清理重复与内部引导语"
+
+
 def test_create_repair_patch_endpoint(tmp_path):
     """POST repair-patches creates a deterministic patch for a known issue."""
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_repair_session_llm(), load_env_file=False))
@@ -517,6 +572,56 @@ def test_create_repair_patch_endpoint(tmp_path):
     assert patch["status"] == "proposed"
     assert patch["target_section"] == "title"
     assert patch["original"] == "方法方法"
+
+
+def test_repair_patch_endpoint_uses_configured_llm_for_narrow_patch(tmp_path):
+    """POST repair-patches uses the configured LLM for a focused formal-draft fix."""
+    llm = _repair_session_llm()
+    llm.responses["post_draft_repair_patch"] = json.dumps(
+        {
+            "patched": "权利要求1限定在惩罚向量超过预设阈值时执行局部回退并重排关联任务。",
+            "diff_summary": "将内部引导语替换为正式权利要求限定",
+            "risk_notes": [],
+        },
+        ensure_ascii=False,
+    )
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm, load_env_file=False))
+    claims_text = "好的，根据您提供的交底书，权利要求1描述了一种旧的方法。"
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="一种路径规划方法",
+            claims=claims_text,
+            description="本发明涉及路径规划。",
+        ),
+    )
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    session = client.get(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-session"
+    ).json()
+    claims_issues = [i for i in session["issues"] if i["target_section"] == "claims"]
+    assert claims_issues
+
+    payload = DraftRepairPatchCreate(
+        issue_id=claims_issues[0]["id"],
+        draft_package_hash=session["current_draft_hash"],
+        target_section="claims",
+        selected_text=None,
+        nearby_context=claims_text,
+    )
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches",
+        json=payload.model_dump(),
+    )
+
+    assert response.status_code == 200
+    patch = response.json()
+    assert patch["original"] == "好的，根据"
+    assert patch["patched"] == "权利要求1限定在惩罚向量超过预设阈值时执行局部回退并重排关联任务。"
+    assert patch["diff_summary"] == "将内部引导语替换为正式权利要求限定"
+    repair_call = next(call for call in llm.calls if call.stage == "post_draft_repair_patch")
+    assert "权利要求1含内部引导语" in repair_call.user_prompt
 
 
 def test_repair_patch_create_422_for_unsafe_text(tmp_path):

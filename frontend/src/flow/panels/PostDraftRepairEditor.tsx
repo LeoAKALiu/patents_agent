@@ -218,6 +218,11 @@ export function PostDraftRepairEditor({
 
           <DraftRepairInspector
             issue={selectedIssue}
+            sectionText={
+              selectedIssue && selectedIssue.target_section !== "unknown"
+                ? sectionValues[selectedIssue.target_section] ?? ""
+                : ""
+            }
             stale={session.stale}
             patch={patch}
             generating={generating}

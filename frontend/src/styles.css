@@ -1767,7 +1767,7 @@ input:focus, select:focus, textarea:focus {
 
 .repair-inspector {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -1793,10 +1793,104 @@ input:focus, select:focus, textarea:focus {
 
 .repair-inspector-body {
   display: grid;
-  gap: 10px;
+  align-content: start;
+  gap: 12px;
   min-height: 0;
   overflow-y: auto;
   padding: 12px 14px;
+}
+
+.repair-inspector-summary {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-base);
+  padding: 10px 12px;
+}
+
+.repair-inspector-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.repair-inspector-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  padding: 2px 8px;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.repair-inspector-chip[data-severity="critical"] {
+  border-color: color-mix(in oklch, var(--danger), transparent 65%);
+  background: color-mix(in oklch, var(--danger), transparent 90%);
+  color: var(--danger);
+}
+
+.repair-inspector-chip[data-severity="high"] {
+  border-color: color-mix(in oklch, var(--warn), transparent 62%);
+  background: color-mix(in oklch, var(--warn), transparent 88%);
+  color: var(--warn);
+}
+
+.repair-inspector-summary-text {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.repair-anchor-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid color-mix(in oklch, var(--action-primary), transparent 78%);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  padding: 10px 12px;
+}
+
+.repair-anchor-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.repair-anchor-snippet {
+  margin: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-base);
+  padding: 7px 8px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.repair-anchor-context {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.repair-anchor-context mark {
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--action-primary), transparent 82%);
+  color: var(--text-primary);
+  padding: 0 2px;
 }
 
 .repair-inspector-field {
@@ -1840,13 +1934,20 @@ input:focus, select:focus, textarea:focus {
 .repair-inspector-actions {
   display: flex;
   gap: 8px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--border-subtle);
+  padding: 0;
+  border-top: 0;
 }
 
 .repair-inspector-actions .btn {
   flex: 1;
   justify-content: center;
+  min-width: 0;
+  min-height: 40px;
+}
+
+.repair-inspector-dismiss {
+  flex: 0 0 40px !important;
+  padding-inline: 0;
 }
 
 /* ── Mobile: single column ────────────────────────────────────── */

@@ -211,6 +211,24 @@ v1.1.0 release branch 额外加入桌面启动诊断和 DOM smoke：启动失败
 
 可选覆盖项：`PATENTAGENT_PYTHON=/path/to/python` 指定 Python，`PATENTAGENT_BACKEND_PORT=8000` 固定本地端口，`PATENTAGENT_BACKEND_DATA_DIR=/path/to/data` 指定桌面端数据目录。`PATENTAGENT_TAURI_DOM_SMOKE=1` 可启用 Tauri DOM smoke，`PATENTAGENT_TAURI_DOM_SMOKE_REPORT=/path/to/report.json` 可指定报告路径。
 
+#### 标准 DMG 打包入口
+
+日常开发期间需要给本机或远程用户看最新 DMG 时，优先使用固定脚本：
+
+```bash
+scripts/package_dmg.sh
+```
+
+脚本会记录当前分支/SHA/dirty 状态，卸载 stale `/Volumes/PatentAgent`，构建 Tauri DMG，生成带 SHA 和时间戳的交付副本，执行 `hdiutil verify`、DMG smoke 和 Tauri DOM smoke，并在 `.artifacts/dmg/<timestamp>-<sha>/report.md` 写出交付报告。
+
+合并前或正式交付前使用完整门禁：
+
+```bash
+scripts/package_dmg.sh --full
+```
+
+`--full` 会在打包前额外运行 `scripts/v1_smoke.sh`。如果只想构建和校验镜像、不启动 packaged app smoke，可用 `--skip-smoke`；如果要求工作树必须干净，可加 `--require-clean`。
+
 桌面端打包、验证和发布边界见 `docs/release/v1.1.0-tauri-release-gate.md` 与 `docs/release/v1.1.0-tauri-packaging.md`。
 
 ### 开发协作防回退规则

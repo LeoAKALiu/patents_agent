@@ -53,6 +53,9 @@ describe("PostDraftRepairEditor", () => {
     expect(screen.getByDisplayValue(/方法方法/)).toBeTruthy();
 
     // The first issue is selected by default so the inspector is useful immediately.
+    expect(screen.getByText("修复面板")).toBeTruthy();
+    expect(screen.getByText("命中文本")).toBeTruthy();
+    expect(screen.getByText("文本匹配")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "人工修正" }),
     ).toBeTruthy();
