@@ -77,8 +77,8 @@ function getProjectRisk(project: ProjectRecord): { label: string; tone: "success
   return { label: "可继续", tone: "success" };
 }
 
-function getProjectExportStatus(project: ProjectRecord): { label: string; tone: "info" | "neutral" } {
-  if (project.package) return { label: "可进入导出", tone: "info" };
+function getProjectExportStatus(project: ProjectRecord): { label: string; tone: "warning" | "neutral" } {
+  if (project.package) return { label: "需成稿会审", tone: "warning" };
   return { label: "未生成初稿", tone: "neutral" };
 }
 

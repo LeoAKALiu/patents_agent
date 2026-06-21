@@ -167,6 +167,8 @@ if ! run "$PYTHON_BIN" -m PyInstaller --version; then
   printf 'PyInstaller is required. Install packaging deps with: %s -m pip install -e ".[packaging]"\n' "$PYTHON_BIN" >&2
   exit 1
 fi
+export PYTHON="$PYTHON_BIN"
+log "using Python for Tauri beforeBuildCommand: ${PYTHON}"
 
 if [[ "$RUN_FULL" == "1" ]]; then
   run scripts/v1_smoke.sh

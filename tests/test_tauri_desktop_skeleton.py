@@ -38,8 +38,8 @@ def test_tauri_v2_scaffold_is_the_only_desktop_runtime() -> None:
     assert build["frontendDist"] == "../frontend/dist"
     assert build["devUrl"] == "http://127.0.0.1:5173"
     assert "npm --prefix frontend run build" in build["beforeBuildCommand"]
-    assert "PyInstaller scripts/backend.spec" in build["beforeBuildCommand"]
-    assert "__pycache__" in build["beforeBuildCommand"]
+    assert "scripts/build_backend_sidecar.sh" in build["beforeBuildCommand"]
+    assert "python3 -m PyInstaller" not in build["beforeBuildCommand"]
     project = tomllib.loads(read(ROOT / "pyproject.toml"))
     packaging_dependencies = project["project"]["optional-dependencies"].get("packaging", [])
     assert any(dependency.lower().startswith("pyinstaller") for dependency in packaging_dependencies)
@@ -190,10 +190,40 @@ def test_tauri_smoke_is_the_desktop_release_gate() -> None:
     smoke = read(ROOT / "scripts" / "v1_smoke.sh")
 
     assert "run_tauri_smoke_if_present" in smoke
+    assert "import PyInstaller" in smoke
+    assert ".[dev,packaging]" in smoke
+    assert "scripts/build_backend_sidecar.sh" in smoke
     assert "cargo check" in smoke
     assert "cargo test" in smoke
+    assert smoke.index("scripts/build_backend_sidecar.sh") < smoke.index("cargo check")
     assert "npm --prefix desktop" not in smoke
     assert "run_electron_smoke_if_feasible" not in smoke
+
+
+def test_tauri_sidecar_builder_is_shared_by_tauri_smoke_and_packaging() -> None:
+    config = json.loads(read(TAURI_DIR / "tauri.conf.json"))
+    before_build = config["build"]["beforeBuildCommand"]
+    sidecar_path = ROOT / "scripts" / "build_backend_sidecar.sh"
+    sidecar = read(sidecar_path)
+    smoke = read(ROOT / "scripts" / "v1_smoke.sh")
+    package = read(ROOT / "scripts" / "package_dmg.sh")
+
+    assert before_build == "npm --prefix frontend run build && scripts/build_backend_sidecar.sh"
+    assert sidecar_path.exists()
+    assert 'PYTHON="${PYTHON:-$(command -v python3)}"' in sidecar
+    assert "PYINSTALLER_CONFIG_DIR=build/pyinstaller-cache" in sidecar
+    assert '"$PYTHON" -m PyInstaller --version' in sidecar
+    assert "find backend -type d -name __pycache__ -prune -exec rm -rf {} +" in sidecar
+    assert (
+        '"$PYTHON" -m PyInstaller scripts/backend.spec --noconfirm --distpath build/backend '
+        "--workpath build/pyinstaller-work"
+    ) in sidecar
+
+    sidecar_invocation = 'run env PYTHON="$PYTHON_BIN" scripts/build_backend_sidecar.sh'
+    assert sidecar_invocation in smoke
+    assert smoke.index(sidecar_invocation) < smoke.index("run cargo check --manifest-path src-tauri/Cargo.toml")
+    assert 'export PYTHON="$PYTHON_BIN"' in package
+    assert package.index('export PYTHON="$PYTHON_BIN"') < package.index('if run "${TAURI_BUILD[@]}"')
 
 
 def test_tauri_cargo_checks_are_the_only_desktop_ci_gate() -> None:

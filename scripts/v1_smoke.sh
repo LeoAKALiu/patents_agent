@@ -26,6 +26,7 @@ import fastapi  # noqa: F401
 import httpx  # noqa: F401
 import pytest  # noqa: F401
 import docx  # noqa: F401
+import PyInstaller  # noqa: F401
 PY
   then
     return
@@ -37,7 +38,7 @@ PY
   fi
 
   log "Installing Python dev dependencies into the active Python environment"
-  if "$PYTHON_BIN" -m pip install -e ".[dev]"; then
+  if "$PYTHON_BIN" -m pip install -e ".[dev,packaging]"; then
     return
   fi
 
@@ -45,7 +46,7 @@ PY
   run "$PYTHON_BIN" -m venv .venv
   PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
   run "$PYTHON_BIN" -m pip install --upgrade pip
-  run "$PYTHON_BIN" -m pip install -e ".[dev]"
+  run "$PYTHON_BIN" -m pip install -e ".[dev,packaging]"
 }
 
 ensure_npm_deps() {
@@ -82,6 +83,7 @@ run_tauri_smoke_if_present() {
     return
   fi
 
+  run env PYTHON="$PYTHON_BIN" scripts/build_backend_sidecar.sh
   run cargo check --manifest-path src-tauri/Cargo.toml
   run cargo test --manifest-path src-tauri/Cargo.toml
 }

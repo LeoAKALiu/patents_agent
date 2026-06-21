@@ -1589,6 +1589,16 @@ function App() {
     }
   }
 
+  function selectProjectForWorkbench(projectId: string) {
+    setSelectedProjectId(projectId);
+    setStartChoice(null);
+    setMessage("");
+    setError("");
+    if (projectId) {
+      setActiveSection("generate");
+    }
+  }
+
   function returnToStartChoices() {
     setStartChoice(null);
     setActiveSection("generate");
@@ -1801,7 +1811,7 @@ function App() {
             <ProjectSelect
               projects={projects}
               selectedProjectId={selectedProject?.id ?? ""}
-              onChange={setSelectedProjectId}
+              onChange={selectProjectForWorkbench}
             />
           }
           actions={
@@ -1947,7 +1957,7 @@ function App() {
             <ProjectsOverview
               projects={projects}
               selectedProjectId={selectedProject?.id ?? ""}
-              onSelect={setSelectedProjectId}
+              onSelect={selectProjectForWorkbench}
               onDelete={(project) => void handleDeleteProject(project)}
               busy={busy}
             />
