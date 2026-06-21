@@ -1,4 +1,4 @@
-import { Loader2, ShieldCheck, Upload, Wand2 } from "@/lib/icons";
+import { ClipboardList, Loader2, ShieldCheck, Upload, Wand2 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type {
@@ -77,12 +77,14 @@ export function InventionPointConfirmation({
         </div>
         <ShieldCheck size={24} />
       </div>
-      <div className="button-row">
-        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("materials")} type="button">
-          查看前置材料详情
+      <div className="guided-panel-actions">
+        <Button className="guided-panel-action" variant="glass-soft" size="sm" onClick={() => onOpenExpertTool("materials")} type="button">
+          <ClipboardList size={16} aria-hidden="true" />
+          <span>查看前置材料详情</span>
         </Button>
-        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("moat")} type="button">
-          查看护城河地图
+        <Button className="guided-panel-action" variant="glass-soft" size="sm" onClick={() => onOpenExpertTool("moat")} type="button">
+          <ShieldCheck size={16} aria-hidden="true" />
+          <span>查看护城河地图</span>
         </Button>
       </div>
       <form className="guided-upload" onSubmit={onUploadMaterial}>
