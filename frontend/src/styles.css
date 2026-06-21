@@ -2250,6 +2250,19 @@ input:focus, select:focus, textarea:focus {
   font-size: 15px;
 }
 
+.guided-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.guided-panel-action {
+  flex: 0 1 auto;
+  min-width: max-content;
+}
+
 .guided-intake, .guided-upload { display: grid; gap: 12px; }
 .idea-input { min-height: 140px; }
 
@@ -3427,6 +3440,14 @@ input:focus, select:focus, textarea:focus {
   .button-row { flex-direction: column; align-items: stretch; }
   .button-row .icon-button,
   .button-row .primary { width: 100%; }
+  .guided-panel-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .guided-panel-action {
+    width: 100%;
+    min-width: 0;
+  }
   .status-strip { grid-template-columns: 1fr; }
   .workspace { padding: 12px; }
   .panel { padding: 14px; }

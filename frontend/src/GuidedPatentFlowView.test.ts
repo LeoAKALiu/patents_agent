@@ -29,6 +29,13 @@ describe("Guided patent flow UI regressions", () => {
     expect(inventionPointSource).toContain("候选发明点已返回");
   });
 
+  it("keeps invention helper actions as text buttons instead of icon-only controls", () => {
+    expect(inventionPointSource).toContain("guided-panel-actions");
+    expect(inventionPointSource).toContain("guided-panel-action");
+    expect(inventionPointSource).not.toMatch(/size="icon"[^>]+onOpenExpertTool\("materials"\)/s);
+    expect(inventionPointSource).not.toMatch(/size="icon"[^>]+onOpenExpertTool\("moat"\)/s);
+  });
+
   it("refreshes disclosure runs after starting patent point extraction", () => {
     // Behaviour contract (location-agnostic after the M3-B extraction):
     //   • the poll loop lives in store/projectData
