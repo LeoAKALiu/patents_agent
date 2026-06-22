@@ -68,8 +68,17 @@ describe("ProjectsOverview export status", () => {
 
     const table = container.querySelector("table");
     expect(table).toBeTruthy();
+    expect(table).toHaveClass("min-w-[840px]");
     expect(within(table as HTMLTableElement).getByText("需成稿会审")).toBeInTheDocument();
     expect(within(table as HTMLTableElement).queryByText("可进入导出")).not.toBeInTheDocument();
+    expect(within(table as HTMLTableElement).getByRole("columnheader", { name: "当前步骤" })).toHaveClass("whitespace-nowrap");
+    expect(within(table as HTMLTableElement).getByRole("columnheader", { name: "更新时间" })).toHaveClass("whitespace-nowrap");
+    const desktopSelectButton = within(table as HTMLTableElement).getAllByRole("button", { name: "选择" })[0];
+    const desktopDeleteButton = within(table as HTMLTableElement).getAllByRole("button", { name: "删除" })[0];
+    expect(desktopSelectButton).toHaveClass("whitespace-nowrap");
+    expect(desktopSelectButton).toHaveClass("min-w-[72px]");
+    expect(desktopDeleteButton).toHaveClass("whitespace-nowrap");
+    expect(desktopDeleteButton).toHaveClass("min-w-[68px]");
 
     const mobileCards = container.querySelectorAll("article");
     expect(mobileCards).toHaveLength(2);

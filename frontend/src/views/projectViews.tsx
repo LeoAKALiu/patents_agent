@@ -331,11 +331,11 @@ export function ProjectsOverview({
             <thead className="bg-[var(--surface-subtle)] text-left text-xs font-semibold text-[var(--text-muted)]">
               <tr>
                 <th className="px-4 py-3">项目</th>
-                <th className="px-4 py-3">当前步骤</th>
-                <th className="px-4 py-3">风险状态</th>
-                <th className="px-4 py-3">导出状态</th>
-                <th className="px-4 py-3">更新时间</th>
-                <th className="px-4 py-3 text-right">操作</th>
+                <th className="px-4 py-3 whitespace-nowrap">当前步骤</th>
+                <th className="px-4 py-3 whitespace-nowrap">风险状态</th>
+                <th className="px-4 py-3 whitespace-nowrap">导出状态</th>
+                <th className="px-4 py-3 whitespace-nowrap">更新时间</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -364,26 +364,26 @@ export function ProjectsOverview({
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-[var(--text-muted)]">{getProjectStage(project)}</td>
+                    <td className="px-4 py-4 text-[var(--text-muted)] whitespace-nowrap">{getProjectStage(project)}</td>
                     <td className="px-4 py-4">
                       <ProjectStatusPill tone={risk.tone}>{risk.label}</ProjectStatusPill>
                     </td>
                     <td className="px-4 py-4">
                       <ProjectStatusPill tone={exportStatus.tone}>{exportStatus.label}</ProjectStatusPill>
                     </td>
-                    <td className="px-4 py-4">
-                      <span className="block font-mono text-xs text-[var(--text-primary)]">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="block font-mono text-xs text-[var(--text-primary)] whitespace-nowrap">
                         {formatShortProjectDate(metadata.updated_at)}
                       </span>
-                      <span className="mt-1 block text-xs text-[var(--text-soft)]">
+                      <span className="mt-1 block text-xs text-[var(--text-soft)] whitespace-nowrap">
                         创建 {formatShortProjectDate(metadata.created_at)}
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1.5 whitespace-nowrap">
                         <button
                           className={cn(
-                            "inline-flex min-h-9 items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55",
+                            "inline-flex min-h-9 min-w-[72px] items-center justify-center gap-1.5 rounded-md border px-2 text-xs font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-55",
                             isSelected
                               ? "border-[color-mix(in_oklch,var(--action-primary),transparent_66%)] bg-[var(--surface-inset)] text-[var(--action-primary)]"
                               : "border-[color-mix(in_oklch,var(--action-primary),transparent_60%)] bg-[var(--action-primary)] text-[var(--action-primary-contrast)] hover:bg-[var(--action-primary-hover)]",
@@ -396,7 +396,7 @@ export function ProjectsOverview({
                           <span>{isSelected ? "当前项目" : "选择"}</span>
                         </button>
                         <button
-                          className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 text-xs font-semibold text-[var(--danger)] transition-colors hover:border-[color-mix(in_oklch,var(--danger),transparent_74%)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-55"
+                          className="inline-flex min-h-9 min-w-[68px] items-center justify-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2 text-xs font-semibold text-[var(--danger)] whitespace-nowrap transition-colors hover:border-[color-mix(in_oklch,var(--danger),transparent_74%)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-55"
                           disabled={busy === "project-delete"}
                           onClick={() => onDelete(project)}
                           type="button"
@@ -466,7 +466,7 @@ export function ProjectsOverview({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     className={cn(
-                      "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55",
+                      "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-55",
                       isSelected
                         ? "border-[color-mix(in_oklch,var(--action-primary),transparent_66%)] bg-[var(--surface-inset)] text-[var(--action-primary)]"
                         : "border-[color-mix(in_oklch,var(--action-primary),transparent_60%)] bg-[var(--action-primary)] text-[var(--action-primary-contrast)]",
@@ -479,7 +479,7 @@ export function ProjectsOverview({
                     <span>{isSelected ? "当前项目" : "选择项目"}</span>
                   </button>
                   <button
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 text-sm font-semibold text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-55"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 text-sm font-semibold text-[var(--danger)] whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-55"
                     disabled={busy === "project-delete"}
                     onClick={() => onDelete(project)}
                     type="button"
