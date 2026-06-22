@@ -383,7 +383,7 @@ def create_app(
         upload_dir = settings.data_dir / "corpus-jobs" / job_id / "uploaded"
         upload_dir.mkdir(parents=True, exist_ok=True)
         safe_name = Path(file.filename or "corpus-upload").name
-        stored_path = upload_dir / safe_name
+        stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
         with stored_path.open("wb") as handle:
             shutil.copyfileobj(file.file, handle)
         job = app.state.corpus_service.add_input(job_id, stored_path)
@@ -1525,6 +1525,12 @@ def create_app(
                 accepted_patch_ids.append(patch.id)
                 round_accepted = True
                 logs.append(f"score-improvement: 已应用补丁 {patch.id} -> {patch.target_section}")
+                # Remaining patches in this batch were generated against the
+                # pre-patch draft hash and can no longer apply cleanly to the
+                # mutated package; stop and re-score so the next round
+                # regenerates patches against the new draft. (Without this the
+                # stale patches log a misleading "未通过安全检查" line.)
+                break
             if not round_accepted:
                 logs.append("score-improvement: 本轮没有补丁通过安全检查")
                 break

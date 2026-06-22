@@ -571,7 +571,10 @@ export function selectLatestMatchingPostDraftReview(
 }
 
 function hasReviewItems(items: unknown[] | undefined): boolean {
-  return Array.isArray(items) && items.some((item) => String(item).trim().length > 0);
+  if (!Array.isArray(items)) return false;
+  // String items count only when non-blank; object/other items count when present.
+  // (Guards against `String(obj)` always being truthy for object arrays.)
+  return items.some((item) => (typeof item === "string" ? item.trim().length > 0 : item != null));
 }
 
 function hasRepairablePostDraftReviewIssues(review: PostDraftReviewRun): boolean {
@@ -586,11 +589,12 @@ function hasRepairablePostDraftReviewIssues(review: PostDraftReviewRun): boolean
       || hasReviewItems(role.contamination_hits)
       || hasReviewItems(role.rewrite_suggestions)
     )
+    // `next_actions` is advisory follow-up, not blocking repair work, so a
+    // passed review with only next_actions must not surface the repair editor.
     || Boolean(chairResult && (
       hasReviewItems(chairResult.blocking_issues)
       || hasReviewItems(chairResult.contamination_hits)
       || hasReviewItems(chairResult.description_rewrite_tasks)
-      || hasReviewItems(chairResult.next_actions)
     ));
 }
 

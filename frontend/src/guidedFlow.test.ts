@@ -1180,6 +1180,24 @@ describe("deriveGuidedFlowState", () => {
     ).toBe("review-for-stale-compile");
   });
 
+  it("does not treat a passed review with only advisory next_actions as repairable", () => {
+    const advisoryOnly = {
+      ...passedPostDraftReview,
+      id: "advisory-next-actions",
+      draft_package_hash: "draft-hash",
+      chair_result: {
+        ...passedPostDraftReview.chair_result!,
+        next_actions: ["提交前再次核对附图编号与说明书一致性"],
+      },
+      created_at: "2026-06-02T00:03:00Z",
+      updated_at: "2026-06-02T00:03:00Z",
+    };
+
+    expect(
+      selectLatestRepairablePostDraftReview([advisoryOnly], "draft-hash"),
+    ).toBeNull();
+  });
+
   it("uses the latest matching post-draft review instead of an older pass", () => {
     const state = deriveGuidedFlowState({
       project: {
