@@ -69,6 +69,25 @@ def test_corpus_job_api_runs_batch_import_and_exposes_stats(tmp_path):
     assert versions_response.status_code == 200
     assert versions_response.json()["versions"][0]["name"] == "ai-software-v1"
 
+    stats_response = client.get("/api/corpus/stats", params={"version": "ai-software-v1"})
+    assert stats_response.status_code == 200
+    stats = stats_response.json()
+    assert stats["document_count"] == 1
+    assert stats["section_coverage"]["claims"] == 1.0
+    assert stats["ipc_distribution"]["G06N"] == 1
+
+    document_id = stats["document_ids"][0]
+    document_response = client.get(f"/api/corpus/documents/{document_id}")
+    assert document_response.status_code == 200
+    assert document_response.json()["metadata"]["claims"][0]["category"] == "method"
+
+    search_response = client.get(
+        "/api/corpus/search",
+        params={"q": "模型训练 神经网络 方法", "section_type": "claims", "version": "ai-software-v1"},
+    )
+    assert search_response.status_code == 200
+    assert search_response.json()["results"][0]["chunk"]["document_id"] == document_id
+
 
 def test_corpus_upload_keeps_same_named_files_distinct(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=FakeLLMClient({})))
@@ -104,22 +123,3 @@ def test_corpus_upload_keeps_same_named_files_distinct(tmp_path):
     stored = sorted(path.name for path in uploaded_dir.iterdir())
     assert len(stored) == 2
     assert all(name.endswith("-duplicate.txt") for name in stored)
-
-    stats_response = client.get("/api/corpus/stats", params={"version": "ai-software-v1"})
-    assert stats_response.status_code == 200
-    stats = stats_response.json()
-    assert stats["document_count"] == 1
-    assert stats["section_coverage"]["claims"] == 1.0
-    assert stats["ipc_distribution"]["G06N"] == 1
-
-    document_id = stats["document_ids"][0]
-    document_response = client.get(f"/api/corpus/documents/{document_id}")
-    assert document_response.status_code == 200
-    assert document_response.json()["metadata"]["claims"][0]["category"] == "method"
-
-    search_response = client.get(
-        "/api/corpus/search",
-        params={"q": "模型训练 神经网络 方法", "section_type": "claims", "version": "ai-software-v1"},
-    )
-    assert search_response.status_code == 200
-    assert search_response.json()["results"][0]["chunk"]["document_id"] == document_id
