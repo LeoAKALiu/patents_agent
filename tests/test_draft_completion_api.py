@@ -199,6 +199,12 @@ def test_score_improvement_applies_safe_patches_and_re_scores_project(tmp_path):
     assert payload["before_score"] < payload["after_score"]
     assert payload["accepted_patch_ids"]
     assert any("重新评分" in line for line in payload["logs"])
+    # Regression: at most one patch is accepted per round (the round stops after
+    # the first applied patch), and applied-patch logs match the accepted ids so
+    # stale follow-up patches no longer emit a misleading "未通过安全检查" line.
+    assert len(payload["accepted_patch_ids"]) == 1
+    applied_logs = [line for line in payload["logs"] if "已应用补丁" in line]
+    assert len(applied_logs) == len(payload["accepted_patch_ids"])
 
     updated_project = client.get(f"/api/projects/{project['id']}").json()
     assert "生成处理结果" in updated_project["package"]["description"]

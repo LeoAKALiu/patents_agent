@@ -69,6 +69,42 @@ def test_corpus_job_api_runs_batch_import_and_exposes_stats(tmp_path):
     assert versions_response.status_code == 200
     assert versions_response.json()["versions"][0]["name"] == "ai-software-v1"
 
+
+def test_corpus_upload_keeps_same_named_files_distinct(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=FakeLLMClient({})))
+    create_response = client.post(
+        "/api/corpus/jobs",
+        json={
+            "source_type": "cnipa_export",
+            "source_name": "CNIPA",
+            "query": "G06N",
+            "domain": "ai_software",
+            "version_name": "ai-software-v1",
+        },
+    )
+    assert create_response.status_code == 200
+    job_id = create_response.json()["id"]
+
+    last_payload = None
+    for body in (b"first file body", b"second file body"):
+        upload_response = client.post(
+            f"/api/corpus/jobs/{job_id}/files",
+            files={"file": ("duplicate.txt", body, "text/plain")},
+        )
+        assert upload_response.status_code == 200
+        last_payload = upload_response.json()
+
+    # Both uploads share a filename, but must be stored without overwriting.
+    assert last_payload["file_count"] == 2
+    input_paths = last_payload["job"]["input_paths"]
+    assert len(input_paths) == 2
+    assert len(set(input_paths)) == 2
+
+    uploaded_dir = tmp_path / "corpus-jobs" / job_id / "uploaded"
+    stored = sorted(path.name for path in uploaded_dir.iterdir())
+    assert len(stored) == 2
+    assert all(name.endswith("-duplicate.txt") for name in stored)
+
     stats_response = client.get("/api/corpus/stats", params={"version": "ai-software-v1"})
     assert stats_response.status_code == 200
     stats = stats_response.json()
