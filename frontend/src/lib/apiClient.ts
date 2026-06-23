@@ -39,13 +39,28 @@ function resolveOriginForOpenApi(): string {
   return "http://localhost";
 }
 
+function isApiPath(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
+
+function resolveRequestUrl(raw: string, backendBaseUrl: string | null): string {
+  if (!backendBaseUrl) return raw;
+  const origin = resolveOriginForOpenApi();
+  const url = new URL(raw, origin);
+  if (!isApiPath(url.pathname)) return raw;
+  return `${backendBaseUrl}${url.pathname}${url.search}`;
+}
+
 export const apiClient = createClient<paths>({
   baseUrl: resolveOriginForOpenApi(),
   fetch: async (input: Request | string, init?: RequestInit) => {
     const raw = typeof input === "string" ? input : input.url;
     const backendBaseUrl = await resolveBackendBaseUrl();
-    const target =
-      backendBaseUrl && raw.startsWith("/api/") ? `${backendBaseUrl}${raw}` : raw;
-    return fetch(target, init);
+    const target = resolveRequestUrl(raw, backendBaseUrl);
+    if (typeof input === "string") {
+      return fetch(target, init);
+    }
+    const request = target === input.url ? input : new Request(target, input);
+    return fetch(request, init);
   },
 });
