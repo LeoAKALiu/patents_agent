@@ -19,6 +19,29 @@
    text-app-muted, border-app-border, …). Single source of truth is
    tokens.css; this only exposes those vars to the Tailwind layer. */
 @theme {
+  /* shadcn/ui semantic color bridge. These names are required for
+     utilities like bg-primary, text-muted-foreground, border-input, and
+     ring-ring used by shared UI components. */
+  --color-background:           var(--surface-base);
+  --color-foreground:           var(--text-primary);
+  --color-card:                 var(--surface-raised);
+  --color-card-foreground:      var(--text-primary);
+  --color-popover:              var(--surface-raised);
+  --color-popover-foreground:   var(--text-primary);
+  --color-primary:              var(--action-primary);
+  --color-primary-foreground:   var(--action-primary-contrast);
+  --color-secondary:            var(--surface-subtle);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted:                var(--surface-subtle);
+  --color-muted-foreground:     var(--text-muted);
+  --color-accent:               color-mix(in oklch, var(--action-primary), transparent 90%);
+  --color-accent-foreground:    var(--action-primary);
+  --color-destructive:          var(--danger);
+  --color-destructive-foreground: oklch(99% 0.005 261);
+  --color-border:               var(--border-subtle);
+  --color-input:                var(--border-input);
+  --color-ring:                 var(--focus-ring);
+
   --color-app-bg:           var(--surface-base);
   --color-app-surface:      var(--surface-raised);
   --color-app-subtle:       var(--surface-subtle);
