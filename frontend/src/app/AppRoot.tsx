@@ -216,6 +216,24 @@ function pageTitleForSection(activeSection: MainSectionId): { title: string; sub
   return { title: "开始", subtitle: "选择一种默认路径进入 v1.1.0 向导" };
 }
 
+function projectWorkspace(props: AppRootProps, section: "generate" | "utility" | "projects"): React.ReactNode {
+  return (
+    <div className="px-4 md:px-8 py-4 md:py-6">
+      <ProjectWorkspace
+        section={section}
+        state={props.projectState}
+        handlers={props.projectHandlers}
+        fixedGoalMode={section === "projects" ? undefined : fixedGoalModeFor(props.startChoice, props.activeSection)}
+        initialIntakeMode={
+          section === "projects"
+            ? undefined
+            : props.startChoice === "external" ? "external" : "idea"
+        }
+      />
+    </div>
+  );
+}
+
 export function AppRoot(props: AppRootProps) {
   const route = resolveRoute(
     props.activeSection,
@@ -237,9 +255,6 @@ export function AppRoot(props: AppRootProps) {
         { id: "deliberate", label: "03 多智能体会审", icon: <ClipboardList size={14} aria-hidden="true" /> },
       ]
     : undefined;
-  const fixedGoalMode = fixedGoalModeFor(props.startChoice, props.activeSection);
-  const initialIntakeMode: "idea" | "external" =
-    props.startChoice === "external" ? "external" : "idea";
   const showExpertChooser = props.activeSection === "expert";
   return (
     <ShellLayout
@@ -285,37 +300,9 @@ export function AppRoot(props: AppRootProps) {
       {mobileNav(props)}
       {noticeBar(props)}
       <div className="workspace">
-        {route === "start-choice" && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-            <ProjectWorkspace
-              section={props.activeSection === "utility" ? "utility" : "generate"}
-              state={props.projectState}
-              handlers={props.projectHandlers}
-              fixedGoalMode={fixedGoalMode}
-              initialIntakeMode={initialIntakeMode}
-            />
-          </div>
-        )}
-        {route === "guided" && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-            <ProjectWorkspace
-              section={props.activeSection === "utility" ? "utility" : "generate"}
-              state={props.projectState}
-              handlers={props.projectHandlers}
-              fixedGoalMode={fixedGoalMode}
-              initialIntakeMode={initialIntakeMode}
-            />
-          </div>
-        )}
-        {route === "projects-overview" && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-            <ProjectWorkspace
-              section="projects"
-              state={props.projectState}
-              handlers={props.projectHandlers}
-            />
-          </div>
-        )}
+        {(route === "start-choice" || route === "guided") &&
+          projectWorkspace(props, props.activeSection === "utility" ? "utility" : "generate")}
+        {route === "projects-overview" && projectWorkspace(props, "projects")}
         {route === "settings" && (
           <div className="px-4 md:px-8 py-4 md:py-6">
             <SettingsPanel theme={props.theme} onThemeChange={props.onChangeTheme} />

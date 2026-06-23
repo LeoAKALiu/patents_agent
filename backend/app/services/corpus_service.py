@@ -21,11 +21,7 @@ def import_corpus_document(
     index,
 ) -> dict:
     """Read a patent document from disk, chunk it, and persist."""
-    try:
-        text = read_document_text(stored_path)
-    except ValueError as exc:
-        raise exc
-
+    text = read_document_text(stored_path)
     safe_name = stored_path.name
     document = make_patent_document(uuid.uuid4().hex, safe_name, text)
     chunks = [PatentChunk(**chunk) for chunk in chunk_document(document)]

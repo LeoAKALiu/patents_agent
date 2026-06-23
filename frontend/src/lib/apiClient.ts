@@ -19,6 +19,8 @@ async function resolveBackendBaseUrl(): Promise<string | null> {
   const invoke = typeof window !== "undefined" ? window.__TAURI__?.core?.invoke : undefined;
   if (!invoke) return null;
   if (!backendBaseUrlPromise) {
+    // The Tauri sidecar backend is started once for the desktop window
+    // lifetime, so its base URL is stable until the renderer reloads.
     backendBaseUrlPromise = invoke<string>("get_backend_base_url")
       .then((baseUrl) => baseUrl.replace(/\/+$/, ""))
       .catch(() => null);

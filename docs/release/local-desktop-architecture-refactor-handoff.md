@@ -4,12 +4,18 @@
 
 - Branch: `codex/refactor-architecture-integration-qa`
 - Short SHA at worker handoff: `fa6ecbe`
-- Final Codex-reviewed merge SHA: `c091a04`
+- Final pre-review merge SHA: `d8f373d`
+- Current PR branch tip is the authoritative reviewed SHA after follow-up
+  commits.
 - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/t_cd5e347c`
 - Dirty status at worker handoff: clean
 - Codex reviewer follow-up: added `tests/test_tauri_build_prereqs.py`,
   performed desktop running-app QA, and updated this handoff on top of
   `fa6ecbe`.
+- Review follow-up after PR creation: addressed Claude review feedback by
+  removing small dead-code smells, documenting Tauri backend URL memoization,
+  moving SQLAlchemy/Alembic to optional `dev`/`migration` extras, and excluding
+  the unwired migration scaffold from the PyInstaller sidecar.
 
 ## PRs Reviewed
 
@@ -40,7 +46,10 @@ architecture spec and implementation plan are present in the deliverable branch.
   - Result: **11 passed** in 0.05s
 
 - `python3 -m pytest tests/test_tauri_desktop_skeleton.py tests/test_tauri_build_prereqs.py -q`
-  - Result after Codex reviewer follow-up: **15 passed** in 0.03s
+  - Result after Claude review follow-up: **17 passed** in 0.03s
+
+- `python3 -m pytest tests/test_corpus_api_router.py tests/test_tauri_build_prereqs.py tests/test_db_session.py -q`
+  - Result after Claude review follow-up: **18 passed** in 1.81s.
 
 - Broader backend regression: `python3 -m pytest tests/test_db_session.py tests/test_project_repository.py tests/test_corpus_api_router.py tests/test_api_router_foundation.py tests/test_patent_points.py tests/test_disclosure.py tests/test_deep_research.py tests/test_grantability.py tests/test_claim_defense.py tests/test_draft_completion_api.py -q`
   - Result: **133 passed, 1 skipped** in 7.33s
@@ -79,6 +88,9 @@ architecture spec and implementation plan are present in the deliverable branch.
 - Generated API types: `frontend/src/generated/api/schema.d.ts` (5465 lines)
 - Query client: `frontend/src/lib/queryClient.ts` wired in `frontend/src/main.tsx`
 - Typed API client: `frontend/src/lib/apiClient.ts` with Tauri bridge
+- SQLAlchemy/Alembic migration scaffold: present for future local SQLite
+  migration work, but optional-only and excluded from the current PyInstaller
+  sidecar until production storage is wired to the ORM path.
 
 ## Merge Recommendation
 

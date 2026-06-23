@@ -39,7 +39,7 @@ The main refactor pressure is not framework age. It is code boundary size and st
 - Introduce generated API types from FastAPI OpenAPI so frontend/backend contracts stop drifting.
 - Introduce TanStack Query for server state and cache invalidation instead of hand-rolled refetch state.
 - Introduce a light route/workspace structure for React screens without turning the app into a web SaaS.
-- Add SQLAlchemy 2 and Alembic as the migration path for local SQLite while keeping existing data compatible.
+- Add SQLAlchemy 2 and Alembic as an optional migration path for local SQLite while keeping existing data compatible and avoiding current runtime bundle bloat.
 - Preserve current release gates, desktop smoke expectations, export safety gates, and annotated repair editor regressions.
 - Split implementation into reviewable PRs that can be assigned to Hermes workers with disjoint file ownership where practical.
 

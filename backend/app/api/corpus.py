@@ -76,8 +76,6 @@ def run_corpus_job(job_id: str, request: Request) -> dict:
     if not store.get_corpus_job(job_id):
         raise HTTPException(status_code=404, detail="Corpus import job not found.")
     job = corpus_service.run_job(job_id)
-    if job.status == "failed" and not job.imported_documents:
-        return job.model_dump(mode="json")
     return job.model_dump(mode="json")
 
 

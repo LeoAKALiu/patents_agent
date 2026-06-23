@@ -1248,10 +1248,24 @@ dependencies = [
   "json-repair>=0.35.0",
   "openpyxl>=3.1.0",
   "openai>=1.40.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+  "httpx>=0.27.0",
+  "sqlalchemy>=2.0.0",
+  "alembic>=1.13.0",
+]
+migration = [
   "sqlalchemy>=2.0.0",
   "alembic>=1.13.0",
 ]
 ```
+
+Keep SQLAlchemy/Alembic out of runtime dependencies until the ORM path is wired
+into production storage.  The migration scaffold stays testable through the
+`dev`/`migration` extras without bloating the current desktop sidecar bundle.
 
 - [ ] **Step 2: Add database session module**
 

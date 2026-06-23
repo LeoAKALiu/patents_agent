@@ -43,6 +43,28 @@ def test_packaging_extra_contains_pyinstaller() -> None:
     assert any(dependency.lower().startswith("pyinstaller") for dependency in packaging)
 
 
+def test_sqlalchemy_migration_scaffold_is_not_a_runtime_dependency() -> None:
+    project = tomllib.loads(read(ROOT / "pyproject.toml"))
+
+    runtime = project["project"]["dependencies"]
+    assert not any(dependency.lower().startswith("sqlalchemy") for dependency in runtime)
+    assert not any(dependency.lower().startswith("alembic") for dependency in runtime)
+
+    optional = project["project"]["optional-dependencies"]
+    for extra in ["dev", "migration"]:
+        dependencies = optional[extra]
+        assert any(dependency.lower().startswith("sqlalchemy") for dependency in dependencies)
+        assert any(dependency.lower().startswith("alembic") for dependency in dependencies)
+
+
+def test_pyinstaller_excludes_unwired_migration_scaffold() -> None:
+    spec = read(ROOT / "scripts" / "backend.spec")
+
+    assert 'if not module.startswith("backend.app.db")' in spec
+    assert '"sqlalchemy"' in spec
+    assert '"alembic"' in spec
+
+
 def test_tauri_bundle_inputs_exist_before_packaging() -> None:
     config = json.loads(read(ROOT / "src-tauri" / "tauri.conf.json"))
 
