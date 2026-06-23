@@ -5,13 +5,12 @@ import json
 import os
 import re
 import shutil
-import time
 import uuid
 from itertools import combinations
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import ValidationError
@@ -49,13 +48,9 @@ from backend.app.kimi_language_polish import run_kimi_language_polish
 from backend.app.desktop_config import (
     DesktopConfig,
     DesktopConfigError,
-    apply_update as apply_desktop_config_update,
-    effective_settings as effective_desktop_settings,
     load_desktop_config,
-    redacted_view as desktop_config_redacted_view,
-    save_desktop_config,
 )
-from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
+from backend.app.llm import ConfigError, LLMClient, MissingLLMClient
 from backend.app.llm_cache import CachedStageLLMClient, clear_project_llm_cache
 from backend.app.moat import score_moat
 from backend.app.official_compile import (
@@ -97,9 +92,6 @@ from backend.app.schemas import (
     DeliberationRun,
     DeliberationLogEntry,
     DeliberationRunCreate,
-    DesktopConfigHealthResult,
-    DesktopConfigUpdate,
-    DesktopConfigView,
     DisclosurePackage,
     DisclosureRun,
     DisclosureRunCreate,
@@ -144,33 +136,14 @@ from backend.app.schemas import (
 from backend.app.settings import Settings, build_settings
 from backend.app.storage import SQLiteStore
 
+from backend.app.api.desktop_config import router as desktop_config_router
+from backend.app.api.system import router as system_router
+from backend.app.services.desktop_config_service import LOCAL_RENDERER_ORIGINS
+from backend.app.services.llm_factory import build_llm
+
 
 STRICT_DELIBERATION_PROVIDERS = ("codex", "deepseek", "claude")
 APP_VERSION = "1.1.0"
-LOCAL_RENDERER_ORIGINS = frozenset(
-    {
-        "http://127.0.0.1:5173",
-        "http://localhost:5173",
-        "http://127.0.0.1:5174",
-        "http://localhost:5174",
-        "tauri://localhost",
-        "http://tauri.localhost",
-        "https://tauri.localhost",
-    }
-)
-
-
-def _enforce_desktop_config_origin(request: Request) -> None:
-    """Reject browser-originated config writes from non-renderer origins.
-
-    Tauri command invocations and backend tests do not send Origin, so absence
-    is allowed. Browser requests from arbitrary sites send Origin and must not
-    be able to read or mutate the local desktop LLM configuration.
-    """
-
-    origin = request.headers.get("origin")
-    if origin and origin not in LOCAL_RENDERER_ORIGINS:
-        raise HTTPException(status_code=403, detail="Forbidden desktop config origin.")
 
 
 def _ascii_download_filename(raw: str) -> str:
@@ -234,7 +207,7 @@ def create_app(
     if existing_chunks:
         index.add(existing_chunks)
     desktop_config = load_desktop_config(settings.data_dir)
-    llm = llm_client or _build_llm(settings, desktop_config)
+    llm = llm_client or build_llm(settings, desktop_config)
 
     app = FastAPI(title="Patents Agent", version=APP_VERSION)
     app.add_middleware(
@@ -244,6 +217,8 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.include_router(system_router)
+    app.include_router(desktop_config_router)
     app.state.settings = settings
     app.state.store = store
     app.state.index = index
@@ -255,110 +230,6 @@ def create_app(
     app.state.research_search_provider = research_search_provider
     app.state.disclosure_inline = prior_art_provider is not None
     app.state.corpus_service = CorpusImportService(store=store, index=index, data_dir=settings.data_dir)
-
-    @app.get("/api/health")
-    def health() -> dict:
-        return {
-            "ok": True,
-            "llm_configured": not isinstance(app.state.llm, MissingLLMClient),
-            "data_dir": str(settings.data_dir),
-            "model": settings.llm_model,
-            "embedding_model": settings.embedding_model,
-        }
-
-    @app.get("/api/desktop-config", response_model=DesktopConfigView)
-    def get_desktop_config(request: Request) -> dict:
-        """Return the redacted desktop LLM configuration (no raw key)."""
-        _enforce_desktop_config_origin(request)
-        view = desktop_config_redacted_view(app.state.desktop_config)
-        effective = effective_desktop_settings(settings, app.state.desktop_config)
-        view["provider"] = effective["provider"]
-        view["base_url"] = effective["base_url"]
-        view["model"] = effective["model"]
-        view["api_key_source"] = effective["api_key_source"]
-        return view
-
-    @app.patch("/api/desktop-config", response_model=DesktopConfigView)
-    def patch_desktop_config(payload: DesktopConfigUpdate, request: Request) -> dict:
-        """Persist a desktop LLM configuration update on the local machine.
-
-        The raw API key is dropped from the response and from any log lines.
-        The ``.env`` file is never touched.
-        """
-        _enforce_desktop_config_origin(request)
-        try:
-            updated = apply_desktop_config_update(
-                app.state.desktop_config,
-                provider=payload.provider,
-                base_url=payload.base_url,
-                model=payload.model,
-                api_key=payload.api_key,
-                clear_api_key=payload.clear_api_key,
-            )
-        except DesktopConfigError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        saved = save_desktop_config(settings.data_dir, updated)
-        app.state.desktop_config = saved
-        # Rebuild the LLM so subsequent generation calls pick up the new key.
-        if not app.state.llm_client_override:
-            app.state.llm = _build_llm(settings, saved)
-        view = desktop_config_redacted_view(saved)
-        effective = effective_desktop_settings(settings, saved)
-        view["provider"] = effective["provider"]
-        view["base_url"] = effective["base_url"]
-        view["model"] = effective["model"]
-        view["api_key_source"] = effective["api_key_source"]
-        return view
-
-    @app.post("/api/desktop-config/health", response_model=DesktopConfigHealthResult)
-    def desktop_config_health(request: Request) -> dict:
-        """Probe the configured LLM with a tiny request without echoing the key."""
-        _enforce_desktop_config_origin(request)
-        effective = effective_desktop_settings(settings, app.state.desktop_config)
-        api_key = effective["api_key"]
-        model = effective["model"]
-        base_url = effective["base_url"]
-        result: dict = {
-            "ok": False,
-            "model": model,
-            "api_key_source": effective["api_key_source"],
-            "latency_ms": 0,
-            "status_code": 0,
-            "error": "",
-        }
-        if not api_key:
-            result["error"] = "no_api_key"
-            return result
-        # Lazy import: keep the module import order predictable.
-        from openai import OpenAI
-
-        client = OpenAI(api_key=api_key, base_url=base_url or None)
-        started = time.monotonic()
-        try:
-            completion = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "ping"},
-                    {"role": "user", "content": "ping"},
-                ],
-                max_tokens=1,
-                temperature=0,
-            )
-            latency_ms = int((time.monotonic() - started) * 1000)
-            result["ok"] = bool(completion.choices)
-            result["latency_ms"] = latency_ms
-            result["status_code"] = 200
-        except Exception as exc:  # noqa: BLE001 - report, do not raise
-            latency_ms = int((time.monotonic() - started) * 1000)
-            result["latency_ms"] = latency_ms
-            result["error"] = _redact_error(exc)
-            status = getattr(exc, "status_code", None) or 0
-            result["status_code"] = int(status) if isinstance(status, int) else 0
-        return result
-
-    @app.get("/api/agents/doctor")
-    def agent_doctor() -> dict:
-        return inspect_agent_environment().model_dump(mode="json")
 
     @app.get("/api/corpus")
     def list_corpus() -> dict:
@@ -3403,27 +3274,6 @@ def _repair_issue_anchor_snippet(issue: dict) -> str | None:
     if isinstance(snippet, str) and snippet.strip():
         return snippet.strip()
     return None
-
-
-def _build_llm(settings: Settings, desktop_config: DesktopConfig | None = None) -> LLMClient:
-    effective = effective_desktop_settings(settings, desktop_config or DesktopConfig())
-    api_key = effective["api_key"]
-    if not api_key:
-        return MissingLLMClient()
-    return DeepSeekLLMClient(
-        api_key=api_key,
-        base_url=effective["base_url"] or None,
-        model=effective["model"],
-    )
-
-
-_API_KEY_REDACT_PATTERN = re.compile(r"(sk-[A-Za-z0-9_-]{6,})")
-
-
-def _redact_error(exc: BaseException) -> str:
-    """Return a short, key-free description of ``exc`` for the health endpoint."""
-    text = f"{type(exc).__name__}: {exc}"
-    return _API_KEY_REDACT_PATTERN.sub("sk-…", text)[:512]
 
 
 def _require_project(store: SQLiteStore, project_id: str) -> ProjectRecord:
