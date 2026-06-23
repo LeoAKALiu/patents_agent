@@ -4,6 +4,7 @@
 
 - Branch: `codex/refactor-architecture-integration-qa`
 - Short SHA at worker handoff: `fa6ecbe`
+- Final Codex-reviewed merge SHA: `c091a04`
 - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/t_cd5e347c`
 - Dirty status at worker handoff: clean
 - Codex reviewer follow-up: added `tests/test_tauri_build_prereqs.py`,
@@ -12,6 +13,8 @@
 
 ## PRs Reviewed
 
+- PR-0: Planning baseline — spec and plan merged from
+  `codex/architecture-refactor-plan` at 895f5c76
 - PR-1: Backend Router Foundation — merged into PR-4 via d0b626e6 / cherry-picked into PR-5 via 83871a3d
 - PR-2: Backend Projects and Corpus Domains — merged into PR-5 at 6905694b
 - PR-3: Frontend API and Query Foundation — merged into PR-4 at 17e654e7 / 7be7a3e0
@@ -19,6 +22,8 @@
 - PR-5: Storage Repository and Migration Foundation — branch `codex/refactor-storage-repository-migrations` at 51d7da83
 
 Merged both PR-4 (74944c77) and PR-5 (51d7da83) into integration branch. Clean merge, no conflicts.
+Codex reviewer also merged PR-0 planning docs into the final result so the
+architecture spec and implementation plan are present in the deliverable branch.
 
 ## Commands
 
