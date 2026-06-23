@@ -1193,14 +1193,17 @@ Start:
 npm --prefix frontend run dev -- --host 127.0.0.1 --port 5174
 ```
 
-Use Playwright or the existing browser QA skill to capture:
+Use Playwright or the existing browser QA skill to capture desktop running-app evidence:
 
 - desktop `1440x1100`;
-- mobile `390x1100`;
 - start screen;
 - project overview;
 - settings screen;
 - post-draft repair editor entry if a fixture project is available.
+
+Mobile layouts are explicitly out of scope for this local desktop refactor.
+Patent drafting is a desktop/Tauri workflow, and mobile viewport maintenance
+should not be added unless a future product requirement calls for it.
 
 Merge blocker: visible overlap, missing sidebar/topbar, blank route, or broken existing workflow.
 
