@@ -3,9 +3,12 @@
 ## Source
 
 - Branch: `codex/refactor-architecture-integration-qa`
-- Short SHA: `d4d617e`
+- Short SHA at worker handoff: `fa6ecbe`
 - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/t_cd5e347c`
-- Dirty status: clean
+- Dirty status at worker handoff: clean
+- Codex reviewer follow-up: added `tests/test_tauri_build_prereqs.py`,
+  performed desktop running-app QA, and updated this handoff on top of
+  `fa6ecbe`.
 
 ## PRs Reviewed
 
@@ -30,7 +33,9 @@ Merged both PR-4 (74944c77) and PR-5 (51d7da83) into integration branch. Clean m
 
 - `python3 -m pytest tests/test_tauri_desktop_skeleton.py -q`
   - Result: **11 passed** in 0.05s
-  - Note: `tests/test_tauri_build_prereqs.py` does not exist in this codebase; omitted.
+
+- `python3 -m pytest tests/test_tauri_desktop_skeleton.py tests/test_tauri_build_prereqs.py -q`
+  - Result after Codex reviewer follow-up: **15 passed** in 0.03s
 
 - Broader backend regression: `python3 -m pytest tests/test_db_session.py tests/test_project_repository.py tests/test_corpus_api_router.py tests/test_api_router_foundation.py tests/test_patent_points.py tests/test_disclosure.py tests/test_deep_research.py tests/test_grantability.py tests/test_claim_defense.py tests/test_draft_completion_api.py -q`
   - Result: **133 passed, 1 skipped** in 7.33s
@@ -38,13 +43,27 @@ Merged both PR-4 (74944c77) and PR-5 (51d7da83) into integration branch. Clean m
 - `npm --prefix frontend run build` (frontend production build)
   - Result: **passed**
 
+- Desktop running-app QA after Codex reviewer follow-up:
+  - Backend: `PATENTAGENT_BACKEND_DATA_DIR=/tmp/patentagent-pr6-backend-data python3 -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000`
+  - Frontend: `npm --prefix frontend run dev -- --host 127.0.0.1 --port 5178`
+  - Playwright desktop viewport: `1440x1100`
+  - Console: no errors, no warnings; only the React DevTools info message.
+
 ## UI Evidence
 
 - No Tauri packaging, `src-tauri/`, or package script changes touched in PR-4 or PR-5. DMG packaging is not required.
+- Mobile viewport evidence is intentionally out of scope. Patent drafting is
+  a desktop/Tauri workflow, and the user explicitly de-scoped mobile
+  maintenance for this refactor.
 - Frontend src files verified: `AppRoot.tsx`, `ShellLayout.tsx`, `routes.tsx`, `ProjectWorkspace.tsx`, `CorpusWorkspace.tsx`, `QualityWorkspace.tsx`, `PostDraftWorkspace.tsx` all present and wired.
 - `PostDraftRepairEditor.test.tsx` passes, confirming repair editor UI surface is intact.
 - `GuidedPatentFlowView.test.ts` passes, confirming guided patent flow UI surface is intact.
 - Frontend build output written to `frontend/dist/` — production bundle verified.
+- Desktop running-app screenshots captured from this integration worktree:
+  - `output/playwright/pr6-start-desktop-1440x1100.png`
+  - `output/playwright/pr6-projects-desktop-1440x1100.png`
+  - `output/playwright/pr6-settings-desktop-1440x1100.png`
+  - `output/playwright/pr6-expert-desktop-1440x1100.png`
 
 ## Architecture Check
 
@@ -61,6 +80,5 @@ Merged both PR-4 (74944c77) and PR-5 (51d7da83) into integration branch. Clean m
 - Verdict: **Ready for review**
 - Blockers: none
 - Residual risks:
-  - `tests/test_tauri_build_prereqs.py` does not exist — plan referenced it but it was never created. Not a blocker; Tauri skeleton tests pass.
-  - PR-4 HEAD used was 74944c77 (actual branch tip), not the 9da2a7d2 referenced in the task comment (that commit is orphaned, same tree content).
-  - Real browser/desktop smoke not performed — this QA card covers test pass/fail only. Codex reviewer should verify running app if needed.
+  - PR-4 HEAD used was 74944c77 (actual branch tip), not the superseded 9da2a7d2 referenced in an earlier task comment.
+  - Post-draft repair editor was covered by component tests in this pass; no fixture project with repairable review data was available for a live editor-entry flow.
