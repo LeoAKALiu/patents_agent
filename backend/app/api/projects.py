@@ -23,7 +23,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
-from backend.app.api.deps import require_project
+from backend.app.api.deps import get_project_repository, require_project
 from backend.app.schemas import (
     PatentPointCreate,
     PatentPointUpdate,
@@ -44,34 +44,34 @@ router = APIRouter(tags=["projects"])
 
 @router.get("/api/projects")
 def list_projects(request: Request) -> dict:
-    store = request.app.state.store
+    repo = get_project_repository(request)
     return {
         "projects": [
-            project.model_dump(mode="json") for project in store.list_projects()
+            project.model_dump(mode="json") for project in repo.list_all()
         ]
     }
 
 
 @router.post("/api/projects")
 def create_project(payload: ProjectCreate, request: Request) -> dict:
-    store = request.app.state.store
+    repo = get_project_repository(request)
     project = build_project_record(payload)
-    stored = store.create_project(project)
+    stored = repo.create(project)
     return stored.model_dump(mode="json")
 
 
 @router.get("/api/projects/{project_id}")
 def get_project(project_id: str, request: Request) -> dict:
-    store = request.app.state.store
-    project = require_project(project_id, store)
+    repo = get_project_repository(request)
+    project = require_project(project_id, repo)
     return project.model_dump(mode="json")
 
 
 @router.put("/api/projects/{project_id}")
 def update_project(project_id: str, payload: ProjectUpdate, request: Request) -> dict:
-    store = request.app.state.store
-    require_project(project_id, store)
-    updated = apply_project_update(project_id, payload, store)
+    repo = get_project_repository(request)
+    require_project(project_id, repo)
+    updated = apply_project_update(project_id, payload, repo)
     if updated is None:
         raise HTTPException(status_code=404, detail="Project not found.")
     return updated.model_dump(mode="json")
@@ -79,8 +79,8 @@ def update_project(project_id: str, payload: ProjectUpdate, request: Request) ->
 
 @router.delete("/api/projects/{project_id}")
 def delete_project(project_id: str, request: Request) -> dict:
-    store = request.app.state.store
-    deleted = store.delete_project(project_id)
+    repo = get_project_repository(request)
+    deleted = repo.delete(project_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Project not found.")
     return {"ok": True}
@@ -90,9 +90,9 @@ def delete_project(project_id: str, request: Request) -> dict:
 async def upload_project_material(
     request: Request, project_id: str, file: UploadFile = File(...)
 ) -> dict:
-    store = request.app.state.store
+    repo = get_project_repository(request)
     settings = request.app.state.settings
-    require_project(project_id, store)
+    require_project(project_id, repo)
     upload_dir = settings.data_dir / "project-materials" / project_id
     upload_dir.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename or "material.txt").name
@@ -103,31 +103,31 @@ async def upload_project_material(
         project_id=project_id,
         file_name=safe_name,
         stored_path=stored_path,
-        store=store,
+        repo=repo,
     )
     return material.model_dump(mode="json")
 
 
 @router.get("/api/projects/{project_id}/materials")
 def list_project_materials(project_id: str, request: Request) -> dict:
-    store = request.app.state.store
-    require_project(project_id, store)
+    repo = get_project_repository(request)
+    require_project(project_id, repo)
     return {
         "materials": [
             material.model_dump(mode="json")
-            for material in store.list_project_materials(project_id)
+            for material in repo.list_materials(project_id)
         ]
     }
 
 
 @router.get("/api/projects/{project_id}/patent-points")
 def list_project_patent_points(project_id: str, request: Request) -> dict:
-    store = request.app.state.store
-    require_project(project_id, store)
+    repo = get_project_repository(request)
+    require_project(project_id, repo)
     return {
         "points": [
             point.model_dump(mode="json")
-            for point in store.list_project_patent_points(project_id)
+            for point in repo.list_patent_points(project_id)
         ]
     }
 
@@ -136,10 +136,10 @@ def list_project_patent_points(project_id: str, request: Request) -> dict:
 def create_project_patent_point(
     project_id: str, payload: PatentPointCreate, request: Request
 ) -> dict:
-    store = request.app.state.store
-    require_project(project_id, store)
+    repo = get_project_repository(request)
+    require_project(project_id, repo)
     point = build_patent_point_candidate(payload)
-    stored = store.add_project_patent_point(project_id, point)
+    stored = repo.add_patent_point(project_id, point)
     return stored.model_dump(mode="json")
 
 
@@ -147,16 +147,16 @@ def create_project_patent_point(
 def update_project_patent_point(
     project_id: str, point_id: str, payload: PatentPointUpdate, request: Request
 ) -> dict:
-    store = request.app.state.store
-    require_project(project_id, store)
-    existing = store.get_project_patent_point(project_id, point_id)
+    repo = get_project_repository(request)
+    require_project(project_id, repo)
+    existing = repo.get_patent_point(project_id, point_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Patent point not found.")
     try:
         updated = merge_patent_point_update(existing, payload)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    stored = store.add_project_patent_point(project_id, updated)
+    stored = repo.add_patent_point(project_id, updated)
     return stored.model_dump(mode="json")
 
 
@@ -164,9 +164,9 @@ def update_project_patent_point(
 def delete_project_patent_point(
     project_id: str, point_id: str, request: Request
 ) -> dict:
-    store = request.app.state.store
-    require_project(project_id, store)
-    deleted = store.delete_project_patent_point(project_id, point_id)
+    repo = get_project_repository(request)
+    require_project(project_id, repo)
+    deleted = repo.delete_patent_point(project_id, point_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Patent point not found.")
     return {"ok": True}
@@ -176,15 +176,15 @@ def delete_project_patent_point(
 def evaluate_patent_point_moat(
     project_id: str, point_id: str, request: Request
 ) -> dict:
-    store = request.app.state.store
+    repo = get_project_repository(request)
     llm = request.app.state.llm
-    project = require_project(project_id, store)
-    existing = store.get_project_patent_point(project_id, point_id)
+    project = require_project(project_id, repo)
+    existing = repo.get_patent_point(project_id, point_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Patent point not found.")
     try:
         updated = evaluate_point_moat(project=project, point=existing, llm=llm)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    stored = store.add_project_patent_point(project_id, updated)
+    stored = repo.add_patent_point(project_id, updated)
     return stored.model_dump(mode="json")

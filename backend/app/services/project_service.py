@@ -44,13 +44,13 @@ def build_project_record(payload: ProjectCreate) -> ProjectRecord:
 def apply_project_update(
     project_id: str,
     payload: ProjectUpdate,
-    store,
+    repo,
 ) -> ProjectRecord | None:
     """Apply a partial update payload and return the updated project."""
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
-        return store.get_project(project_id)
-    return store.update_project(project_id, updates)
+        return repo.get_by_id(project_id)
+    return repo.update(project_id, updates)
 
 
 def import_project_material(
@@ -58,7 +58,7 @@ def import_project_material(
     project_id: str,
     file_name: str,
     stored_path: Path,
-    store,
+    repo,
 ) -> ProjectMaterial:
     """Read and persist a project material file."""
     warnings: list[str] = []
@@ -80,7 +80,7 @@ def import_project_material(
         status=status,
         warnings=warnings,
     )
-    store.add_project_material(material)
+    repo.add_material(material)
     return material
 
 

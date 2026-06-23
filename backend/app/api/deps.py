@@ -12,6 +12,7 @@ from fastapi import HTTPException, Request
 from backend.app.desktop_config import DesktopConfig
 from backend.app.llm import LLMClient
 from backend.app.rag import LocalVectorIndex
+from backend.app.repositories.projects import ProjectRepository
 from backend.app.schemas import ProjectRecord
 from backend.app.settings import Settings
 from backend.app.storage import SQLiteStore
@@ -47,9 +48,14 @@ def get_corpus_service(request: Request) -> object:
     return request.app.state.corpus_service
 
 
-def require_project(project_id: str, store: SQLiteStore) -> ProjectRecord:
+def get_project_repository(request: Request) -> ProjectRepository:
+    """Return a ProjectRepository backed by the application SQLite store."""
+    return ProjectRepository(request.app.state.store)
+
+
+def require_project(project_id: str, repo: ProjectRepository) -> ProjectRecord:
     """Return the project or raise 404."""
-    project = store.get_project(project_id)
+    project = repo.get_by_id(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
     return project
