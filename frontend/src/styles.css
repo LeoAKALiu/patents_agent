@@ -903,6 +903,145 @@ button.nav-link span {
   line-height: 1.5;
 }
 
+.guided-run-history {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin-top: 2px;
+}
+
+.guided-run-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.guided-run-record {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.guided-run-record-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.guided-run-record-head > div {
+  min-width: 0;
+}
+
+.guided-run-record-head strong {
+  display: block;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.guided-run-record-head span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.guided-run-metrics,
+.guided-run-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.guided-run-metrics span,
+.guided-run-events span {
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.guided-run-log-list,
+.guided-run-failure-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.guided-run-log {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.guided-run-log.warn {
+  border-color: color-mix(in oklch, var(--warn), var(--border-subtle) 52%);
+}
+
+.guided-run-log.error {
+  border-color: color-mix(in oklch, var(--danger), var(--border-subtle) 48%);
+  background: color-mix(in oklch, var(--danger), var(--surface-raised) 94%);
+}
+
+.guided-run-log > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.guided-run-log strong {
+  color: var(--text-primary);
+}
+
+.guided-run-log p,
+.guided-run-failure-list p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.guided-run-log pre {
+  max-height: 140px;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  color: var(--text-muted);
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.guided-run-failure-list p {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklch, var(--danger), transparent 72%);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--danger), transparent 92%);
+  color: var(--danger);
+}
+
 /* ── Form fields ──────────────────────────────────────────────── */
 .field input,
 .field textarea,

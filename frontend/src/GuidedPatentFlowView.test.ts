@@ -49,6 +49,15 @@ describe("Guided patent flow UI regressions", () => {
     expect(runtimeWidgetsSource).not.toMatch(/size="icon"[^>]+onRetry/s);
   });
 
+  it("shows deliberation run history and logs in the guided panel", () => {
+    expect(deliberationSource).toContain("DeliberationRunHistory");
+    expect(deliberationSource).toContain("会审记录与日志");
+    expect(deliberationSource).toContain("run.logs.slice");
+    expect(deliberationSource).toContain("run.events.slice");
+    expect(deliberationSource).toContain("run.failures.slice");
+    expect(deliberationSource).not.toContain("已有会审记录，但尚无已完成的策略结果");
+  });
+
   it("allows shared buttons to wrap inside constrained cards", () => {
     expect(buttonSource).toContain("min-w-0");
     expect(buttonSource).toContain("max-w-full");
