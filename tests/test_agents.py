@@ -74,7 +74,7 @@ def _make_executable(path: Path) -> None:
 
 
 def test_doctor_reports_core_required_and_optional_provider_metadata():
-    # codex+reasonix/deepseek+claude are required and auth-verifiable.
+    # Codex is the fixed chair; DeepSeek/Claude are selectable expert candidates.
     # gemini is deprecated optional and stays selectable only if installed.
     full = inspect_agent_environment(
         command_lookup=lambda command: f"/bin/{command}",
@@ -106,8 +106,8 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     assert core_only.missing_optional == ["gemini", "kimicode", "mimo"]
     assert core_only.commands["codex"].model_version
     assert "deliberation" in core_only.commands["codex"].roles
-    assert core_only.commands["deepseek"].required is True
-    assert core_only.commands["claude"].required is True
+    assert core_only.commands["deepseek"].required is False
+    assert core_only.commands["claude"].required is False
 
     missing_deepseek = inspect_agent_environment(
         command_lookup=lambda command: f"/bin/{command}" if command in {"codex", "claude"} else "",
@@ -115,7 +115,7 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     )
     assert missing_deepseek.status == "blocked"
     assert missing_deepseek.run_mode == "blocked"
-    assert "deepseek" in missing_deepseek.missing_required
+    assert "deepseek" in missing_deepseek.missing_optional
 
     blocked = inspect_agent_environment(
         command_lookup=lambda command: "",
@@ -123,7 +123,8 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     )
     assert blocked.status == "blocked"
     assert blocked.run_mode == "blocked"
-    assert set(blocked.missing_required) == {"codex", "deepseek", "claude"}
+    assert set(blocked.missing_required) == {"codex"}
+    assert {"deepseek", "claude"}.issubset(set(blocked.missing_optional))
 
 
 def test_agent_command_resolution_survives_desktop_launch_path(
@@ -139,6 +140,8 @@ def test_agent_command_resolution_survives_desktop_launch_path(
     monkeypatch.setenv("PATENTS_AGENT_AGENT_PATH", str(tmp_path))
 
     assert str(tmp_path) in agent_search_path()
+    assert str(Path.home() / ".codex" / "bin") in agent_search_path()
+    assert str(Path.home() / ".claude" / "local") in agent_search_path()
     assert "/opt/homebrew/bin" in agent_search_path()
     assert resolve_agent_command("codex") == str(tmp_path / "codex")
     assert resolve_agent_command("reasonix") == str(tmp_path / "reasonix")
@@ -304,8 +307,8 @@ def test_doctor_requires_claude_print_mode_not_just_auth_status():
     assert claude.selectable is False
     assert "401" in claude.diagnostic
     assert "claude -p" in claude.repair_suggestion
-    assert "claude" in report.missing_required
-    assert report.status == "blocked"
+    assert "claude" in report.missing_optional
+    assert report.status == "degraded"
 
 
 # ---------------------------------------------------------------------------

@@ -1107,11 +1107,11 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 insert into deliberation_runs(
-                    id, project_id, status, providers_json, run_mode, round_depth, trace,
+                    id, project_id, status, providers_json, participant_providers_json, run_mode, round_depth, trace,
                     run_dir, stage_results_json, strategy_brief_json, failures_json, events_json,
                     logs_json, runtime_state_json, failure_details_json, cancel_requested, retry_of
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._run_values(run),
             )
@@ -1122,7 +1122,7 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 update deliberation_runs
-                set status = ?, providers_json = ?, run_mode = ?, round_depth = ?, trace = ?,
+                set status = ?, providers_json = ?, participant_providers_json = ?, run_mode = ?, round_depth = ?, trace = ?,
                     run_dir = ?, stage_results_json = ?, strategy_brief_json = ?,
                     failures_json = ?, events_json = ?, logs_json = ?, runtime_state_json = ?,
                     failure_details_json = ?, cancel_requested = ?, retry_of = ?,
@@ -1132,6 +1132,7 @@ class SQLiteStore:
                 (
                     run.status,
                     json.dumps(run.providers, ensure_ascii=False),
+                    json.dumps(run.participant_providers, ensure_ascii=False),
                     run.run_mode,
                     run.round_depth,
                     1 if run.trace else 0,
@@ -1228,6 +1229,7 @@ class SQLiteStore:
                     project_id text not null,
                     status text not null,
                     providers_json text not null,
+                    participant_providers_json text not null default '[]',
                     run_mode text not null,
                     round_depth text not null,
                     trace integer not null default 0,
@@ -1490,6 +1492,7 @@ class SQLiteStore:
             self._ensure_column("projects", "innovation", "text not null default ''")
             self._ensure_column("projects", "embodiments", "text not null default ''")
             self._ensure_column("projects", "beneficial_effects", "text not null default ''")
+            self._ensure_column("deliberation_runs", "participant_providers_json", "text not null default '[]'")
             self._ensure_column("deliberation_runs", "logs_json", "text not null default '[]'")
             self._ensure_column("deliberation_runs", "runtime_state_json", "text")
             self._ensure_column("deliberation_runs", "failure_details_json", "text not null default '[]'")
@@ -1819,6 +1822,7 @@ class SQLiteStore:
             run.project_id,
             run.status,
             json.dumps(run.providers, ensure_ascii=False),
+            json.dumps(run.participant_providers, ensure_ascii=False),
             run.run_mode,
             run.round_depth,
             1 if run.trace else 0,
@@ -1841,6 +1845,7 @@ class SQLiteStore:
             project_id=row["project_id"],
             status=row["status"],
             providers=json.loads(row["providers_json"]),
+            participant_providers=json.loads(row["participant_providers_json"] if "participant_providers_json" in row.keys() else "[]"),
             run_mode=row["run_mode"],
             round_depth=row["round_depth"],
             trace=bool(row["trace"]),

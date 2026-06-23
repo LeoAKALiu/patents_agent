@@ -49,6 +49,7 @@ export interface ProjectWorkspaceState {
   currentPackage: ProjectRecord["package"];
   agentDoctor: AgentDoctorReport | null;
   selectedDeliberationProviders: string[];
+  selectedDeliberationParticipantProviders: string[];
   selectedFormulaProviders: string[];
   filingReports: FilingReadinessReport[];
   worksheets: ClaimDefenseWorksheet[];
@@ -112,6 +113,7 @@ export interface ProjectWorkspaceHandlers {
   onCancelPostDraftReviewRun: (runId: string) => void;
   onRetryPostDraftReviewRun: (runId: string) => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
+  onToggleDeliberationParticipantProvider: (providerId: string, enabled: boolean) => void;
   onToggleFormulaProvider: (providerId: string, enabled: boolean) => void;
   onGenerateDraft: () => void;
   onRunQualityChecks: () => void;
@@ -196,6 +198,7 @@ export function ProjectWorkspace({
       currentPackage={state.currentPackage}
       agentDoctor={state.agentDoctor}
       selectedDeliberationProviders={state.selectedDeliberationProviders}
+      selectedDeliberationParticipantProviders={state.selectedDeliberationParticipantProviders}
       selectedFormulaProviders={state.selectedFormulaProviders}
       filingReports={state.filingReports}
       worksheets={state.worksheets}
@@ -232,6 +235,7 @@ export function ProjectWorkspace({
       onCancelPostDraftReviewRun={handlers.onCancelPostDraftReviewRun}
       onRetryPostDraftReviewRun={handlers.onRetryPostDraftReviewRun}
       onToggleDeliberationProvider={handlers.onToggleDeliberationProvider}
+      onToggleDeliberationParticipantProvider={handlers.onToggleDeliberationParticipantProvider}
       onToggleFormulaProvider={handlers.onToggleFormulaProvider}
       onGenerateDraft={handlers.onGenerateDraft}
       onRunQualityChecks={handlers.onRunQualityChecks}

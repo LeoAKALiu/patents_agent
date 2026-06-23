@@ -1,5 +1,5 @@
 import { Loader2, UsersRound } from "@/lib/icons";
-import { AgentProviderCards } from "@/AgentProviderCards";
+import { DeliberationAgentSelector, deliberationExpertSeatCount } from "@/AgentProviderCards";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { AgentDoctorReport, DeliberationRun } from "@/api";
@@ -18,12 +18,14 @@ export interface DeliberationPanelProps {
   runs: DeliberationRun[];
   doctor: AgentDoctorReport | null;
   selectedProviders: string[];
+  participantProviders: string[];
   busy: string;
   busyElapsedSeconds: number;
   onStartDeliberation: () => void;
   onCancelRun: (runId: string) => void;
   onRetryRun: (runId: string) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
+  onToggleParticipantProvider: (providerId: string, enabled: boolean) => void;
   onOpenExpertTool: ExpertToolOpener;
 }
 
@@ -32,16 +34,19 @@ export function DeliberationPanel({
   runs,
   doctor,
   selectedProviders,
+  participantProviders,
   busy,
   busyElapsedSeconds,
   onStartDeliberation,
   onCancelRun,
   onRetryRun,
   onToggleProvider,
+  onToggleParticipantProvider,
   onOpenExpertTool,
 }: DeliberationPanelProps) {
   const activeRun = guidedActiveRun(runs);
   const deliberationBusy = busy === "deliberate" || Boolean(activeRun);
+  const hasEnoughExperts = selectedProviders.length >= deliberationExpertSeatCount;
   return (
     <section className="grid gap-3.5 p-5 rounded-lg border border-app-border bg-app-surface">
       <div className="flex items-start justify-between gap-3.5">
@@ -57,14 +62,16 @@ export function DeliberationPanel({
           <span>查看会审详情</span>
         </Button>
       </div>
-      <AgentProviderCards
+      <DeliberationAgentSelector
         doctor={doctor}
-        role="deliberation"
-        selectedProviders={selectedProviders}
+        expertProviders={selectedProviders}
+        participantProviders={participantProviders}
         disabled={deliberationBusy}
-        onToggleProvider={onToggleProvider}
+        onToggleExpert={onToggleProvider}
+        onToggleParticipant={onToggleParticipantProvider}
       />
-      <Button className="guided-primary-action" variant="glass-primary" disabled={deliberationBusy} onClick={onStartDeliberation} type="button">
+      {!hasEnoughExperts && <p className="workflow-hint">至少需要 Codex 主席 + 2 个可用专家才能启动会审。</p>}
+      <Button className="guided-primary-action" variant="glass-primary" disabled={deliberationBusy || !hasEnoughExperts} onClick={onStartDeliberation} type="button">
         {deliberationBusy ? <Loader2 className="spin" size={17} /> : <UsersRound size={17} />}
         <span>{activeRun ? "会审中" : deliberation ? "重新会审" : "启动多智能体会审"}</span>
       </Button>

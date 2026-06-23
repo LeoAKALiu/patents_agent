@@ -2464,8 +2464,8 @@ input:focus, select:focus, textarea:focus {
 
 .agent-provider-card {
   display: grid;
-  grid-template-rows: auto auto minmax(34px, 1fr) auto;
-  gap: 9px;
+  grid-template-rows: auto auto auto auto;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
   padding: 12px;
@@ -2551,7 +2551,12 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.45;
+  min-width: 0;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .agent-provider-toggle {
@@ -2588,6 +2593,62 @@ input:focus, select:focus, textarea:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.deliberation-agent-selector {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.agent-seat-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.agent-seat-summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-seat-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.agent-seat-actions > .agent-provider-toggle-label {
+  grid-column: 1 / -1;
+}
+
+.agent-provider-diagnostics {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in oklch, var(--app-warning, #d18b00), var(--border-subtle) 58%);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--surface-subtle), var(--app-warning, #d18b00) 7%);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.agent-provider-diagnostics p {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-provider-diagnostics strong {
+  color: var(--text-primary);
 }
 
 .agent-provider-scroll {

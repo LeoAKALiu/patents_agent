@@ -20,14 +20,14 @@ PROVIDERS = {
     "deepseek": {
         "label": "DeepSeek",
         "command": "reasonix",
-        "required": True,
+        "required": False,
         "model_version": "reasonix deepseek-pro",
         "roles": ["deliberation", "formula", "critic"],
     },
     "claude": {
         "label": "Claude",
         "command": "claude",
-        "required": True,
+        "required": False,
         "model_version": "claude-code default",
         "roles": ["deliberation", "formula", "critic"],
     },
@@ -408,7 +408,13 @@ def inspect_agent_environment(
         elif not selectable:
             missing_optional.append(provider_id)
 
-    if missing_required:
+    selectable_deliberation_count = sum(
+        1
+        for provider_id, status in commands.items()
+        if status.selectable and ("deliberation" in status.roles or provider_id == "codex")
+    )
+
+    if missing_required or selectable_deliberation_count < 3:
         status = "blocked"
         run_mode = "blocked"
     elif len(active_provider_ids) >= 3:

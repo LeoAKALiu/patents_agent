@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { AgentProviderCards, normalizeAgentSelection, providerListForRole } from "./AgentProviderCards";
+import {
+  AgentProviderCards,
+  DeliberationAgentSelector,
+  normalizeAgentSelection,
+  normalizeDeliberationExpertSelection,
+  normalizeDeliberationParticipantSelection,
+  providerListForRole,
+} from "./AgentProviderCards";
 import type { AgentDoctorReport } from "./api";
 
 // Helper to build a provider status with the new required fields.
@@ -155,5 +162,65 @@ describe("agent provider card helpers", () => {
     expect(html).not.toContain("/bin");
     expect(html).not.toContain("/Users/leo");
     expect(html).not.toContain("未找到命令");
+  });
+
+  it("normalizes deliberation seats around a fixed Codex chair and two selected experts", () => {
+    const deliberationDoctor: AgentDoctorReport = {
+      status: "degraded",
+      run_mode: "partial",
+      active_provider_ids: ["codex", "deepseek", "kimicode", "mimo"],
+      missing_required: ["claude"],
+      missing_optional: [],
+      unknown_required: [],
+      commands: {
+        codex: p({ id: "codex", label: "Codex", command: "codex", available: true, required: true, roles: ["deliberation", "chair"], installed: true, auth_status: "ready", selectable: true }),
+        deepseek: p({ id: "deepseek", label: "DeepSeek", command: "reasonix", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+        claude: p({ id: "claude", label: "Claude", command: "claude", available: false, roles: ["deliberation"], installed: true, auth_status: "not_authenticated", diagnostic: "claude -p 401", repair_suggestion: "setup-token", selectable: false }),
+        kimicode: p({ id: "kimicode", label: "KimiCode", command: "kimicode", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+        mimo: p({ id: "mimo", label: "MimoCode", command: "mimo", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+      },
+    };
+
+    const experts = normalizeDeliberationExpertSelection(deliberationDoctor, ["claude", "deepseek", "kimicode", "mimo"]);
+    const participants = normalizeDeliberationParticipantSelection(deliberationDoctor, experts, ["mimo", "claude", "deepseek"]);
+
+    expect(experts).toEqual(["codex", "deepseek", "kimicode"]);
+    expect(participants).toEqual(["mimo"]);
+  });
+
+  it("renders compact deliberation cards and moves long diagnostics out of provider tiles", () => {
+    const longDiagnostic = `claude -p 探测失败：${"认证错误".repeat(80)}`;
+    const compactDoctor: AgentDoctorReport = {
+      status: "blocked",
+      run_mode: "blocked",
+      active_provider_ids: ["codex", "deepseek", "kimicode"],
+      missing_required: ["claude"],
+      missing_optional: [],
+      unknown_required: [],
+      commands: {
+        codex: p({ id: "codex", label: "Codex", command: "codex", available: true, required: true, roles: ["deliberation", "chair"], installed: true, auth_status: "ready", selectable: true }),
+        deepseek: p({ id: "deepseek", label: "DeepSeek", command: "reasonix", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+        claude: p({ id: "claude", label: "Claude", command: "claude", available: false, roles: ["deliberation"], installed: true, auth_status: "not_authenticated", diagnostic: longDiagnostic, repair_suggestion: "运行 claude -p 验证。", selectable: false }),
+        kimicode: p({ id: "kimicode", label: "KimiCode", command: "kimicode", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      createElement(DeliberationAgentSelector, {
+        doctor: compactDoctor,
+        expertProviders: ["codex", "deepseek", "kimicode"],
+        participantProviders: [],
+        disabled: false,
+        onToggleExpert: () => undefined,
+        onToggleParticipant: () => undefined,
+      }),
+    );
+
+    expect(html).toContain("主席固定");
+    expect(html).toContain("决策专家 3/3");
+    expect(html).toContain("参会专家");
+    expect(html).toContain("必选未就绪");
+    expect(html).toContain("运行 claude -p 验证。");
+    expect(html).not.toContain(longDiagnostic);
   });
 });

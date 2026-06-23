@@ -51,12 +51,14 @@ describe("DeliberationPanel", () => {
         runs={[failedRun]}
         doctor={null}
         selectedProviders={[]}
+        participantProviders={[]}
         busy=""
         busyElapsedSeconds={0}
         onStartDeliberation={vi.fn()}
         onCancelRun={vi.fn()}
         onRetryRun={vi.fn()}
         onToggleProvider={vi.fn()}
+        onToggleParticipantProvider={vi.fn()}
         onOpenExpertTool={vi.fn()}
       />,
     );
