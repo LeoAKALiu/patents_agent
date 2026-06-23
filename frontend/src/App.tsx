@@ -19,7 +19,13 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { AppRoot } from "@/app/AppRoot";
-import { AgentProviderCards, normalizeAgentSelection, requiredAgentProviderIds } from "./AgentProviderCards";
+import {
+  AgentProviderCards,
+  normalizeAgentSelection,
+  normalizeDeliberationExpertSelection,
+  normalizeDeliberationParticipantSelection,
+  requiredAgentProviderIds,
+} from "./AgentProviderCards";
 import { ShellSidebar } from "./ui/ShellSidebar";
 import { ShellTopbar } from "./ui/ShellTopbar";
 import { SystemStatusPanel } from "./ui/SystemStatusPanel";
@@ -408,6 +414,8 @@ function App() {
   const [postDraftReviews, setPostDraftReviews] = useState<PostDraftReviewRun[]>([]);
   const [currentDraftHash, setCurrentDraftHash] = useState("");
   const [selectedDeliberationProviders, setSelectedDeliberationProviders] = useState<string[]>(requiredAgentProviderIds);
+  const [selectedDeliberationParticipantProviders, setSelectedDeliberationParticipantProviders] = useState<string[]>([]);
+  const deliberationExpertsUserEditedRef = useRef(false);
   const [selectedFormulaProviders, setSelectedFormulaProviders] = useState<string[]>(requiredAgentProviderIds);
   const [disclosureResearchMode, setDisclosureResearchMode] =
     useState<"standard" | "free_deep_research">("standard");
@@ -538,7 +546,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    setSelectedDeliberationProviders((providers) => normalizeAgentSelection(agentDoctor, providers, "deliberation"));
+    setSelectedDeliberationProviders((providers) => {
+      const normalized = normalizeDeliberationExpertSelection(agentDoctor, providers, {
+        autoFillMissing: !deliberationExpertsUserEditedRef.current,
+      });
+      setSelectedDeliberationParticipantProviders((participants) =>
+        normalizeDeliberationParticipantSelection(agentDoctor, normalized, participants),
+      );
+      return normalized;
+    });
     setSelectedFormulaProviders((providers) => normalizeAgentSelection(agentDoctor, providers, "formula"));
   }, [agentDoctor]);
 
@@ -1135,7 +1151,7 @@ function App() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     await withStatus("deliberate", async () => {
-      const run = await startProjectDeliberation(projectId, trace, selectedDeliberationProviders);
+      const run = await startProjectDeliberation(projectId, trace, selectedDeliberationProviders, selectedDeliberationParticipantProviders);
       const stillSelected = await loadDeliberations(projectId);
       if (!stillSelected) return;
       await loadFormulaState(projectId);
@@ -1324,9 +1340,21 @@ function App() {
   }
 
   function handleToggleDeliberationProvider(providerId: string, enabled: boolean) {
+    deliberationExpertsUserEditedRef.current = true;
     setSelectedDeliberationProviders((providers) => {
       const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
-      return normalizeAgentSelection(agentDoctor, next, "deliberation");
+      const normalized = normalizeDeliberationExpertSelection(agentDoctor, next, { autoFillMissing: false });
+      setSelectedDeliberationParticipantProviders((participants) =>
+        normalizeDeliberationParticipantSelection(agentDoctor, normalized, participants.filter((id) => id !== providerId)),
+      );
+      return normalized;
+    });
+  }
+
+  function handleToggleDeliberationParticipantProvider(providerId: string, enabled: boolean) {
+    setSelectedDeliberationParticipantProviders((providers) => {
+      const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
+      return normalizeDeliberationParticipantSelection(agentDoctor, selectedDeliberationProviders, next);
     });
   }
 
@@ -1613,6 +1641,7 @@ function App() {
         currentPackage,
         agentDoctor,
         selectedDeliberationProviders,
+        selectedDeliberationParticipantProviders,
         selectedFormulaProviders,
         filingReports,
         worksheets,
@@ -1652,6 +1681,7 @@ function App() {
         onCancelPostDraftReviewRun: (runId) => void handleCancelPostDraftReviewRun(runId),
         onRetryPostDraftReviewRun: (runId) => void handleRetryPostDraftReviewRun(runId),
         onToggleDeliberationProvider: handleToggleDeliberationProvider,
+        onToggleDeliberationParticipantProvider: handleToggleDeliberationParticipantProvider,
         onToggleFormulaProvider: handleToggleFormulaProvider,
         onGenerateDraft: () => void handleGenerate(),
         onRunQualityChecks: () => void handleRunGuidedQualityChecks(),

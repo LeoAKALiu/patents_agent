@@ -1513,6 +1513,8 @@ export interface components {
         };
         /** DeliberationRunCreate */
         DeliberationRunCreate: {
+            /** Participant Providers */
+            participant_providers?: string[] | null;
             /** Providers */
             providers?: string[] | null;
             /**

@@ -75,17 +75,29 @@ JSON schema:
 """
 
 
-def chair_prompt(dossier: str, openings: dict, pair_results: list[dict]) -> str:
+def chair_prompt(
+    dossier: str,
+    openings: dict,
+    pair_results: list[dict],
+    participant_openings: dict | None = None,
+) -> str:
+    participant_block = ""
+    if participant_openings:
+        participant_block = f"""
+参会专家意见（仅供主席参考，不参与三席重大决策与两两质询计票）：
+{participant_openings}
+"""
     return f"""{GUARDRAILS}
-你是 Codex 主席，负责汇总多智能体会审并生成可注入专利写作流水线的 strategy brief。
+你是 Codex 主席，负责汇总三席决策专家会审并生成可注入专利写作流水线的 strategy brief。
 
 {dossier}
 
-初始立论：
+三席决策专家初始立论：
 {openings}
 
-两两交叉质询：
+三席决策专家两两交叉质询：
 {pair_results}
+{participant_block}
 
 JSON schema:
 {{

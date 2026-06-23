@@ -29,7 +29,7 @@ export function ActionButton({
   return (
     <button
       className={cn(
-        "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium",
+        "inline-flex min-w-0 max-w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-center text-sm font-medium whitespace-normal break-words",
         "border transition-colors duration-150",
         "disabled:opacity-40 disabled:cursor-not-allowed",
         variantStyles[variant],

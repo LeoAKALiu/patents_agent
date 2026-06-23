@@ -144,6 +144,8 @@ from backend.app.services.desktop_config_service import LOCAL_RENDERER_ORIGINS
 from backend.app.services.llm_factory import build_llm
 
 
+DELIBERATION_CHAIR_PROVIDER = "codex"
+DELIBERATION_EXPERT_SEAT_COUNT = 3
 STRICT_DELIBERATION_PROVIDERS = ("codex", "deepseek", "claude")
 APP_VERSION = "1.1.0"
 
@@ -541,59 +543,72 @@ def create_app(
     ) -> dict:
         project = _require_project(store, project_id)
         doctor = inspect_agent_environment()
-        requested = _agent_provider_ids_for_role(
+        requested, participants, seat_warnings = _deliberation_provider_plan(
             doctor,
-            payload.providers or list(STRICT_DELIBERATION_PROVIDERS),
-            "deliberation",
+            payload.providers,
+            payload.participant_providers,
+            auto_fill_missing=payload.providers is None,
         )
-        available = set(doctor.active_provider_ids)
-        selectable = _selectable_agent_provider_ids(doctor)
-        active_requested_count = len(requested) if app.state.provider_runner is not None else len([provider for provider in requested if provider in available])
+        active_requested_count = len(requested)
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
-        if app.state.provider_runner is None:
-            missing_providers = [provider for provider in requested if provider not in selectable]
-            if missing_providers:
-                failures = [
+        chair_missing = DELIBERATION_CHAIR_PROVIDER not in requested
+        if len(requested) < DELIBERATION_EXPERT_SEAT_COUNT or chair_missing:
+            block_reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+            block_message = (
+                "Codex chair is not available for deliberation."
+                if chair_missing
+                else "Not enough expert seats are ready for deliberation."
+            )
+            detail = (
+                f"Codex 主席不可用，无法启动会审；当前可用决策专家为 {len(requested)} 席：{', '.join(requested) or '无'}。"
+                if chair_missing
+                else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能启动会审；当前为 {len(requested)} 席：{', '.join(requested) or '无'}。"
+            )
+            if seat_warnings:
+                detail = f"{detail} {'；'.join(seat_warnings)}"
+            failed_run = DeliberationRun(
+                id=run_id,
+                project_id=project_id,
+                status="failed",
+                providers=requested,
+                participant_providers=participants,
+                run_mode="blocked",
+                round_depth=payload.round_depth,
+                trace=payload.trace,
+                run_dir=str(run_dir),
+                failures=[
                     AgentFailure(
-                        provider_id=provider,
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
                         phase="doctor",
-                        reason="provider_missing",
-                        message=f"{provider} provider is not available.",
+                        reason=block_reason,
+                        message=block_message,
                     )
-                    for provider in missing_providers
-                ]
-                logs = [
+                ],
+                events=[f"deliberation blocked: {block_reason}", *seat_warnings],
+                logs=[
                     DeliberationLogEntry(
                         level="error",
                         phase="doctor",
-                        provider_id=provider,
-                        message="provider missing",
-                        detail=f"{provider} CLI is not available in PATH or is not usable by the backend process.",
-                        repair_suggestion=repair_suggestion_for_failure("provider_missing", provider),
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
+                        message=block_reason.replace("_", " "),
+                        detail=detail,
+                        repair_suggestion=(
+                            "请先修复 Codex CLI 的安装或认证状态；Codex 是固定主席，不能由其他 agent 代替。"
+                            if chair_missing
+                            else "请在会审卡片中选择 Codex 主席之外的 2 个可用专家；Claude 不可用时可选择 DeepSeek、KimiCode、MimoCode 等已安装 agent。"
+                        ),
                     )
-                    for provider in missing_providers
-                ]
-                failed_run = DeliberationRun(
-                    id=run_id,
-                    project_id=project_id,
-                    status="failed",
-                    providers=requested,
-                    run_mode=_run_mode(active_requested_count),
-                    round_depth=payload.round_depth,
-                    trace=payload.trace,
-                    run_dir=str(run_dir),
-                    failures=failures,
-                    events=[f"provider missing: {provider}" for provider in missing_providers],
-                    logs=logs,
-                )
-                store.create_deliberation_run(failed_run)
-                return failed_run.model_dump(mode="json")
+                ],
+            )
+            store.create_deliberation_run(failed_run)
+            return failed_run.model_dump(mode="json")
         run = DeliberationRun(
             id=run_id,
             project_id=project_id,
             status="queued",
             providers=requested,
+            participant_providers=participants,
             run_mode=_run_mode(active_requested_count),
             round_depth=payload.round_depth,
             trace=payload.trace,
@@ -659,20 +674,84 @@ def create_app(
         previous = store.get_deliberation_run(project_id, run_id)
         if not previous:
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
-        providers = _agent_provider_ids_for_role(inspect_agent_environment(), previous.providers, "deliberation")
+        doctor = inspect_agent_environment()
+        providers, participants, seat_warnings = _deliberation_provider_plan(
+            doctor,
+            previous.providers,
+            previous.participant_providers,
+            auto_fill_missing=True,
+        )
         retry_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / retry_id
+        chair_missing = DELIBERATION_CHAIR_PROVIDER not in providers
+        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT or chair_missing:
+            block_reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+            block_message = (
+                "Codex chair is not available for deliberation retry."
+                if chair_missing
+                else "Not enough expert seats are ready for deliberation retry."
+            )
+            detail = (
+                f"Codex 主席不可用，无法重试会审；当前可用决策专家为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+                if chair_missing
+                else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能重试会审；当前为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+            )
+            if seat_warnings:
+                detail = f"{detail} {'；'.join(seat_warnings)}"
+            retry_run = DeliberationRun(
+                id=retry_id,
+                project_id=project_id,
+                status="failed",
+                providers=providers,
+                participant_providers=participants,
+                run_mode="blocked",
+                round_depth=previous.round_depth,
+                trace=previous.trace,
+                run_dir=str(run_dir),
+                retry_of=previous.id,
+                failures=[
+                    AgentFailure(
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
+                        phase="doctor",
+                        reason=block_reason,
+                        message=block_message,
+                    )
+                ],
+                events=[f"retry requested for deliberation run {previous.id}", f"retry blocked: {block_reason}", *seat_warnings],
+                logs=[
+                    DeliberationLogEntry(
+                        level="error",
+                        phase="doctor",
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
+                        message=block_reason.replace("_", " "),
+                        detail=detail,
+                        repair_suggestion=(
+                            "请先修复 Codex CLI 的安装或认证状态；Codex 是固定主席，不能由其他 agent 代替。"
+                            if chair_missing
+                            else "请重新选择 Codex 主席之外的 2 个可用专家后再重试。"
+                        ),
+                    )
+                ],
+            )
+            store.create_deliberation_run(retry_run)
+            return retry_run.model_dump(mode="json")
         retry_run = DeliberationRun(
             id=retry_id,
             project_id=project_id,
             status="queued",
             providers=providers,
+            participant_providers=participants,
             run_mode=_run_mode(len(providers)),
             round_depth=previous.round_depth,
             trace=previous.trace,
             run_dir=str(run_dir),
             retry_of=previous.id,
-            events=[f"retry requested for deliberation run {previous.id}", f"providers normalized: {','.join(providers)}"],
+            events=[
+                f"retry requested for deliberation run {previous.id}",
+                f"providers normalized: {','.join(providers)}",
+                f"participants normalized: {','.join(participants)}",
+                *seat_warnings,
+            ],
         )
         store.create_deliberation_run(retry_run)
         if app.state.provider_runner is not None:
@@ -2551,6 +2630,7 @@ def _execute_deliberation(
                 brief=brief,
                 context_chunks=context,
                 providers=run.providers,
+                participant_providers=run.participant_providers,
                 run_dir=Path(run.run_dir),
                 trace=trace,
                 task_timeout_ms=task_timeout_ms,
@@ -3133,13 +3213,15 @@ def _resolve_deliberation(store: SQLiteStore, project_id: str, run_id: str | Non
 def _is_strict_completed_deliberation(run: DeliberationRun) -> bool:
     if run.status != "completed" or run.strategy_brief is None or run.failures:
         return False
-    required = set(STRICT_DELIBERATION_PROVIDERS)
-    if not required.issubset(set(run.providers)):
+    decision_providers = list(dict.fromkeys(run.providers))
+    if len(decision_providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+        return False
+    if DELIBERATION_CHAIR_PROVIDER not in decision_providers:
         return False
     completed = {(stage.phase, stage.provider_id, stage.label) for stage in run.stage_results if stage.status == "completed"}
-    if not all(("opening", provider, f"opening {provider}") in completed for provider in required):
+    if not all(("opening", provider, f"opening {provider}") in completed for provider in decision_providers):
         return False
-    pair_labels = {f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(STRICT_DELIBERATION_PROVIDERS, 2)}
+    pair_labels = {f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(decision_providers, 2)}
     if not pair_labels.issubset({label for phase, _provider, label in completed if phase == "pair"}):
         return False
     return any(phase == "chair" and label == "chair synthesis" for phase, _provider, label in completed)
@@ -3248,22 +3330,112 @@ def _selectable_agent_provider_ids(doctor: AgentDoctorReport) -> set[str]:
     )
 
 
-def _agent_provider_ids_for_role(doctor: AgentDoctorReport, requested: list[str], role: str) -> list[str]:
-    provider_role = "deliberation" if role == "post_review" else role
-    normalized: list[str] = []
-    for provider_id in STRICT_DELIBERATION_PROVIDERS:
-        if provider_id not in normalized:
-            normalized.append(provider_id)
-    for provider_id in requested:
-        if provider_id in normalized:
+def _agent_provider_unavailable_reason(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None or not status.installed:
+        return "provider_missing"
+    return status.auth_status or "provider_unavailable"
+
+
+def _agent_provider_unavailable_detail(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None:
+        return f"{provider_id} provider is not registered in the agent doctor report."
+    if status.diagnostic:
+        return status.diagnostic
+    if not status.installed:
+        return f"{provider_id} CLI is not available in PATH or is not usable by the backend process."
+    return f"{provider_id} CLI auth_status={status.auth_status}; it is not selectable for this run."
+
+
+def _agent_provider_repair_suggestion(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is not None and status.repair_suggestion:
+        return status.repair_suggestion
+    return repair_suggestion_for_failure(_agent_provider_unavailable_reason(doctor, provider_id), provider_id)
+
+
+def _deliberation_provider_plan(
+    doctor: AgentDoctorReport,
+    requested: list[str] | None,
+    participant_requested: list[str] | None,
+    *,
+    auto_fill_missing: bool = False,
+) -> tuple[list[str], list[str], list[str]]:
+    eligible = {
+        provider_id
+        for provider_id, status in doctor.commands.items()
+        if status.installed and status.selectable and ("deliberation" in status.roles or provider_id == DELIBERATION_CHAIR_PROVIDER)
+    }
+    ordered_candidates = [
+        provider_id
+        for provider_id, status in doctor.commands.items()
+        if ("deliberation" in status.roles or provider_id == DELIBERATION_CHAIR_PROVIDER) and status.installed
+    ]
+    requested_order = _dedupe_provider_ids(requested or ordered_candidates)
+    warnings: list[str] = []
+
+    providers: list[str] = []
+    if DELIBERATION_CHAIR_PROVIDER in eligible:
+        providers.append(DELIBERATION_CHAIR_PROVIDER)
+    else:
+        warnings.append(_provider_plan_warning(doctor, DELIBERATION_CHAIR_PROVIDER))
+
+    overflow: list[str] = []
+    for provider_id in requested_order:
+        if provider_id == DELIBERATION_CHAIR_PROVIDER:
             continue
-        status = doctor.commands.get(provider_id)
-        if not status or not status.selectable:
+        if provider_id not in ordered_candidates:
             continue
-        if provider_role not in status.roles:
+        if provider_id not in eligible:
+            warnings.append(_provider_plan_warning(doctor, provider_id))
             continue
-        normalized.append(provider_id)
-    return normalized
+        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+            providers.append(provider_id)
+        else:
+            overflow.append(provider_id)
+
+    if auto_fill_missing and len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+        for provider_id in ordered_candidates:
+            if provider_id == DELIBERATION_CHAIR_PROVIDER or provider_id in providers:
+                continue
+            if provider_id not in eligible:
+                continue
+            providers.append(provider_id)
+            if len(providers) >= DELIBERATION_EXPERT_SEAT_COUNT:
+                break
+
+    participant_source = _dedupe_provider_ids([*(participant_requested or []), *overflow])
+    participants: list[str] = []
+    for provider_id in participant_source:
+        if provider_id in providers or provider_id not in ordered_candidates:
+            continue
+        if provider_id not in eligible:
+            if participant_requested and provider_id in participant_requested:
+                warnings.append(_provider_plan_warning(doctor, provider_id))
+            continue
+        participants.append(provider_id)
+
+    return providers, participants, _dedupe_provider_ids(warnings)
+
+
+def _provider_plan_warning(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None:
+        return f"{provider_id} 未注册，已跳过。"
+    if status.diagnostic:
+        return f"{provider_id} 不可用于会审：{status.diagnostic}"
+    if not status.installed:
+        return f"{provider_id} 未安装，已跳过。"
+    return f"{provider_id} auth_status={status.auth_status}，已跳过。"
+
+
+def _dedupe_provider_ids(provider_ids: list[str]) -> list[str]:
+    deduped: list[str] = []
+    for provider_id in provider_ids:
+        if provider_id and provider_id not in deduped:
+            deduped.append(provider_id)
+    return deduped
 
 
 def _run_mode(active_count: int) -> str:
