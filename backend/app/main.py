@@ -552,12 +552,21 @@ def create_app(
         active_requested_count = len(requested)
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
-        if len(requested) < DELIBERATION_EXPERT_SEAT_COUNT:
-            detail = (
-                f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能启动会审；"
-                f"当前为 {len(requested)} 席：{', '.join(requested) or '无'}。"
-                f"{' ' + '；'.join(seat_warnings) if seat_warnings else ''}"
+        chair_missing = DELIBERATION_CHAIR_PROVIDER not in requested
+        if len(requested) < DELIBERATION_EXPERT_SEAT_COUNT or chair_missing:
+            block_reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+            block_message = (
+                "Codex chair is not available for deliberation."
+                if chair_missing
+                else "Not enough expert seats are ready for deliberation."
             )
+            detail = (
+                f"Codex 主席不可用，无法启动会审；当前可用决策专家为 {len(requested)} 席：{', '.join(requested) or '无'}。"
+                if chair_missing
+                else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能启动会审；当前为 {len(requested)} 席：{', '.join(requested) or '无'}。"
+            )
+            if seat_warnings:
+                detail = f"{detail} {'；'.join(seat_warnings)}"
             failed_run = DeliberationRun(
                 id=run_id,
                 project_id=project_id,
@@ -572,19 +581,23 @@ def create_app(
                     AgentFailure(
                         provider_id=DELIBERATION_CHAIR_PROVIDER,
                         phase="doctor",
-                        reason="insufficient_experts",
-                        message="Not enough expert seats are ready for deliberation.",
+                        reason=block_reason,
+                        message=block_message,
                     )
                 ],
-                events=["deliberation blocked: insufficient expert seats", *seat_warnings],
+                events=[f"deliberation blocked: {block_reason}", *seat_warnings],
                 logs=[
                     DeliberationLogEntry(
                         level="error",
                         phase="doctor",
                         provider_id=DELIBERATION_CHAIR_PROVIDER,
-                        message="insufficient expert seats",
+                        message=block_reason.replace("_", " "),
                         detail=detail,
-                        repair_suggestion="请在会审卡片中选择 Codex 主席之外的 2 个可用专家；Claude 不可用时可选择 DeepSeek、KimiCode、MimoCode 等已安装 agent。",
+                        repair_suggestion=(
+                            "请先修复 Codex CLI 的安装或认证状态；Codex 是固定主席，不能由其他 agent 代替。"
+                            if chair_missing
+                            else "请在会审卡片中选择 Codex 主席之外的 2 个可用专家；Claude 不可用时可选择 DeepSeek、KimiCode、MimoCode 等已安装 agent。"
+                        ),
                     )
                 ],
             )
@@ -670,7 +683,21 @@ def create_app(
         )
         retry_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / retry_id
-        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+        chair_missing = DELIBERATION_CHAIR_PROVIDER not in providers
+        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT or chair_missing:
+            block_reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+            block_message = (
+                "Codex chair is not available for deliberation retry."
+                if chair_missing
+                else "Not enough expert seats are ready for deliberation retry."
+            )
+            detail = (
+                f"Codex 主席不可用，无法重试会审；当前可用决策专家为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+                if chair_missing
+                else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能重试会审；当前为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+            )
+            if seat_warnings:
+                detail = f"{detail} {'；'.join(seat_warnings)}"
             retry_run = DeliberationRun(
                 id=retry_id,
                 project_id=project_id,
@@ -686,19 +713,23 @@ def create_app(
                     AgentFailure(
                         provider_id=DELIBERATION_CHAIR_PROVIDER,
                         phase="doctor",
-                        reason="insufficient_experts",
-                        message="Not enough expert seats are ready for deliberation retry.",
+                        reason=block_reason,
+                        message=block_message,
                     )
                 ],
-                events=[f"retry requested for deliberation run {previous.id}", "retry blocked: insufficient expert seats", *seat_warnings],
+                events=[f"retry requested for deliberation run {previous.id}", f"retry blocked: {block_reason}", *seat_warnings],
                 logs=[
                     DeliberationLogEntry(
                         level="error",
                         phase="doctor",
                         provider_id=DELIBERATION_CHAIR_PROVIDER,
-                        message="insufficient expert seats",
-                        detail=f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能重试会审；当前为 {len(providers)} 席：{', '.join(providers) or '无'}。",
-                        repair_suggestion="请重新选择 Codex 主席之外的 2 个可用专家后再重试。",
+                        message=block_reason.replace("_", " "),
+                        detail=detail,
+                        repair_suggestion=(
+                            "请先修复 Codex CLI 的安装或认证状态；Codex 是固定主席，不能由其他 agent 代替。"
+                            if chair_missing
+                            else "请重新选择 Codex 主席之外的 2 个可用专家后再重试。"
+                        ),
                     )
                 ],
             )

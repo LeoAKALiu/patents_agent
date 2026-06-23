@@ -220,6 +220,45 @@ def test_deliberation_blocks_when_fewer_than_three_expert_seats_are_ready(tmp_pa
     assert "至少 3 席" in run["logs"][0]["detail"]
 
 
+def test_deliberation_blocks_when_codex_chair_is_unavailable_even_with_three_other_experts(tmp_path, monkeypatch):
+    def fake_doctor():
+        return AgentDoctorReport(
+            status="blocked",
+            run_mode="blocked",
+            commands={
+                "codex": AgentProviderStatus(id="codex", label="Codex", command="codex", available=False, required=True, roles=["deliberation", "chair"], installed=False, auth_status="unavailable", selectable=False),
+                "deepseek": AgentProviderStatus(id="deepseek", label="DeepSeek", command="reasonix", available=True, path="/bin/reasonix", required=False, roles=["deliberation", "critic"], installed=True, auth_status="ready", selectable=True),
+                "kimicode": AgentProviderStatus(id="kimicode", label="KimiCode", command="kimicode", available=True, path="/bin/kimicode", required=False, roles=["deliberation", "critic"], installed=True, auth_status="ready", selectable=True),
+                "mimo": AgentProviderStatus(id="mimo", label="MimoCode", command="mimo", available=True, path="/bin/mimo", required=False, roles=["deliberation", "critic"], installed=True, auth_status="ready", selectable=True),
+            },
+            active_provider_ids=["deepseek", "kimicode", "mimo"],
+            missing_required=["codex"],
+            missing_optional=[],
+            unknown_required=[],
+        )
+
+    monkeypatch.setattr("backend.app.main.inspect_agent_environment", fake_doctor)
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_minimal_llm(), provider_runner=_FakeProviderRunner(), load_env_file=False))
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "主席不可用项目", "draft_text": "一种城市体检指标驱动采集方法。"},
+    ).json()["id"]
+
+    response = client.post(
+        f"/api/projects/{project_id}/deliberations",
+        json={"providers": ["deepseek", "kimicode", "mimo"], "trace": False},
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "failed"
+    assert run["run_mode"] == "blocked"
+    assert run["providers"] == ["deepseek", "kimicode", "mimo"]
+    assert run["stage_results"] == []
+    assert run["failures"][0]["reason"] == "chair_unavailable"
+    assert "Codex 主席" in run["logs"][0]["detail"]
+
+
 def test_missing_required_provider_creates_failed_diagnostic_run(tmp_path, monkeypatch):
     def fake_doctor():
         return AgentDoctorReport(

@@ -9,6 +9,10 @@ export const requiredAgentProviderIds = ["codex", "deepseek", "claude"];
 export const deliberationChairProviderId = "codex";
 export const deliberationExpertSeatCount = 3;
 
+type DeliberationExpertSelectionOptions = {
+  autoFillMissing?: boolean;
+};
+
 function getAuthStatusDisplay(provider: AgentProviderStatus): { label: string; icon: React.ReactNode; variant: "success" | "warn" | "neutral" } {
   if (!provider.installed) {
     return { label: "未安装", icon: <XCircle size={14} />, variant: "warn" };
@@ -65,10 +69,12 @@ function deliberationProviderList(doctor: AgentDoctorReport | null): AgentProvid
 export function normalizeDeliberationExpertSelection(
   doctor: AgentDoctorReport | null,
   selectedProviders: string[],
+  options: DeliberationExpertSelectionOptions = {},
 ): string[] {
   const providers = deliberationProviderList(doctor);
   const selectableIds = new Set(providers.filter((provider) => provider.selectable).map((provider) => provider.id));
   const normalized: string[] = [];
+  const autoFillMissing = options.autoFillMissing ?? true;
 
   if (selectableIds.has(deliberationChairProviderId) || doctor === null) {
     normalized.push(deliberationChairProviderId);
@@ -81,6 +87,8 @@ export function normalizeDeliberationExpertSelection(
     normalized.push(providerId);
     if (normalized.length >= deliberationExpertSeatCount) return normalized;
   }
+
+  if (!autoFillMissing) return normalized;
 
   for (const provider of providers) {
     if (provider.id === deliberationChairProviderId || normalized.includes(provider.id) || !provider.selectable) {

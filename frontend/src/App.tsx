@@ -415,6 +415,7 @@ function App() {
   const [currentDraftHash, setCurrentDraftHash] = useState("");
   const [selectedDeliberationProviders, setSelectedDeliberationProviders] = useState<string[]>(requiredAgentProviderIds);
   const [selectedDeliberationParticipantProviders, setSelectedDeliberationParticipantProviders] = useState<string[]>([]);
+  const deliberationExpertsUserEditedRef = useRef(false);
   const [selectedFormulaProviders, setSelectedFormulaProviders] = useState<string[]>(requiredAgentProviderIds);
   const [disclosureResearchMode, setDisclosureResearchMode] =
     useState<"standard" | "free_deep_research">("standard");
@@ -546,7 +547,9 @@ function App() {
 
   useEffect(() => {
     setSelectedDeliberationProviders((providers) => {
-      const normalized = normalizeDeliberationExpertSelection(agentDoctor, providers);
+      const normalized = normalizeDeliberationExpertSelection(agentDoctor, providers, {
+        autoFillMissing: !deliberationExpertsUserEditedRef.current,
+      });
       setSelectedDeliberationParticipantProviders((participants) =>
         normalizeDeliberationParticipantSelection(agentDoctor, normalized, participants),
       );
@@ -1337,9 +1340,10 @@ function App() {
   }
 
   function handleToggleDeliberationProvider(providerId: string, enabled: boolean) {
+    deliberationExpertsUserEditedRef.current = true;
     setSelectedDeliberationProviders((providers) => {
       const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
-      const normalized = normalizeDeliberationExpertSelection(agentDoctor, next);
+      const normalized = normalizeDeliberationExpertSelection(agentDoctor, next, { autoFillMissing: false });
       setSelectedDeliberationParticipantProviders((participants) =>
         normalizeDeliberationParticipantSelection(agentDoctor, normalized, participants.filter((id) => id !== providerId)),
       );

@@ -188,6 +188,32 @@ describe("agent provider card helpers", () => {
     expect(participants).toEqual(["mimo"]);
   });
 
+  it("preserves manual under-selection instead of auto-filling another expert", () => {
+    const deliberationDoctor: AgentDoctorReport = {
+      status: "degraded",
+      run_mode: "partial",
+      active_provider_ids: ["codex", "deepseek", "kimicode", "mimo"],
+      missing_required: ["claude"],
+      missing_optional: [],
+      unknown_required: [],
+      commands: {
+        codex: p({ id: "codex", label: "Codex", command: "codex", available: true, required: true, roles: ["deliberation", "chair"], installed: true, auth_status: "ready", selectable: true }),
+        deepseek: p({ id: "deepseek", label: "DeepSeek", command: "reasonix", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+        claude: p({ id: "claude", label: "Claude", command: "claude", available: false, roles: ["deliberation"], installed: true, auth_status: "not_authenticated", diagnostic: "claude -p 401", repair_suggestion: "setup-token", selectable: false }),
+        kimicode: p({ id: "kimicode", label: "KimiCode", command: "kimicode", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+        mimo: p({ id: "mimo", label: "MimoCode", command: "mimo", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+      },
+    };
+
+    const experts = normalizeDeliberationExpertSelection(
+      deliberationDoctor,
+      ["codex", "deepseek"],
+      { autoFillMissing: false },
+    );
+
+    expect(experts).toEqual(["codex", "deepseek"]);
+  });
+
   it("renders compact deliberation cards and moves long diagnostics out of provider tiles", () => {
     const longDiagnostic = `claude -p 探测失败：${"认证错误".repeat(80)}`;
     const compactDoctor: AgentDoctorReport = {
