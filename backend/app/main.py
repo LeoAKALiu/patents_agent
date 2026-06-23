@@ -558,8 +558,8 @@ def create_app(
                     AgentFailure(
                         provider_id=provider,
                         phase="doctor",
-                        reason="provider_missing",
-                        message=f"{provider} provider is not available.",
+                        reason=_agent_provider_unavailable_reason(doctor, provider),
+                        message=f"{provider} provider is not available for this run.",
                     )
                     for provider in missing_providers
                 ]
@@ -568,9 +568,9 @@ def create_app(
                         level="error",
                         phase="doctor",
                         provider_id=provider,
-                        message="provider missing",
-                        detail=f"{provider} CLI is not available in PATH or is not usable by the backend process.",
-                        repair_suggestion=repair_suggestion_for_failure("provider_missing", provider),
+                        message="provider unavailable",
+                        detail=_agent_provider_unavailable_detail(doctor, provider),
+                        repair_suggestion=_agent_provider_repair_suggestion(doctor, provider),
                     )
                     for provider in missing_providers
                 ]
@@ -3246,6 +3246,31 @@ def _selectable_agent_provider_ids(doctor: AgentDoctorReport) -> set[str]:
         | set(doctor.unknown_required)
         | {provider_id for provider_id, status in doctor.commands.items() if status.selectable}
     )
+
+
+def _agent_provider_unavailable_reason(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None or not status.installed:
+        return "provider_missing"
+    return status.auth_status or "provider_unavailable"
+
+
+def _agent_provider_unavailable_detail(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None:
+        return f"{provider_id} provider is not registered in the agent doctor report."
+    if status.diagnostic:
+        return status.diagnostic
+    if not status.installed:
+        return f"{provider_id} CLI is not available in PATH or is not usable by the backend process."
+    return f"{provider_id} CLI auth_status={status.auth_status}; it is not selectable for this run."
+
+
+def _agent_provider_repair_suggestion(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is not None and status.repair_suggestion:
+        return status.repair_suggestion
+    return repair_suggestion_for_failure(_agent_provider_unavailable_reason(doctor, provider_id), provider_id)
 
 
 def _agent_provider_ids_for_role(doctor: AgentDoctorReport, requested: list[str], role: str) -> list[str]:

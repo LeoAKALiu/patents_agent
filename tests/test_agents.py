@@ -25,6 +25,8 @@ def _probe_ready(command: str, args: list[str], timeout_ms: int) -> tuple[int | 
         return 0, json.dumps({"providers": [{"name": "deepseek-pro", "model": "deepseek-v4-pro", "base_url_host": "api.deepseek.com", "key_present": True}]}), ""
     if args_key == "auth status":
         return 0, json.dumps({"loggedIn": True, "authMethod": "oauth_token"}), ""
+    if args and args[0] == "-p":
+        return 0, '{"ok": true}', ""
     # gemini --version
     return 0, "0.45.2", ""
 
@@ -45,6 +47,20 @@ def _probe_not_authenticated(command: str, args: list[str], timeout_ms: int) -> 
 def _probe_timeout(command: str, args: list[str], timeout_ms: int) -> tuple[int | None, str, str]:
     """Fake probe that always times out."""
     return None, "", ""
+
+
+def _probe_claude_auth_ready_but_print_unauthorized(command: str, args: list[str], timeout_ms: int) -> tuple[int | None, str, str]:
+    """Fake Claude state where auth status is stale but real print mode fails."""
+    args_key = " ".join(args)
+    if args_key == "login status":
+        return 0, "Logged in using ChatGPT", ""
+    if args_key == "doctor --json":
+        return 0, json.dumps({"providers": [{"name": "deepseek-pro", "model": "deepseek-v4-pro", "base_url_host": "api.deepseek.com", "key_present": True}]}), ""
+    if args_key == "auth status":
+        return 0, json.dumps({"loggedIn": True, "authMethod": "claude.ai"}), ""
+    if args and args[0] == "-p":
+        return 1, "Failed to authenticate. API Error: 401 Invalid authentication credentials", ""
+    return 0, "0.45.2", ""
 
 
 def _make_executable(path: Path) -> None:
@@ -231,6 +247,8 @@ def test_doctor_probe_sanitizes_token_like_strings():
             return 1, "", f"Error: auth failed with token {token_value}"
         if args_key == "auth status":
             return 1, "", f"Error: auth failed with token {token_value}"
+        if args and args[0] == "-p":
+            return 1, "", f"Error: auth failed with token {token_value}"
         return 0, "version", ""
 
     report = inspect_agent_environment(
@@ -256,6 +274,8 @@ def test_doctor_probe_truncates_long_diagnostics():
             return 1, "", long_error
         if args_key == "auth status":
             return 1, "", long_error
+        if args and args[0] == "-p":
+            return 1, "", long_error
         return 0, "version", ""
 
     report = inspect_agent_environment(
@@ -267,6 +287,25 @@ def test_doctor_probe_truncates_long_diagnostics():
         diagnostic = report.commands[required_id].diagnostic
         assert len(diagnostic) <= 203  # max_length + "..."
         assert "..." in diagnostic
+
+
+def test_doctor_requires_claude_print_mode_not_just_auth_status():
+    """Claude is only usable by the app when the same non-interactive command succeeds."""
+    report = inspect_agent_environment(
+        command_lookup=lambda command: f"/bin/{command}",
+        command_probe=_probe_claude_auth_ready_but_print_unauthorized,
+        probe_timeout_ms=1000,
+    )
+
+    claude = report.commands["claude"]
+    assert claude.installed is True
+    assert claude.auth_status == "not_authenticated"
+    assert claude.available is False
+    assert claude.selectable is False
+    assert "401" in claude.diagnostic
+    assert "claude -p" in claude.repair_suggestion
+    assert "claude" in report.missing_required
+    assert report.status == "blocked"
 
 
 # ---------------------------------------------------------------------------

@@ -89,9 +89,16 @@ export function AgentProviderCards({
   return (
     <div className="agent-provider-grid">
       {providers.map((provider) => {
-        const enabled = provider.required || selectedProviders.includes(provider.id);
+        const enabled = provider.required ? provider.selectable : selectedProviders.includes(provider.id);
         const canToggle = !provider.required && provider.selectable && !disabled;
         const authDisplay = getAuthStatusDisplay(provider);
+        const membershipLabel = provider.required
+          ? provider.available
+            ? "必选"
+            : "必选未就绪"
+          : enabled
+            ? "本轮启用"
+            : "本轮未启用";
         return (
           <article
             className={[
@@ -120,7 +127,7 @@ export function AgentProviderCards({
                 {authDisplay.label}
               </Badge>
               <Badge variant={enabled ? "success" : "neutral"}>
-                <span>{provider.required ? "必选" : enabled ? "本轮启用" : "本轮未启用"}</span>
+                <span>{membershipLabel}</span>
               </Badge>
             </div>
             <p className="agent-provider-copy">{providerHint(provider)}</p>
@@ -139,7 +146,7 @@ export function AgentProviderCards({
                 size={14}
               />
               <span className="agent-provider-toggle-label">
-                {provider.required ? "必选席不可关闭" : provider.selectable ? "加入本轮" : "不可用"}
+                {provider.required ? (provider.selectable ? "必选席不可关闭" : "必选席暂不可用") : provider.selectable ? "加入本轮" : "不可用"}
               </span>
               {!provider.selectable && <CircleSlash size={15} aria-hidden="true" />}
             </label>
