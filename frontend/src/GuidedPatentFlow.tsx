@@ -120,6 +120,7 @@ export type GuidedPatentFlowProps = {
   currentPackage: DraftPackage | null;
   agentDoctor: AgentDoctorReport | null;
   selectedDeliberationProviders: string[];
+  selectedDeliberationParticipantProviders: string[];
   selectedFormulaProviders: string[];
   filingReports: FilingReadinessReport[];
   worksheets: ClaimDefenseWorksheet[];
@@ -165,6 +166,7 @@ export type GuidedPatentFlowProps = {
   onCancelPostDraftReviewRun: (runId: string) => void;
   onRetryPostDraftReviewRun: (runId: string) => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
+  onToggleDeliberationParticipantProvider: (providerId: string, enabled: boolean) => void;
   onToggleFormulaProvider: (providerId: string, enabled: boolean) => void;
   onGenerateDraft: () => void;
   onRunQualityChecks: () => void;
@@ -330,12 +332,14 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           runs={props.deliberations}
           doctor={props.agentDoctor}
           selectedProviders={props.selectedDeliberationProviders}
+          participantProviders={props.selectedDeliberationParticipantProviders}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartDeliberation={props.onStartDeliberation}
           onCancelRun={props.onCancelDeliberationRun}
           onRetryRun={props.onRetryDeliberationRun}
           onToggleProvider={props.onToggleDeliberationProvider}
+          onToggleParticipantProvider={props.onToggleDeliberationParticipantProvider}
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}

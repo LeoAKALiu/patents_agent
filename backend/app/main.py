@@ -5,13 +5,12 @@ import json
 import os
 import re
 import shutil
-import time
 import uuid
 from itertools import combinations
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import ValidationError
@@ -49,13 +48,9 @@ from backend.app.kimi_language_polish import run_kimi_language_polish
 from backend.app.desktop_config import (
     DesktopConfig,
     DesktopConfigError,
-    apply_update as apply_desktop_config_update,
-    effective_settings as effective_desktop_settings,
     load_desktop_config,
-    redacted_view as desktop_config_redacted_view,
-    save_desktop_config,
 )
-from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
+from backend.app.llm import ConfigError, LLMClient, MissingLLMClient
 from backend.app.llm_cache import CachedStageLLMClient, clear_project_llm_cache
 from backend.app.moat import score_moat
 from backend.app.official_compile import (
@@ -97,9 +92,6 @@ from backend.app.schemas import (
     DeliberationRun,
     DeliberationLogEntry,
     DeliberationRunCreate,
-    DesktopConfigHealthResult,
-    DesktopConfigUpdate,
-    DesktopConfigView,
     DisclosurePackage,
     DisclosureRun,
     DisclosureRunCreate,
@@ -144,33 +136,18 @@ from backend.app.schemas import (
 from backend.app.settings import Settings, build_settings
 from backend.app.storage import SQLiteStore
 
+from backend.app.api.desktop_config import router as desktop_config_router
+from backend.app.api.system import router as system_router
+from backend.app.api.corpus import router as corpus_router
+from backend.app.api.projects import router as projects_router
+from backend.app.services.desktop_config_service import LOCAL_RENDERER_ORIGINS
+from backend.app.services.llm_factory import build_llm
 
+
+DELIBERATION_CHAIR_PROVIDER = "codex"
+DELIBERATION_EXPERT_SEAT_COUNT = 3
 STRICT_DELIBERATION_PROVIDERS = ("codex", "deepseek", "claude")
 APP_VERSION = "1.1.0"
-LOCAL_RENDERER_ORIGINS = frozenset(
-    {
-        "http://127.0.0.1:5173",
-        "http://localhost:5173",
-        "http://127.0.0.1:5174",
-        "http://localhost:5174",
-        "tauri://localhost",
-        "http://tauri.localhost",
-        "https://tauri.localhost",
-    }
-)
-
-
-def _enforce_desktop_config_origin(request: Request) -> None:
-    """Reject browser-originated config writes from non-renderer origins.
-
-    Tauri command invocations and backend tests do not send Origin, so absence
-    is allowed. Browser requests from arbitrary sites send Origin and must not
-    be able to read or mutate the local desktop LLM configuration.
-    """
-
-    origin = request.headers.get("origin")
-    if origin and origin not in LOCAL_RENDERER_ORIGINS:
-        raise HTTPException(status_code=403, detail="Forbidden desktop config origin.")
 
 
 def _ascii_download_filename(raw: str) -> str:
@@ -234,7 +211,7 @@ def create_app(
     if existing_chunks:
         index.add(existing_chunks)
     desktop_config = load_desktop_config(settings.data_dir)
-    llm = llm_client or _build_llm(settings, desktop_config)
+    llm = llm_client or build_llm(settings, desktop_config)
 
     app = FastAPI(title="Patents Agent", version=APP_VERSION)
     app.add_middleware(
@@ -244,6 +221,10 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.include_router(system_router)
+    app.include_router(desktop_config_router)
+    app.include_router(corpus_router)
+    app.include_router(projects_router)
     app.state.settings = settings
     app.state.store = store
     app.state.index = index
@@ -255,286 +236,6 @@ def create_app(
     app.state.research_search_provider = research_search_provider
     app.state.disclosure_inline = prior_art_provider is not None
     app.state.corpus_service = CorpusImportService(store=store, index=index, data_dir=settings.data_dir)
-
-    @app.get("/api/health")
-    def health() -> dict:
-        return {
-            "ok": True,
-            "llm_configured": not isinstance(app.state.llm, MissingLLMClient),
-            "data_dir": str(settings.data_dir),
-            "model": settings.llm_model,
-            "embedding_model": settings.embedding_model,
-        }
-
-    @app.get("/api/desktop-config", response_model=DesktopConfigView)
-    def get_desktop_config(request: Request) -> dict:
-        """Return the redacted desktop LLM configuration (no raw key)."""
-        _enforce_desktop_config_origin(request)
-        view = desktop_config_redacted_view(app.state.desktop_config)
-        effective = effective_desktop_settings(settings, app.state.desktop_config)
-        view["provider"] = effective["provider"]
-        view["base_url"] = effective["base_url"]
-        view["model"] = effective["model"]
-        view["api_key_source"] = effective["api_key_source"]
-        return view
-
-    @app.patch("/api/desktop-config", response_model=DesktopConfigView)
-    def patch_desktop_config(payload: DesktopConfigUpdate, request: Request) -> dict:
-        """Persist a desktop LLM configuration update on the local machine.
-
-        The raw API key is dropped from the response and from any log lines.
-        The ``.env`` file is never touched.
-        """
-        _enforce_desktop_config_origin(request)
-        try:
-            updated = apply_desktop_config_update(
-                app.state.desktop_config,
-                provider=payload.provider,
-                base_url=payload.base_url,
-                model=payload.model,
-                api_key=payload.api_key,
-                clear_api_key=payload.clear_api_key,
-            )
-        except DesktopConfigError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        saved = save_desktop_config(settings.data_dir, updated)
-        app.state.desktop_config = saved
-        # Rebuild the LLM so subsequent generation calls pick up the new key.
-        if not app.state.llm_client_override:
-            app.state.llm = _build_llm(settings, saved)
-        view = desktop_config_redacted_view(saved)
-        effective = effective_desktop_settings(settings, saved)
-        view["provider"] = effective["provider"]
-        view["base_url"] = effective["base_url"]
-        view["model"] = effective["model"]
-        view["api_key_source"] = effective["api_key_source"]
-        return view
-
-    @app.post("/api/desktop-config/health", response_model=DesktopConfigHealthResult)
-    def desktop_config_health(request: Request) -> dict:
-        """Probe the configured LLM with a tiny request without echoing the key."""
-        _enforce_desktop_config_origin(request)
-        effective = effective_desktop_settings(settings, app.state.desktop_config)
-        api_key = effective["api_key"]
-        model = effective["model"]
-        base_url = effective["base_url"]
-        result: dict = {
-            "ok": False,
-            "model": model,
-            "api_key_source": effective["api_key_source"],
-            "latency_ms": 0,
-            "status_code": 0,
-            "error": "",
-        }
-        if not api_key:
-            result["error"] = "no_api_key"
-            return result
-        # Lazy import: keep the module import order predictable.
-        from openai import OpenAI
-
-        client = OpenAI(api_key=api_key, base_url=base_url or None)
-        started = time.monotonic()
-        try:
-            completion = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "ping"},
-                    {"role": "user", "content": "ping"},
-                ],
-                max_tokens=1,
-                temperature=0,
-            )
-            latency_ms = int((time.monotonic() - started) * 1000)
-            result["ok"] = bool(completion.choices)
-            result["latency_ms"] = latency_ms
-            result["status_code"] = 200
-        except Exception as exc:  # noqa: BLE001 - report, do not raise
-            latency_ms = int((time.monotonic() - started) * 1000)
-            result["latency_ms"] = latency_ms
-            result["error"] = _redact_error(exc)
-            status = getattr(exc, "status_code", None) or 0
-            result["status_code"] = int(status) if isinstance(status, int) else 0
-        return result
-
-    @app.get("/api/agents/doctor")
-    def agent_doctor() -> dict:
-        return inspect_agent_environment().model_dump(mode="json")
-
-    @app.get("/api/corpus")
-    def list_corpus() -> dict:
-        documents = store.list_documents()
-        return {"documents": [document.model_dump(mode="json") for document in documents]}
-
-    @app.post("/api/corpus/jobs")
-    def create_corpus_job(payload: CorpusImportJobCreate) -> dict:
-        job = app.state.corpus_service.create_job(
-            source_type=payload.source_type,
-            source_name=payload.source_name,
-            query=payload.query,
-            domain=payload.domain,
-            version_name=payload.version_name,
-        )
-        return job.model_dump(mode="json")
-
-    @app.post("/api/corpus/jobs/{job_id}/files")
-    async def upload_corpus_job_file(job_id: str, file: UploadFile = File(...)) -> dict:
-        if not store.get_corpus_job(job_id):
-            raise HTTPException(status_code=404, detail="Corpus import job not found.")
-        upload_dir = settings.data_dir / "corpus-jobs" / job_id / "uploaded"
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file.filename or "corpus-upload").name
-        stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-        with stored_path.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
-        job = app.state.corpus_service.add_input(job_id, stored_path)
-        return {"job": job.model_dump(mode="json"), "file_count": len(job.input_paths)}
-
-    @app.post("/api/corpus/jobs/{job_id}/run")
-    def run_corpus_job(job_id: str) -> dict:
-        if not store.get_corpus_job(job_id):
-            raise HTTPException(status_code=404, detail="Corpus import job not found.")
-        job = app.state.corpus_service.run_job(job_id)
-        if job.status == "failed" and not job.imported_documents:
-            return job.model_dump(mode="json")
-        return job.model_dump(mode="json")
-
-    @app.get("/api/corpus/jobs/{job_id}")
-    def get_corpus_job(job_id: str) -> dict:
-        job = store.get_corpus_job(job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail="Corpus import job not found.")
-        return job.model_dump(mode="json")
-
-    @app.get("/api/corpus/versions")
-    def list_corpus_versions() -> dict:
-        return {"versions": [version.model_dump(mode="json") for version in store.list_corpus_versions()]}
-
-    @app.get("/api/corpus/stats")
-    def corpus_stats(version: str | None = None) -> dict:
-        return store.get_corpus_stats(version_name=version)
-
-    @app.get("/api/corpus/documents/{document_id}")
-    def get_corpus_document(document_id: str) -> dict:
-        document = store.get_document(document_id)
-        if not document:
-            raise HTTPException(status_code=404, detail="Corpus document not found.")
-        return document.model_dump(mode="json")
-
-    @app.post("/api/corpus/import")
-    async def import_corpus(file: UploadFile = File(...)) -> dict:
-        upload_dir = settings.data_dir / "uploads"
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file.filename or "patent.txt").name
-        stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-        with stored_path.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
-
-        try:
-            text = read_document_text(stored_path)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        document = make_patent_document(uuid.uuid4().hex, safe_name, text)
-        chunks = [PatentChunk(**chunk) for chunk in chunk_document(document)]
-        store.add_document(document, chunks)
-        index.add(chunks)
-        return {
-            "document": document.model_dump(mode="json"),
-            "chunks_count": len(chunks),
-            "warnings": [],
-        }
-
-    @app.get("/api/corpus/search")
-    def search_corpus(
-        q: str = Query(min_length=1),
-        section_type: SectionType | None = None,
-        limit: int = Query(default=5, ge=1, le=20),
-        version: str | None = None,
-    ) -> dict:
-        results = index.search(q, section_type=section_type, limit=limit, version_name=version)
-        return {"results": [result.model_dump(mode="json") for result in results]}
-
-    @app.get("/api/projects")
-    def list_projects() -> dict:
-        return {"projects": [project.model_dump(mode="json") for project in store.list_projects()]}
-
-    @app.post("/api/projects")
-    def create_project(payload: ProjectCreate) -> dict:
-        project = ProjectRecord(
-            id=uuid.uuid4().hex,
-            name=payload.name,
-            draft_text=payload.draft_text,
-            patent_type=payload.patent_type,
-            applicant=payload.applicant,
-            inventors=payload.inventors,
-            technical_field=payload.technical_field,
-            background=payload.background,
-            pain_point=payload.pain_point,
-            technical_solution=payload.technical_solution,
-            innovation=payload.innovation,
-            embodiments=payload.embodiments,
-            beneficial_effects=payload.beneficial_effects,
-        )
-        stored = store.create_project(project)
-        return stored.model_dump(mode="json")
-
-    @app.get("/api/projects/{project_id}")
-    def get_project(project_id: str) -> dict:
-        project = _require_project(store, project_id)
-        return project.model_dump(mode="json")
-
-    @app.put("/api/projects/{project_id}")
-    def update_project(project_id: str, payload: ProjectUpdate) -> dict:
-        project = _require_project(store, project_id)
-        updates = payload.model_dump(exclude_unset=True)
-        if not updates:
-            return project.model_dump(mode="json")
-        updated = store.update_project(project_id, updates)
-        if updated is None:
-            raise HTTPException(status_code=404, detail="Project not found.")
-        return updated.model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}")
-    def delete_project(project_id: str) -> dict:
-        deleted = store.delete_project(project_id)
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Project not found.")
-        return {"ok": True}
-
-    @app.post("/api/projects/{project_id}/materials")
-    async def upload_project_material(project_id: str, file: UploadFile = File(...)) -> dict:
-        _require_project(store, project_id)
-        upload_dir = settings.data_dir / "project-materials" / project_id
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file.filename or "material.txt").name
-        stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-        with stored_path.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
-        warnings: list[str] = []
-        text = ""
-        status = "processed"
-        try:
-            text, warnings = read_project_material_text(stored_path)
-        except ValueError as exc:
-            status = "failed"
-            warnings = [str(exc)]
-        material = ProjectMaterial(
-            id=uuid.uuid4().hex,
-            project_id=project_id,
-            file_name=safe_name,
-            path=str(stored_path),
-            file_type=stored_path.suffix.lower().lstrip("."),
-            text=text,
-            status=status,
-            warnings=warnings,
-        )
-        store.add_project_material(material)
-        return material.model_dump(mode="json")
-
-    @app.get("/api/projects/{project_id}/materials")
-    def list_project_materials(project_id: str) -> dict:
-        _require_project(store, project_id)
-        return {"materials": [material.model_dump(mode="json") for material in store.list_project_materials(project_id)]}
 
     @app.post("/api/projects/{project_id}/external-drafts")
     def create_external_draft(project_id: str, payload: ExternalDraftSourceCreate) -> dict:
@@ -711,63 +412,6 @@ def create_app(
             media_type="text/markdown; charset=utf-8",
         )
 
-    @app.get("/api/projects/{project_id}/patent-points")
-    def list_project_patent_points(project_id: str) -> dict:
-        _require_project(store, project_id)
-        return {"points": [point.model_dump(mode="json") for point in store.list_project_patent_points(project_id)]}
-
-    @app.post("/api/projects/{project_id}/patent-points")
-    def create_project_patent_point(project_id: str, payload: PatentPointCreate) -> dict:
-        _require_project(store, project_id)
-        point: PatentPointCandidate = payload.to_candidate(payload.source_candidate_id or f"user-{uuid.uuid4().hex}")
-        stored = store.add_project_patent_point(project_id, point)
-        return stored.model_dump(mode="json")
-
-    @app.patch("/api/projects/{project_id}/patent-points/{point_id}")
-    def update_project_patent_point(project_id: str, point_id: str, payload: PatentPointUpdate) -> dict:
-        _require_project(store, project_id)
-        existing = store.get_project_patent_point(project_id, point_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Patent point not found.")
-        patch = payload.model_dump(exclude_unset=True)
-        null_fields = [field for field, value in patch.items() if value is None]
-        if null_fields:
-            raise HTTPException(status_code=422, detail=f"Null fields are not allowed in patent point patches: {', '.join(null_fields)}")
-        if "moat_scores" in patch:
-            patch["moat_scores"] = {
-                **existing.moat_scores.model_dump(mode="json"),
-                **patch["moat_scores"],
-            }
-        if patch.get("evidence_status") in {"feasible_unverified", "needs_experiment"} and not patch.get("support_gaps") and not existing.support_gaps:
-            patch["support_gaps"] = ["提交前需补充实验或工程样例。"]
-        try:
-            updated = PatentPointCandidate.model_validate({**existing.model_dump(mode="json"), **patch})
-        except ValidationError as exc:
-            raise HTTPException(status_code=422, detail=exc.errors()) from exc
-        stored = store.add_project_patent_point(project_id, updated)
-        return stored.model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}/patent-points/{point_id}")
-    def delete_project_patent_point(project_id: str, point_id: str) -> dict:
-        _require_project(store, project_id)
-        deleted = store.delete_project_patent_point(project_id, point_id)
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Patent point not found.")
-        return {"ok": True}
-
-    @app.post("/api/projects/{project_id}/patent-points/{point_id}/evaluate-moat")
-    def evaluate_patent_point_moat(project_id: str, point_id: str) -> dict:
-        project = _require_project(store, project_id)
-        if isinstance(app.state.llm, MissingLLMClient):
-            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before evaluating moat scores.")
-        existing = store.get_project_patent_point(project_id, point_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Patent point not found.")
-        scores, rationale = score_moat(llm=app.state.llm, project=project, point=existing)
-        updated = existing.model_copy(update={"moat_scores": scores, "moat_rationale": rationale})
-        stored = store.add_project_patent_point(project_id, updated)
-        return stored.model_dump(mode="json")
-
     @app.post("/api/projects/{project_id}/disclosures")
     def create_disclosure(
         project_id: str,
@@ -899,59 +543,72 @@ def create_app(
     ) -> dict:
         project = _require_project(store, project_id)
         doctor = inspect_agent_environment()
-        requested = _agent_provider_ids_for_role(
+        requested, participants, seat_warnings = _deliberation_provider_plan(
             doctor,
-            payload.providers or list(STRICT_DELIBERATION_PROVIDERS),
-            "deliberation",
+            payload.providers,
+            payload.participant_providers,
+            auto_fill_missing=payload.providers is None,
         )
-        available = set(doctor.active_provider_ids)
-        selectable = _selectable_agent_provider_ids(doctor)
-        active_requested_count = len(requested) if app.state.provider_runner is not None else len([provider for provider in requested if provider in available])
+        active_requested_count = len(requested)
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
-        if app.state.provider_runner is None:
-            missing_providers = [provider for provider in requested if provider not in selectable]
-            if missing_providers:
-                failures = [
+        chair_missing = DELIBERATION_CHAIR_PROVIDER not in requested
+        if len(requested) < DELIBERATION_EXPERT_SEAT_COUNT or chair_missing:
+            block_reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+            block_message = (
+                "Codex chair is not available for deliberation."
+                if chair_missing
+                else "Not enough expert seats are ready for deliberation."
+            )
+            detail = (
+                f"Codex 主席不可用，无法启动会审；当前可用决策专家为 {len(requested)} 席：{', '.join(requested) or '无'}。"
+                if chair_missing
+                else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能启动会审；当前为 {len(requested)} 席：{', '.join(requested) or '无'}。"
+            )
+            if seat_warnings:
+                detail = f"{detail} {'；'.join(seat_warnings)}"
+            failed_run = DeliberationRun(
+                id=run_id,
+                project_id=project_id,
+                status="failed",
+                providers=requested,
+                participant_providers=participants,
+                run_mode="blocked",
+                round_depth=payload.round_depth,
+                trace=payload.trace,
+                run_dir=str(run_dir),
+                failures=[
                     AgentFailure(
-                        provider_id=provider,
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
                         phase="doctor",
-                        reason="provider_missing",
-                        message=f"{provider} provider is not available.",
+                        reason=block_reason,
+                        message=block_message,
                     )
-                    for provider in missing_providers
-                ]
-                logs = [
+                ],
+                events=[f"deliberation blocked: {block_reason}", *seat_warnings],
+                logs=[
                     DeliberationLogEntry(
                         level="error",
                         phase="doctor",
-                        provider_id=provider,
-                        message="provider missing",
-                        detail=f"{provider} CLI is not available in PATH or is not usable by the backend process.",
-                        repair_suggestion=repair_suggestion_for_failure("provider_missing", provider),
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
+                        message=block_reason.replace("_", " "),
+                        detail=detail,
+                        repair_suggestion=(
+                            "请先修复 Codex CLI 的安装或认证状态；Codex 是固定主席，不能由其他 agent 代替。"
+                            if chair_missing
+                            else "请在会审卡片中选择 Codex 主席之外的 2 个可用专家；Claude 不可用时可选择 DeepSeek、KimiCode、MimoCode 等已安装 agent。"
+                        ),
                     )
-                    for provider in missing_providers
-                ]
-                failed_run = DeliberationRun(
-                    id=run_id,
-                    project_id=project_id,
-                    status="failed",
-                    providers=requested,
-                    run_mode=_run_mode(active_requested_count),
-                    round_depth=payload.round_depth,
-                    trace=payload.trace,
-                    run_dir=str(run_dir),
-                    failures=failures,
-                    events=[f"provider missing: {provider}" for provider in missing_providers],
-                    logs=logs,
-                )
-                store.create_deliberation_run(failed_run)
-                return failed_run.model_dump(mode="json")
+                ],
+            )
+            store.create_deliberation_run(failed_run)
+            return failed_run.model_dump(mode="json")
         run = DeliberationRun(
             id=run_id,
             project_id=project_id,
             status="queued",
             providers=requested,
+            participant_providers=participants,
             run_mode=_run_mode(active_requested_count),
             round_depth=payload.round_depth,
             trace=payload.trace,
@@ -1017,20 +674,84 @@ def create_app(
         previous = store.get_deliberation_run(project_id, run_id)
         if not previous:
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
-        providers = _agent_provider_ids_for_role(inspect_agent_environment(), previous.providers, "deliberation")
+        doctor = inspect_agent_environment()
+        providers, participants, seat_warnings = _deliberation_provider_plan(
+            doctor,
+            previous.providers,
+            previous.participant_providers,
+            auto_fill_missing=True,
+        )
         retry_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / retry_id
+        chair_missing = DELIBERATION_CHAIR_PROVIDER not in providers
+        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT or chair_missing:
+            block_reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+            block_message = (
+                "Codex chair is not available for deliberation retry."
+                if chair_missing
+                else "Not enough expert seats are ready for deliberation retry."
+            )
+            detail = (
+                f"Codex 主席不可用，无法重试会审；当前可用决策专家为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+                if chair_missing
+                else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能重试会审；当前为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+            )
+            if seat_warnings:
+                detail = f"{detail} {'；'.join(seat_warnings)}"
+            retry_run = DeliberationRun(
+                id=retry_id,
+                project_id=project_id,
+                status="failed",
+                providers=providers,
+                participant_providers=participants,
+                run_mode="blocked",
+                round_depth=previous.round_depth,
+                trace=previous.trace,
+                run_dir=str(run_dir),
+                retry_of=previous.id,
+                failures=[
+                    AgentFailure(
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
+                        phase="doctor",
+                        reason=block_reason,
+                        message=block_message,
+                    )
+                ],
+                events=[f"retry requested for deliberation run {previous.id}", f"retry blocked: {block_reason}", *seat_warnings],
+                logs=[
+                    DeliberationLogEntry(
+                        level="error",
+                        phase="doctor",
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
+                        message=block_reason.replace("_", " "),
+                        detail=detail,
+                        repair_suggestion=(
+                            "请先修复 Codex CLI 的安装或认证状态；Codex 是固定主席，不能由其他 agent 代替。"
+                            if chair_missing
+                            else "请重新选择 Codex 主席之外的 2 个可用专家后再重试。"
+                        ),
+                    )
+                ],
+            )
+            store.create_deliberation_run(retry_run)
+            return retry_run.model_dump(mode="json")
         retry_run = DeliberationRun(
             id=retry_id,
             project_id=project_id,
             status="queued",
             providers=providers,
+            participant_providers=participants,
             run_mode=_run_mode(len(providers)),
             round_depth=previous.round_depth,
             trace=previous.trace,
             run_dir=str(run_dir),
             retry_of=previous.id,
-            events=[f"retry requested for deliberation run {previous.id}", f"providers normalized: {','.join(providers)}"],
+            events=[
+                f"retry requested for deliberation run {previous.id}",
+                f"providers normalized: {','.join(providers)}",
+                f"participants normalized: {','.join(participants)}",
+                *seat_warnings,
+            ],
         )
         store.create_deliberation_run(retry_run)
         if app.state.provider_runner is not None:
@@ -2909,6 +2630,7 @@ def _execute_deliberation(
                 brief=brief,
                 context_chunks=context,
                 providers=run.providers,
+                participant_providers=run.participant_providers,
                 run_dir=Path(run.run_dir),
                 trace=trace,
                 task_timeout_ms=task_timeout_ms,
@@ -3405,27 +3127,6 @@ def _repair_issue_anchor_snippet(issue: dict) -> str | None:
     return None
 
 
-def _build_llm(settings: Settings, desktop_config: DesktopConfig | None = None) -> LLMClient:
-    effective = effective_desktop_settings(settings, desktop_config or DesktopConfig())
-    api_key = effective["api_key"]
-    if not api_key:
-        return MissingLLMClient()
-    return DeepSeekLLMClient(
-        api_key=api_key,
-        base_url=effective["base_url"] or None,
-        model=effective["model"],
-    )
-
-
-_API_KEY_REDACT_PATTERN = re.compile(r"(sk-[A-Za-z0-9_-]{6,})")
-
-
-def _redact_error(exc: BaseException) -> str:
-    """Return a short, key-free description of ``exc`` for the health endpoint."""
-    text = f"{type(exc).__name__}: {exc}"
-    return _API_KEY_REDACT_PATTERN.sub("sk-…", text)[:512]
-
-
 def _require_project(store: SQLiteStore, project_id: str) -> ProjectRecord:
     project = store.get_project(project_id)
     if not project:
@@ -3512,13 +3213,15 @@ def _resolve_deliberation(store: SQLiteStore, project_id: str, run_id: str | Non
 def _is_strict_completed_deliberation(run: DeliberationRun) -> bool:
     if run.status != "completed" or run.strategy_brief is None or run.failures:
         return False
-    required = set(STRICT_DELIBERATION_PROVIDERS)
-    if not required.issubset(set(run.providers)):
+    decision_providers = list(dict.fromkeys(run.providers))
+    if len(decision_providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+        return False
+    if DELIBERATION_CHAIR_PROVIDER not in decision_providers:
         return False
     completed = {(stage.phase, stage.provider_id, stage.label) for stage in run.stage_results if stage.status == "completed"}
-    if not all(("opening", provider, f"opening {provider}") in completed for provider in required):
+    if not all(("opening", provider, f"opening {provider}") in completed for provider in decision_providers):
         return False
-    pair_labels = {f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(STRICT_DELIBERATION_PROVIDERS, 2)}
+    pair_labels = {f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(decision_providers, 2)}
     if not pair_labels.issubset({label for phase, _provider, label in completed if phase == "pair"}):
         return False
     return any(phase == "chair" and label == "chair synthesis" for phase, _provider, label in completed)
@@ -3627,22 +3330,112 @@ def _selectable_agent_provider_ids(doctor: AgentDoctorReport) -> set[str]:
     )
 
 
-def _agent_provider_ids_for_role(doctor: AgentDoctorReport, requested: list[str], role: str) -> list[str]:
-    provider_role = "deliberation" if role == "post_review" else role
-    normalized: list[str] = []
-    for provider_id in STRICT_DELIBERATION_PROVIDERS:
-        if provider_id not in normalized:
-            normalized.append(provider_id)
-    for provider_id in requested:
-        if provider_id in normalized:
+def _agent_provider_unavailable_reason(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None or not status.installed:
+        return "provider_missing"
+    return status.auth_status or "provider_unavailable"
+
+
+def _agent_provider_unavailable_detail(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None:
+        return f"{provider_id} provider is not registered in the agent doctor report."
+    if status.diagnostic:
+        return status.diagnostic
+    if not status.installed:
+        return f"{provider_id} CLI is not available in PATH or is not usable by the backend process."
+    return f"{provider_id} CLI auth_status={status.auth_status}; it is not selectable for this run."
+
+
+def _agent_provider_repair_suggestion(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is not None and status.repair_suggestion:
+        return status.repair_suggestion
+    return repair_suggestion_for_failure(_agent_provider_unavailable_reason(doctor, provider_id), provider_id)
+
+
+def _deliberation_provider_plan(
+    doctor: AgentDoctorReport,
+    requested: list[str] | None,
+    participant_requested: list[str] | None,
+    *,
+    auto_fill_missing: bool = False,
+) -> tuple[list[str], list[str], list[str]]:
+    eligible = {
+        provider_id
+        for provider_id, status in doctor.commands.items()
+        if status.installed and status.selectable and ("deliberation" in status.roles or provider_id == DELIBERATION_CHAIR_PROVIDER)
+    }
+    ordered_candidates = [
+        provider_id
+        for provider_id, status in doctor.commands.items()
+        if ("deliberation" in status.roles or provider_id == DELIBERATION_CHAIR_PROVIDER) and status.installed
+    ]
+    requested_order = _dedupe_provider_ids(requested or ordered_candidates)
+    warnings: list[str] = []
+
+    providers: list[str] = []
+    if DELIBERATION_CHAIR_PROVIDER in eligible:
+        providers.append(DELIBERATION_CHAIR_PROVIDER)
+    else:
+        warnings.append(_provider_plan_warning(doctor, DELIBERATION_CHAIR_PROVIDER))
+
+    overflow: list[str] = []
+    for provider_id in requested_order:
+        if provider_id == DELIBERATION_CHAIR_PROVIDER:
             continue
-        status = doctor.commands.get(provider_id)
-        if not status or not status.selectable:
+        if provider_id not in ordered_candidates:
             continue
-        if provider_role not in status.roles:
+        if provider_id not in eligible:
+            warnings.append(_provider_plan_warning(doctor, provider_id))
             continue
-        normalized.append(provider_id)
-    return normalized
+        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+            providers.append(provider_id)
+        else:
+            overflow.append(provider_id)
+
+    if auto_fill_missing and len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+        for provider_id in ordered_candidates:
+            if provider_id == DELIBERATION_CHAIR_PROVIDER or provider_id in providers:
+                continue
+            if provider_id not in eligible:
+                continue
+            providers.append(provider_id)
+            if len(providers) >= DELIBERATION_EXPERT_SEAT_COUNT:
+                break
+
+    participant_source = _dedupe_provider_ids([*(participant_requested or []), *overflow])
+    participants: list[str] = []
+    for provider_id in participant_source:
+        if provider_id in providers or provider_id not in ordered_candidates:
+            continue
+        if provider_id not in eligible:
+            if participant_requested and provider_id in participant_requested:
+                warnings.append(_provider_plan_warning(doctor, provider_id))
+            continue
+        participants.append(provider_id)
+
+    return providers, participants, _dedupe_provider_ids(warnings)
+
+
+def _provider_plan_warning(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None:
+        return f"{provider_id} 未注册，已跳过。"
+    if status.diagnostic:
+        return f"{provider_id} 不可用于会审：{status.diagnostic}"
+    if not status.installed:
+        return f"{provider_id} 未安装，已跳过。"
+    return f"{provider_id} auth_status={status.auth_status}，已跳过。"
+
+
+def _dedupe_provider_ids(provider_ids: list[str]) -> list[str]:
+    deduped: list[str] = []
+    for provider_id in provider_ids:
+        if provider_id and provider_id not in deduped:
+            deduped.append(provider_id)
+    return deduped
 
 
 def _run_mode(active_count: int) -> str:

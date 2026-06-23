@@ -690,6 +690,7 @@ export interface DeliberationRun {
   project_id: string;
   status: "queued" | "running" | "completed" | "failed" | "interrupted";
   providers: string[];
+  participant_providers?: string[];
   run_mode: "full" | "partial" | "minimal" | "blocked";
   round_depth: string;
   trace: boolean;
@@ -1503,11 +1504,21 @@ export function postDraftReviewReportUrl(projectId: string, runId: string): stri
   return `/api/projects/${projectId}/post-draft-reviews/${runId}/report.md`;
 }
 
-export async function startProjectDeliberation(projectId: string, trace = false, providers?: string[]): Promise<DeliberationRun> {
+export async function startProjectDeliberation(
+  projectId: string,
+  trace = false,
+  providers?: string[],
+  participantProviders?: string[],
+): Promise<DeliberationRun> {
   return request<DeliberationRun>(`/api/projects/${projectId}/deliberations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ trace, round_depth: "converged_two_round", providers: providers ?? null }),
+    body: JSON.stringify({
+      trace,
+      round_depth: "converged_two_round",
+      providers: providers ?? null,
+      participant_providers: participantProviders ?? null,
+    }),
   });
 }
 

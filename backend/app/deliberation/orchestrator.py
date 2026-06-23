@@ -31,6 +31,7 @@ class DeliberationOrchestrator:
         brief: InventionBrief,
         context_chunks: list[PatentChunk],
         providers: list[str],
+        participant_providers: list[str] | None = None,
         run_dir: Path,
         trace: bool,
         task_timeout_ms: int,
@@ -43,6 +44,9 @@ class DeliberationOrchestrator:
         logs: list[DeliberationLogEntry] = []
         dossier = build_dossier(brief, context_chunks)
         openings: dict[str, dict] = {}
+        participant_openings: dict[str, dict] = {}
+        participant_providers = [provider for provider in (participant_providers or []) if provider not in providers]
+        opening_providers = [*providers, *participant_providers]
 
         def append_log(entry: DeliberationLogEntry) -> None:
             logs.append(entry)
@@ -52,6 +56,7 @@ class DeliberationOrchestrator:
                 project_id=project_id,
                 status="running",
                 providers=providers,
+                participant_providers=participant_providers,
                 run_mode=_run_mode(len(openings)),
                 trace=trace,
                 run_dir=run_dir,
@@ -76,15 +81,17 @@ class DeliberationOrchestrator:
                     task_timeout_ms=task_timeout_ms,
                     log_callback=append_log,
                 )
-                for provider_id in providers
+                for provider_id in opening_providers
             ),
             return_exceptions=True,
         )
-        for provider_id, outcome in zip(providers, opening_outcomes):
+        for provider_id, outcome in zip(opening_providers, opening_outcomes):
+            is_participant = provider_id in participant_providers
             if isinstance(outcome, ProviderFailure):
                 exc = outcome
                 failure = _failure(provider_id, "opening", exc)
-                failures.append(failure)
+                if not is_participant:
+                    failures.append(failure)
                 stage_results.append(
                     DeliberationStageResult(
                         phase="opening",
@@ -99,7 +106,10 @@ class DeliberationOrchestrator:
                 append_log(_failure_log(provider_id, "opening", exc))
                 continue
             result = outcome
-            openings[provider_id] = result.payload
+            if is_participant:
+                participant_openings[provider_id] = result.payload
+            else:
+                openings[provider_id] = result.payload
             stage_results.append(
                 DeliberationStageResult(
                     phase="opening",
@@ -109,7 +119,7 @@ class DeliberationOrchestrator:
                     status="completed",
                 )
             )
-            events.append(f"opening completed: {provider_id}")
+            events.append(f"{'participant ' if is_participant else ''}opening completed: {provider_id}")
             append_log(
                 DeliberationLogEntry(
                     level="info",
@@ -129,6 +139,7 @@ class DeliberationOrchestrator:
                 project_id=project_id,
                 status="failed",
                 providers=providers,
+                participant_providers=participant_providers,
                 run_mode=_run_mode(len(openings)),
                 trace=trace,
                 run_dir=run_dir,
@@ -211,6 +222,7 @@ class DeliberationOrchestrator:
                 project_id=project_id,
                 status="failed",
                 providers=providers,
+                participant_providers=participant_providers,
                 run_mode=_run_mode(len(completed_providers)),
                 trace=trace,
                 run_dir=run_dir,
@@ -224,7 +236,7 @@ class DeliberationOrchestrator:
         try:
             chair = await self.provider_runner.run_json_task(
                 provider_id=coordinator_provider,
-                prompt=chair_prompt(dossier, openings, pair_results),
+                prompt=chair_prompt(dossier, openings, pair_results, participant_openings),
                 workdir=run_dir,
                 label="chair synthesis",
                 trace=trace,
@@ -255,6 +267,7 @@ class DeliberationOrchestrator:
                 project_id=project_id,
                 status="failed",
                 providers=providers,
+                participant_providers=participant_providers,
                 run_mode=_run_mode(len(completed_providers)),
                 trace=trace,
                 run_dir=run_dir,
@@ -287,6 +300,7 @@ class DeliberationOrchestrator:
             project_id=project_id,
             status="completed",
             providers=providers,
+            participant_providers=participant_providers,
             run_mode=run_mode,
             trace=trace,
             run_dir=str(run_dir),
@@ -333,6 +347,7 @@ def _build_run(
     project_id: str,
     status: str,
     providers: list[str],
+    participant_providers: list[str] | None = None,
     run_mode: str,
     trace: bool,
     run_dir: Path,
@@ -347,6 +362,7 @@ def _build_run(
         project_id=project_id,
         status=status,
         providers=providers,
+        participant_providers=participant_providers or [],
         run_mode=run_mode,
         trace=trace,
         run_dir=str(run_dir),

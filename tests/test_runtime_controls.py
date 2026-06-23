@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from backend.app.disclosure.prior_art import StaticPriorArtProvider
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
-from backend.app.schemas import DeliberationRun, FormulaNeedAssessment, FormulaRun
+from backend.app.schemas import AgentDoctorReport, AgentProviderStatus, DeliberationRun, FormulaNeedAssessment, FormulaRun
 
 
 def test_disclosure_run_records_runtime_state_and_retry_link(tmp_path):
@@ -56,7 +56,8 @@ def test_disclosure_timeout_preserves_partial_stage_results(tmp_path):
     assert run["failure_details"][0]["partial_artifact_count"] >= 1
 
 
-def test_deliberation_cancel_marks_queued_run_and_retry_links_previous(tmp_path):
+def test_deliberation_cancel_marks_queued_run_and_retry_links_previous(tmp_path, monkeypatch):
+    monkeypatch.setattr("backend.app.main.inspect_agent_environment", _retry_ready_doctor)
     client = TestClient(
         create_app(
             data_dir=tmp_path,
@@ -82,7 +83,8 @@ def test_deliberation_cancel_marks_queued_run_and_retry_links_previous(tmp_path)
 
     retry = client.post(f"/api/projects/{project_id}/deliberations/{run.id}/retry").json()
     assert retry["retry_of"] == run.id
-    assert retry["providers"] == ["codex", "deepseek", "claude"]
+    assert retry["providers"] == ["codex", "deepseek", "kimicode"]
+    assert retry["participant_providers"] == []
     assert retry["status"] == "completed"
 
 
@@ -219,6 +221,23 @@ class _FastDeliberationProviderRunner:
 class _Result:
     def __init__(self, payload):
         self.payload = payload
+
+
+def _retry_ready_doctor() -> AgentDoctorReport:
+    return AgentDoctorReport(
+        status="degraded",
+        run_mode="partial",
+        commands={
+            "codex": AgentProviderStatus(id="codex", label="Codex", command="codex", available=True, path="/bin/codex", required=True, roles=["deliberation", "chair"], installed=True, auth_status="ready", selectable=True),
+            "deepseek": AgentProviderStatus(id="deepseek", label="DeepSeek", command="reasonix", available=True, path="/bin/reasonix", required=False, roles=["deliberation"], installed=True, auth_status="ready", selectable=True),
+            "claude": AgentProviderStatus(id="claude", label="Claude", command="claude", available=False, path="/bin/claude", required=False, roles=["deliberation"], installed=True, auth_status="not_authenticated", selectable=False),
+            "kimicode": AgentProviderStatus(id="kimicode", label="KimiCode", command="kimicode", available=True, path="/bin/kimicode", required=False, roles=["deliberation"], installed=True, auth_status="ready", selectable=True),
+        },
+        active_provider_ids=["codex", "deepseek", "kimicode"],
+        missing_required=[],
+        missing_optional=["claude"],
+        unknown_required=[],
+    )
 
 
 def _create_project(client: TestClient, draft_text: str | None = None) -> str:

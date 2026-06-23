@@ -25,6 +25,8 @@ def _probe_ready(command: str, args: list[str], timeout_ms: int) -> tuple[int | 
         return 0, json.dumps({"providers": [{"name": "deepseek-pro", "model": "deepseek-v4-pro", "base_url_host": "api.deepseek.com", "key_present": True}]}), ""
     if args_key == "auth status":
         return 0, json.dumps({"loggedIn": True, "authMethod": "oauth_token"}), ""
+    if args and args[0] == "-p":
+        return 0, '{"ok": true}', ""
     # gemini --version
     return 0, "0.45.2", ""
 
@@ -47,6 +49,20 @@ def _probe_timeout(command: str, args: list[str], timeout_ms: int) -> tuple[int 
     return None, "", ""
 
 
+def _probe_claude_auth_ready_but_print_unauthorized(command: str, args: list[str], timeout_ms: int) -> tuple[int | None, str, str]:
+    """Fake Claude state where auth status is stale but real print mode fails."""
+    args_key = " ".join(args)
+    if args_key == "login status":
+        return 0, "Logged in using ChatGPT", ""
+    if args_key == "doctor --json":
+        return 0, json.dumps({"providers": [{"name": "deepseek-pro", "model": "deepseek-v4-pro", "base_url_host": "api.deepseek.com", "key_present": True}]}), ""
+    if args_key == "auth status":
+        return 0, json.dumps({"loggedIn": True, "authMethod": "claude.ai"}), ""
+    if args and args[0] == "-p":
+        return 1, "Failed to authenticate. API Error: 401 Invalid authentication credentials", ""
+    return 0, "0.45.2", ""
+
+
 def _make_executable(path: Path) -> None:
     path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     path.chmod(0o755)
@@ -58,7 +74,7 @@ def _make_executable(path: Path) -> None:
 
 
 def test_doctor_reports_core_required_and_optional_provider_metadata():
-    # codex+reasonix/deepseek+claude are required and auth-verifiable.
+    # Codex is the fixed chair; DeepSeek/Claude are selectable expert candidates.
     # gemini is deprecated optional and stays selectable only if installed.
     full = inspect_agent_environment(
         command_lookup=lambda command: f"/bin/{command}",
@@ -90,8 +106,8 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     assert core_only.missing_optional == ["gemini", "kimicode", "mimo"]
     assert core_only.commands["codex"].model_version
     assert "deliberation" in core_only.commands["codex"].roles
-    assert core_only.commands["deepseek"].required is True
-    assert core_only.commands["claude"].required is True
+    assert core_only.commands["deepseek"].required is False
+    assert core_only.commands["claude"].required is False
 
     missing_deepseek = inspect_agent_environment(
         command_lookup=lambda command: f"/bin/{command}" if command in {"codex", "claude"} else "",
@@ -99,7 +115,7 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     )
     assert missing_deepseek.status == "blocked"
     assert missing_deepseek.run_mode == "blocked"
-    assert "deepseek" in missing_deepseek.missing_required
+    assert "deepseek" in missing_deepseek.missing_optional
 
     blocked = inspect_agent_environment(
         command_lookup=lambda command: "",
@@ -107,7 +123,8 @@ def test_doctor_reports_core_required_and_optional_provider_metadata():
     )
     assert blocked.status == "blocked"
     assert blocked.run_mode == "blocked"
-    assert set(blocked.missing_required) == {"codex", "deepseek", "claude"}
+    assert set(blocked.missing_required) == {"codex"}
+    assert {"deepseek", "claude"}.issubset(set(blocked.missing_optional))
 
 
 def test_agent_command_resolution_survives_desktop_launch_path(
@@ -123,6 +140,8 @@ def test_agent_command_resolution_survives_desktop_launch_path(
     monkeypatch.setenv("PATENTS_AGENT_AGENT_PATH", str(tmp_path))
 
     assert str(tmp_path) in agent_search_path()
+    assert str(Path.home() / ".codex" / "bin") in agent_search_path()
+    assert str(Path.home() / ".claude" / "local") in agent_search_path()
     assert "/opt/homebrew/bin" in agent_search_path()
     assert resolve_agent_command("codex") == str(tmp_path / "codex")
     assert resolve_agent_command("reasonix") == str(tmp_path / "reasonix")
@@ -231,6 +250,8 @@ def test_doctor_probe_sanitizes_token_like_strings():
             return 1, "", f"Error: auth failed with token {token_value}"
         if args_key == "auth status":
             return 1, "", f"Error: auth failed with token {token_value}"
+        if args and args[0] == "-p":
+            return 1, "", f"Error: auth failed with token {token_value}"
         return 0, "version", ""
 
     report = inspect_agent_environment(
@@ -256,6 +277,8 @@ def test_doctor_probe_truncates_long_diagnostics():
             return 1, "", long_error
         if args_key == "auth status":
             return 1, "", long_error
+        if args and args[0] == "-p":
+            return 1, "", long_error
         return 0, "version", ""
 
     report = inspect_agent_environment(
@@ -267,6 +290,25 @@ def test_doctor_probe_truncates_long_diagnostics():
         diagnostic = report.commands[required_id].diagnostic
         assert len(diagnostic) <= 203  # max_length + "..."
         assert "..." in diagnostic
+
+
+def test_doctor_requires_claude_print_mode_not_just_auth_status():
+    """Claude is only usable by the app when the same non-interactive command succeeds."""
+    report = inspect_agent_environment(
+        command_lookup=lambda command: f"/bin/{command}",
+        command_probe=_probe_claude_auth_ready_but_print_unauthorized,
+        probe_timeout_ms=1000,
+    )
+
+    claude = report.commands["claude"]
+    assert claude.installed is True
+    assert claude.auth_status == "not_authenticated"
+    assert claude.available is False
+    assert claude.selectable is False
+    assert "401" in claude.diagnostic
+    assert "claude -p" in claude.repair_suggestion
+    assert "claude" in report.missing_optional
+    assert report.status == "degraded"
 
 
 # ---------------------------------------------------------------------------

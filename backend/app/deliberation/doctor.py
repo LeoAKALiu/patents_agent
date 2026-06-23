@@ -20,14 +20,14 @@ PROVIDERS = {
     "deepseek": {
         "label": "DeepSeek",
         "command": "reasonix",
-        "required": True,
+        "required": False,
         "model_version": "reasonix deepseek-pro",
         "roles": ["deliberation", "formula", "critic"],
     },
     "claude": {
         "label": "Claude",
         "command": "claude",
-        "required": True,
+        "required": False,
         "model_version": "claude-code default",
         "roles": ["deliberation", "formula", "critic"],
     },
@@ -67,6 +67,18 @@ PROVIDERS = {
 
 # Provider-specific probe functions.
 # Each returns (auth_status, diagnostic, repair_suggestion) or None to fall through.
+_CLAUDE_PRINT_SMOKE_PROMPT = 'Return exactly {"ok":true} as JSON only.'
+_CLAUDE_PRINT_SMOKE_ARGS = [
+    "-p",
+    "--no-chrome",
+    "--disable-slash-commands",
+    "--tools",
+    "",
+    "--output-format",
+    "text",
+    "--no-session-persistence",
+    _CLAUDE_PRINT_SMOKE_PROMPT,
+]
 
 
 def _probe_codex_auth(
@@ -96,18 +108,24 @@ def _probe_claude_auth(
     command_probe: Callable[[str, list[str], int], tuple[int | None, str, str]],
     timeout_ms: int,
 ) -> tuple[str, str, str] | None:
-    """Probe claude via `auth status` subcommand (JSON output)."""
+    """Probe Claude Code using the same non-interactive mode used by the app.
+
+    `claude auth status` can report a valid interactive login while `claude -p`
+    still fails with a stale or unsupported print-mode credential.  The desktop
+    app only uses print mode, so auth-status success is necessary but not enough.
+    """
     exit_code, stdout, stderr = command_probe(command, ["auth", "status"], timeout_ms)
     if exit_code is None:
         return "timeout", _sanitize_diagnostic(f"claude auth status 超时 ({timeout_ms}ms)"), "探测命令超时，请检查网络连接。"
 
+    auth_ready = False
     # Try JSON parse first
     try:
         data = json.loads(stdout)
         if isinstance(data, dict):
             logged_in = data.get("loggedIn")
             if logged_in is True:
-                return "ready", "", ""
+                auth_ready = True
             if logged_in is False:
                 return "not_authenticated", "claude auth status 报告未登录。", "请运行 `claude auth login` 进行登录。"
             # json without loggedIn → unknown
@@ -117,9 +135,12 @@ def _probe_claude_auth(
     # Text fallback
     combined = (stdout + " " + stderr).lower()
     if "logged in" in combined or "loggedin" in combined:
-        return "ready", "", ""
+        auth_ready = True
     if "not logged" in combined or "not authenticated" in combined or "expired" in combined:
         return "not_authenticated", _sanitize_diagnostic(f"claude 未登录：{stdout.strip()}", 200), "请运行 `claude auth login` 进行登录。"
+
+    if auth_ready:
+        return _probe_claude_print_mode(command, command_probe, timeout_ms)
 
     # Exit 0 but unrecognized output → unknown (not not_authenticated)
     if exit_code == 0:
@@ -133,6 +154,36 @@ def _probe_claude_auth(
         "not_authenticated",
         _sanitize_diagnostic(f"claude auth status 返回非零退出码：{' '.join([stdout.strip(), stderr.strip()]).strip()}", 200),
         "请运行 `claude auth login` 进行登录。",
+    )
+
+
+def _probe_claude_print_mode(
+    command: str,
+    command_probe: Callable[[str, list[str], int], tuple[int | None, str, str]],
+    timeout_ms: int,
+) -> tuple[str, str, str]:
+    smoke_timeout_ms = max(timeout_ms, 15_000)
+    exit_code, stdout, stderr = command_probe(command, _CLAUDE_PRINT_SMOKE_ARGS, smoke_timeout_ms)
+    combined = "\n".join([stdout.strip(), stderr.strip()]).strip()
+    combined_lower = combined.lower()
+    if exit_code is None:
+        return (
+            "timeout",
+            _sanitize_diagnostic(f"claude -p 探测超时 ({smoke_timeout_ms}ms)"),
+            "请在终端运行 `claude -p 'Return ok'`，确认 Claude Code 非交互 print 模式不会卡在网络或认证步骤。",
+        )
+    if exit_code == 0 and combined and "failed to authenticate" not in combined_lower and "invalid authentication" not in combined_lower:
+        return "ready", "", ""
+    if "401" in combined or "failed to authenticate" in combined_lower or "invalid authentication" in combined_lower:
+        return (
+            "not_authenticated",
+            _sanitize_diagnostic(f"claude -p 探测失败：{combined}", 200),
+            "Ghostty 中可打开 Claude 不代表非交互 print 模式可用；请运行 `claude -p 'Return ok'` 验证，并按 Claude Code 提示执行 `claude setup-token`、重新登录或修复 ANTHROPIC_API_KEY。",
+        )
+    return (
+        "unknown",
+        _sanitize_diagnostic(f"claude -p 返回非零退出码或空输出：{combined}", 200),
+        "请运行 `claude -p 'Return ok'` 手动确认 Claude Code 非交互模式可用。",
     )
 
 
@@ -357,7 +408,13 @@ def inspect_agent_environment(
         elif not selectable:
             missing_optional.append(provider_id)
 
-    if missing_required:
+    selectable_deliberation_count = sum(
+        1
+        for provider_id, status in commands.items()
+        if status.selectable and ("deliberation" in status.roles or provider_id == "codex")
+    )
+
+    if missing_required or selectable_deliberation_count < 3:
         status = "blocked"
         run_mode = "blocked"
     elif len(active_provider_ids) >= 3:

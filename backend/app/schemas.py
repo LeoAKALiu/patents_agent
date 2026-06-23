@@ -231,6 +231,7 @@ class PatentStrategyBrief(BaseModel):
 
 class DeliberationRunCreate(BaseModel):
     providers: list[str] | None = None
+    participant_providers: list[str] | None = None
     round_depth: str = "converged_two_round"
     trace: bool = False
     task_timeout_ms: int | None = None
@@ -248,6 +249,7 @@ class DeliberationRun(BaseModel):
     project_id: str
     status: str = Field(pattern="^(queued|running|completed|failed|interrupted)$")
     providers: list[str] = Field(default_factory=list)
+    participant_providers: list[str] = Field(default_factory=list)
     run_mode: str = Field(pattern="^(full|partial|minimal|blocked)$")
     round_depth: str = "converged_two_round"
     trace: bool = False
