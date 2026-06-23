@@ -8,8 +8,14 @@ from PyInstaller.utils.hooks import collect_submodules
 
 ROOT = Path.cwd()
 
+backend_hiddenimports = [
+    module
+    for module in collect_submodules("backend")
+    if not module.startswith("backend.app.db")
+]
+
 hiddenimports = (
-    collect_submodules("backend")
+    backend_hiddenimports
     + collect_submodules("uvicorn")
     + [
         "fastapi",
@@ -34,6 +40,10 @@ excludes = [
     "PySide2",
     "PySide6",
     "tkinter",
+    # SQLAlchemy/Alembic are migration-only until the ORM path is wired into
+    # runtime storage. Keeping them out avoids bloating the desktop sidecar.
+    "alembic",
+    "sqlalchemy",
 ]
 
 a = Analysis(
