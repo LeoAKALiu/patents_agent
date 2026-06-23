@@ -1,0 +1,66 @@
+# Local Desktop Architecture Refactor Handoff
+
+## Source
+
+- Branch: `codex/refactor-architecture-integration-qa`
+- Short SHA: `d4d617e`
+- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/t_cd5e347c`
+- Dirty status: clean
+
+## PRs Reviewed
+
+- PR-1: Backend Router Foundation — merged into PR-4 via d0b626e6 / cherry-picked into PR-5 via 83871a3d
+- PR-2: Backend Projects and Corpus Domains — merged into PR-5 at 6905694b
+- PR-3: Frontend API and Query Foundation — merged into PR-4 at 17e654e7 / 7be7a3e0
+- PR-4: Frontend App Decomposition — branch `codex/refactor-frontend-app-decomposition` at 74944c77
+- PR-5: Storage Repository and Migration Foundation — branch `codex/refactor-storage-repository-migrations` at 51d7da83
+
+Merged both PR-4 (74944c77) and PR-5 (51d7da83) into integration branch. Clean merge, no conflicts.
+
+## Commands
+
+- `python3 -m pytest tests/test_api_router_foundation.py tests/test_projects_api_router.py tests/test_corpus_api_router.py tests/test_project_repository.py -q`
+  - Result: **53 passed** in 4.96s
+
+- `npm --prefix frontend test -- features/system/queries.test.ts app/routes.test.tsx GuidedPatentFlowView.test.ts PostDraftRepairEditor.test.tsx`
+  - Result: **4 files, 15 tests passed** in 1.22s
+
+- `npm --prefix frontend run build`
+  - Result: **passed** (1900 modules transformed, built in 1.38s)
+
+- `python3 -m pytest tests/test_tauri_desktop_skeleton.py -q`
+  - Result: **11 passed** in 0.05s
+  - Note: `tests/test_tauri_build_prereqs.py` does not exist in this codebase; omitted.
+
+- Broader backend regression: `python3 -m pytest tests/test_db_session.py tests/test_project_repository.py tests/test_corpus_api_router.py tests/test_api_router_foundation.py tests/test_patent_points.py tests/test_disclosure.py tests/test_deep_research.py tests/test_grantability.py tests/test_claim_defense.py tests/test_draft_completion_api.py -q`
+  - Result: **133 passed, 1 skipped** in 7.33s
+
+- `npm --prefix frontend run build` (frontend production build)
+  - Result: **passed**
+
+## UI Evidence
+
+- No Tauri packaging, `src-tauri/`, or package script changes touched in PR-4 or PR-5. DMG packaging is not required.
+- Frontend src files verified: `AppRoot.tsx`, `ShellLayout.tsx`, `routes.tsx`, `ProjectWorkspace.tsx`, `CorpusWorkspace.tsx`, `QualityWorkspace.tsx`, `PostDraftWorkspace.tsx` all present and wired.
+- `PostDraftRepairEditor.test.tsx` passes, confirming repair editor UI surface is intact.
+- `GuidedPatentFlowView.test.ts` passes, confirming guided patent flow UI surface is intact.
+- Frontend build output written to `frontend/dist/` — production bundle verified.
+
+## Architecture Check
+
+- `backend/app/main.py`: 3286 lines (was ~3665, reduced by ~379 lines)
+- `frontend/src/App.tsx`: 1808 lines (was ~2022, reduced by ~214 lines)
+- Routers registered in `main.py`: system, desktop_config, corpus, projects
+- Feature workspaces: projects, corpus, quality, post-draft, settings, system
+- Generated API types: `frontend/src/generated/api/schema.d.ts` (5465 lines)
+- Query client: `frontend/src/lib/queryClient.ts` wired in `frontend/src/main.tsx`
+- Typed API client: `frontend/src/lib/apiClient.ts` with Tauri bridge
+
+## Merge Recommendation
+
+- Verdict: **Ready for review**
+- Blockers: none
+- Residual risks:
+  - `tests/test_tauri_build_prereqs.py` does not exist — plan referenced it but it was never created. Not a blocker; Tauri skeleton tests pass.
+  - PR-4 HEAD used was 74944c77 (actual branch tip), not the 9da2a7d2 referenced in the task comment (that commit is orphaned, same tree content).
+  - Real browser/desktop smoke not performed — this QA card covers test pass/fail only. Codex reviewer should verify running app if needed.
