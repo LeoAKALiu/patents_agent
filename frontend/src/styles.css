@@ -606,6 +606,8 @@ button.nav-link span {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .btn,
@@ -630,7 +632,11 @@ button.nav-link span {
   font-weight: 600;
   line-height: 1.35;
   transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
-  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .btn {
@@ -642,7 +648,9 @@ button.nav-link span {
 
 .btn-icon {
   width: 40px;
+  min-width: 40px;
   padding: 0;
+  white-space: nowrap;
 }
 
 .btn[disabled], .is-disabled,
@@ -940,9 +948,14 @@ input:focus, select:focus, textarea:focus {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
   color: var(--action-primary);
   font-size: 11px;
   font-weight: 600;
+}
+
+.result-meta > * {
+  min-width: 0;
 }
 
 .result-item p, .finding p, .empty {
@@ -2256,11 +2269,39 @@ input:focus, select:focus, textarea:focus {
   align-items: center;
   gap: 8px;
   margin-top: -4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .guided-panel-action {
   flex: 0 1 auto;
-  min-width: max-content;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.guided-primary-action,
+.guided-choice-action,
+.guided-runtime-action {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.guided-choice-action {
+  justify-self: start;
+  align-self: end;
+}
+
+.inline-console .button-row {
+  display: flex;
+  width: 100%;
+}
+
+.inline-console .guided-runtime-action {
+  flex: 0 1 auto;
 }
 
 .guided-intake, .guided-upload { display: grid; gap: 12px; }
@@ -2427,6 +2468,7 @@ input:focus, select:focus, textarea:focus {
 .mode-card, .guided-choice {
   display: grid;
   gap: 6px;
+  min-width: 0;
   /* Glass surface (soft frost for mode/choice chips). */
   background: var(--glass-bg-light);
   -webkit-backdrop-filter: blur(var(--glass-blur-sm));
@@ -2440,6 +2482,10 @@ input:focus, select:focus, textarea:focus {
   font-size: 12px;
   cursor: pointer;
   transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.guided-choice > * {
+  min-width: 0;
 }
 
 .mode-card:hover, .guided-choice:hover {

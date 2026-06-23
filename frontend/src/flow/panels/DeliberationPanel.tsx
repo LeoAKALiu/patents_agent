@@ -51,9 +51,10 @@ export function DeliberationPanel({
         </div>
         <UsersRound size={24} />
       </div>
-      <div className="button-row">
-        <Button variant="glass-soft" size="icon" onClick={() => onOpenExpertTool("deliberate")} type="button">
-          查看会审详情
+      <div className="guided-panel-actions">
+        <Button className="guided-panel-action" variant="glass-soft" size="sm" onClick={() => onOpenExpertTool("deliberate")} type="button">
+          <UsersRound size={16} aria-hidden="true" />
+          <span>查看会审详情</span>
         </Button>
       </div>
       <AgentProviderCards
@@ -63,7 +64,7 @@ export function DeliberationPanel({
         disabled={deliberationBusy}
         onToggleProvider={onToggleProvider}
       />
-      <Button variant="glass-primary" disabled={deliberationBusy} onClick={onStartDeliberation} type="button">
+      <Button className="guided-primary-action" variant="glass-primary" disabled={deliberationBusy} onClick={onStartDeliberation} type="button">
         {deliberationBusy ? <Loader2 className="spin" size={17} /> : <UsersRound size={17} />}
         <span>{activeRun ? "会审中" : deliberation ? "重新会审" : "启动多智能体会审"}</span>
       </Button>

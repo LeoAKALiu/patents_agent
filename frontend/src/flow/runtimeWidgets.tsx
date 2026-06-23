@@ -115,13 +115,27 @@ export function GuidedRuntimeActions({
   return (
     <div className="button-row">
       {canCancel && (
-        <Button variant="destructive" size="icon" disabled={disabled} onClick={() => onCancel?.(run.id)} type="button">
+        <Button
+          className="guided-runtime-action"
+          variant="destructive"
+          size="sm"
+          disabled={disabled}
+          onClick={() => onCancel?.(run.id)}
+          type="button"
+        >
           <AlertTriangle size={16} />
           <span>取消运行</span>
         </Button>
       )}
       {canRetry && (
-        <Button variant="glass-soft" size="icon" disabled={disabled} onClick={() => onRetry?.(run.id)} type="button">
+        <Button
+          className="guided-runtime-action"
+          variant="glass-soft"
+          size="sm"
+          disabled={disabled}
+          onClick={() => onRetry?.(run.id)}
+          type="button"
+        >
           <RefreshCw size={16} />
           <span>重试</span>
         </Button>

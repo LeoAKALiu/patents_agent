@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import appSource from "./App.tsx?raw";
 import guidedSource from "./GuidedPatentFlow.tsx?raw";
+import buttonSource from "./components/ui/button.tsx?raw";
 // The patent-point selection logic lives in a dedicated pure module after
 // the M4 extraction; the regression guard below pins its behaviour there.
 import inventionSelectorsSource from "./flow/inventionSelectors.ts?raw";
+import deliberationSource from "./flow/panels/DeliberationPanel.tsx?raw";
 // InventionPointConfirmation (panel-level candidate surfacing) was extracted
 // to its own module in M4; the panel-consumption guard points there now.
 import inventionPointSource from "./flow/panels/InventionPointConfirmation.tsx?raw";
+import runtimeWidgetsSource from "./flow/runtimeWidgets.tsx?raw";
 // The disclosure-settling poll loop + patent-point loader were extracted to
 // store/projectData in M3-B. The guard asserts the behaviour — the loop
 // exists, reloads patent points, and App.tsx still wires it — wherever the
@@ -34,6 +37,23 @@ describe("Guided patent flow UI regressions", () => {
     expect(inventionPointSource).toContain("guided-panel-action");
     expect(inventionPointSource).not.toMatch(/size="icon"[^>]+onOpenExpertTool\("materials"\)/s);
     expect(inventionPointSource).not.toMatch(/size="icon"[^>]+onOpenExpertTool\("moat"\)/s);
+  });
+
+  it("keeps guided text actions out of icon-sized buttons", () => {
+    expect(inventionPointSource).toContain("guided-choice-action");
+    expect(inventionPointSource).not.toMatch(/size="icon"[^>]+onSelectPatentPoint/s);
+    expect(deliberationSource).toContain("guided-panel-action");
+    expect(deliberationSource).not.toMatch(/size="icon"[^>]+onOpenExpertTool\("deliberate"\)/s);
+    expect(runtimeWidgetsSource).toContain("guided-runtime-action");
+    expect(runtimeWidgetsSource).not.toMatch(/size="icon"[^>]+onCancel/s);
+    expect(runtimeWidgetsSource).not.toMatch(/size="icon"[^>]+onRetry/s);
+  });
+
+  it("allows shared buttons to wrap inside constrained cards", () => {
+    expect(buttonSource).toContain("min-w-0");
+    expect(buttonSource).toContain("max-w-full");
+    expect(buttonSource).toContain("whitespace-normal");
+    expect(buttonSource).not.toContain("gap-2 whitespace-nowrap");
   });
 
   it("refreshes disclosure runs after starting patent point extraction", () => {

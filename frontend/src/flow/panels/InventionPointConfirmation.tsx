@@ -148,8 +148,14 @@ export function InventionPointConfirmation({
             <h4>{point.title}</h4>
             <p>{point.innovation || point.technical_solution}</p>
             {point.support_gaps.length > 0 && <p className="workflow-hint">支撑缺口：{point.support_gaps.join("；")}</p>}
-            <Button variant="glass-soft" size="icon" onClick={() => onSelectPatentPoint(point, candidates)} type="button">
-              选为主线并保存后备路线
+            <Button
+              className="guided-choice-action"
+              variant="glass-soft"
+              size="sm"
+              onClick={() => onSelectPatentPoint(point, candidates)}
+              type="button"
+            >
+              <span>选为主线并保存后备路线</span>
             </Button>
           </article>
         ))}
