@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { AppRoot } from "@/app/AppRoot";
 import { AgentProviderCards, normalizeAgentSelection, requiredAgentProviderIds } from "./AgentProviderCards";
 import { ShellSidebar } from "./ui/ShellSidebar";
 import { ShellTopbar } from "./ui/ShellTopbar";
@@ -165,7 +166,6 @@ import {
   ProjectSelect,
   ProjectsOverview,
   CorpusView,
-  CreateProjectView,
 } from "./views/projectViews";
 import { ClaimDefenseView, GrantabilityView, ReviewView } from "./views/qualityViews";
 import { FilingReadinessView, DraftCompletionView } from "./views/filingViews";
@@ -422,8 +422,6 @@ function App() {
   const [searchText, setSearchText] = useState("图像 神经网络 缺陷 方法");
   const [searchSection, setSearchSection] = useState<SectionType | "">("claims");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [projectName, setProjectName] = useState("");
-  const [draftText, setDraftText] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -1006,20 +1004,6 @@ function App() {
     });
   }
 
-  async function handleCreateProject(event: FormEvent) {
-    event.preventDefault();
-    if (!projectName.trim() || !draftText.trim()) return;
-    await withStatus("create", async () => {
-      const project = await createProject(projectName.trim(), draftText.trim());
-      const nextProjects = await listProjects();
-      setProjects(nextProjects);
-      setSelectedProjectId(project.id);
-      setMessage(`已创建项目：${project.name}`);
-      setActiveExpertTool("materials");
-      setActiveSection("expert");
-    });
-  }
-
   async function handleCreateIdeaProject(payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) {
     await withStatus("guided-create", async () => {
       const prefix = projectGoalPrefix(payload.mode);
@@ -1027,8 +1011,6 @@ function App() {
       const nextProjects = await listProjects();
       setProjects(nextProjects);
       setSelectedProjectId(project.id);
-      setProjectName("");
-      setDraftText("");
       setMessage(`已创建项目：${project.name}`);
     });
   }
@@ -1594,379 +1576,183 @@ function App() {
     setActiveSection("generate");
   }
 
-  function renderExpertTool() {
-    switch (activeExpertTool) {
-      case "build":
-        return (
-          <CorpusBuildView
-            form={corpusJobForm}
-            job={corpusJob}
-            versions={corpusVersions}
-            stats={corpusStats}
-            busy={busy}
-            onFormChange={(patch) => setCorpusJobForm((current) => ({ ...current, ...patch }))}
-            onCreateJob={handleCreateCorpusJob}
-            onUploadFile={handleUploadCorpusJobFile}
-            onRunJob={handleRunCorpusJob}
-          />
-        );
-      case "corpus":
-        return (
-          <CorpusView
-            documents={documents}
-            searchText={searchText}
-            searchSection={searchSection}
-            searchResults={searchResults}
-            busy={busy}
-            onImport={handleImport}
-            onSearch={handleSearch}
-            onSearchText={setSearchText}
-            onSearchSection={setSearchSection}
-          />
-        );
-      case "moat":
-        return (
-          <MoatView
-            project={selectedProject}
-            points={visiblePatentPoints}
-            busy={busy}
-            onCreate={handleCreatePatentPoint}
-            onSelect={handleSelectPatentPoint}
-            onDelete={handleDeletePatentPoint}
-            onEvaluateMoat={handleEvaluatePatentPointMoat}
-          />
-        );
-      case "materials":
-        return (
-          <DisclosureView
-            project={selectedProject}
-            materials={projectMaterials}
-            runs={disclosureRuns}
-            busy={busy}
-            onUpload={handleUploadMaterial}
-            onStart={handleStartDisclosure}
-            onRefresh={() => selectedProject && loadDisclosures(selectedProject.id)}
-            onCancelRun={(runId) => void handleCancelDisclosureRun(runId)}
-            onRetryRun={(runId) => void handleRetryDisclosureRun(runId)}
-          />
-        );
-      case "deliberate":
-        return (
-          <DeliberationView
-            project={selectedProject}
-            doctor={agentDoctor}
-            runs={deliberationRuns}
-            disclosure={currentDisclosure}
-            selectedProviders={selectedDeliberationProviders}
-            busy={busy}
-            onStart={handleStartDeliberation}
-            onToggleProvider={handleToggleDeliberationProvider}
-            onRefresh={() => selectedProject && loadDeliberations(selectedProject.id)}
-            onCancelRun={(runId) => void handleCancelDeliberationRun(runId)}
-            onRetryRun={(runId) => void handleRetryDeliberationRun(runId)}
-          />
-        );
-      case "write":
-        return (
-          <WriteView
-            project={selectedProject}
-            deliberation={currentDeliberation}
-            disclosure={currentDisclosure}
-            formulaRequirement={formulaRequirement}
-            formulaRun={currentFormulaRun}
-            busy={busy}
-            onGenerate={handleGenerate}
-          />
-        );
-      case "readiness":
-        return (
-          <FilingReadinessView
-            project={selectedProject}
-            report={latestFilingReport}
-            reports={filingReports}
-            postDraftReview={latestPostDraftReview}
-            officialCompileRun={latestOfficialCompileRun}
-            currentDraftHash={currentDraftHash}
-            currentSourceDraftHash={currentSourceDraftHash}
-            busy={busy}
-            onRun={handleRunFilingReadiness}
-          />
-        );
-      case "grantability":
-        return (
-          <GrantabilityView
-            project={selectedProject}
-            report={latestGrantabilityReport}
-            reports={grantabilityReports}
-            busy={busy}
-            onGenerate={handleCreateGrantabilityReport}
-          />
-        );
-      case "claimDefense":
-        return (
-          <ClaimDefenseView
-            project={selectedProject}
-            worksheet={latestWorksheet}
-            worksheets={worksheets}
-            busy={busy}
-            onGenerate={handleCreateWorksheet}
-          />
-        );
-      case "completion":
-        return (
-          <DraftCompletionView
-            project={selectedProject}
-            run={latestCompletionRun}
-            runs={completionRuns}
-            busy={busy}
-            onRun={handleRunDraftCompletion}
-            onImprove={handleImproveScore}
-            onPatch={handleCompletionPatch}
-          />
-        );
-      case "review":
-        return <ReviewView project={selectedProject} busy={busy} onReview={handleReview} />;
-      case "export":
-        return (
-          <ExportView
-            project={selectedProject}
-            packageValue={currentPackage}
-            postDraftReview={latestPostDraftReview}
-            officialCompileRun={latestOfficialCompileRun}
-            currentDraftHash={currentDraftHash}
-            currentSourceDraftHash={currentSourceDraftHash}
-            lastExport={lastExport}
-            onNativeExport={(format) => {
-              void triggerNativeExport(format);
-            }}
-            onOpenExportFolder={() => {
-              void triggerOpenExportFolder();
-            }}
-            desktopDialogsAvailable={Boolean(
-              (window as Window & DesktopMenuBridge).desktop?.dialogs?.saveOfficial &&
-                (window as Window & DesktopMenuBridge).desktop?.dialogs?.openFolder,
-            )}
-          />
-        );
-    }
-  }
-
-  function handleKeySectionSelect(id: "idea" | "moat" | "deliberate") {
-    if (id === "idea") {
-      setActiveSection("generate");
-      return;
-    }
-    setActiveSection("expert");
-    setActiveExpertTool(id);
-  }
-
   return (
-    <div className="app-shell">
-      <ShellSidebar
-        mainSections={mainSections.map((section) => ({
-          id: section.id,
-          label: section.label,
-          icon: <section.icon size={16} aria-hidden="true" />,
-          description: section.description,
-        }))}
-        activeSectionId={activeSection}
-        onSelectSection={(id) => setActiveSection(id as MainSectionId)}
-        keySections={
-          selectedProject
-            ? [
-                { id: "idea", label: "01 想法与材料", icon: <ClipboardList size={14} aria-hidden="true" /> },
-                { id: "moat", label: "02 发明点确认", icon: <Search size={14} aria-hidden="true" /> },
-                { id: "deliberate", label: "03 多智能体会审", icon: <UsersRound size={14} aria-hidden="true" /> },
-              ]
-            : undefined
-        }
-        onSelectKeySection={(id) => handleKeySectionSelect(id as "idea" | "moat" | "deliberate")}
-        footer={
-          <SystemStatusPanel
-            selectedProject={selectedProject}
-            health={health}
-            agentDoctor={agentDoctor}
-            agentRunModeLabel={agentRunModeLabel}
-            onRefresh={refreshAll}
-          />
-        }
-      />
-
-      <main className="main-area">
-        <ShellTopbar
-          onRefresh={refreshAll}
-          statusLabel={busy ? "处理中" : "空闲"}
-          statusVariant={busy ? "busy" : "idle"}
-          projectSelector={
-            <ProjectSelect
-              projects={projects}
-              selectedProjectId={selectedProject?.id ?? ""}
-              onChange={setSelectedProjectId}
-            />
-          }
-          actions={
-            <>
-              {!(activeSection === "generate" && !selectedProject && !startChoice) && (
-                <>
-                  {activeSection !== "expert" && (
-                    <Button
-                      variant="outline"
-                      className="topbar-action-button"
-                      onClick={() => setActiveSection("expert")}
-                      type="button"
-                    >
-                      <Gauge size={16} />
-                      <span>专家工具</span>
-                    </Button>
-                  )}
-                  {activeSection === "expert" && (
-                    <Button
-                      variant="outline"
-                      className="topbar-action-button"
-                      onClick={() => setActiveSection("generate")}
-                      type="button"
-                    >
-                      <Wand2 size={16} />
-                      <span>返回向导</span>
-                    </Button>
-                  )}
-                  {(startChoice || activeSection === "expert") && (
-                    <Button
-                      variant="outline"
-                      className="topbar-action-button"
-                      onClick={returnToStartChoices}
-                      type="button"
-                    >
-                      <ClipboardList size={16} />
-                      <span>返回三选一</span>
-                    </Button>
-                  )}
-                </>
-              )}
-            </>
-          }
-        />
-
-        {/* Mobile nav */}
-        <nav className="mobile-nav" aria-label="移动主导航">
-          {mainSections.map((section) => {
-            const Icon = section.icon;
-            return (
-              <button
-                className={activeSection === section.id ? "is-active" : ""}
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                type="button"
-                title={section.label}
-              >
-                <Icon size={16} />
-                <span>{section.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        {(busy || message || error) && (
-          <div className={error ? "notice error" : "notice"}>
-            {busy && <Loader2 className="animate-spin" size={16} />}
-            <span>{error || message || guidedBusyLabel(busy) || "处理中"}</span>
-            {!error && busy && <BusyOperationConsole log={guidedOperationLog(busy, busyTimer.elapsedSeconds)} />}
-          </div>
-        )}
-
-        <div className="workspace">
-
-        {(activeSection === "generate" || activeSection === "utility") && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-          {!selectedProject && !startChoice ? (
-            <StartChoiceScreen onSelect={handleStartChoice} />
-          ) : (
-            <GuidedPatentFlowView
-            project={selectedProject}
-            materials={projectMaterials}
-            disclosures={disclosureRuns}
-            deliberations={deliberationRuns}
-            patentPoints={visiblePatentPoints}
-            formulaRequirement={formulaRequirement}
-            formulaRuns={formulaRuns}
-            officialCompileRuns={officialCompileRuns}
-            currentSourceDraftHash={currentSourceDraftHash}
-            postDraftReviews={postDraftReviews}
-            currentDraftHash={currentDraftHash}
-            currentPackage={currentPackage}
-            agentDoctor={agentDoctor}
-            selectedDeliberationProviders={selectedDeliberationProviders}
-            selectedFormulaProviders={selectedFormulaProviders}
-            filingReports={filingReports}
-            worksheets={worksheets}
-            completionRuns={completionRuns}
-            externalDraftSources={externalDraftSources}
-            externalDraftIntakeRuns={externalDraftIntakeRuns}
-            busy={busy}
-            busyElapsedSeconds={busyTimer.elapsedSeconds}
-            fixedGoalMode={startChoice === "utility" || activeSection === "utility" ? "utility" : undefined}
-            initialIntakeMode={startChoice === "external" ? "external" : "idea"}
-            onCreateIdeaProject={handleCreateIdeaProject}
-            onCreateExternalDraft={handleCreateExternalDraft}
-            onUploadExternalDraft={handleUploadExternalDraft}
-            onStartExternalDraftIntake={handleStartExternalDraftIntake}
-            onConfirmExternalDraftIntake={handleConfirmExternalDraftIntake}
-            onUploadMaterial={handleUploadMaterial}
-            disclosureResearchMode={disclosureResearchMode}
-            onChangeDisclosureResearchMode={setDisclosureResearchMode}
-            onStartDisclosure={() => void handleStartDisclosure(false)}
-            onCancelDisclosureRun={(runId) => void handleCancelDisclosureRun(runId)}
-            onRetryDisclosureRun={(runId) => void handleRetryDisclosureRun(runId)}
-            onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
-            onStartDeliberation={() => void handleStartDeliberation(false)}
-            onCancelDeliberationRun={(runId) => void handleCancelDeliberationRun(runId)}
-            onRetryDeliberationRun={(runId) => void handleRetryDeliberationRun(runId)}
-            onStartFormula={() => void handleStartFormula()}
-            onCancelFormulaRun={(runId) => void handleCancelFormulaRun(runId)}
-            onRetryFormulaRun={(runId) => void handleRetryFormulaRun(runId)}
-            onStartOfficialCompile={() => void handleStartOfficialCompile()}
-            onStartKimiLanguagePolish={() => void handleStartKimiLanguagePolish()}
-            onStartPostDraftReview={() => void handleStartPostDraftReview()}
-            onApplyPostDraftSafePatches={(runId) => void handleApplyPostDraftSafePatches(runId)}
-            onSaveDraftPackage={(payload) => void handleSaveDraftPackage(payload)}
-            onCancelPostDraftReviewRun={(runId) => void handleCancelPostDraftReviewRun(runId)}
-            onRetryPostDraftReviewRun={(runId) => void handleRetryPostDraftReviewRun(runId)}
-            onToggleDeliberationProvider={handleToggleDeliberationProvider}
-            onToggleFormulaProvider={handleToggleFormulaProvider}
-            onGenerateDraft={() => void handleGenerate()}
-            onRunQualityChecks={() => void handleRunGuidedQualityChecks()}
-            onImproveScore={() => void handleImproveScore()}
-            onAcceptPatch={(runId, patchId) => void handleCompletionPatch(runId, patchId, "accept")}
-            onOpenExpertTool={openExpertTool}
-            />
-          )}
-          </div>
-        )}
-        {activeSection === "projects" && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-            <ProjectsOverview
-              projects={projects}
-              selectedProjectId={selectedProject?.id ?? ""}
-              onSelect={setSelectedProjectId}
-              onDelete={(project) => void handleDeleteProject(project)}
-              busy={busy}
-            />
-          </div>
-        )}
-        {activeSection === "settings" && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-            <SettingsPanel theme={theme} onThemeChange={setTheme} />
-          </div>
-        )}
-        {activeSection === "expert" && (
-          <div className="flex flex-col gap-4">
-            <ExpertToolChooser activeToolId={activeExpertTool} onSelect={setActiveExpertTool} />
-            {renderExpertTool()}
-          </div>
-        )}
-      </div>
-    </main>
-  </div>
+    <AppRoot
+      activeSection={activeSection}
+      activeExpertTool={activeExpertTool}
+      startChoice={startChoice}
+      selectedProject={selectedProject}
+      projects={projects}
+      busy={busy}
+      busyElapsedSeconds={busyTimer.elapsedSeconds}
+      message={message}
+      error={error}
+      health={health}
+      agentDoctor={agentDoctor}
+      theme={theme}
+      onSelectSection={setActiveSection}
+      onSelectExpertTool={setActiveExpertTool}
+      onSelectProjectId={setSelectedProjectId}
+      onReturnToStartChoices={returnToStartChoices}
+      onChangeTheme={setTheme}
+      onRefresh={refreshAll}
+      projectState={{
+        startChoice,
+        selectedProject,
+        projects,
+        projectMaterials,
+        disclosureRuns,
+        deliberationRuns,
+        visiblePatentPoints,
+        formulaRequirement,
+        formulaRuns,
+        officialCompileRuns,
+        currentSourceDraftHash,
+        postDraftReviews,
+        currentDraftHash,
+        currentPackage,
+        agentDoctor,
+        selectedDeliberationProviders,
+        selectedFormulaProviders,
+        filingReports,
+        worksheets,
+        completionRuns,
+        externalDraftSources,
+        externalDraftIntakeRuns,
+        busy,
+        busyElapsedSeconds: busyTimer.elapsedSeconds,
+        disclosureResearchMode,
+      }}
+      projectHandlers={{
+        onStartChoice: handleStartChoice,
+        onSelectProjectId: setSelectedProjectId,
+        onDeleteProject: handleDeleteProject,
+        onCreateIdeaProject: handleCreateIdeaProject,
+        onCreateExternalDraft: handleCreateExternalDraft,
+        onUploadExternalDraft: handleUploadExternalDraft,
+        onStartExternalDraftIntake: handleStartExternalDraftIntake,
+        onConfirmExternalDraftIntake: handleConfirmExternalDraftIntake,
+        onUploadMaterial: handleUploadMaterial,
+        onChangeDisclosureResearchMode: setDisclosureResearchMode,
+        onStartDisclosure: () => void handleStartDisclosure(false),
+        onCancelDisclosureRun: (runId) => void handleCancelDisclosureRun(runId),
+        onRetryDisclosureRun: (runId) => void handleRetryDisclosureRun(runId),
+        onSelectPatentPoint: (point, candidates) => void handleSelectPatentPoint(point, candidates),
+        onStartDeliberation: () => void handleStartDeliberation(false),
+        onCancelDeliberationRun: (runId) => void handleCancelDeliberationRun(runId),
+        onRetryDeliberationRun: (runId) => void handleRetryDeliberationRun(runId),
+        onStartFormula: () => void handleStartFormula(),
+        onCancelFormulaRun: (runId) => void handleCancelFormulaRun(runId),
+        onRetryFormulaRun: (runId) => void handleRetryFormulaRun(runId),
+        onStartOfficialCompile: () => void handleStartOfficialCompile(),
+        onStartKimiLanguagePolish: () => void handleStartKimiLanguagePolish(),
+        onStartPostDraftReview: () => void handleStartPostDraftReview(),
+        onApplyPostDraftSafePatches: (runId) => void handleApplyPostDraftSafePatches(runId),
+        onSaveDraftPackage: (payload) => void handleSaveDraftPackage(payload),
+        onCancelPostDraftReviewRun: (runId) => void handleCancelPostDraftReviewRun(runId),
+        onRetryPostDraftReviewRun: (runId) => void handleRetryPostDraftReviewRun(runId),
+        onToggleDeliberationProvider: handleToggleDeliberationProvider,
+        onToggleFormulaProvider: handleToggleFormulaProvider,
+        onGenerateDraft: () => void handleGenerate(),
+        onRunQualityChecks: () => void handleRunGuidedQualityChecks(),
+        onImproveScore: () => void handleImproveScore(),
+        onAcceptPatch: (runId, patchId) => void handleCompletionPatch(runId, patchId, "accept"),
+        onOpenExpertTool: (tool) => openExpertTool(tool as ExpertToolId),
+      }}
+      corpusState={{
+        corpusJobForm,
+        corpusJob,
+        corpusVersions,
+        corpusStats,
+        documents,
+        searchText,
+        searchSection,
+        searchResults,
+        busy,
+      }}
+      corpusHandlers={{
+        onCorpusFormChange: (patch) => setCorpusJobForm((current) => ({ ...current, ...patch })),
+        onCreateCorpusJob: handleCreateCorpusJob,
+        onUploadCorpusJobFile: handleUploadCorpusJobFile,
+        onRunCorpusJob: handleRunCorpusJob,
+        onImport: handleImport,
+        onSearch: handleSearch,
+        onSearchText: setSearchText,
+        onSearchSection: setSearchSection,
+      }}
+      qualityState={{
+        selectedProject,
+        filingReports,
+        latestFilingReport,
+        grantabilityReports,
+        latestGrantabilityReport,
+        worksheets,
+        latestWorksheet,
+        completionRuns,
+        latestCompletionRun,
+        latestOfficialCompileRun,
+        latestPostDraftReview,
+        currentDraftHash,
+        currentSourceDraftHash,
+        busy,
+      }}
+      qualityHandlers={{
+        onRunFilingReadiness: handleRunFilingReadiness,
+        onCreateGrantabilityReport: handleCreateGrantabilityReport,
+        onCreateWorksheet: handleCreateWorksheet,
+        onRunDraftCompletion: handleRunDraftCompletion,
+        onImproveScore: handleImproveScore,
+        onCompletionPatch: handleCompletionPatch,
+        onReview: handleReview,
+      }}
+      postDraftState={{
+        selectedProject,
+        agentDoctor,
+        visiblePatentPoints,
+        projectMaterials,
+        disclosureRuns,
+        deliberationRuns,
+        currentDisclosure,
+        currentDeliberation,
+        formulaRequirement,
+        currentFormulaRun,
+        currentPackage,
+        latestOfficialCompileRun,
+        latestPostDraftReview,
+        currentDraftHash,
+        currentSourceDraftHash,
+        selectedDeliberationProviders,
+        lastExport,
+        busy,
+        desktopDialogsAvailable: Boolean(
+          (window as Window & DesktopMenuBridge).desktop?.dialogs?.saveOfficial &&
+            (window as Window & DesktopMenuBridge).desktop?.dialogs?.openFolder,
+        ),
+      }}
+      postDraftHandlers={{
+        onCreatePatentPoint: handleCreatePatentPoint,
+        onSelectPatentPoint: (point) => handleSelectPatentPoint(point),
+        onDeletePatentPoint: handleDeletePatentPoint,
+        onEvaluatePatentPointMoat: handleEvaluatePatentPointMoat,
+        onUploadMaterial: handleUploadMaterial,
+        onStartDisclosure: handleStartDisclosure,
+        onRefreshDisclosures: async () => {
+          if (selectedProject) await loadDisclosures(selectedProject.id);
+        },
+        onCancelDisclosureRun: handleCancelDisclosureRun,
+        onRetryDisclosureRun: handleRetryDisclosureRun,
+        onStartDeliberation: handleStartDeliberation,
+        onToggleDeliberationProvider: handleToggleDeliberationProvider,
+        onRefreshDeliberations: async () => {
+          if (selectedProject) await loadDeliberations(selectedProject.id);
+        },
+        onCancelDeliberationRun: handleCancelDeliberationRun,
+        onRetryDeliberationRun: handleRetryDeliberationRun,
+        onGenerate: handleGenerate,
+        onNativeExport: triggerNativeExport,
+        onOpenExportFolder: triggerOpenExportFolder,
+      }}
+    />
   );
 }
 
