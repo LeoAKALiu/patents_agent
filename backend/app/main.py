@@ -138,6 +138,8 @@ from backend.app.storage import SQLiteStore
 
 from backend.app.api.desktop_config import router as desktop_config_router
 from backend.app.api.system import router as system_router
+from backend.app.api.corpus import router as corpus_router
+from backend.app.api.projects import router as projects_router
 from backend.app.services.desktop_config_service import LOCAL_RENDERER_ORIGINS
 from backend.app.services.llm_factory import build_llm
 
@@ -219,6 +221,8 @@ def create_app(
     )
     app.include_router(system_router)
     app.include_router(desktop_config_router)
+    app.include_router(corpus_router)
+    app.include_router(projects_router)
     app.state.settings = settings
     app.state.store = store
     app.state.index = index
@@ -230,182 +234,6 @@ def create_app(
     app.state.research_search_provider = research_search_provider
     app.state.disclosure_inline = prior_art_provider is not None
     app.state.corpus_service = CorpusImportService(store=store, index=index, data_dir=settings.data_dir)
-
-    @app.get("/api/corpus")
-    def list_corpus() -> dict:
-        documents = store.list_documents()
-        return {"documents": [document.model_dump(mode="json") for document in documents]}
-
-    @app.post("/api/corpus/jobs")
-    def create_corpus_job(payload: CorpusImportJobCreate) -> dict:
-        job = app.state.corpus_service.create_job(
-            source_type=payload.source_type,
-            source_name=payload.source_name,
-            query=payload.query,
-            domain=payload.domain,
-            version_name=payload.version_name,
-        )
-        return job.model_dump(mode="json")
-
-    @app.post("/api/corpus/jobs/{job_id}/files")
-    async def upload_corpus_job_file(job_id: str, file: UploadFile = File(...)) -> dict:
-        if not store.get_corpus_job(job_id):
-            raise HTTPException(status_code=404, detail="Corpus import job not found.")
-        upload_dir = settings.data_dir / "corpus-jobs" / job_id / "uploaded"
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file.filename or "corpus-upload").name
-        stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-        with stored_path.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
-        job = app.state.corpus_service.add_input(job_id, stored_path)
-        return {"job": job.model_dump(mode="json"), "file_count": len(job.input_paths)}
-
-    @app.post("/api/corpus/jobs/{job_id}/run")
-    def run_corpus_job(job_id: str) -> dict:
-        if not store.get_corpus_job(job_id):
-            raise HTTPException(status_code=404, detail="Corpus import job not found.")
-        job = app.state.corpus_service.run_job(job_id)
-        if job.status == "failed" and not job.imported_documents:
-            return job.model_dump(mode="json")
-        return job.model_dump(mode="json")
-
-    @app.get("/api/corpus/jobs/{job_id}")
-    def get_corpus_job(job_id: str) -> dict:
-        job = store.get_corpus_job(job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail="Corpus import job not found.")
-        return job.model_dump(mode="json")
-
-    @app.get("/api/corpus/versions")
-    def list_corpus_versions() -> dict:
-        return {"versions": [version.model_dump(mode="json") for version in store.list_corpus_versions()]}
-
-    @app.get("/api/corpus/stats")
-    def corpus_stats(version: str | None = None) -> dict:
-        return store.get_corpus_stats(version_name=version)
-
-    @app.get("/api/corpus/documents/{document_id}")
-    def get_corpus_document(document_id: str) -> dict:
-        document = store.get_document(document_id)
-        if not document:
-            raise HTTPException(status_code=404, detail="Corpus document not found.")
-        return document.model_dump(mode="json")
-
-    @app.post("/api/corpus/import")
-    async def import_corpus(file: UploadFile = File(...)) -> dict:
-        upload_dir = settings.data_dir / "uploads"
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file.filename or "patent.txt").name
-        stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-        with stored_path.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
-
-        try:
-            text = read_document_text(stored_path)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        document = make_patent_document(uuid.uuid4().hex, safe_name, text)
-        chunks = [PatentChunk(**chunk) for chunk in chunk_document(document)]
-        store.add_document(document, chunks)
-        index.add(chunks)
-        return {
-            "document": document.model_dump(mode="json"),
-            "chunks_count": len(chunks),
-            "warnings": [],
-        }
-
-    @app.get("/api/corpus/search")
-    def search_corpus(
-        q: str = Query(min_length=1),
-        section_type: SectionType | None = None,
-        limit: int = Query(default=5, ge=1, le=20),
-        version: str | None = None,
-    ) -> dict:
-        results = index.search(q, section_type=section_type, limit=limit, version_name=version)
-        return {"results": [result.model_dump(mode="json") for result in results]}
-
-    @app.get("/api/projects")
-    def list_projects() -> dict:
-        return {"projects": [project.model_dump(mode="json") for project in store.list_projects()]}
-
-    @app.post("/api/projects")
-    def create_project(payload: ProjectCreate) -> dict:
-        project = ProjectRecord(
-            id=uuid.uuid4().hex,
-            name=payload.name,
-            draft_text=payload.draft_text,
-            patent_type=payload.patent_type,
-            applicant=payload.applicant,
-            inventors=payload.inventors,
-            technical_field=payload.technical_field,
-            background=payload.background,
-            pain_point=payload.pain_point,
-            technical_solution=payload.technical_solution,
-            innovation=payload.innovation,
-            embodiments=payload.embodiments,
-            beneficial_effects=payload.beneficial_effects,
-        )
-        stored = store.create_project(project)
-        return stored.model_dump(mode="json")
-
-    @app.get("/api/projects/{project_id}")
-    def get_project(project_id: str) -> dict:
-        project = _require_project(store, project_id)
-        return project.model_dump(mode="json")
-
-    @app.put("/api/projects/{project_id}")
-    def update_project(project_id: str, payload: ProjectUpdate) -> dict:
-        project = _require_project(store, project_id)
-        updates = payload.model_dump(exclude_unset=True)
-        if not updates:
-            return project.model_dump(mode="json")
-        updated = store.update_project(project_id, updates)
-        if updated is None:
-            raise HTTPException(status_code=404, detail="Project not found.")
-        return updated.model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}")
-    def delete_project(project_id: str) -> dict:
-        deleted = store.delete_project(project_id)
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Project not found.")
-        return {"ok": True}
-
-    @app.post("/api/projects/{project_id}/materials")
-    async def upload_project_material(project_id: str, file: UploadFile = File(...)) -> dict:
-        _require_project(store, project_id)
-        upload_dir = settings.data_dir / "project-materials" / project_id
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file.filename or "material.txt").name
-        stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-        with stored_path.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
-        warnings: list[str] = []
-        text = ""
-        status = "processed"
-        try:
-            text, warnings = read_project_material_text(stored_path)
-        except ValueError as exc:
-            status = "failed"
-            warnings = [str(exc)]
-        material = ProjectMaterial(
-            id=uuid.uuid4().hex,
-            project_id=project_id,
-            file_name=safe_name,
-            path=str(stored_path),
-            file_type=stored_path.suffix.lower().lstrip("."),
-            text=text,
-            status=status,
-            warnings=warnings,
-        )
-        store.add_project_material(material)
-        return material.model_dump(mode="json")
-
-    @app.get("/api/projects/{project_id}/materials")
-    def list_project_materials(project_id: str) -> dict:
-        _require_project(store, project_id)
-        return {"materials": [material.model_dump(mode="json") for material in store.list_project_materials(project_id)]}
 
     @app.post("/api/projects/{project_id}/external-drafts")
     def create_external_draft(project_id: str, payload: ExternalDraftSourceCreate) -> dict:
@@ -581,63 +409,6 @@ def create_app(
             external_draft_review_bundle_to_markdown(bundle),
             media_type="text/markdown; charset=utf-8",
         )
-
-    @app.get("/api/projects/{project_id}/patent-points")
-    def list_project_patent_points(project_id: str) -> dict:
-        _require_project(store, project_id)
-        return {"points": [point.model_dump(mode="json") for point in store.list_project_patent_points(project_id)]}
-
-    @app.post("/api/projects/{project_id}/patent-points")
-    def create_project_patent_point(project_id: str, payload: PatentPointCreate) -> dict:
-        _require_project(store, project_id)
-        point: PatentPointCandidate = payload.to_candidate(payload.source_candidate_id or f"user-{uuid.uuid4().hex}")
-        stored = store.add_project_patent_point(project_id, point)
-        return stored.model_dump(mode="json")
-
-    @app.patch("/api/projects/{project_id}/patent-points/{point_id}")
-    def update_project_patent_point(project_id: str, point_id: str, payload: PatentPointUpdate) -> dict:
-        _require_project(store, project_id)
-        existing = store.get_project_patent_point(project_id, point_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Patent point not found.")
-        patch = payload.model_dump(exclude_unset=True)
-        null_fields = [field for field, value in patch.items() if value is None]
-        if null_fields:
-            raise HTTPException(status_code=422, detail=f"Null fields are not allowed in patent point patches: {', '.join(null_fields)}")
-        if "moat_scores" in patch:
-            patch["moat_scores"] = {
-                **existing.moat_scores.model_dump(mode="json"),
-                **patch["moat_scores"],
-            }
-        if patch.get("evidence_status") in {"feasible_unverified", "needs_experiment"} and not patch.get("support_gaps") and not existing.support_gaps:
-            patch["support_gaps"] = ["提交前需补充实验或工程样例。"]
-        try:
-            updated = PatentPointCandidate.model_validate({**existing.model_dump(mode="json"), **patch})
-        except ValidationError as exc:
-            raise HTTPException(status_code=422, detail=exc.errors()) from exc
-        stored = store.add_project_patent_point(project_id, updated)
-        return stored.model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}/patent-points/{point_id}")
-    def delete_project_patent_point(project_id: str, point_id: str) -> dict:
-        _require_project(store, project_id)
-        deleted = store.delete_project_patent_point(project_id, point_id)
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Patent point not found.")
-        return {"ok": True}
-
-    @app.post("/api/projects/{project_id}/patent-points/{point_id}/evaluate-moat")
-    def evaluate_patent_point_moat(project_id: str, point_id: str) -> dict:
-        project = _require_project(store, project_id)
-        if isinstance(app.state.llm, MissingLLMClient):
-            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before evaluating moat scores.")
-        existing = store.get_project_patent_point(project_id, point_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Patent point not found.")
-        scores, rationale = score_moat(llm=app.state.llm, project=project, point=existing)
-        updated = existing.model_copy(update={"moat_scores": scores, "moat_rationale": rationale})
-        stored = store.add_project_patent_point(project_id, updated)
-        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/disclosures")
     def create_disclosure(
