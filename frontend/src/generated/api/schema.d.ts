@@ -362,6 +362,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/completion-runs/{run_id}/patches/accept-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept All Completion Patches */
+        post: operations["accept_all_completion_patches_api_projects__project_id__completion_runs__run_id__patches_accept_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/completion-runs/{run_id}/patches/generate": {
         parameters: {
             query?: never;
@@ -1442,22 +1459,34 @@ export interface components {
     schemas: {
         /** Body_import_corpus_api_corpus_import_post */
         Body_import_corpus_api_corpus_import_post: {
-            /** File */
+            /**
+             * File
+             * Format: binary
+             */
             file: string;
         };
         /** Body_upload_corpus_job_file_api_corpus_jobs__job_id__files_post */
         Body_upload_corpus_job_file_api_corpus_jobs__job_id__files_post: {
-            /** File */
+            /**
+             * File
+             * Format: binary
+             */
             file: string;
         };
         /** Body_upload_external_draft_api_projects__project_id__external_drafts_upload_post */
         Body_upload_external_draft_api_projects__project_id__external_drafts_upload_post: {
-            /** File */
+            /**
+             * File
+             * Format: binary
+             */
             file: string;
         };
         /** Body_upload_project_material_api_projects__project_id__materials_post */
         Body_upload_project_material_api_projects__project_id__materials_post: {
-            /** File */
+            /**
+             * File
+             * Format: binary
+             */
             file: string;
         };
         /** Citation */
@@ -2021,6 +2050,8 @@ export interface components {
         };
         /** PostDraftReviewRunCreate */
         PostDraftReviewRunCreate: {
+            /** Participant Providers */
+            participant_providers?: string[] | null;
             /** Providers */
             providers?: string[] | null;
             /** Run Timeout Ms */
@@ -2927,6 +2958,40 @@ export interface operations {
         };
     };
     get_draft_completion_run_api_projects__project_id__completion_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_all_completion_patches_api_projects__project_id__completion_runs__run_id__patches_accept_all_post: {
         parameters: {
             query?: never;
             header?: never;

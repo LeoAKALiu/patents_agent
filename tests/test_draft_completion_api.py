@@ -1,6 +1,6 @@
 from backend.app.llm import FakeLLMClient
 from backend.app.official_compile import source_draft_hash
-from backend.app.schemas import CompletionScoreCard, CompletionTask, DraftCompletionRun, ProposedPatch
+from backend.app.schemas import CompletionIssue, CompletionScoreCard, CompletionTask, DraftCompletionRun, ProposedPatch
 from backend.app.storage import SQLiteStore
 from fastapi.testclient import TestClient
 
@@ -13,6 +13,30 @@ def _stored_completion_run(project_id: str = "project-1") -> DraftCompletionRun:
         project_id=project_id,
         snapshot_hash="hash-1",
         status="completed",
+        issues=[
+            CompletionIssue(
+                id="issue-1",
+                category="claim_support_gap",
+                severity="high",
+                target="claim",
+                source_refs=["claim:1"],
+                message="Claim 1 lacks support.",
+                why_it_matters="Unsupported claim features reduce filing maturity.",
+                suggested_action="Add concrete support for claim 1.",
+                blocks_submission=True,
+            ),
+            CompletionIssue(
+                id="issue-2",
+                category="format_pollution",
+                severity="medium",
+                target="export",
+                source_refs=["export:mermaid"],
+                message="Export field contains internal format text.",
+                why_it_matters="Official drafts must not include internal formatting traces.",
+                suggested_action="Remove internal format text.",
+                blocks_submission=True,
+            ),
+        ],
         tasks=[
             CompletionTask(
                 id="task-1",
@@ -21,7 +45,15 @@ def _stored_completion_run(project_id: str = "project-1") -> DraftCompletionRun:
                 priority=100,
                 expected_output="Strengthen claim support.",
                 draft_section_target="claims",
-            )
+            ),
+            CompletionTask(
+                id="task-2",
+                issue_id="issue-2",
+                task_type="clean_export_trace",
+                priority=90,
+                expected_output="Remove internal traces.",
+                draft_section_target="export",
+            ),
         ],
         patches=[
             ProposedPatch(
@@ -34,7 +66,16 @@ def _stored_completion_run(project_id: str = "project-1") -> DraftCompletionRun:
                 rationale="Strengthen claim support.",
                 risk_delta="lower",
                 evidence_refs=["matrix:claim-1"],
-            )
+            ),
+            ProposedPatch(
+                id="patch-2",
+                task_id="task-2",
+                target_section="export",
+                patch_kind="sidecar_only",
+                rationale="Remove internal traces.",
+                risk_delta="lower",
+                evidence_refs=["readiness:issue-2"],
+            ),
         ],
         scorecard=CompletionScoreCard(
             authorization_stability=80,
@@ -134,6 +175,10 @@ def test_completion_api_runs_lists_exports_and_updates_patch_status(tmp_path):
     accept_response = client.post(f"/api/projects/{project['id']}/completion-runs/{run['id']}/patches/{patch_id}/accept")
     assert accept_response.status_code == 200
     accepted_run = accept_response.json()
+    assert accepted_run["scorecard_baseline"] == run["scorecard"]
+    assert accepted_run["scorecard"]["authorization_stability"] > run["scorecard"]["authorization_stability"]
+    assert accepted_run["scorecard"]["protection_scope"] > run["scorecard"]["protection_scope"]
+    assert accepted_run["scorecard"]["filing_maturity"] > run["scorecard"]["filing_maturity"]
     accepted_patch = next(patch for patch in accepted_run["patches"] if patch["id"] == patch_id)
     assert accepted_patch["status"] == "accepted"
     assert any(
@@ -150,6 +195,33 @@ def test_completion_api_runs_lists_exports_and_updates_patch_status(tmp_path):
         task["id"] == rejected_patch["task_id"] and task["status"] == "rejected"
         for task in rejected_run["tasks"]
     )
+    assert rejected_run["scorecard"] == run["scorecard"]
+
+
+def test_accept_all_completion_patches_updates_scores_once(tmp_path):
+    client = _client(tmp_path)
+    project = client.post(
+        "/api/projects",
+        json={"name": "批量接受补强", "draft_text": "一种测试方法。"},
+    ).json()
+    app = client.app
+    store = app.state.store
+    run = store.create_draft_completion_run(_stored_completion_run(project["id"]))
+
+    response = client.post(f"/api/projects/{run.project_id}/completion-runs/{run.id}/patches/accept-all")
+
+    assert response.status_code == 200
+    accepted = response.json()
+    assert {patch["status"] for patch in accepted["patches"]} == {"accepted"}
+    assert {task["status"] for task in accepted["tasks"]} == {"accepted"}
+    assert accepted["scorecard_baseline"] == run.scorecard.model_dump(mode="json")
+    assert accepted["scorecard"]["authorization_stability"] > run.scorecard.authorization_stability
+    assert accepted["scorecard"]["protection_scope"] > run.scorecard.protection_scope
+    assert accepted["scorecard"]["filing_maturity"] > run.scorecard.filing_maturity
+
+    second_response = client.post(f"/api/projects/{run.project_id}/completion-runs/{run.id}/patches/accept-all")
+    assert second_response.status_code == 200
+    assert second_response.json()["scorecard"] == accepted["scorecard"]
 
 
 def test_score_improvement_applies_safe_patches_and_re_scores_project(tmp_path):

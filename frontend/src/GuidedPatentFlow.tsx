@@ -172,6 +172,7 @@ export type GuidedPatentFlowProps = {
   onRunQualityChecks: () => void;
   onImproveScore: () => void;
   onAcceptPatch: (runId: string, patchId: string) => void;
+  onAcceptAllPatches: (runId: string) => void;
   onOpenExpertTool: (
     tool: "materials" | "moat" | "deliberate" | "readiness" | "claimDefense" | "completion" | "export",
   ) => void;
@@ -370,6 +371,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onRunQualityChecks={props.onRunQualityChecks}
           onImproveScore={props.onImproveScore}
           onAcceptPatch={props.onAcceptPatch}
+          onAcceptAllPatches={props.onAcceptAllPatches}
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
@@ -397,6 +399,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           officialCompileRun={latestOfficialCompileRun}
           doctor={props.agentDoctor}
           selectedProviders={props.selectedDeliberationProviders}
+          participantProviders={props.selectedDeliberationParticipantProviders}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartPostDraftReview={props.onStartPostDraftReview}
@@ -406,6 +409,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onCancelRun={props.onCancelPostDraftReviewRun}
           onRetryRun={props.onRetryPostDraftReviewRun}
           onToggleProvider={props.onToggleDeliberationProvider}
+          onToggleParticipantProvider={props.onToggleDeliberationParticipantProvider}
         />
       )}
       {displayedStepId === "export" && (

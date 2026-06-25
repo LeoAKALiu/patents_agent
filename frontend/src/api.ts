@@ -352,6 +352,7 @@ export interface DraftCompletionRun {
   patches: ProposedPatch[];
   support_matrix: ClaimSupportMatrixRow[];
   scorecard: CompletionScoreCard;
+  scorecard_baseline?: CompletionScoreCard | null;
   notes: string[];
   created_at: string;
 }
@@ -806,6 +807,7 @@ export interface PostDraftReviewRun {
   project_id: string;
   status: "queued" | "running" | "completed" | "failed" | "interrupted";
   providers: string[];
+  participant_providers?: string[];
   prompt_pack_version: string;
   draft_package_hash: string;
   official_compile_run_id: string;
@@ -1318,6 +1320,12 @@ export async function acceptCompletionPatch(
   });
 }
 
+export async function acceptAllCompletionPatches(projectId: string, runId: string): Promise<DraftCompletionRun> {
+  return request<DraftCompletionRun>(`/api/projects/${projectId}/completion-runs/${runId}/patches/accept-all`, {
+    method: "POST",
+  });
+}
+
 export async function rejectCompletionPatch(
   projectId: string,
   runId: string,
@@ -1415,11 +1423,15 @@ export function officialCompileReportUrl(projectId: string, runId: string): stri
   return `/api/projects/${projectId}/official-compile-runs/${runId}/report.md`;
 }
 
-export async function startPostDraftReview(projectId: string, providers?: string[]): Promise<PostDraftReviewRun> {
+export async function startPostDraftReview(
+  projectId: string,
+  providers?: string[],
+  participantProviders?: string[],
+): Promise<PostDraftReviewRun> {
   return request<PostDraftReviewRun>(`/api/projects/${projectId}/post-draft-reviews`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ providers: providers ?? null }),
+    body: JSON.stringify({ providers: providers ?? null, participant_providers: participantProviders ?? null }),
   });
 }
 

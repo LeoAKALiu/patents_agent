@@ -119,6 +119,7 @@ export interface ProjectWorkspaceHandlers {
   onRunQualityChecks: () => void;
   onImproveScore: () => void;
   onAcceptPatch: (runId: string, patchId: string) => void;
+  onAcceptAllPatches: (runId: string) => void;
   onOpenExpertTool: (tool: string) => void;
 }
 
@@ -241,6 +242,7 @@ export function ProjectWorkspace({
       onRunQualityChecks={handlers.onRunQualityChecks}
       onImproveScore={handlers.onImproveScore}
       onAcceptPatch={handlers.onAcceptPatch}
+      onAcceptAllPatches={handlers.onAcceptAllPatches}
       onOpenExpertTool={handlers.onOpenExpertTool}
     />
   );

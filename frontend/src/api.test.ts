@@ -5,12 +5,14 @@ import {
   cancelPostDraftReview,
   cancelProjectDeliberation,
   cancelProjectDisclosure,
+  acceptAllCompletionPatches,
   getHealth,
   importPatent,
   retryFormulaRun,
   retryPostDraftReview,
   retryProjectDeliberation,
   retryProjectDisclosure,
+  startPostDraftReview,
   startKimiOfficialLanguagePolish,
   uploadCorpusJobFile,
   uploadProjectMaterial,
@@ -67,6 +69,10 @@ describe("runtime control API", () => {
         action: startKimiOfficialLanguagePolish,
         url: "/api/projects/project-1/official-compile-runs/run-1/kimi-language-polish",
       },
+      {
+        action: acceptAllCompletionPatches,
+        url: "/api/projects/project-1/completion-runs/run-1/patches/accept-all",
+      },
     ];
 
     for (const { action } of calls) {
@@ -119,6 +125,29 @@ describe("runtime control API", () => {
       3,
       "http://127.0.0.1:18234/api/projects/project-1/materials",
       expect.objectContaining({ method: "POST", body: expect.any(FormData) }),
+    );
+  });
+
+  it("starts post-draft review with expert and participant provider seats", async () => {
+    const fetchMock = vi.fn(async () => (
+      new Response(JSON.stringify({ id: "review-1", status: "completed" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await startPostDraftReview("project-1", ["codex", "deepseek", "kimicode"], ["mimo"]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-1/post-draft-reviews",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          providers: ["codex", "deepseek", "kimicode"],
+          participant_providers: ["mimo"],
+        }),
+      }),
     );
   });
 });

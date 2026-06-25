@@ -4,7 +4,52 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { PostDraftReviewPanel } from "./flow/panels/PostDraftReviewPanel";
-import type { DraftPackage, OfficialCompileRun, PostDraftReviewRun, ProjectRecord } from "./api";
+import type { AgentDoctorReport, DraftPackage, OfficialCompileRun, PostDraftReviewRun, ProjectRecord } from "./api";
+
+function provider(
+  overrides: Partial<{
+    id: string;
+    label: string;
+    command: string;
+    available: boolean;
+    required: boolean;
+    roles: string[];
+    installed: boolean;
+    auth_status: string;
+    selectable: boolean;
+  }>,
+) {
+  return {
+    id: overrides.id ?? "x",
+    label: overrides.label ?? "X",
+    command: overrides.command ?? "x",
+    available: overrides.available ?? false,
+    path: "",
+    required: overrides.required ?? false,
+    model_version: "",
+    roles: overrides.roles ?? ["deliberation"],
+    installed: overrides.installed ?? false,
+    auth_status: (overrides.auth_status ?? "unknown") as AgentDoctorReport["commands"][string]["auth_status"],
+    diagnostic: "",
+    repair_suggestion: "",
+    selectable: overrides.selectable ?? false,
+  };
+}
+
+const deliberationDoctor: AgentDoctorReport = {
+  status: "ready",
+  run_mode: "full",
+  active_provider_ids: ["codex", "deepseek", "kimicode", "mimo"],
+  missing_required: [],
+  missing_optional: [],
+  unknown_required: [],
+  commands: {
+    codex: provider({ id: "codex", label: "Codex", command: "codex", available: true, required: true, roles: ["deliberation", "chair"], installed: true, auth_status: "ready", selectable: true }),
+    deepseek: provider({ id: "deepseek", label: "DeepSeek", command: "reasonix", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+    kimicode: provider({ id: "kimicode", label: "KimiCode", command: "kimicode", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+    mimo: provider({ id: "mimo", label: "MimoCode", command: "mimo", available: true, roles: ["deliberation"], installed: true, auth_status: "ready", selectable: true }),
+  },
+};
 
 const draftPackage: DraftPackage = {
   title: "一种基于城市体检指标置信度的无人机主动采集方法",
@@ -117,6 +162,7 @@ describe("PostDraftReviewPanel repair workbench", () => {
         officialCompileRun,
         doctor: null,
         selectedProviders: [],
+        participantProviders: [],
         busy: "",
         busyElapsedSeconds: 0,
         onStartPostDraftReview: () => undefined,
@@ -126,6 +172,7 @@ describe("PostDraftReviewPanel repair workbench", () => {
         onCancelRun: () => undefined,
         onRetryRun: () => undefined,
         onToggleProvider: () => undefined,
+        onToggleParticipantProvider: () => undefined,
       }),
     );
 
@@ -151,6 +198,7 @@ describe("PostDraftReviewPanel repair workbench", () => {
         officialCompileRun={null}
         doctor={null}
         selectedProviders={[]}
+        participantProviders={[]}
         busy=""
         busyElapsedSeconds={0}
         onStartPostDraftReview={() => undefined}
@@ -160,6 +208,7 @@ describe("PostDraftReviewPanel repair workbench", () => {
         onCancelRun={() => undefined}
         onRetryRun={() => undefined}
         onToggleProvider={() => undefined}
+        onToggleParticipantProvider={() => undefined}
       />,
     );
 
@@ -167,5 +216,38 @@ describe("PostDraftReviewPanel repair workbench", () => {
     expect((openButton as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByText("说明书包含内部注释。")).toBeTruthy();
     expect(screen.getByText(/已有历史会审记录/)).toBeTruthy();
+  });
+
+  it("uses Codex chair expert seats for post-draft review providers", () => {
+    render(
+      <PostDraftReviewPanel
+        actionGate={{ allowed: true, reason: "" }}
+        project={project}
+        review={null}
+        runs={[]}
+        currentDraftHash="draft-hash-123456"
+        currentPackage={draftPackage}
+        officialCompileRun={officialCompileRun}
+        doctor={deliberationDoctor}
+        selectedProviders={["codex", "deepseek", "kimicode"]}
+        participantProviders={["mimo"]}
+        busy=""
+        busyElapsedSeconds={0}
+        onStartPostDraftReview={() => undefined}
+        onStartKimiLanguagePolish={() => undefined}
+        onApplySafePatches={() => undefined}
+        onSaveDraftPackage={() => undefined}
+        onCancelRun={() => undefined}
+        onRetryRun={() => undefined}
+        onToggleProvider={() => undefined}
+        onToggleParticipantProvider={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole("region", { name: "会审专家席位" })).toBeTruthy();
+    expect(screen.getByText("主席 Codex 固定；另外 2 席由用户选择，参会专家仅供主席参考。")).toBeTruthy();
+    expect(screen.getByText("决策专家 3/3")).toBeTruthy();
+    expect(screen.getAllByText("主席固定").length).toBeGreaterThan(0);
+    expect(screen.getByText("参会专家")).toBeTruthy();
   });
 });

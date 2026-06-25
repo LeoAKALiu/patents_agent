@@ -53,6 +53,29 @@ def test_post_draft_review_pass_unlocks_official_export(tmp_path):
     assert "黑白线稿" not in docx_text
 
 
+def test_post_draft_review_records_advisory_participants(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews",
+        json={
+            "providers": ["codex", "deepseek", "kimicode"],
+            "participant_providers": ["mimo"],
+        },
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["providers"] == ["codex", "deepseek", "kimicode"]
+    assert run["participant_providers"] == ["mimo"]
+
+    report_response = client.get(f"/api/projects/{project_id}/post-draft-reviews/{run['id']}/report.md")
+    assert report_response.status_code == 200
+    assert "- participant_providers: mimo" in report_response.text
+
+
 def test_official_export_blocks_inline_prompt_after_passing_review(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(
