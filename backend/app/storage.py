@@ -769,12 +769,12 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 insert into post_draft_review_runs(
-                    id, project_id, status, providers_json, prompt_pack_version, draft_package_hash,
+                    id, project_id, status, providers_json, participant_providers_json, prompt_pack_version, draft_package_hash,
                     official_compile_run_id, official_package_hash, role_results_json, chair_result_json,
                     export_allowed, blocking_issues_json, contamination_hits_json, logs_json,
                     runtime_state_json, failure_details_json, cancel_requested, retry_of
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._post_draft_review_run_values(run),
             )
@@ -785,7 +785,7 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 update post_draft_review_runs
-                set status = ?, providers_json = ?, prompt_pack_version = ?, draft_package_hash = ?,
+                set status = ?, providers_json = ?, participant_providers_json = ?, prompt_pack_version = ?, draft_package_hash = ?,
                     official_compile_run_id = ?, official_package_hash = ?, role_results_json = ?,
                     chair_result_json = ?, export_allowed = ?, blocking_issues_json = ?,
                     contamination_hits_json = ?, logs_json = ?, runtime_state_json = ?,
@@ -796,6 +796,7 @@ class SQLiteStore:
                 (
                     run.status,
                     json.dumps(run.providers, ensure_ascii=False),
+                    json.dumps(run.participant_providers, ensure_ascii=False),
                     run.prompt_pack_version,
                     run.draft_package_hash,
                     run.official_compile_run_id,
@@ -1412,6 +1413,7 @@ class SQLiteStore:
                     project_id text not null,
                     status text not null,
                     providers_json text not null default '[]',
+                    participant_providers_json text not null default '[]',
                     prompt_pack_version text not null,
                     draft_package_hash text not null,
                     official_compile_run_id text not null default '',
@@ -1505,6 +1507,7 @@ class SQLiteStore:
             self._ensure_column("formula_runs", "retry_of", "text not null default ''")
             self._ensure_column("post_draft_review_runs", "official_compile_run_id", "text not null default ''")
             self._ensure_column("post_draft_review_runs", "official_package_hash", "text not null default ''")
+            self._ensure_column("post_draft_review_runs", "participant_providers_json", "text not null default '[]'")
             self._ensure_column("post_draft_review_runs", "runtime_state_json", "text")
             self._ensure_column("post_draft_review_runs", "failure_details_json", "text not null default '[]'")
             self._ensure_column("post_draft_review_runs", "cancel_requested", "integer not null default 0")
@@ -1730,6 +1733,7 @@ class SQLiteStore:
             run.project_id,
             run.status,
             json.dumps(run.providers, ensure_ascii=False),
+            json.dumps(run.participant_providers, ensure_ascii=False),
             run.prompt_pack_version,
             run.draft_package_hash,
             run.official_compile_run_id,
@@ -1752,6 +1756,7 @@ class SQLiteStore:
             project_id=row["project_id"],
             status=row["status"],
             providers=json.loads(row["providers_json"]),
+            participant_providers=json.loads(row["participant_providers_json"] if "participant_providers_json" in row.keys() else "[]"),
             prompt_pack_version=row["prompt_pack_version"],
             draft_package_hash=row["draft_package_hash"],
             official_compile_run_id=row["official_compile_run_id"] if "official_compile_run_id" in row.keys() else "",

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ClipboardCheck, Loader2, PenLine, Save, Wand2, XCircle } from "@/lib/icons";
-import { AgentProviderCards } from "@/AgentProviderCards";
+import { DeliberationAgentSelector, deliberationChairProviderId, deliberationExpertSeatCount } from "@/AgentProviderCards";
 import { Badge } from "@/components/ui/badge";
 import {
   postDraftReviewReportUrl,
@@ -43,6 +43,7 @@ export interface PostDraftReviewPanelProps {
   officialCompileRun: OfficialCompileRun | null;
   doctor: AgentDoctorReport | null;
   selectedProviders: string[];
+  participantProviders: string[];
   busy: string;
   busyElapsedSeconds: number;
   onStartPostDraftReview: () => void;
@@ -52,6 +53,7 @@ export interface PostDraftReviewPanelProps {
   onCancelRun: (runId: string) => void;
   onRetryRun: (runId: string) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
+  onToggleParticipantProvider: (providerId: string, enabled: boolean) => void;
 }
 
 export function PostDraftReviewPanel({
@@ -65,6 +67,7 @@ export function PostDraftReviewPanel({
   officialCompileRun,
   doctor,
   selectedProviders,
+  participantProviders,
   busy,
   busyElapsedSeconds,
   onStartPostDraftReview,
@@ -74,6 +77,7 @@ export function PostDraftReviewPanel({
   onCancelRun,
   onRetryRun,
   onToggleProvider,
+  onToggleParticipantProvider,
 }: PostDraftReviewPanelProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [activeIssue, setActiveIssue] = useState("");
@@ -100,6 +104,8 @@ export function PostDraftReviewPanel({
   const polishing = busy === "kimi-language-polish";
   const savingDraft = busy === "draft-save";
   const reviewIssues = useMemo(() => collectPostDraftIssues(activeRepairReview), [activeRepairReview]);
+  const hasCodexChair = selectedProviders.includes(deliberationChairProviderId);
+  const hasEnoughExperts = hasCodexChair && selectedProviders.length >= deliberationExpertSeatCount;
 
   useEffect(() => {
     if (!editorOpen) {
@@ -283,13 +289,15 @@ export function PostDraftReviewPanel({
           )}
         </div>
       </section>
-      <AgentProviderCards
+      <DeliberationAgentSelector
         doctor={doctor}
-        role="post_review"
-        selectedProviders={selectedProviders}
+        expertProviders={selectedProviders}
+        participantProviders={participantProviders}
         disabled={!actionGate.allowed || reviewBusy}
-        onToggleProvider={onToggleProvider}
+        onToggleExpert={onToggleProvider}
+        onToggleParticipant={onToggleParticipantProvider}
       />
+      {!hasEnoughExperts && <p className="workflow-hint">至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。</p>}
       <ActionGateHint gate={actionGate} />
       <ActionDock meta="会审结果必须与当前成稿哈希和正式稿哈希匹配，才会放行正式导出。润色会生成新的正式稿版本。">
         {officialCompileRun?.official_package && (
@@ -306,7 +314,7 @@ export function PostDraftReviewPanel({
         )}
         <button
           className="btn btn-primary"
-          disabled={!actionGate.allowed || reviewBusy || Boolean(busy)}
+          disabled={!actionGate.allowed || reviewBusy || Boolean(busy) || !hasEnoughExperts}
           onClick={onStartPostDraftReview}
           title={actionGate.reason || undefined}
           type="button"

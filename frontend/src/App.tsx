@@ -62,6 +62,7 @@ import {
   type DraftCompletionRun,
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
+  acceptAllCompletionPatches,
   acceptCompletionPatch,
   applyPostDraftSafePatches,
   cancelFormulaRun,
@@ -1174,7 +1175,7 @@ function App() {
     if (!selectedProject?.package) return;
     const projectId = selectedProject.id;
     await withStatus("post-draft-review", async () => {
-      const run = await startPostDraftReview(projectId, selectedDeliberationProviders);
+      const run = await startPostDraftReview(projectId, selectedDeliberationProviders, selectedDeliberationParticipantProviders);
       const stillSelected = await loadPostDraftReviews(projectId);
       if (!stillSelected) return;
       setMessage(
@@ -1506,6 +1507,22 @@ function App() {
     });
   }
 
+  async function handleAcceptAllCompletionPatches(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    const pendingCount = completionRuns
+      .find((run) => run.id === runId)
+      ?.patches.filter((patch) => patch.status === "proposed").length ?? 0;
+    await withStatus("completion-accept-all", async () => {
+      const run = await acceptAllCompletionPatches(projectId, runId);
+      if (selectedProjectIdRef.current !== projectId) return;
+      setCompletionRuns((current) => current.map((item) => (item.id === run.id ? run : item)));
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
+      setMessage(pendingCount > 0 ? `已一键接受 ${pendingCount} 条补强建议，评分已更新` : "暂无待接受补强建议");
+    });
+  }
+
   async function handleCreatePatentPoint(payload: PatentPointCreatePayload): Promise<boolean> {
     if (!selectedProject) return false;
     const projectId = selectedProject.id;
@@ -1687,6 +1704,7 @@ function App() {
         onRunQualityChecks: () => void handleRunGuidedQualityChecks(),
         onImproveScore: () => void handleImproveScore(),
         onAcceptPatch: (runId, patchId) => void handleCompletionPatch(runId, patchId, "accept"),
+        onAcceptAllPatches: (runId) => void handleAcceptAllCompletionPatches(runId),
         onOpenExpertTool: (tool) => openExpertTool(tool as ExpertToolId),
       }}
       corpusState={{

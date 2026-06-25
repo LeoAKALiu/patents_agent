@@ -520,6 +520,7 @@ class DraftCompletionRun(BaseModel):
     patches: list[ProposedPatch] = Field(default_factory=list)
     support_matrix: list[ClaimSupportMatrixRow] = Field(default_factory=list)
     scorecard: CompletionScoreCard
+    scorecard_baseline: CompletionScoreCard | None = None
     notes: list[str] = Field(default_factory=list)
     created_at: str = ""
 
@@ -690,6 +691,7 @@ class FormulaRun(BaseModel):
 
 class PostDraftReviewRunCreate(BaseModel):
     providers: list[str] | None = None
+    participant_providers: list[str] | None = None
     stage_timeout_ms: int | None = None
     run_timeout_ms: int | None = None
 
@@ -723,6 +725,7 @@ class PostDraftReviewRun(BaseModel):
     project_id: str
     status: str = Field(pattern="^(queued|running|completed|failed|interrupted)$")
     providers: list[str] = Field(default_factory=list)
+    participant_providers: list[str] = Field(default_factory=list)
     prompt_pack_version: str = "post-draft-review-v1"
     draft_package_hash: str = ""
     official_compile_run_id: str = ""

@@ -46,6 +46,7 @@ function makeRootProps(): AppRootProps {
     onRunQualityChecks: noop,
     onImproveScore: noop,
     onAcceptPatch: noop,
+    onAcceptAllPatches: noop,
     onOpenExpertTool: noop,
   } as AppRootProps["projectHandlers"];
 

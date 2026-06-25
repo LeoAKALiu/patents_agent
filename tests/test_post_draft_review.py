@@ -53,6 +53,69 @@ def test_post_draft_review_pass_unlocks_official_export(tmp_path):
     assert "黑白线稿" not in docx_text
 
 
+def test_post_draft_review_records_advisory_participants(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews",
+        json={
+            "providers": ["codex", "deepseek", "kimicode"],
+            "participant_providers": ["mimo"],
+        },
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["providers"] == ["codex", "deepseek", "kimicode"]
+    assert run["participant_providers"] == ["mimo"]
+
+    report_response = client.get(f"/api/projects/{project_id}/post-draft-reviews/{run['id']}/report.md")
+    assert report_response.status_code == 200
+    assert "- participant_providers: mimo" in report_response.text
+
+
+def test_post_draft_review_blocks_without_codex_chair(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews",
+        json={"providers": ["deepseek", "kimicode", "mimo"]},
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "failed"
+    assert run["export_allowed"] is False
+    assert run["providers"] == ["deepseek", "kimicode", "mimo"]
+    assert run["role_results"] == []
+    assert run["failure_details"][0]["reason"] == "chair_unavailable"
+    assert "Codex 主席" in run["logs"][0]["detail"]
+
+
+def test_post_draft_review_blocks_with_fewer_than_three_expert_seats(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews",
+        json={"providers": ["codex", "deepseek"]},
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "failed"
+    assert run["export_allowed"] is False
+    assert run["providers"] == ["codex", "deepseek"]
+    assert run["role_results"] == []
+    assert run["failure_details"][0]["reason"] == "insufficient_experts"
+    assert "至少 3 席" in run["logs"][0]["detail"]
+
+
 def test_official_export_blocks_inline_prompt_after_passing_review(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(

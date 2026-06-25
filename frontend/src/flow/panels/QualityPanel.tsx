@@ -26,6 +26,7 @@ export interface QualityPanelProps {
   onRunQualityChecks: () => void;
   onImproveScore: () => void;
   onAcceptPatch: (runId: string, patchId: string) => void;
+  onAcceptAllPatches: (runId: string) => void;
   onOpenExpertTool: ExpertToolOpener;
 }
 
@@ -51,12 +52,15 @@ export function QualityPanel({
   onRunQualityChecks,
   onImproveScore,
   onAcceptPatch,
+  onAcceptAllPatches,
   onOpenExpertTool,
 }: QualityPanelProps) {
   const summary = qualitySummaryFromRuns({ filingReport, worksheet, completionRun });
   const actionsDisabled = !actionGate.allowed || Boolean(busy);
   const hasAnyResult = Boolean(filingReport || worksheet || completionRun);
-  const proposedPatches = completionRun?.patches.filter((patch) => patch.status === "proposed").slice(0, 3) ?? [];
+  const allProposedPatches = completionRun?.patches.filter((patch) => patch.status === "proposed") ?? [];
+  const proposedPatches = allProposedPatches.slice(0, 3);
+  const acceptAllDisabled = !completionRun || allProposedPatches.length === 0 || Boolean(busy);
   const evidenceRows = completionRun?.support_matrix.filter((row) => row.evidence_refs.length > 0).slice(0, 3) ?? [];
   const missingEvidenceRows = completionRun?.support_matrix.filter((row) => row.missing_evidence_reason).slice(0, 3) ?? [];
 
@@ -115,8 +119,8 @@ export function QualityPanel({
           <InfoCard
             icon={<Gauge size={18} />}
             title="初稿完善"
-            description={completionRun ? `${completionRun.tasks.length} 个任务，${proposedPatches.length} 个候选补丁` : "生成补强任务和候选 patch。"}
-            tone={proposedPatches.length > 0 ? "warn" : "info"}
+            description={completionRun ? `${completionRun.tasks.length} 个任务，${allProposedPatches.length} 个候选补丁` : "生成补强任务和候选 patch。"}
+            tone={allProposedPatches.length > 0 ? "warn" : "info"}
             action={(
               <button className="btn btn-secondary" onClick={() => onOpenExpertTool("completion")} type="button">
                 查看
@@ -148,6 +152,16 @@ export function QualityPanel({
         >
           {busy === "score-improve" ? <Loader2 className="spin" size={17} /> : <Wand2 size={17} />}
           <span>一键提升分数</span>
+        </button>
+        <button
+          className="btn btn-secondary"
+          disabled={acceptAllDisabled}
+          onClick={() => completionRun && onAcceptAllPatches(completionRun.id)}
+          title={allProposedPatches.length === 0 ? "暂无候选补强" : undefined}
+          type="button"
+        >
+          {busy === "completion-accept-all" ? <Loader2 className="spin" size={17} /> : <CheckCircle2 size={17} />}
+          <span>一键接受补强</span>
         </button>
       </ActionDock>
 
@@ -200,7 +214,12 @@ export function QualityPanel({
       ) : null}
 
       {completionRun && proposedPatches.length ? (
-        <SettingsGroup title="候选补强" description="接受后会更新工作稿，正式导出需要重新绑定后续检查。">
+        <SettingsGroup
+          title="候选补强"
+          description={allProposedPatches.length > proposedPatches.length
+            ? `仅展示前 ${proposedPatches.length} 条；一键接受会处理全部 ${allProposedPatches.length} 条候选补强。`
+            : "接受后会更新评分进度；正式导出需要重新绑定后续检查。"}
+        >
           <div className="dense-list">
             {proposedPatches.map((patch) => (
               <InfoCard

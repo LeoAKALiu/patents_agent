@@ -89,10 +89,12 @@ def run_post_draft_review(
     llm: LLMClient,
     providers: list[str],
     official_compile_run_id: str,
+    participant_providers: list[str] | None = None,
 ) -> PostDraftReviewRun:
     run_id = uuid.uuid4().hex
     package_hash = package_hash_for_review(package)
     source_hash = package.source_draft_hash
+    participant_providers = participant_providers or []
     logs: list[DeliberationLogEntry] = []
     role_results: list[PostDraftReviewRoleResult] = []
     current_stage = "post_draft_review"
@@ -141,7 +143,7 @@ def run_post_draft_review(
             chair_raw = llm.complete_stage(
                 "post_draft_chair_synthesis",
                 SYSTEM_PROMPT,
-                _chair_prompt(package, providers, role_results),
+                _chair_prompt(package, providers, participant_providers, role_results),
             )
             chair_payload, repair_notes = _repair_chair_payload(_extract_json(chair_raw))
             if repair_notes:
@@ -176,6 +178,7 @@ def run_post_draft_review(
             project_id=project_id,
             status="completed",
             providers=providers,
+            participant_providers=participant_providers,
             prompt_pack_version=PROMPT_PACK_VERSION,
             draft_package_hash=source_hash,
             official_compile_run_id=official_compile_run_id,
@@ -203,6 +206,7 @@ def run_post_draft_review(
             project_id=project_id,
             status="failed",
             providers=providers,
+            participant_providers=participant_providers,
             prompt_pack_version=PROMPT_PACK_VERSION,
             draft_package_hash=source_hash,
             official_compile_run_id=official_compile_run_id,
@@ -223,6 +227,7 @@ def post_draft_review_to_markdown(run: PostDraftReviewRun) -> str:
         f"- prompt_pack_version: {run.prompt_pack_version}",
         f"- draft_package_hash: {run.draft_package_hash}",
         f"- providers: {', '.join(run.providers) or 'default'}",
+        f"- participant_providers: {', '.join(run.participant_providers) or 'none'}",
         "",
         "## Blocking Issues",
         "",
@@ -290,13 +295,19 @@ def _role_prompt(role: str, package: OfficialDraftPackage, providers: list[str])
 """
 
 
-def _chair_prompt(package: OfficialDraftPackage, providers: list[str], role_results: list[PostDraftReviewRoleResult]) -> str:
+def _chair_prompt(
+    package: OfficialDraftPackage,
+    providers: list[str],
+    participant_providers: list[str],
+    role_results: list[PostDraftReviewRoleResult],
+) -> str:
     return f"""
 你是成稿后会审主席，只综合角色 JSON，不重新发散。
 如任一角色存在 blocking_issues，除非有明确反证，否则 export_allowed=false。
 只输出 JSON，字段必须包含 status, export_allowed, blocking_issues, contamination_hits, claim_1_rewrite, system_claim_rewrite, abstract_rewrite, description_rewrite_tasks, official_safe_patches, attorney_memo, next_actions。
 
-本轮启用 agent：{json.dumps(providers, ensure_ascii=False)}
+本轮决策专家：{json.dumps(providers, ensure_ascii=False)}
+本轮参会专家：{json.dumps(participant_providers, ensure_ascii=False)}
 
 当前正式稿：
 {package.model_dump_json(ensure_ascii=False, indent=2)}

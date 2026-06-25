@@ -130,6 +130,7 @@ from backend.app.schemas import (
     ProjectRecord,
     RuntimeFailure,
     SectionType,
+    CompletionScoreCard,
     ScoreImprovementRequest,
     ScoreImprovementResult,
 )
@@ -1201,7 +1202,10 @@ def create_app(
         run = store.update_completion_patch_status(project_id, run_id, patch_id, "accepted")
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion patch not found.")
-        return run.model_dump(mode="json")
+        adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(run))
+        if not adjusted:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        return adjusted.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/{patch_id}/reject")
     def reject_completion_patch(project_id: str, run_id: str, patch_id: str) -> dict:
@@ -1209,7 +1213,27 @@ def create_app(
         run = store.update_completion_patch_status(project_id, run_id, patch_id, "rejected")
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion patch not found.")
-        return run.model_dump(mode="json")
+        adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(run))
+        if not adjusted:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        return adjusted.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/accept-all")
+    def accept_all_completion_patches(project_id: str, run_id: str) -> dict:
+        _require_project(store, project_id)
+        run = store.get_draft_completion_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        current = run
+        for patch in [patch for patch in run.patches if patch.status == "proposed"]:
+            updated = store.update_completion_patch_status(project_id, run_id, patch.id, "accepted")
+            if not updated:
+                raise HTTPException(status_code=404, detail="Draft completion patch not found.")
+            current = updated
+        adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(current))
+        if not adjusted:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        return adjusted.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/score-improvement")
     def improve_project_score(project_id: str, payload: ScoreImprovementRequest) -> dict:
@@ -1282,13 +1306,28 @@ def create_app(
         compile_run = _require_latest_completed_official_compile(store, project_id, package)
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
-        providers = list(payload.providers if payload and payload.providers else STRICT_DELIBERATION_PROVIDERS)
+        providers, participant_providers = _post_draft_review_provider_plan(
+            payload.providers if payload else None,
+            payload.participant_providers if payload else None,
+        )
+        blocked_run = _blocked_post_draft_review_for_seats(
+            store=store,
+            project_id=project_id,
+            package=compile_run.official_package,
+            providers=providers,
+            participant_providers=participant_providers,
+            official_compile_run_id=compile_run.id,
+            retry_of=None,
+        )
+        if blocked_run:
+            return blocked_run.model_dump(mode="json")
         run = _execute_post_draft_review(
             store=store,
             project_id=project_id,
             package=compile_run.official_package,
             llm=app.state.llm,
             providers=providers,
+            participant_providers=participant_providers,
             official_compile_run_id=compile_run.id,
             stage_timeout_ms=payload.stage_timeout_ms if payload else None,
             run_timeout_ms=payload.run_timeout_ms if payload else None,
@@ -1500,12 +1539,28 @@ def create_app(
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
+        providers, participant_providers = _post_draft_review_provider_plan(
+            previous.providers,
+            previous.participant_providers,
+        )
+        blocked_run = _blocked_post_draft_review_for_seats(
+            store=store,
+            project_id=project_id,
+            package=compile_run.official_package,
+            providers=providers,
+            participant_providers=participant_providers,
+            official_compile_run_id=compile_run.id,
+            retry_of=previous.id,
+        )
+        if blocked_run:
+            return blocked_run.model_dump(mode="json")
         run = _execute_post_draft_review(
             store=store,
             project_id=project_id,
             package=compile_run.official_package,
             llm=app.state.llm,
-            providers=list(previous.providers),
+            providers=providers,
+            participant_providers=participant_providers,
             official_compile_run_id=compile_run.id,
             stage_timeout_ms=None,
             run_timeout_ms=None,
@@ -2067,6 +2122,7 @@ def _execute_post_draft_review(
     package: OfficialDraftPackage,
     llm: LLMClient,
     providers: list[str],
+    participant_providers: list[str],
     official_compile_run_id: str,
     stage_timeout_ms: int | None,
     run_timeout_ms: int | None,
@@ -2078,6 +2134,7 @@ def _execute_post_draft_review(
         project_id=project_id,
         status="running",
         providers=providers,
+        participant_providers=participant_providers,
         draft_package_hash=package.source_draft_hash,
         official_compile_run_id=official_compile_run_id,
         official_package_hash=package_hash_for_review(package),
@@ -2118,6 +2175,7 @@ def _execute_post_draft_review(
             llm=cached_llm,
             providers=providers,
             official_compile_run_id=official_compile_run_id,
+            participant_providers=participant_providers,
         )
         state = runtime.complete_stage(
             partial_artifact_count=len(generated.role_results) + (1 if generated.chair_result else 0),
@@ -3419,6 +3477,95 @@ def _deliberation_provider_plan(
     return providers, participants, _dedupe_provider_ids(warnings)
 
 
+def _post_draft_review_provider_plan(
+    requested: list[str] | None,
+    participant_requested: list[str] | None,
+) -> tuple[list[str], list[str]]:
+    requested_order = _dedupe_provider_ids(list(requested or STRICT_DELIBERATION_PROVIDERS))
+    providers: list[str] = []
+    overflow: list[str] = []
+
+    if DELIBERATION_CHAIR_PROVIDER in requested_order:
+        providers.append(DELIBERATION_CHAIR_PROVIDER)
+
+    for provider_id in requested_order:
+        if provider_id == DELIBERATION_CHAIR_PROVIDER:
+            continue
+        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+            providers.append(provider_id)
+        else:
+            overflow.append(provider_id)
+
+    participant_source = _dedupe_provider_ids([*(participant_requested or []), *overflow])
+    participants = [provider_id for provider_id in participant_source if provider_id not in providers]
+    return providers, participants
+
+
+def _blocked_post_draft_review_for_seats(
+    *,
+    store: SQLiteStore,
+    project_id: str,
+    package: OfficialDraftPackage,
+    providers: list[str],
+    participant_providers: list[str],
+    official_compile_run_id: str,
+    retry_of: str | None,
+) -> PostDraftReviewRun | None:
+    chair_missing = DELIBERATION_CHAIR_PROVIDER not in providers
+    if len(providers) >= DELIBERATION_EXPERT_SEAT_COUNT and not chair_missing:
+        return None
+
+    reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+    message = (
+        "Codex chair is required for post-draft review."
+        if chair_missing
+        else "Not enough expert seats are ready for post-draft review."
+    )
+    detail = (
+        f"Codex 主席不可用，无法启动成稿会审；当前决策专家为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+        if chair_missing
+        else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能启动成稿会审；当前为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+    )
+    repair_suggestion = (
+        "请在成稿会审卡片中保留 Codex 主席，并另外选择 2 个可用专家。"
+        if chair_missing
+        else "请在成稿会审卡片中选择 Codex 主席之外的 2 个可用专家。"
+    )
+    run = PostDraftReviewRun(
+        id=uuid.uuid4().hex,
+        project_id=project_id,
+        status="failed",
+        providers=providers,
+        participant_providers=participant_providers,
+        draft_package_hash=package.source_draft_hash,
+        official_compile_run_id=official_compile_run_id,
+        official_package_hash=package_hash_for_review(package),
+        blocking_issues=[detail],
+        logs=[
+            DeliberationLogEntry(
+                level="error",
+                phase="doctor",
+                provider_id=DELIBERATION_CHAIR_PROVIDER,
+                message=reason.replace("_", " "),
+                detail=detail,
+                repair_suggestion=repair_suggestion,
+            )
+        ],
+        failure_details=[
+            RuntimeFailure(
+                flow="post_draft_review",
+                stage="doctor",
+                provider=DELIBERATION_CHAIR_PROVIDER,
+                reason=reason,
+                message=message,
+                repair_suggestion=repair_suggestion,
+            )
+        ],
+        retry_of=retry_of,
+    )
+    return store.create_post_draft_review_run(run)
+
+
 def _provider_plan_warning(doctor: AgentDoctorReport, provider_id: str) -> str:
     status = doctor.commands.get(provider_id)
     if status is None:
@@ -3436,6 +3583,78 @@ def _dedupe_provider_ids(provider_ids: list[str]) -> list[str]:
         if provider_id and provider_id not in deduped:
             deduped.append(provider_id)
     return deduped
+
+
+def _completion_run_with_progress_score(run: DraftCompletionRun) -> DraftCompletionRun:
+    baseline = run.scorecard_baseline or run.scorecard
+    accepted_task_ids = {patch.task_id for patch in run.patches if patch.status == "accepted"}
+    accepted_issue_ids = {
+        task.issue_id
+        for task in run.tasks
+        if task.status == "accepted" or task.id in accepted_task_ids
+    }
+    resolved_issues = [issue for issue in run.issues if issue.id in accepted_issue_ids]
+    if not resolved_issues:
+        return run.model_copy(update={"scorecard": baseline, "scorecard_baseline": run.scorecard_baseline})
+
+    severity_weight = {"high": 3, "medium": 2, "low": 1}
+    total_weight = sum(severity_weight.get(issue.severity, 1) for issue in resolved_issues)
+    support_weight = sum(
+        severity_weight.get(issue.severity, 1)
+        for issue in resolved_issues
+        if issue.category in {"claim_support_gap", "specification_sufficiency_gap", "term_definition_gap"}
+    )
+    scope_weight = sum(
+        severity_weight.get(issue.severity, 1)
+        for issue in resolved_issues
+        if issue.category in {"claim_support_gap", "claim_scope_risk", "specification_sufficiency_gap"}
+    )
+    hygiene_weight = sum(
+        severity_weight.get(issue.severity, 1)
+        for issue in resolved_issues
+        if issue.category in {"format_pollution", "unfavorable_statement", "subject_matter_risk"}
+    )
+    prior_art_weight = sum(
+        severity_weight.get(issue.severity, 1)
+        for issue in resolved_issues
+        if issue.category == "prior_art_distinction_gap"
+    )
+
+    authorization = _bounded_score(baseline.authorization_stability + min(24, total_weight * 4))
+    protection = _bounded_score(baseline.protection_scope + min(24, max(scope_weight, support_weight, total_weight) * 3))
+    support = _bounded_score(baseline.support_strength + min(24, support_weight * 5))
+    hygiene = _bounded_score(baseline.official_hygiene + min(24, hygiene_weight * 6))
+    prior_art = _bounded_score(baseline.prior_art_distinction + min(18, prior_art_weight * 6))
+    filing = _bounded_score(round((authorization + support + hygiene) / 3))
+    overall = _bounded_score(round((authorization + protection + support + prior_art + filing + hygiene) / 6))
+    notes = _completion_progress_notes(run.notes)
+
+    return run.model_copy(
+        update={
+            "scorecard": CompletionScoreCard(
+                authorization_stability=authorization,
+                protection_scope=protection,
+                support_strength=support,
+                prior_art_distinction=prior_art,
+                filing_maturity=filing,
+                official_hygiene=hygiene,
+                overall=overall,
+            ),
+            "scorecard_baseline": baseline,
+            "notes": notes,
+        }
+    )
+
+
+def _completion_progress_notes(notes: list[str]) -> list[str]:
+    progress_note = "accepted completion patches update this run's scorecard; rerun quality checks for a full re-analysis."
+    if progress_note in notes:
+        return notes
+    return [*notes, progress_note]
+
+
+def _bounded_score(value: int) -> int:
+    return max(0, min(100, value))
 
 
 def _run_mode(active_count: int) -> str:
