@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ClipboardCheck, Loader2, PenLine, Save, Wand2, XCircle } from "@/lib/icons";
-import { DeliberationAgentSelector, deliberationExpertSeatCount } from "@/AgentProviderCards";
+import { DeliberationAgentSelector, deliberationChairProviderId, deliberationExpertSeatCount } from "@/AgentProviderCards";
 import { Badge } from "@/components/ui/badge";
 import {
   postDraftReviewReportUrl,
@@ -104,7 +104,8 @@ export function PostDraftReviewPanel({
   const polishing = busy === "kimi-language-polish";
   const savingDraft = busy === "draft-save";
   const reviewIssues = useMemo(() => collectPostDraftIssues(activeRepairReview), [activeRepairReview]);
-  const hasEnoughExperts = selectedProviders.length >= deliberationExpertSeatCount;
+  const hasCodexChair = selectedProviders.includes(deliberationChairProviderId);
+  const hasEnoughExperts = hasCodexChair && selectedProviders.length >= deliberationExpertSeatCount;
 
   useEffect(() => {
     if (!editorOpen) {

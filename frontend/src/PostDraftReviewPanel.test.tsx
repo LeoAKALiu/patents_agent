@@ -250,4 +250,35 @@ describe("PostDraftReviewPanel repair workbench", () => {
     expect(screen.getAllByText("主席固定").length).toBeGreaterThan(0);
     expect(screen.getByText("参会专家")).toBeTruthy();
   });
+
+  it("keeps post-draft review disabled when three selected providers omit Codex chair", () => {
+    render(
+      <PostDraftReviewPanel
+        actionGate={{ allowed: true, reason: "" }}
+        project={project}
+        review={null}
+        runs={[]}
+        currentDraftHash="draft-hash-123456"
+        currentPackage={draftPackage}
+        officialCompileRun={officialCompileRun}
+        doctor={deliberationDoctor}
+        selectedProviders={["deepseek", "kimicode", "mimo"]}
+        participantProviders={[]}
+        busy=""
+        busyElapsedSeconds={0}
+        onStartPostDraftReview={() => undefined}
+        onStartKimiLanguagePolish={() => undefined}
+        onApplySafePatches={() => undefined}
+        onSaveDraftPackage={() => undefined}
+        onCancelRun={() => undefined}
+        onRetryRun={() => undefined}
+        onToggleProvider={() => undefined}
+        onToggleParticipantProvider={() => undefined}
+      />,
+    );
+
+    const startButton = screen.getByRole("button", { name: "启动成稿会审" });
+    expect((startButton as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。")).toBeTruthy();
+  });
 });

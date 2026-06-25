@@ -1306,8 +1306,21 @@ def create_app(
         compile_run = _require_latest_completed_official_compile(store, project_id, package)
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
-        providers = list(payload.providers if payload and payload.providers else STRICT_DELIBERATION_PROVIDERS)
-        participant_providers = list(payload.participant_providers if payload and payload.participant_providers else [])
+        providers, participant_providers = _post_draft_review_provider_plan(
+            payload.providers if payload else None,
+            payload.participant_providers if payload else None,
+        )
+        blocked_run = _blocked_post_draft_review_for_seats(
+            store=store,
+            project_id=project_id,
+            package=compile_run.official_package,
+            providers=providers,
+            participant_providers=participant_providers,
+            official_compile_run_id=compile_run.id,
+            retry_of=None,
+        )
+        if blocked_run:
+            return blocked_run.model_dump(mode="json")
         run = _execute_post_draft_review(
             store=store,
             project_id=project_id,
@@ -1526,13 +1539,28 @@ def create_app(
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
+        providers, participant_providers = _post_draft_review_provider_plan(
+            previous.providers,
+            previous.participant_providers,
+        )
+        blocked_run = _blocked_post_draft_review_for_seats(
+            store=store,
+            project_id=project_id,
+            package=compile_run.official_package,
+            providers=providers,
+            participant_providers=participant_providers,
+            official_compile_run_id=compile_run.id,
+            retry_of=previous.id,
+        )
+        if blocked_run:
+            return blocked_run.model_dump(mode="json")
         run = _execute_post_draft_review(
             store=store,
             project_id=project_id,
             package=compile_run.official_package,
             llm=app.state.llm,
-            providers=list(previous.providers),
-            participant_providers=list(previous.participant_providers),
+            providers=providers,
+            participant_providers=participant_providers,
             official_compile_run_id=compile_run.id,
             stage_timeout_ms=None,
             run_timeout_ms=None,
@@ -3447,6 +3475,95 @@ def _deliberation_provider_plan(
         participants.append(provider_id)
 
     return providers, participants, _dedupe_provider_ids(warnings)
+
+
+def _post_draft_review_provider_plan(
+    requested: list[str] | None,
+    participant_requested: list[str] | None,
+) -> tuple[list[str], list[str]]:
+    requested_order = _dedupe_provider_ids(list(requested or STRICT_DELIBERATION_PROVIDERS))
+    providers: list[str] = []
+    overflow: list[str] = []
+
+    if DELIBERATION_CHAIR_PROVIDER in requested_order:
+        providers.append(DELIBERATION_CHAIR_PROVIDER)
+
+    for provider_id in requested_order:
+        if provider_id == DELIBERATION_CHAIR_PROVIDER:
+            continue
+        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+            providers.append(provider_id)
+        else:
+            overflow.append(provider_id)
+
+    participant_source = _dedupe_provider_ids([*(participant_requested or []), *overflow])
+    participants = [provider_id for provider_id in participant_source if provider_id not in providers]
+    return providers, participants
+
+
+def _blocked_post_draft_review_for_seats(
+    *,
+    store: SQLiteStore,
+    project_id: str,
+    package: OfficialDraftPackage,
+    providers: list[str],
+    participant_providers: list[str],
+    official_compile_run_id: str,
+    retry_of: str | None,
+) -> PostDraftReviewRun | None:
+    chair_missing = DELIBERATION_CHAIR_PROVIDER not in providers
+    if len(providers) >= DELIBERATION_EXPERT_SEAT_COUNT and not chair_missing:
+        return None
+
+    reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+    message = (
+        "Codex chair is required for post-draft review."
+        if chair_missing
+        else "Not enough expert seats are ready for post-draft review."
+    )
+    detail = (
+        f"Codex 主席不可用，无法启动成稿会审；当前决策专家为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+        if chair_missing
+        else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能启动成稿会审；当前为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+    )
+    repair_suggestion = (
+        "请在成稿会审卡片中保留 Codex 主席，并另外选择 2 个可用专家。"
+        if chair_missing
+        else "请在成稿会审卡片中选择 Codex 主席之外的 2 个可用专家。"
+    )
+    run = PostDraftReviewRun(
+        id=uuid.uuid4().hex,
+        project_id=project_id,
+        status="failed",
+        providers=providers,
+        participant_providers=participant_providers,
+        draft_package_hash=package.source_draft_hash,
+        official_compile_run_id=official_compile_run_id,
+        official_package_hash=package_hash_for_review(package),
+        blocking_issues=[detail],
+        logs=[
+            DeliberationLogEntry(
+                level="error",
+                phase="doctor",
+                provider_id=DELIBERATION_CHAIR_PROVIDER,
+                message=reason.replace("_", " "),
+                detail=detail,
+                repair_suggestion=repair_suggestion,
+            )
+        ],
+        failure_details=[
+            RuntimeFailure(
+                flow="post_draft_review",
+                stage="doctor",
+                provider=DELIBERATION_CHAIR_PROVIDER,
+                reason=reason,
+                message=message,
+                repair_suggestion=repair_suggestion,
+            )
+        ],
+        retry_of=retry_of,
+    )
+    return store.create_post_draft_review_run(run)
 
 
 def _provider_plan_warning(doctor: AgentDoctorReport, provider_id: str) -> str:
