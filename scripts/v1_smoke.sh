@@ -71,6 +71,17 @@ ensure_node_runtime() {
   fi
 }
 
+ensure_tauri_resource_placeholders() {
+  # `cargo check` runs Tauri's build script, which validates resource paths in
+  # tauri.conf.json. Clean source worktrees do not have the PyInstaller sidecar
+  # build output yet, so provide the directory shape needed for Rust checks.
+  # Packaging still builds the real sidecar before producing a DMG.
+  if [[ ! -e build/backend/patentagent-backend ]]; then
+    log "Preparing Tauri resource placeholder for cargo checks"
+    mkdir -p build/backend/patentagent-backend
+  fi
+}
+
 run_tauri_smoke_if_present() {
   if [[ ! -f src-tauri/Cargo.toml ]]; then
     log "Skipping Tauri checks: src-tauri/Cargo.toml not present"
@@ -92,12 +103,14 @@ ensure_python_deps
 
 run "$PYTHON_BIN" -m pytest -q
 V1_1_REPORT_DIR="${PATENTAGENT_V1_1_REPORT_DIR:-${ROOT_DIR}/.artifacts/v1.1.0-quality}"
-run "$PYTHON_BIN" scripts/v1_api_smoke.py --report-dir "$V1_1_REPORT_DIR"
+V1_1_REPEAT_COUNT="${PATENTAGENT_V1_1_REPEAT_COUNT:-2}"
+run "$PYTHON_BIN" scripts/v1_api_smoke.py --repeat-count "$V1_1_REPEAT_COUNT" --report-dir "$V1_1_REPORT_DIR"
 
 ensure_node_runtime
 ensure_npm_deps frontend
 run npm --prefix frontend test -- --run
 run npm --prefix frontend run build
+ensure_tauri_resource_placeholders
 run_tauri_smoke_if_present
 
 log "v1 smoke completed successfully"

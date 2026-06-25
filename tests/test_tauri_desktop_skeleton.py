@@ -196,6 +196,14 @@ def test_tauri_smoke_is_the_desktop_release_gate() -> None:
     assert "run_electron_smoke_if_feasible" not in smoke
 
 
+def test_v1_smoke_prepares_tauri_resource_placeholder_for_clean_worktrees() -> None:
+    smoke = read(ROOT / "scripts" / "v1_smoke.sh")
+
+    assert "ensure_tauri_resource_placeholders" in smoke
+    assert "build/backend/patentagent-backend" in smoke
+    assert smoke.index("ensure_tauri_resource_placeholders") < smoke.index("cargo check")
+
+
 def test_tauri_cargo_checks_are_the_only_desktop_ci_gate() -> None:
     ci = read(ROOT / ".github" / "workflows" / "ci.yml")
 

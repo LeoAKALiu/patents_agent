@@ -9,6 +9,7 @@ all runtime data in a temporary directory.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import tempfile
@@ -68,6 +69,27 @@ DRAFTING_QUALITY_FIELDS = (
     "embodiment_density",
     "patch_delta",
 )
+
+LOOP_OBJECTIVE = "final patent draft quality"
+LOOP_STANDARD = "full-process stability and reliability"
+LOOP_GATE_GROUPS = {
+    "stability": (
+        "quality_trend_present",
+        "official_export_hygiene",
+    ),
+    "reliability": (
+        "official_export_blocked_before_compile",
+        "official_export_blocked_before_review",
+        "post_draft_review_unlocks_export",
+    ),
+    "final_draft_quality": (
+        "research_evidence_count",
+        "grantability_report_present",
+        "evidence_binding_rate",
+        "core_feature_support_rate",
+        "unverified_effect_leak_count",
+    ),
+}
 
 CORE_FEATURE_CLASSES = {"core_combo", "differentiator", "support_needed"}
 
@@ -727,6 +749,7 @@ def _prepare_official_export(client: TestClient, project_id: str, label: str) ->
         "compile_id": compile_run["id"],
         "post_draft_review_id": post_review["id"],
         "official_package_hash": compile_run.get("official_package_hash", ""),
+        "official_text_hash": hashlib.sha256(official_md.encode("utf-8")).hexdigest(),
         "gates": {
             "official_export_blocked_before_compile": {
                 "passed": True,
@@ -957,6 +980,7 @@ def _workflow_result(
         "official_compile_id": export_result["compile_id"],
         "post_draft_review_id": export_result["post_draft_review_id"],
         "official_package_hash": export_result["official_package_hash"],
+        "official_text_hash": export_result["official_text_hash"],
         "research_evidence_count": research_hit_count,
         "research_confidence": disclosure.package.research_confidence if disclosure.package else "low",
         "grantability": grantability,
@@ -1050,7 +1074,92 @@ def _classify_failure(exc: BaseException) -> str:
     return "code"
 
 
-def _build_report(results: list[dict[str, Any]], failures: list[dict[str, str]]) -> dict[str, Any]:
+def _loop_quality_signature(workflow: dict[str, Any]) -> dict[str, Any]:
+    """Return the stable quality surface for loop repeatability checks."""
+
+    gates = workflow.get("gates") or {}
+    grantability = workflow.get("grantability") or {}
+    return {
+        "workflow": workflow.get("workflow", ""),
+        "category": workflow.get("category", ""),
+        "official_text_hash": workflow.get("official_text_hash", ""),
+        "research_evidence_count": workflow.get("research_evidence_count", 0),
+        "research_confidence": workflow.get("research_confidence", ""),
+        "grantability": {
+            "status": grantability.get("status"),
+            "fail_closed": grantability.get("fail_closed"),
+            "claim_chart_rows": grantability.get("claim_chart_rows"),
+            "novelty_attacks": grantability.get("novelty_attacks"),
+            "inventive_step_attacks": grantability.get("inventive_step_attacks"),
+            "low_evidence_flags": grantability.get("low_evidence_flags"),
+        },
+        "quality_trend": {field: (workflow.get("quality_trend") or {}).get(field) for field in TREND_FIELDS},
+        "drafting_quality": {
+            field: (workflow.get("drafting_quality") or {}).get(field) for field in DRAFTING_QUALITY_FIELDS
+        },
+        "gates": {
+            name: {
+                "passed": gate.get("passed"),
+                "actual": gate.get("actual"),
+            }
+            for name, gate in sorted(gates.items())
+        },
+    }
+
+
+def _loop_repeatability_failures(results: list[dict[str, Any]]) -> list[dict[str, str]]:
+    baseline_by_workflow: dict[str, dict[str, Any]] = {}
+    failures: list[dict[str, str]] = []
+    for workflow in results:
+        workflow_id = str(workflow.get("workflow", ""))
+        if not workflow_id:
+            continue
+        signature = _loop_quality_signature(workflow)
+        baseline = baseline_by_workflow.setdefault(workflow_id, signature)
+        if signature != baseline:
+            failures.append(
+                {
+                    "workflow": workflow_id,
+                    "category": str(workflow.get("category", "")),
+                    "classification": "code",
+                    "message": f"loop repeatability drift detected for workflow {workflow_id}",
+                }
+            )
+    return failures
+
+
+def _loop_gate_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for group, names in LOOP_GATE_GROUPS.items():
+        gate_rows: list[dict[str, Any]] = []
+        for name in names:
+            values = [
+                (workflow.get("gates") or {}).get(name)
+                for workflow in results
+                if name in (workflow.get("gates") or {})
+            ]
+            passed = sum(1 for gate in values if gate and gate.get("passed"))
+            gate_rows.append(
+                {
+                    "name": name,
+                    "passed": passed,
+                    "total": len(values),
+                    "all_passed": bool(values) and passed == len(values),
+                }
+            )
+        grouped[group] = {
+            "gates": gate_rows,
+            "all_passed": all(row["all_passed"] for row in gate_rows),
+        }
+    return grouped
+
+
+def _build_report(
+    results: list[dict[str, Any]],
+    failures: list[dict[str, str]],
+    *,
+    repeat_count: int = 1,
+) -> dict[str, Any]:
     categories = sorted({case.category for case in GOLDEN_CASES})
     return {
         "suite": "v1.1 deterministic quality gate",
@@ -1058,12 +1167,19 @@ def _build_report(results: list[dict[str, Any]], failures: list[dict[str, str]])
         "live_provider_tests": "opt-in only; default suite uses TestClient and V1SmokeLLM",
         "passed": not failures,
         "summary": {
-            "expected_workflows": len(GOLDEN_CASES),
+            "expected_workflows": len(GOLDEN_CASES) * repeat_count,
             "completed_workflows": len(results),
             "failed_workflows": len(failures),
+            "repeat_count": repeat_count,
             "categories": categories,
             "trend_fields": list(TREND_FIELDS),
             "drafting_quality_fields": list(DRAFTING_QUALITY_FIELDS),
+        },
+        "loop_engineering": {
+            "objective": LOOP_OBJECTIVE,
+            "standard": LOOP_STANDARD,
+            "gate_groups": _loop_gate_summary(results),
+            "repeatability_failures": _loop_repeatability_failures(results),
         },
         "workflows": results,
         "failures": failures,
@@ -1080,9 +1196,29 @@ def _render_markdown_report(report: dict[str, Any]) -> str:
         f"- completed_workflows: {report['summary']['completed_workflows']}/{report['summary']['expected_workflows']}",
         f"- categories: {', '.join(report['summary']['categories'])}",
         "",
-        "## Workflows",
+        "## Loop Engineering Gates",
+        "",
+        f"- objective: {report['loop_engineering']['objective']}",
+        f"- standard: {report['loop_engineering']['standard']}",
+        f"- repeat_count: {report['summary']['repeat_count']}",
         "",
     ]
+    for group, summary in report["loop_engineering"]["gate_groups"].items():
+        lines.append(f"### {group}")
+        for gate in summary["gates"]:
+            lines.append(f"- {gate['name']}: {gate['passed']}/{gate['total']}")
+        lines.append("")
+    if report["loop_engineering"]["repeatability_failures"]:
+        lines.append("### repeatability_failures")
+        for failure in report["loop_engineering"]["repeatability_failures"]:
+            lines.append(f"- {failure['workflow']}: {failure['message']}")
+        lines.append("")
+    lines.extend(
+        [
+            "## Workflows",
+            "",
+        ]
+    )
     for workflow in report["workflows"]:
         lines.extend(
             [
@@ -1094,6 +1230,7 @@ def _render_markdown_report(report: dict[str, Any]) -> str:
                 f"- research_confidence: {workflow['research_confidence']}",
                 f"- grantability_status: {workflow['grantability']['status']}",
                 f"- official_package_hash: {workflow['official_package_hash']}",
+                f"- official_text_hash: {workflow.get('official_text_hash', '')}",
                 "- quality_trend:",
             ]
         )
@@ -1135,39 +1272,52 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run deterministic PatentAgent v1.1 golden E2E quality gates.")
     parser.add_argument("--report-dir", type=Path, help="Directory for v1.1 quality JSON/Markdown reports.")
     parser.add_argument("--json", action="store_true", help="Print the full report JSON to stdout.")
+    parser.add_argument(
+        "--repeat-count",
+        type=int,
+        default=1,
+        help="Run each golden workflow this many times and fail if stable quality signatures drift.",
+    )
     args = parser.parse_args(argv)
+    if args.repeat_count < 1:
+        parser.error("--repeat-count must be >= 1")
 
     for name in SAMPLES:
         _sample(name)
 
     results: list[dict[str, Any]] = []
     failures: list[dict[str, str]] = []
-    with tempfile.TemporaryDirectory(prefix="patentagent-v1-smoke-") as data_dir:
-        client = TestClient(
-            create_app(
-                data_dir=Path(data_dir),
-                llm_client=V1SmokeLLM(),
-                load_env_file=False,
-            )
-        )
-        health = _ok(client.get("/api/health"), "health")
-        if health["ok"] is not True or health["llm_configured"] is not True:
-            raise AssertionError(f"unexpected health payload: {health}")
-
-        for case in GOLDEN_CASES:
-            try:
-                results.append(run_golden_case(client, case))
-            except Exception as exc:  # keep running so the report lists all failing workflows.
-                failures.append(
-                    {
-                        "workflow": case.workflow,
-                        "category": case.category,
-                        "classification": _classify_failure(exc),
-                        "message": str(exc),
-                    }
+    for round_index in range(1, args.repeat_count + 1):
+        with tempfile.TemporaryDirectory(prefix=f"patentagent-v1-smoke-r{round_index}-") as data_dir:
+            client = TestClient(
+                create_app(
+                    data_dir=Path(data_dir),
+                    llm_client=V1SmokeLLM(),
+                    load_env_file=False,
                 )
+            )
+            health = _ok(client.get("/api/health"), "health")
+            if health["ok"] is not True or health["llm_configured"] is not True:
+                raise AssertionError(f"unexpected health payload: {health}")
 
-    report = _build_report(results, failures)
+            for case in GOLDEN_CASES:
+                try:
+                    result = run_golden_case(client, case)
+                    result["loop_round"] = round_index
+                    results.append(result)
+                except Exception as exc:  # keep running so the report lists all failing workflows.
+                    failures.append(
+                        {
+                            "workflow": case.workflow,
+                            "category": case.category,
+                            "classification": _classify_failure(exc),
+                            "message": str(exc),
+                        }
+                    )
+
+    failures.extend(_loop_repeatability_failures(results))
+
+    report = _build_report(results, failures, repeat_count=args.repeat_count)
     if args.report_dir:
         _write_report(args.report_dir, report)
 
