@@ -74,11 +74,23 @@ ensure_node_runtime() {
 ensure_tauri_resource_placeholders() {
   # `cargo check` runs Tauri's build script, which validates resource paths in
   # tauri.conf.json. Clean source worktrees do not have the PyInstaller sidecar
-  # build output yet, so provide the directory shape needed for Rust checks.
+  # build output yet, so provide the file shape needed for Rust checks.
   # Packaging still builds the real sidecar before producing a DMG.
-  if [[ ! -e build/backend/patentagent-backend ]]; then
+  local sidecar_path="build/backend/patentagent-backend"
+  if [[ -d "$sidecar_path" ]]; then
+    log "Replacing legacy Tauri sidecar directory placeholder with a file placeholder"
+    if ! rmdir "$sidecar_path" 2>/dev/null; then
+      printf 'Tauri sidecar placeholder path is a non-empty directory: %s\n' "$sidecar_path" >&2
+      printf 'Remove that generated build directory before running v1 smoke or packaging.\n' >&2
+      return 1
+    fi
+  fi
+
+  if [[ ! -e "$sidecar_path" ]]; then
     log "Preparing Tauri resource placeholder for cargo checks"
-    mkdir -p build/backend/patentagent-backend
+    mkdir -p "$(dirname "$sidecar_path")"
+    touch "$sidecar_path"
+    chmod +x "$sidecar_path"
   fi
 }
 

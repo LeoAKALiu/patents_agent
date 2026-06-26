@@ -110,9 +110,11 @@ def test_loop_repeatability_failures_report_quality_drift_between_rounds():
     smoke = load_smoke_module()
     first = _workflow_payload(smoke, project_id="p1", compile_id="c1", review_id="r1")
     second = _workflow_payload(smoke, project_id="p2", compile_id="c2", review_id="r2")
+    third = _workflow_payload(smoke, project_id="p3", compile_id="c3", review_id="r3")
     second["quality_trend"]["overall"] = 79
+    third["quality_trend"]["overall"] = 79
 
-    failures = smoke._loop_repeatability_failures([first, second])
+    failures = smoke._loop_repeatability_failures([first, second, third])
 
     assert failures == [
         {
@@ -122,6 +124,43 @@ def test_loop_repeatability_failures_report_quality_drift_between_rounds():
             "message": "loop repeatability drift detected for workflow software",
         }
     ]
+
+
+def test_quality_report_uses_precomputed_repeatability_failures_and_separate_counters():
+    smoke = load_smoke_module()
+    first = _workflow_payload(smoke, project_id="p1", compile_id="c1", review_id="r1")
+    second = _workflow_payload(smoke, project_id="p2", compile_id="c2", review_id="r2")
+    second["quality_trend"]["overall"] = 79
+    execution_failures = [
+        {
+            "workflow": "hardware",
+            "category": "mechanical_device",
+            "classification": "code",
+            "message": "workflow execution failed",
+        }
+    ]
+    repeatability_failures = [
+        {
+            "workflow": "software",
+            "category": "software",
+            "classification": "code",
+            "message": "precomputed drift",
+        }
+    ]
+
+    report = smoke._build_report(
+        [first, second],
+        execution_failures,
+        repeat_count=2,
+        repeatability_failures=repeatability_failures,
+    )
+
+    assert report["passed"] is False
+    assert report["failures"] == execution_failures
+    assert report["summary"]["failed_workflows"] == 1
+    assert report["summary"]["repeatability_failures"] == 1
+    assert report["summary"]["total_failures"] == 2
+    assert report["loop_engineering"]["repeatability_failures"] == repeatability_failures
 
 
 def test_drafting_quality_metrics_are_deterministic():

@@ -1109,14 +1109,16 @@ def _loop_quality_signature(workflow: dict[str, Any]) -> dict[str, Any]:
 
 def _loop_repeatability_failures(results: list[dict[str, Any]]) -> list[dict[str, str]]:
     baseline_by_workflow: dict[str, dict[str, Any]] = {}
+    drifted_workflows: set[str] = set()
     failures: list[dict[str, str]] = []
     for workflow in results:
         workflow_id = str(workflow.get("workflow", ""))
-        if not workflow_id:
+        if not workflow_id or workflow_id in drifted_workflows:
             continue
         signature = _loop_quality_signature(workflow)
         baseline = baseline_by_workflow.setdefault(workflow_id, signature)
         if signature != baseline:
+            drifted_workflows.add(workflow_id)
             failures.append(
                 {
                     "workflow": workflow_id,
@@ -1159,17 +1161,22 @@ def _build_report(
     failures: list[dict[str, str]],
     *,
     repeat_count: int = 1,
+    repeatability_failures: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     categories = sorted({case.category for case in GOLDEN_CASES})
+    repeatability_failures = list(repeatability_failures or [])
     return {
         "suite": "v1.1 deterministic quality gate",
         "deterministic": True,
         "live_provider_tests": "opt-in only; default suite uses TestClient and V1SmokeLLM",
-        "passed": not failures,
+        "passed": not failures and not repeatability_failures,
         "summary": {
             "expected_workflows": len(GOLDEN_CASES) * repeat_count,
             "completed_workflows": len(results),
             "failed_workflows": len(failures),
+            "execution_failures": len(failures),
+            "repeatability_failures": len(repeatability_failures),
+            "total_failures": len(failures) + len(repeatability_failures),
             "repeat_count": repeat_count,
             "categories": categories,
             "trend_fields": list(TREND_FIELDS),
@@ -1179,7 +1186,7 @@ def _build_report(
             "objective": LOOP_OBJECTIVE,
             "standard": LOOP_STANDARD,
             "gate_groups": _loop_gate_summary(results),
-            "repeatability_failures": _loop_repeatability_failures(results),
+            "repeatability_failures": repeatability_failures,
         },
         "workflows": results,
         "failures": failures,
@@ -1194,6 +1201,8 @@ def _render_markdown_report(report: dict[str, Any]) -> str:
         f"- deterministic: {str(report['deterministic']).lower()}",
         f"- live_provider_tests: {report['live_provider_tests']}",
         f"- completed_workflows: {report['summary']['completed_workflows']}/{report['summary']['expected_workflows']}",
+        f"- failed_workflows: {report['summary']['failed_workflows']}",
+        f"- repeatability_failures: {report['summary']['repeatability_failures']}",
         f"- categories: {', '.join(report['summary']['categories'])}",
         "",
         "## Loop Engineering Gates",
@@ -1315,17 +1324,23 @@ def main(argv: list[str] | None = None) -> int:
                         }
                     )
 
-    failures.extend(_loop_repeatability_failures(results))
+    repeatability_failures = _loop_repeatability_failures(results)
 
-    report = _build_report(results, failures, repeat_count=args.repeat_count)
+    report = _build_report(
+        results,
+        failures,
+        repeat_count=args.repeat_count,
+        repeatability_failures=repeatability_failures,
+    )
     if args.report_dir:
         _write_report(args.report_dir, report)
 
+    all_failures = failures + repeatability_failures
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
-    if failures:
+    if all_failures:
         print("v1.1 deterministic quality gate failed")
-        for failure in failures:
+        for failure in all_failures:
             print(f"- {failure['workflow']}: {failure['classification']}: {failure['message']}")
         return 1
 
