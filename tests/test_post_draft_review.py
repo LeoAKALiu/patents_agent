@@ -392,6 +392,7 @@ def test_post_draft_review_stage_timeout_stops_after_slow_provider(tmp_path):
     assert run["status"] == "failed"
     assert run["export_allowed"] is False
     assert run["failure_details"][0]["reason"] == "timeout"
+    assert run["runtime_state"]["subtask"] == "post-draft claims review"
     assert [call.stage for call in llm.calls] == ["post_draft_claims_reviewer"]
 
 

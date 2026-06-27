@@ -90,6 +90,12 @@ describe("Guided patent flow UI regressions", () => {
     expect(appSource).toContain("uploadedMaterials.length");
   });
 
+  it("prevents native form navigation before handing off material uploads", () => {
+    expect(inventionPointSource).toMatch(
+      /async function handleMaterialSubmit\(event: FormEvent<HTMLFormElement>\) {\s+event\.preventDefault\(\);/s,
+    );
+  });
+
   it("keeps text action buttons out of icon-only sizing", () => {
     const textButtonSources = [
       inventionPointSource,

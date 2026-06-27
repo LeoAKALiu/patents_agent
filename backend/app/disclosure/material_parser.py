@@ -35,7 +35,9 @@ def _read_supported_document_text(path: Path) -> str:
         if suffix == ".docx":
             raise ValueError("DOCX 文件无法解析，请确认文件未损坏且格式正确。") from exc
         raise
-    except ValueError:
+    except ValueError as exc:
+        if suffix == ".pdf":
+            raise ValueError("PDF 文件无法解析，请确认文件未损坏且包含可提取文本。") from exc
         raise
     except Exception as exc:
         if suffix == ".pdf":

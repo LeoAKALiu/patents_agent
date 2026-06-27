@@ -83,8 +83,8 @@ def project_material_upload_error(exc: ValueError) -> tuple[int, str]:
         return 415, "不支持的材料文件类型，请上传 PDF、DOCX、PPTX、Markdown 或 TXT。"
     if "Text file encoding is not supported" in message:
         return 422, "文本文件编码不支持，请另存为 UTF-8 后重新上传。"
-    if "PDF has no text layer" in message:
-        return 422, "PDF 没有可提取文本，请先 OCR 后重新上传。"
+    if "PDF has no text layer" in message or "PDF 文件无法解析" in message:
+        return 422, "PDF 文件无法解析，请确认文件未损坏且包含可提取文本。"
     if "contains no extractable text" in message:
         return 422, "文件没有可解析文本，请检查内容后重新上传。"
     if "文件为空" in message or "DOCX" in message:

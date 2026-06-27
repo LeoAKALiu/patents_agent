@@ -64,11 +64,16 @@ export function guidedRuntimeStageLabel(stage?: string | null): string {
   return stage.replaceAll("_", " ");
 }
 
-function guidedRuntimeSubtaskLabel(subtask?: string | null): string {
+export function guidedRuntimeSubtaskLabel(subtask?: string | null): string {
   if (!subtask) return "";
   if (subtask === "project/material scan") return "项目与材料分析";
   if (subtask.includes("disclosure")) return "发明点提炼";
   if (subtask.includes("material")) return "材料分析";
+  if (subtask === "post_draft_claims_reviewer" || subtask === "post-draft claims review") return "权利要求复核";
+  if (subtask === "post_draft_spec_cleaner" || subtask === "post-draft specification cleanup") return "说明书清洁度复核";
+  if (subtask === "post_draft_technical_hardness" || subtask === "post-draft technical hardness review") return "技术硬度复核";
+  if (subtask === "post_draft_chair_synthesis" || subtask === "post-draft chair synthesis") return "会审主席综合";
+  if (subtask.includes("post_draft")) return "成稿会审";
   return "运行中";
 }
 

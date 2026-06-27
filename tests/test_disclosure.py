@@ -56,7 +56,7 @@ def test_project_material_parser_reads_text_docx_pptx_and_rejects_blank_pdf(tmp_
     pdf.new_page()
     pdf.save(blank_pdf)
     pdf.close()
-    with pytest.raises(ValueError, match="no text layer"):
+    with pytest.raises(ValueError, match="PDF 文件无法解析，请确认文件未损坏且包含可提取文本"):
         read_project_material_text(blank_pdf)
 
 
@@ -319,6 +319,19 @@ def test_project_material_upload_rejects_empty_text_and_invalid_docx_without_per
     )
     assert fake_docx_response.status_code == 422
     assert "DOCX" in fake_docx_response.json()["detail"]
+
+    fitz = pytest.importorskip("fitz")
+    blank_pdf = tmp_path / "blank-material.pdf"
+    pdf = fitz.open()
+    pdf.new_page()
+    pdf.save(blank_pdf)
+    pdf.close()
+    pdf_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={"file": ("blank.pdf", blank_pdf.read_bytes(), "application/pdf")},
+    )
+    assert pdf_response.status_code == 422
+    assert pdf_response.json()["detail"] == "PDF 文件无法解析，请确认文件未损坏且包含可提取文本。"
 
     materials_response = client.get(f"/api/projects/{project_id}/materials")
     assert materials_response.status_code == 200

@@ -2877,13 +2877,25 @@ def _cached_llm(
     )
 
 
+_RUNTIME_LLM_SUBTASK_LABELS = {
+    "post_draft_claims_reviewer": "post-draft claims review",
+    "post_draft_spec_cleaner": "post-draft specification cleanup",
+    "post_draft_technical_hardness": "post-draft technical hardness review",
+    "post_draft_chair_synthesis": "post-draft chair synthesis",
+}
+
+
+def _runtime_llm_subtask(stage: str) -> str:
+    return _RUNTIME_LLM_SUBTASK_LABELS.get(stage, stage)
+
+
 class _RuntimeCheckpointLLM:
     def __init__(self, delegate: LLMClient, *, runtime: RuntimeContext) -> None:
         self.delegate = delegate
         self.runtime = runtime
 
     def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
-        self.runtime.begin_stage(stage, provider="llm", subtask=stage)
+        self.runtime.begin_stage(stage, provider="llm", subtask=_runtime_llm_subtask(stage))
         response = self.delegate.complete_stage(stage, system_prompt, user_prompt)
         self.runtime.complete_stage()
         return response

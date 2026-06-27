@@ -227,8 +227,8 @@ function ExternalDeepResearchGuide({
   }
 
   async function handleMaterialSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!materialInputRef.current?.files?.[0]) {
-      event.preventDefault();
       materialInputRef.current?.click();
       return;
     }

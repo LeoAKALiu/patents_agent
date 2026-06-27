@@ -7,6 +7,7 @@ import {
   userFacingAppErrorCopy,
   userFacingErrorCopy,
 } from "./runtimeDisplay";
+import { guidedRuntimeSubtaskLabel } from "./flow/runtimeWidgets";
 
 describe("runtime display clock", () => {
   it("interpolates elapsed time from the last backend heartbeat", () => {
@@ -104,5 +105,18 @@ describe("user-facing runtime error copy", () => {
     expect(copy.message).toContain("Base URL");
     expect(copy.message).not.toContain("prompt/schema");
     expect(copy.detail).toContain("prompt/schema");
+  });
+});
+
+describe("guided runtime labels", () => {
+  it("maps post-draft review LLM stage subtasks to readable labels", () => {
+    expect(guidedRuntimeSubtaskLabel("post_draft_claims_reviewer")).toBe("权利要求复核");
+    expect(guidedRuntimeSubtaskLabel("post-draft claims review")).toBe("权利要求复核");
+    expect(guidedRuntimeSubtaskLabel("post_draft_spec_cleaner")).toBe("说明书清洁度复核");
+    expect(guidedRuntimeSubtaskLabel("post-draft specification cleanup")).toBe("说明书清洁度复核");
+    expect(guidedRuntimeSubtaskLabel("post_draft_technical_hardness")).toBe("技术硬度复核");
+    expect(guidedRuntimeSubtaskLabel("post-draft technical hardness review")).toBe("技术硬度复核");
+    expect(guidedRuntimeSubtaskLabel("post_draft_chair_synthesis")).toBe("会审主席综合");
+    expect(guidedRuntimeSubtaskLabel("post-draft chair synthesis")).toBe("会审主席综合");
   });
 });
