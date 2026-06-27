@@ -350,6 +350,7 @@ button.nav-link span {
   flex-direction: row;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   margin: 0;
   color: var(--text-muted);
   font-size: 13px;
@@ -368,6 +369,25 @@ button.nav-link span {
   background: var(--surface-raised);
   color: var(--text-primary);
   font-size: 13px;
+}
+
+.project-select {
+  flex: 1 1 min(360px, 42vw);
+  max-width: min(420px, 42vw);
+  min-width: 0;
+}
+
+.project-select > span {
+  flex: 0 0 auto;
+}
+
+.project-select-control {
+  flex: 1 1 180px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-actions .tag {
@@ -1129,6 +1149,33 @@ input:focus, select:focus, textarea:focus {
 .result-item p, .finding p { margin: 8px 0 0; }
 .empty { margin: 0; }
 
+.report-preview-pane {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.report-preview-pane :where(section, article, div) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.report-preview-pane article {
+  overflow: hidden;
+}
+
+.report-preview-pane pre,
+.report-preview-pre {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  max-height: min(46vh, 520px);
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* ── Search ───────────────────────────────────────────────────── */
 .search-form {
   display: grid;
@@ -1342,6 +1389,26 @@ input:focus, select:focus, textarea:focus {
 /* ── Project Grid ─────────────────────────────────────────────── */
 .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 
+.projects-overview,
+.projects-overview > *,
+.project-filter-row {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.project-filter-row {
+  min-width: 0;
+}
+
+.project-filter-row button {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.project-filter-row button span {
+  min-width: 0;
+}
+
 .project-card {
   display: grid;
   gap: 10px;
@@ -1379,6 +1446,7 @@ input:focus, select:focus, textarea:focus {
   justify-content: center;
   gap: 8px;
   min-height: 40px;
+  min-width: 0;
   flex: 1 1 0;
   padding: 8px 14px;
   border-radius: var(--radius-md);
@@ -2840,6 +2908,68 @@ input:focus, select:focus, textarea:focus {
 }
 .callout-error strong { color: var(--danger); }
 
+.official-cleanup-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in oklch, var(--warn), var(--border-subtle) 42%);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--warn), transparent 94%);
+}
+
+.official-cleanup-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.official-cleanup-heading strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.official-cleanup-heading p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.official-cleanup-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.official-cleanup-list li {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.official-cleanup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--action-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.official-cleanup-list p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
 /* ── Repair patch preview ──────────────────────────────────────── */
 .repair-patch-preview {
   display: grid;
@@ -3306,6 +3436,142 @@ input:focus, select:focus, textarea:focus {
 
 .material-summary-row .info-card-body p,
 .external-draft-result .info-card-body p {
+  overflow-wrap: anywhere;
+}
+
+.external-research-guide {
+  gap: 12px;
+  margin-bottom: 0;
+  padding: 14px;
+  border: 1px solid color-mix(in oklch, var(--action-primary), var(--border-subtle) 58%);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--action-primary), var(--surface-raised) 96%);
+}
+
+.external-research-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.external-research-flow > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 8px;
+  align-items: start;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.external-research-flow span {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: var(--action-primary-contrast);
+  background: var(--action-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.external-research-flow strong {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.external-research-flow p {
+  grid-column: 2;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.external-research-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.external-research-copy-status {
+  min-width: 0;
+  color: var(--text-soft);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.external-research-prompt {
+  min-width: 0;
+}
+
+.external-research-prompt summary {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--action-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.external-research-prompt textarea {
+  width: 100%;
+  min-height: 260px;
+  max-height: 440px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.external-research-upload {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.external-research-upload .inline-console {
+  grid-column: 1 / -1;
+}
+
+.external-research-upload-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.external-research-upload-field label {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.external-research-upload-field input {
+  min-width: 0;
+}
+
+.external-research-upload-field > span {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.external-research-upload-status {
   overflow-wrap: anywhere;
 }
 

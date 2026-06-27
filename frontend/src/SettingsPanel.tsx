@@ -33,6 +33,7 @@ import {
   getDesktopConfig,
   updateDesktopConfig,
 } from "./api";
+import { userFacingErrorCopy, userFacingErrorMessage } from "./runtimeDisplay";
 
 type SaveStatus =
   | { kind: "idle" }
@@ -89,7 +90,7 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
       setApiKeyInput("");
       setClearRequested(false);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : String(err));
+      setLoadError(userFacingErrorMessage(err, { fallbackTitle: "设置加载失败" }));
     } finally {
       setLoading(false);
     }
@@ -148,7 +149,7 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
     } catch (err) {
       setSaveStatus({
         kind: "error",
-        message: err instanceof Error ? err.message : String(err),
+        message: userFacingErrorMessage(err, { fallbackTitle: "设置保存失败" }),
       });
     }
   };
@@ -165,7 +166,7 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
     } catch (err) {
       setSaveStatus({
         kind: "error",
-        message: err instanceof Error ? err.message : String(err),
+        message: userFacingErrorMessage(err, { fallbackTitle: "密钥清除失败" }),
       });
     }
   };
@@ -198,6 +199,9 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
 
   const present = view?.api_key_present ?? false;
   const fingerprint = view?.api_key_fingerprint ?? "";
+  const healthErrorCopy = healthStatus.kind === "error"
+    ? userFacingErrorCopy(healthStatus.result.error, { statusCode: healthStatus.result.status_code })
+    : null;
 
   return (
     <section className="p-5 rounded-lg border border-app-border bg-app-surface max-w-[1120px]" data-testid="settings-panel">
@@ -388,9 +392,16 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
         </p>
       )}
       {healthStatus.kind === "error" && (
-        <p className="settings-feedback err" data-testid="settings-health-status">
-          <AlertTriangle size={14} /> {healthStatus.result.error || "连通失败"}
-        </p>
+        <div className="settings-feedback err" data-testid="settings-health-status">
+          <AlertTriangle size={14} />
+          <span>{healthErrorCopy?.title ?? "连通失败"}：{healthErrorCopy?.message ?? "请检查配置后重试。"}</span>
+          {healthErrorCopy?.detail && (
+            <details>
+              <summary>诊断详情</summary>
+              <code>{healthErrorCopy.detail}</code>
+            </details>
+          )}
+        </div>
       )}
 
       <div className="mt-6 pt-6 border-t border-app-border">

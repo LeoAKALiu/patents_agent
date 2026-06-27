@@ -453,6 +453,51 @@ describe("guided step navigation helpers", () => {
     expect(state.steps.find((step) => step.id === "export")?.status).toBe("locked");
   });
 
+  it("keeps external draft intake visible after selecting an existing project until intake completes", () => {
+    const state = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [],
+      disclosures: [],
+      deliberations: [],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(state.currentStepId).toBe("invention");
+    expect(resolveGuidedViewStep(state.currentStepId, null, state.steps, "external")).toBe("idea");
+    expect(resolveGuidedViewStep(state.currentStepId, null, state.steps, "idea")).toBe("invention");
+    expect(resolveGuidedViewStep(state.currentStepId, null, state.steps)).toBe("invention");
+  });
+
+  it("returns to the workflow step after external draft intake completes", () => {
+    const state = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [],
+      disclosures: [],
+      deliberations: [],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+      externalDraftSources: [externalDraftSource],
+      externalDraftIntakeRuns: [completedExternalDraftIntakeRun],
+    });
+
+    expect(state.currentStepId).toBe("invention");
+    expect(state.hasCompletedExternalDraftIntake).toBe(true);
+    expect(
+      resolveGuidedViewStep(
+        state.currentStepId,
+        null,
+        state.steps,
+        "external",
+        state.hasCompletedExternalDraftIntake,
+      ),
+    ).toBe("invention");
+  });
+
   it("labels step statuses for the navigator", () => {
     expect(guidedStepStatusLabel("done")).toBe("已完成");
     expect(guidedStepStatusLabel("locked")).toBe("未解锁");

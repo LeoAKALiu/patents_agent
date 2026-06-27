@@ -33,14 +33,14 @@ describe("Guided patent flow UI regressions", () => {
   });
 
   it("keeps invention helper actions as text buttons instead of icon-only controls", () => {
-    expect(inventionPointSource).toContain("guided-panel-actions");
-    expect(inventionPointSource).toContain("guided-panel-action");
+    expect(inventionPointSource).toContain("button-row");
+    expect(inventionPointSource).toContain("max-w-full whitespace-normal");
     expect(inventionPointSource).not.toMatch(/size="icon"[^>]+onOpenExpertTool\("materials"\)/s);
     expect(inventionPointSource).not.toMatch(/size="icon"[^>]+onOpenExpertTool\("moat"\)/s);
   });
 
   it("keeps guided text actions out of icon-sized buttons", () => {
-    expect(inventionPointSource).toContain("guided-choice-action");
+    expect(inventionPointSource).toContain("max-w-full justify-self-start whitespace-normal");
     expect(inventionPointSource).not.toMatch(/size="icon"[^>]+onSelectPatentPoint/s);
     expect(deliberationSource).toContain("guided-panel-action");
     expect(deliberationSource).not.toMatch(/size="icon"[^>]+onOpenExpertTool\("deliberate"\)/s);
@@ -73,5 +73,38 @@ describe("Guided patent flow UI regressions", () => {
     expect(projectDataSource).toContain("refreshDisclosureRunUntilSettled");
     expect(projectDataSource).toContain("loadPatentPoints");
     expect(appSource).toContain("refreshDisclosureRunUntilSettled");
+  });
+
+  it("guides external deep research reports into the invention point step", () => {
+    expect(guidedSource).toContain("project={props.project}");
+    expect(inventionPointSource).toContain("外部 Deep Research 辅助");
+    expect(inventionPointSource).toContain("复制 Deep Research 提示词");
+    expect(inventionPointSource).toContain("buildExternalDeepResearchPrompt");
+    expect(inventionPointSource).toContain("最接近现有技术");
+    expect(inventionPointSource).toContain("handleMaterialButtonClick");
+    expect(inventionPointSource).toContain("requestSubmit");
+    expect(inventionPointSource).toContain("multiple");
+    expect(inventionPointSource).toContain("选择并上传多份报告/补充材料");
+    expect(inventionPointSource).not.toContain("<MaterialSummary materials={materials} />");
+    expect(appSource).toContain("Array.from(input.files ?? [])");
+    expect(appSource).toContain("uploadedMaterials.length");
+  });
+
+  it("prevents native form navigation before handing off material uploads", () => {
+    expect(inventionPointSource).toMatch(
+      /async function handleMaterialSubmit\(event: FormEvent<HTMLFormElement>\) {\s+event\.preventDefault\(\);/s,
+    );
+  });
+
+  it("keeps text action buttons out of icon-only sizing", () => {
+    const textButtonSources = [
+      inventionPointSource,
+      deliberationSource,
+      runtimeWidgetsSource,
+    ].join("\n");
+
+    expect(textButtonSources).not.toMatch(/size="icon"[^>]*>\s*(?:<[^>]+>\s*)?查看/);
+    expect(textButtonSources).not.toMatch(/size="icon"[^>]*>\s*(?:<[^>]+>\s*)?<span>取消运行<\/span>/);
+    expect(textButtonSources).not.toMatch(/size="icon"[^>]*>\s*(?:<[^>]+>\s*)?选为主线/);
   });
 });

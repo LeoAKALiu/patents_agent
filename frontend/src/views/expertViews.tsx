@@ -238,7 +238,9 @@ export function WriteView({
       </section>
       <StrategyBriefView title="当前会审策略" strategy={deliberation?.strategy_brief ?? project?.package?.strategy_brief ?? null} />
       <DisclosureSummaryView packageValue={disclosure?.package ?? null} />
-      <PackagePreview packageValue={project?.package ?? null} />
+      <div className="report-preview-pane">
+        <PackagePreview packageValue={project?.package ?? null} />
+      </div>
     </div>
   );
 }

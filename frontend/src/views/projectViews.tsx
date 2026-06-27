@@ -47,6 +47,7 @@ type ProjectMetadata = {
 };
 
 type ProjectFilter = "all" | "draft" | "idea" | "utility";
+export type ProjectListLoadStatus = "idle" | "loading" | "ready" | "failed";
 
 function formatShortProjectDate(value: string | undefined): string {
   if (!value) return "未记录";
@@ -214,17 +215,20 @@ export function StartChoiceScreen({ onSelect }: { onSelect: (choice: StartChoice
 export function ProjectSelect({
   projects,
   selectedProjectId,
+  loadStatus = "idle",
   onChange,
 }: {
   projects: ProjectRecord[];
   selectedProjectId: string;
+  loadStatus?: ProjectListLoadStatus;
   onChange: (id: string) => void;
 }) {
+  const emptyLabel = loadStatus === "failed" ? "项目加载失败" : projects.length === 0 ? "暂无项目" : "新建项目";
   return (
-    <label className="flex flex-col md:flex-row items-start md:items-center gap-3">
+    <label className="project-select flex flex-col md:flex-row items-start md:items-center gap-3">
       <span>当前项目</span>
-      <select value={selectedProjectId} onChange={(event) => onChange(event.target.value)}>
-        <option value="">{projects.length === 0 ? "暂无项目" : "新建项目"}</option>
+      <select className="project-select-control" value={selectedProjectId} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{emptyLabel}</option>
         {projects.map((project) => (
           <option key={project.id} value={project.id}>
             {project.name}
@@ -241,12 +245,14 @@ export function ProjectsOverview({
   onSelect,
   onDelete,
   busy,
+  loadStatus = "idle",
 }: {
   projects: ProjectRecord[];
   selectedProjectId: string;
   onSelect: (id: string) => void;
   onDelete: (project: ProjectRecord) => void;
   busy: string;
+  loadStatus?: ProjectListLoadStatus;
 }) {
   const [activeFilter, setActiveFilter] = useState<ProjectFilter>("all");
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
@@ -277,7 +283,7 @@ export function ProjectsOverview({
   );
 
   return (
-    <section className="col-span-full grid gap-4">
+    <section className="projects-overview col-span-full grid gap-4">
       <div className="status-strip" aria-label="项目摘要">
         <div className="status-tile">
           <span>全部项目</span>
@@ -305,7 +311,7 @@ export function ProjectsOverview({
               选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。
             </p>
           </div>
-          <div className="flex flex-wrap gap-2" aria-label="项目筛选">
+          <div className="project-filter-row flex flex-wrap gap-2" aria-label="项目筛选">
             {filterOptions.map((option) => (
               <button
                 aria-pressed={activeFilter === option.id}
@@ -325,6 +331,16 @@ export function ProjectsOverview({
             ))}
           </div>
         </header>
+
+        {loadStatus === "failed" && (
+          <div className="callout m-4">
+            <ShieldCheck size={18} aria-hidden="true" />
+            <div>
+              <strong>项目列表加载失败</strong>
+              <p>{projects.length > 0 ? "显示上次成功加载的数据；请恢复后端连接后刷新。" : "请检查后端连接后刷新，这不是空项目列表。"}</p>
+            </div>
+          </div>
+        )}
 
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[840px] border-collapse text-sm">
@@ -495,7 +511,11 @@ export function ProjectsOverview({
 
         {visibleProjects.length === 0 && (
           <div className="border-t border-[var(--border-subtle)] px-5 py-10 text-center text-sm text-[var(--text-muted)]">
-            {projects.length === 0 ? "暂无项目。进入“专利生成”输入想法即可创建。" : "当前筛选下暂无项目。"}
+            {loadStatus === "failed"
+              ? "项目列表加载失败。请恢复后端连接后刷新。"
+              : projects.length === 0
+                ? "暂无项目。进入“专利生成”输入想法即可创建。"
+                : "当前筛选下暂无项目。"}
           </div>
         )}
       </section>

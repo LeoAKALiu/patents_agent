@@ -61,14 +61,7 @@ def import_project_material(
     repo,
 ) -> ProjectMaterial:
     """Read and persist a project material file."""
-    warnings: list[str] = []
-    text = ""
-    status = "processed"
-    try:
-        text, warnings = read_project_material_text(stored_path)
-    except ValueError as exc:
-        status = "failed"
-        warnings = [str(exc)]
+    text, warnings = read_project_material_text(stored_path)
 
     material = ProjectMaterial(
         id=uuid.uuid4().hex,
@@ -77,11 +70,26 @@ def import_project_material(
         path=str(stored_path),
         file_type=stored_path.suffix.lower().lstrip("."),
         text=text,
-        status=status,
+        status="processed",
         warnings=warnings,
     )
     repo.add_material(material)
     return material
+
+
+def project_material_upload_error(exc: ValueError) -> tuple[int, str]:
+    message = str(exc)
+    if message.startswith("Unsupported project material file type"):
+        return 415, "不支持的材料文件类型，请上传 PDF、DOCX、PPTX、Markdown 或 TXT。"
+    if "Text file encoding is not supported" in message:
+        return 422, "文本文件编码不支持，请另存为 UTF-8 后重新上传。"
+    if "PDF has no text layer" in message or "PDF 文件无法解析" in message:
+        return 422, "PDF 文件无法解析，请确认文件未损坏且包含可提取文本。"
+    if "contains no extractable text" in message:
+        return 422, "文件没有可解析文本，请检查内容后重新上传。"
+    if "文件为空" in message or "DOCX" in message:
+        return 422, message
+    return 422, "材料文件无法解析，请检查文件格式或重新导出后上传。"
 
 
 def build_patent_point_candidate(payload: PatentPointCreate) -> PatentPointCandidate:

@@ -472,6 +472,8 @@ export function DisclosureView({
   const completed = latestCompletedDisclosure(runs);
   const activeRun = latestActiveRun(runs);
   const disclosureBusy = busy === "disclosure" || Boolean(activeRun);
+  const processedMaterials = materials.filter((material) => material.status === "processed");
+  const failedMaterials = materials.filter((material) => material.status !== "processed");
   return (
     <div className="flex flex-col gap-4">
       <section className="flex items-center justify-between gap-4 border border-[var(--border-subtle)] rounded-lg bg-[var(--surface-subtle)] p-6 shadow-xl backdrop-blur-xl">
@@ -504,6 +506,7 @@ export function DisclosureView({
               name="project-material-file"
               type="file"
               accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
+              multiple
               disabled={!project}
             />
             <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-[var(--action-primary)] to-[color-mix(in_oklch,var(--action-primary),black_30%)] text-[var(--action-primary-contrast)] font-medium hover:brightness-110 disabled:opacity-50 disabled:grayscale transition-all" disabled={!project || busy === "material-upload"} type="submit">
@@ -512,15 +515,39 @@ export function DisclosureView({
             </button>
           </form>
           <div className="flex flex-col gap-3">
-            {materials.map((material) => (
-              <article className="flex gap-3 items-start p-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] rounded-lg shadow-sm" key={material.id}>
-                {material.status === "processed" ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
-                <div>
-                  <strong>{material.file_name}</strong>
-                  <span>{material.status === "processed" ? `${material.file_type} / ${material.text.length} 字` : material.warnings.join("；")}</span>
-                </div>
-              </article>
-            ))}
+            {processedMaterials.length > 0 && (
+              <div className="grid gap-3">
+                <h4 className="text-sm font-semibold text-[var(--text-primary)]">可用材料</h4>
+                {processedMaterials.map((material) => (
+                  <article className="flex gap-3 items-start p-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] rounded-lg shadow-sm" key={material.id}>
+                    <CheckCircle2 size={18} />
+                    <div className="grid gap-1">
+                      <strong>{material.file_name}</strong>
+                      <span>
+                        <span>类型：{material.file_type || "未知"}</span>
+                        {" · "}
+                        <span>{material.text.length} 字</span>
+                      </span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            {failedMaterials.length > 0 && (
+              <div className="grid gap-3">
+                <h4 className="text-sm font-semibold text-[var(--text-primary)]">失败上传</h4>
+                <p className="text-sm text-[var(--text-primary)]/60">以下文件不参与后续发明点提炼，请重新选择可读且支持的文件。</p>
+                {failedMaterials.map((material) => (
+                  <article className="flex gap-3 items-start p-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] rounded-lg shadow-sm" key={material.id}>
+                    <AlertTriangle size={18} />
+                    <div className="grid gap-1">
+                      <strong>{material.file_name}</strong>
+                      <span>{material.warnings.join("；") || "材料解析失败。"}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
             {materials.length === 0 && <p className="text-sm text-[var(--text-primary)]/50 italic py-4">未上传补充材料时，系统会仅基于 draft 生成。</p>}
           </div>
         </div>

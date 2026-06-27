@@ -18,6 +18,7 @@ export {
   ClipboardCheck,
   ClipboardList,
   Clock,
+  Copy,
   Database,
   Download,
   Eye,

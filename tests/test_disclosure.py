@@ -22,6 +22,7 @@ from backend.app.schemas import (
     PatentPointCandidate,
     PatentStrategyBrief,
     PriorArtHit,
+    ProjectMaterial,
     ProjectRecord,
 )
 
@@ -55,8 +56,20 @@ def test_project_material_parser_reads_text_docx_pptx_and_rejects_blank_pdf(tmp_
     pdf.new_page()
     pdf.save(blank_pdf)
     pdf.close()
-    with pytest.raises(ValueError, match="no text layer"):
+    with pytest.raises(ValueError, match="PDF 文件无法解析，请确认文件未损坏且包含可提取文本"):
         read_project_material_text(blank_pdf)
+
+
+def test_project_material_parser_rejects_empty_text_and_invalid_docx(tmp_path: Path):
+    empty_text = tmp_path / "empty.md"
+    empty_text.write_text(" \n\t", encoding="utf-8")
+    with pytest.raises(ValueError, match="empty|文件为空|文本为空|no extractable text"):
+        read_project_material_text(empty_text)
+
+    fake_docx = tmp_path / "fake.docx"
+    fake_docx.write_bytes(b"not a real docx archive")
+    with pytest.raises(ValueError, match="DOCX|docx|格式"):
+        read_project_material_text(fake_docx)
 
 
 def test_parse_cnipa_epub_html_extracts_abstract_and_dedupes():
@@ -277,6 +290,101 @@ def test_disclosure_api_lifecycle_and_generation_injection(tmp_path: Path):
     assert "检索后" in export_response.text
     assert "候选专利点" in export_response.text
     assert "证据状态" in export_response.text
+
+
+def test_project_material_upload_rejects_empty_text_and_invalid_docx_without_persisting(tmp_path: Path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False))
+    project_response = client.post(
+        "/api/projects",
+        json={"name": "异常材料项目", "draft_text": "一种基于传感器的检测方法。"},
+    )
+    project_id = project_response.json()["id"]
+
+    empty_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={"file": ("empty.md", b" \n\t", "text/markdown")},
+    )
+    assert empty_response.status_code == 422
+    assert "文件为空" in empty_response.json()["detail"]
+
+    fake_docx_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={
+            "file": (
+                "fake.docx",
+                b"not a real docx archive",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+    assert fake_docx_response.status_code == 422
+    assert "DOCX" in fake_docx_response.json()["detail"]
+
+    fitz = pytest.importorskip("fitz")
+    blank_pdf = tmp_path / "blank-material.pdf"
+    pdf = fitz.open()
+    pdf.new_page()
+    pdf.save(blank_pdf)
+    pdf.close()
+    pdf_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={"file": ("blank.pdf", blank_pdf.read_bytes(), "application/pdf")},
+    )
+    assert pdf_response.status_code == 422
+    assert pdf_response.json()["detail"] == "PDF 文件无法解析，请确认文件未损坏且包含可提取文本。"
+
+    materials_response = client.get(f"/api/projects/{project_id}/materials")
+    assert materials_response.status_code == 200
+    assert materials_response.json()["materials"] == []
+
+
+def test_disclosure_generation_ignores_failed_project_materials(tmp_path: Path):
+    llm = _disclosure_llm()
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=llm,
+            prior_art_provider=StaticPriorArtProvider(hits=[_prior_art_hit()]),
+            load_env_file=False,
+        )
+    )
+    project_response = client.post(
+        "/api/projects",
+        json={"name": "失败材料隔离", "draft_text": "一种基于图像采集的检测方法。"},
+    )
+    project_id = project_response.json()["id"]
+    client.app.state.store.add_project_material(
+        ProjectMaterial(
+            id="failed-material",
+            project_id=project_id,
+            file_name="unsupported-round5.xyz",
+            path=str(tmp_path / "unsupported-round5.xyz"),
+            file_type="xyz",
+            text="",
+            status="failed",
+            warnings=["Unsupported project material file type: .xyz"],
+        )
+    )
+    client.app.state.store.add_project_material(
+        ProjectMaterial(
+            id="processed-material",
+            project_id=project_id,
+            file_name="valid.md",
+            path=str(tmp_path / "valid.md"),
+            file_type="md",
+            text="有效材料：采集模块和缺陷定位模块协同工作。",
+            status="processed",
+            warnings=[],
+        )
+    )
+
+    run_response = client.post(f"/api/projects/{project_id}/disclosures", json={"trace": False})
+
+    assert run_response.status_code == 200
+    prompts = {call.stage: call.user_prompt for call in llm.calls}
+    assert "valid.md" in prompts["disclosure_scan"]
+    assert "unsupported-round5.xyz" not in prompts["disclosure_scan"]
+    assert "Unsupported project material file type" not in prompts["disclosure_scan"]
 
 
 def test_repeated_disclosure_docx_export_does_not_mutate_export_warnings(tmp_path: Path, monkeypatch):

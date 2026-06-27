@@ -357,7 +357,12 @@ export function resolveGuidedViewStep(
   workflowStepId: GuidedStepId,
   manualViewStepId: GuidedStepId | null,
   steps: GuidedStepState[],
+  initialIntakeMode: "idea" | "external" = "idea",
+  externalDraftIntakeComplete = false,
 ): GuidedStepId {
+  if (initialIntakeMode === "external" && !externalDraftIntakeComplete) {
+    return "idea";
+  }
   if (!manualViewStepId) {
     return workflowStepId;
   }
@@ -634,6 +639,21 @@ export function selectCurrentOfficialCompileRun(
       && run.official_package_hash
       && (!currentSourceDraftHash || run.source_draft_hash === currentSourceDraftHash),
   ) ?? null;
+}
+
+export function selectLatestOfficialCompileAttemptForSource(
+  runs: OfficialCompileRun[],
+  currentSourceDraftHash?: string,
+): OfficialCompileRun | null {
+  const candidates = currentSourceDraftHash
+    ? runs.filter((run) => run.source_draft_hash === currentSourceDraftHash)
+    : runs;
+  return candidates.reduce<OfficialCompileRun | null>((latest, run) => {
+    if (!latest) {
+      return run;
+    }
+    return createdAtTime(run) > createdAtTime(latest) ? run : latest;
+  }, null);
 }
 
 function stepStatusForIndex(index: number, currentIndex: number, hasIdea: boolean): GuidedStepStatus {

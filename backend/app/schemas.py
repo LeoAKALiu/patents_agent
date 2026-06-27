@@ -324,6 +324,16 @@ class OfficialCompileRun(BaseModel):
     updated_at: str = ""
 
 
+class OfficialCompileCleanupResult(BaseModel):
+    project_id: str
+    compile_run_id: str
+    applied_count: int = 0
+    applied_actions: list[str] = Field(default_factory=list)
+    previous_draft_hash: str = ""
+    current_draft_hash: str = ""
+    package: DraftPackage
+
+
 class ProjectCreate(BaseModel):
     name: str
     draft_text: str = ""

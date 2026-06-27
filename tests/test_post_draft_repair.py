@@ -668,7 +668,7 @@ def test_repair_patch_create_409_when_review_run_is_stale_even_with_current_hash
         client,
         _package(
             title="一种基于城市体检指标置信度的无人机主动采集方法方法",
-            claims="好的，根据交底书撰写权利要求。",
+            claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
         ),
     )
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
@@ -677,7 +677,7 @@ def test_repair_patch_create_409_when_review_run_is_stale_even_with_current_hash
     mutated = _package(
         title="一种基于城市体检指标置信度的无人机主动采集方法方法",
         abstract="本发明公开了一种已经人工修改过的摘要。",
-        claims="好的，根据交底书撰写权利要求。",
+        claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
     )
     client.app.state.store.update_project_package(project_id, mutated)
 
@@ -711,7 +711,7 @@ def test_repair_patch_apply_409_when_stale(tmp_path):
         client,
         _package(
             title="一种基于城市体检指标置信度的无人机主动采集方法方法",
-            claims="好的，根据交底书撰写权利要求。",
+            claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
         ),
     )
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
@@ -758,7 +758,7 @@ def test_repair_patch_apply_409_when_review_run_is_stale_even_with_current_hash_
         client,
         _package(
             title="一种基于城市体检指标置信度的无人机主动采集方法方法",
-            claims="好的，根据交底书撰写权利要求。",
+            claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
         ),
     )
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
@@ -767,7 +767,7 @@ def test_repair_patch_apply_409_when_review_run_is_stale_even_with_current_hash_
     mutated = _package(
         title="一种基于城市体检指标置信度的无人机主动采集方法方法",
         abstract="本发明公开了一种已经人工修改过的摘要。",
-        claims="好的，根据交底书撰写权利要求。",
+        claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
     )
     client.app.state.store.update_project_package(project_id, mutated)
     current_hash = client.get(f"/api/projects/{project_id}/post-draft-reviews").json()["current_draft_hash"]
@@ -802,7 +802,7 @@ def test_repair_patch_apply_writes_through_package(tmp_path):
         client,
         _package(
             title="一种基于城市体检指标置信度的无人机主动采集方法方法",
-            claims="好的，根据交底书撰写权利要求。",
+            claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
         ),
     )
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})

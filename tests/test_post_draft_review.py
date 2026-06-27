@@ -1,3 +1,5 @@
+import time
+
 from fastapi.testclient import TestClient
 from docx import Document
 
@@ -372,6 +374,49 @@ def test_invalid_json_post_draft_review_downgrades_role_and_completes(tmp_path):
     )
 
 
+def test_post_draft_review_stage_timeout_stops_after_slow_provider(tmp_path):
+    """A configured request timeout should stop the review at the provider
+    boundary instead of continuing through the remaining reviewers/chair."""
+    llm = _SlowStageReviewLLM(_review_llm(export_allowed=True).responses, slow_stage="post_draft_claims_reviewer")
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm, load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews",
+        json={"stage_timeout_ms": 1, "run_timeout_ms": 1_000},
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "failed"
+    assert run["export_allowed"] is False
+    assert run["failure_details"][0]["reason"] == "timeout"
+    assert run["runtime_state"]["subtask"] == "post-draft claims review"
+    assert [call.stage for call in llm.calls] == ["post_draft_claims_reviewer"]
+
+
+def test_post_draft_review_chair_failure_downgrades_to_blocked_completed_review(tmp_path):
+    base = _review_llm(export_allowed=True)
+    base.responses["post_draft_chair_synthesis"] = "not-json"
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=base, load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "completed"
+    assert run["export_allowed"] is False
+    assert run["chair_result"]["status"] == "blocked"
+    assert run["blocking_issues"]
+    assert any(
+        log["level"] == "error" and "chair synthesis failed" in log["message"] and log["provider_id"] == "chair"
+        for log in run["logs"]
+    )
+
+
 def test_post_draft_review_repairs_common_schema_drift_and_stays_fail_closed(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_schema_drift_llm(), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
@@ -512,6 +557,17 @@ def _review_llm(*, export_allowed: bool) -> FakeLLMClient:
 """.replace("'", '"'),
         }
     )
+
+
+class _SlowStageReviewLLM(FakeLLMClient):
+    def __init__(self, responses: dict[str, str], *, slow_stage: str) -> None:
+        super().__init__(responses)
+        self.slow_stage = slow_stage
+
+    def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
+        if stage == self.slow_stage:
+            time.sleep(0.005)
+        return super().complete_stage(stage, system_prompt, user_prompt)
 
 
 def _safe_patch_review_llm() -> FakeLLMClient:

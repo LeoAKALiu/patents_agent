@@ -273,7 +273,9 @@ export function ExportView({
       </SettingsGroup>
 
       <SettingsGroup title="包内容预览" description="用于人工复核导出内容，正式提交前仍需专业人员确认。">
-      <PackagePreview packageValue={packageValue} compact />
+      <div className="report-preview-pane">
+        <PackagePreview packageValue={packageValue} compact />
+      </div>
       </SettingsGroup>
     </section>
   );

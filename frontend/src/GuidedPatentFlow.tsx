@@ -59,6 +59,7 @@ import {
   qualitySummaryFromRuns,
   resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
+  selectLatestOfficialCompileAttemptForSource,
   selectLatestMatchingPostDraftReview,
   selectLatestRepairablePostDraftReview,
   type GuidedActionGate,
@@ -131,7 +132,21 @@ export type GuidedPatentFlowProps = {
   busyElapsedSeconds?: number;
   fixedGoalMode?: PatentGoalMode;
   initialIntakeMode?: Extract<StartChoiceId, "external"> | "idea";
-  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) => Promise<void>;
+  onCreateIdeaProject: (payload: {
+    name: string;
+    idea: string;
+    mode: PatentGoalMode;
+    patentType: PatentType;
+    applicant?: string;
+    inventors?: string;
+    technical_field?: string;
+    background?: string;
+    pain_point?: string;
+    technical_solution?: string;
+    innovation?: string;
+    embodiments?: string;
+    beneficial_effects?: string;
+  }) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
   onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
@@ -161,6 +176,7 @@ export type GuidedPatentFlowProps = {
   onStartOfficialCompile: () => void;
   onStartKimiLanguagePolish: () => void;
   onStartPostDraftReview: () => void;
+  onApplyOfficialCompileCleanup: (runId: string) => void;
   onApplyPostDraftSafePatches: (runId: string) => void;
   onSaveDraftPackage: (payload: DraftPackageManualUpdate) => void;
   onCancelPostDraftReviewRun: (runId: string) => void;
@@ -226,6 +242,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
     props.officialCompileRuns,
     props.currentSourceDraftHash,
   );
+  const displayOfficialCompileRun = latestOfficialCompileRun
+    ?? selectLatestOfficialCompileAttemptForSource(props.officialCompileRuns, props.currentSourceDraftHash);
   const latestMatchingPostDraftReview = selectLatestMatchingPostDraftReview(
     props.postDraftReviews,
     latestOfficialCompileRun,
@@ -240,7 +258,13 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
     setManualViewStepId(null);
   }, [state.currentStepId]);
 
-  const displayedStepId = resolveGuidedViewStep(state.currentStepId, manualViewStepId, state.steps);
+  const displayedStepId = resolveGuidedViewStep(
+    state.currentStepId,
+    manualViewStepId,
+    state.steps,
+    props.initialIntakeMode,
+    state.hasCompletedExternalDraftIntake || state.draftReady,
+  );
   const completedStepCount = state.steps.filter((step) => step.status === "done").length;
 
   function handleNextAction(): void {
@@ -299,6 +323,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       )}
       {displayedStepId === "invention" && (
         <InventionPointConfirmation
+          project={props.project}
           disclosure={latestDisclosure}
           disclosureRuns={props.disclosures}
           materials={props.materials}
@@ -379,12 +404,13 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         <OfficialCompilePanel
           actionGate={officialCompileActionGate(state, state.currentStepId, displayedStepId)}
           project={props.project}
-          run={latestOfficialCompileRun}
+          run={displayOfficialCompileRun}
           runs={props.officialCompileRuns}
           currentSourceDraftHash={props.currentSourceDraftHash}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartOfficialCompile={props.onStartOfficialCompile}
+          onApplyCleanup={props.onApplyOfficialCompileCleanup}
         />
       )}
       {displayedStepId === "postReview" && (

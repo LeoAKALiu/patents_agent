@@ -65,6 +65,8 @@ export interface AppRootProps {
   error: string;
   health: Health | null;
   agentDoctor: AgentDoctorReport | null;
+  backendStatus: "unknown" | "online" | "offline";
+  projectListStatus: "idle" | "loading" | "ready" | "failed";
   theme: ThemeMode;
   // -- shell handlers ------------------------------------------------------
   onSelectSection: (section: MainSectionId) => void;
@@ -223,6 +225,7 @@ function projectWorkspace(props: AppRootProps, section: "generate" | "utility" |
         section={section}
         state={props.projectState}
         handlers={props.projectHandlers}
+        loadStatus={props.projectListStatus}
         fixedGoalMode={section === "projects" ? undefined : fixedGoalModeFor(props.startChoice, props.activeSection)}
         initialIntakeMode={
           section === "projects"
@@ -277,6 +280,8 @@ export function AppRoot(props: AppRootProps) {
           selectedProject={props.selectedProject}
           health={props.health}
           agentDoctor={props.agentDoctor}
+          backendStatus={props.backendStatus}
+          projectListStatus={props.projectListStatus}
           agentRunModeLabel={agentRunModeLabel}
           onRefresh={props.onRefresh}
         />
@@ -287,10 +292,11 @@ export function AppRoot(props: AppRootProps) {
         statusVariant: props.busy ? "busy" : "idle",
         projectSelector: (
           <ProjectSelectorSlot
-            projects={props.projects}
-            selectedProjectId={props.selectedProject?.id ?? ""}
-            onSelect={props.onSelectProjectId}
-          />
+              projects={props.projects}
+              selectedProjectId={props.selectedProject?.id ?? ""}
+              loadStatus={props.projectListStatus}
+              onSelect={props.onSelectProjectId}
+            />
         ),
         actions: topbarActions(props),
       }}

@@ -838,6 +838,16 @@ export interface PostDraftSafePatchApplyResult {
   package: DraftPackage;
 }
 
+export interface OfficialCompileCleanupResult {
+  project_id: string;
+  compile_run_id: string;
+  applied_count: number;
+  applied_actions: string[];
+  previous_draft_hash: string;
+  current_draft_hash: string;
+  package: DraftPackage;
+}
+
 export type DraftIssueAnchor = {
   type: "text" | "section" | "missing";
   section: "title" | "abstract" | "claims" | "description" | "drawing_description" | "unknown";
@@ -1076,7 +1086,20 @@ export async function deleteProject(projectId: string): Promise<{ ok: boolean }>
 export async function uploadProjectMaterial(projectId: string, file: File): Promise<ProjectMaterial> {
   const form = new FormData();
   form.append("file", file);
-  return request<ProjectMaterial>(`/api/projects/${projectId}/materials`, { method: "POST", body: form });
+  try {
+    return await request<ProjectMaterial>(
+      `/api/projects/${projectId}/materials`,
+      { method: "POST", body: form },
+      { fetchFailureMessage: "无法读取该文件，请检查文件权限或重新选择可读文件。" },
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const uploadDetail = message.match(/返回 (?:415|422)：(.+)$/);
+    if (uploadDetail?.[1]) {
+      throw new Error(`材料上传失败：${uploadDetail[1]}`);
+    }
+    throw err;
+  }
 }
 
 export async function listProjectMaterials(projectId: string): Promise<ProjectMaterial[]> {
@@ -1423,6 +1446,16 @@ export function officialCompileReportUrl(projectId: string, runId: string): stri
   return `/api/projects/${projectId}/official-compile-runs/${runId}/report.md`;
 }
 
+export async function applyOfficialCompileCleanup(
+  projectId: string,
+  runId: string,
+): Promise<OfficialCompileCleanupResult> {
+  return request<OfficialCompileCleanupResult>(
+    `/api/projects/${projectId}/official-compile-runs/${runId}/apply-cleanup`,
+    { method: "POST" },
+  );
+}
+
 export async function startPostDraftReview(
   projectId: string,
   providers?: string[],
@@ -1590,7 +1623,7 @@ async function resolveApiUrl(url: string): Promise<string> {
   return backendBaseUrl ? `${backendBaseUrl}${url}` : url;
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+async function request<T>(url: string, init?: RequestInit, options?: { fetchFailureMessage?: string }): Promise<T> {
   const method = init?.method ?? "GET";
   const resolvedUrl = await resolveApiUrl(url);
   let response: Response;
@@ -1598,6 +1631,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     response = await fetch(resolvedUrl, init);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    if (options?.fetchFailureMessage) {
+      throw new Error(options.fetchFailureMessage);
+    }
     throw new Error(`${method} ${url} 请求失败：${message}`);
   }
   return parseResponse<T>(response, url, method);

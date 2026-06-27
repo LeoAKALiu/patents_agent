@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from backend.app.llm import LLMClient
+from backend.app.runtime import RuntimeCancelled, RuntimeTimeout
 from backend.app.schemas import (
     DeliberationLogEntry,
     OfficialDraftPackage,
@@ -108,6 +109,8 @@ def run_post_draft_review(
                 if repair_notes:
                     logs.append(_schema_repair_log(provider_id=role, notes=repair_notes))
                 result = PostDraftReviewRoleResult.model_validate(payload)
+            except (RuntimeCancelled, RuntimeTimeout):
+                raise
             except Exception as role_exc:
                 # A single reviewer that errors at any point — LLM call failure
                 # (ConfigError/RuntimeError/timeout), unparseable JSON, or a
@@ -149,6 +152,8 @@ def run_post_draft_review(
             if repair_notes:
                 logs.append(_schema_repair_log(provider_id="chair", notes=repair_notes))
             chair = PostDraftReviewChairResult.model_validate(chair_payload)
+        except (RuntimeCancelled, RuntimeTimeout):
+            raise
         except Exception as chair_exc:
             # Chair synthesis is guarded the same way as reviewer roles: an LLM
             # error, unparseable JSON, or schema mismatch downgrades to a blocked
@@ -190,6 +195,8 @@ def run_post_draft_review(
             contamination_hits=contamination_hits,
             logs=logs,
         )
+    except (RuntimeCancelled, RuntimeTimeout):
+        raise
     except Exception as exc:
         logs.append(
             DeliberationLogEntry(
