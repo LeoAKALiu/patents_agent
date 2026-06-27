@@ -1,0 +1,9 @@
+{
+  "api_key": "",
+  "base_url": "http://127.0.0.1:65534/v1",
+  "extra": {},
+  "model": "qa-settings-model",
+  "provider": "qa-settings-save-clear",
+  "updated_at": "2026-06-26T17:53:41Z",
+  "version": 1
+}

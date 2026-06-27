@@ -1,0 +1,9 @@
+{
+  "api_key": "qa-round25-key-not-real",
+  "base_url": "http://127.0.0.1:9/v1",
+  "extra": {},
+  "model": "qa-guided-bad-model",
+  "provider": "qa-bad-guided",
+  "updated_at": "2026-06-27T01:50:19Z",
+  "version": 1
+}

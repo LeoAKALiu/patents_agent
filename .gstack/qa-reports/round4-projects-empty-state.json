@@ -1,0 +1,127 @@
+{
+  "errors": [],
+  "responses": [
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET"
+    }
+  ],
+  "emptyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n全部项目\n0\n已有初稿\n0\n当前项目\n未选择\n最近更新\n未记录\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n0\n已有初稿\n0\n仅有想法\n0\n实用新型\n0\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n暂无项目。进入“专利生成”输入想法即可创建。",
+  "emptyControls": [
+    {
+      "i": 0,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "开始",
+      "disabled": false
+    },
+    {
+      "i": 1,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "项目",
+      "disabled": false
+    },
+    {
+      "i": 2,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "设置",
+      "disabled": false
+    },
+    {
+      "i": 3,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "刷新运行状态",
+      "disabled": false
+    },
+    {
+      "i": 4,
+      "tag": "SELECT",
+      "type": null,
+      "text": "暂无项目",
+      "disabled": false
+    },
+    {
+      "i": 5,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "专家工具",
+      "disabled": false
+    },
+    {
+      "i": 6,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "刷新运行状态",
+      "disabled": false
+    },
+    {
+      "i": 7,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "开始",
+      "disabled": false
+    },
+    {
+      "i": 8,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "项目",
+      "disabled": false
+    },
+    {
+      "i": 9,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "设置",
+      "disabled": false
+    },
+    {
+      "i": 10,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "全部项目\n0",
+      "disabled": false
+    },
+    {
+      "i": 11,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "已有初稿\n0",
+      "disabled": false
+    },
+    {
+      "i": 12,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "仅有想法\n0",
+      "disabled": false
+    },
+    {
+      "i": 13,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "实用新型\n0",
+      "disabled": false
+    }
+  ],
+  "emptyOverflow": {
+    "innerWidth": 1440,
+    "scrollWidth": 1440,
+    "bodyScrollWidth": 1440
+  },
+  "emptyMobileText": "当前项目\n暂无项目\n空闲\n专家工具\n开始\n项目\n设置\n全部项目\n0\n已有初稿\n0\n当前项目\n未选择\n最近更新\n未记录\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n0\n已有初稿\n0\n仅有想法\n0\n实用新型\n0\n暂无项目。进入“专利生成”输入想法即可创建。",
+  "emptyMobileOverflow": {
+    "innerWidth": 390,
+    "scrollWidth": 390,
+    "bodyScrollWidth": 390
+  }
+}

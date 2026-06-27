@@ -1,0 +1,1269 @@
+{
+  "errors": [],
+  "events": [
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/materials",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/deliberations",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/disclosures",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/formula-requirement",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/formula-runs",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/post-draft-reviews",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/official-compile-runs",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/external-drafts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/patent-points",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/filing-readiness",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/grantability-reports",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/completion-runs",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/3b512a150817494c81e05d7e19c6ad34/claim-defense-worksheets",
+      "status": 200,
+      "method": "GET"
+    }
+  ],
+  "manyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nQA Round4 项目 04\nQA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 06\nQA Round4 项目 07\nQA Round4 项目 08\nQA Round4 项目 09\nQA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 11\nQA Round4 项目 12\nQA Round4 项目 13\nQA Round4 项目 14\nQA Round4 超长项目 15 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 16\nQA Round4 项目 17\nQA Round4 项目 18\nQA Round4 项目 19\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 21\nQA Round4 项目 22\nQA Round4 项目 23\nQA Round4 项目 24\nQA Round4 超长项目 25 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 26\nQA Round4 项目 27\nQA Round4 项目 28\nQA Round4 项目 29\nQA Round4 超长项目 30 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 01\nQA Round4 项目 02\nQA Round4 项目 03\n空闲\n专家工具\n全部项目\n30\n已有初稿\n0\n当前项目\n未选择\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nQA Round4 项目 04\n实用新型 · 8050fd78\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · f16932b8\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 06\n发明想法 · c5b84f61\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 07\n发明想法 · ebfa7280\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 08\n实用新型 · 48d803e4\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 09\n发明想法 · e5cef015\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · 6a3bec36\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 11\n发明想法 · d7f8f8b4\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 12\n实用新型 · 3b512a15\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 13\n发明想法 · b211316c\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 14\n发明想法 · b5018d18\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 超长项目 15 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · 3ab6d7b0\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 16\n实用新型 · 3b5eb937\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 17\n发明想法 · 868fb838\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 18\n发明想法 · c6fc70f9\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 19\n发明想法 · ef6f5928\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n实用新型 · 52ec3f58\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 21\n发明想法 · 2b6743d5\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 22\n发明想法 · eecb1cfb\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 23\n发明想法 · 3b72580c\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 24\n实用新型 · 3a8529d9\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 超长项目 25 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · 6ac0bae5\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 26\n发明想法 · 416583b7\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 27\n发明想法 · 41034d6d\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 28\n实用新型 · dcc02d42\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 29\n发明想法 · 6f21ee4c\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 超长项目 30 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · 9fa94173\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 01\n发明想法 · 26f1bc81\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 02\n发明想法 · acea92d7\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 03\n发明想法 · 67f48051\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除",
+  "manyControls": [
+    {
+      "i": 0,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "开始",
+      "disabled": false
+    },
+    {
+      "i": 1,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "项目",
+      "disabled": false
+    },
+    {
+      "i": 2,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "设置",
+      "disabled": false
+    },
+    {
+      "i": 3,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "刷新运行状态",
+      "disabled": false
+    },
+    {
+      "i": 4,
+      "tag": "SELECT",
+      "type": null,
+      "text": "新建项目\nQA Round4 项目 04\nQA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 06\nQA Round4 项目 07\nQA Round4 项目 08\nQA Round4 项目 09\nQA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 11\nQA Round4 项目 12\nQA Round4 项目 13\nQA Round4 项目 14\nQA Round4 超长项目 15 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 16\nQA Round4 项目 17\nQA Round4 项目 18\nQA Round4 项目 19\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 21\nQA Round4 项目 22\nQA Round4 项目 23\nQA Round4 项目 24\nQA Round4 超长项目 25 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 26\nQA Round4 项目 27\nQA Round4 项目 28\nQA Round4 项目 29\nQA Round4 超长项目 30 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 01\nQA Round4 项目 02\nQA Round4 项目 03",
+      "disabled": false
+    },
+    {
+      "i": 5,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "专家工具",
+      "disabled": false
+    },
+    {
+      "i": 6,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "刷新运行状态",
+      "disabled": false
+    },
+    {
+      "i": 7,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "开始",
+      "disabled": false
+    },
+    {
+      "i": 8,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "项目",
+      "disabled": false
+    },
+    {
+      "i": 9,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "设置",
+      "disabled": false
+    },
+    {
+      "i": 10,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "全部项目\n30",
+      "disabled": false
+    },
+    {
+      "i": 11,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "已有初稿\n0",
+      "disabled": false
+    },
+    {
+      "i": 12,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "仅有想法\n30",
+      "disabled": false
+    },
+    {
+      "i": 13,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "实用新型\n7",
+      "disabled": false
+    },
+    {
+      "i": 14,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 15,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 16,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 17,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 18,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 19,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 20,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 21,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 22,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 23,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 24,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 25,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 26,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 27,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 28,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 29,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 30,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 31,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 32,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 33,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 34,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 35,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 36,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 37,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 38,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 39,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 40,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 41,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 42,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 43,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 44,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 45,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 46,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 47,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 48,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 49,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 50,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 51,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 52,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 53,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 54,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 55,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 56,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 57,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 58,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 59,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 60,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 61,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 62,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 63,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 64,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 65,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 66,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 67,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 68,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 69,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 70,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 71,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 72,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择",
+      "disabled": false
+    },
+    {
+      "i": 73,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除",
+      "disabled": false
+    },
+    {
+      "i": 74,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 75,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 76,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 77,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 78,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 79,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 80,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 81,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 82,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 83,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 84,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 85,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 86,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 87,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 88,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 89,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 90,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 91,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 92,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 93,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 94,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 95,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 96,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 97,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 98,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 99,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 100,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 101,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 102,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 103,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 104,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 105,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 106,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 107,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 108,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 109,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 110,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 111,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 112,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 113,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 114,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 115,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 116,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 117,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 118,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 119,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 120,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 121,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 122,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 123,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 124,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 125,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 126,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 127,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 128,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 129,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 130,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 131,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    },
+    {
+      "i": 132,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "选择项目",
+      "disabled": false
+    },
+    {
+      "i": 133,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "删除项目",
+      "disabled": false
+    }
+  ],
+  "manyMetrics": {
+    "innerWidth": 1440,
+    "scrollWidth": 1440,
+    "bodyScrollWidth": 1440,
+    "bodyHeight": 1100,
+    "rows": 30,
+    "buttons": [
+      "开始",
+      "项目",
+      "设置",
+      "刷新运行状态",
+      "专家工具",
+      "开始",
+      "项目",
+      "设置",
+      "全部项目\n30",
+      "已有初稿\n0",
+      "仅有想法\n30",
+      "实用新型\n7",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择项目",
+      "删除项目",
+      "选择项目",
+      "删除项目",
+      "选择项目",
+      "删除项目",
+      "选择项目",
+      "删除项目"
+    ]
+  },
+  "utilityText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nQA Round4 项目 04\nQA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 06\nQA Round4 项目 07\nQA Round4 项目 08\nQA Round4 项目 09\nQA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 11\nQA Round4 项目 12\nQA Round4 项目 13\nQA Round4 项目 14\nQA Round4 超长项目 15 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 16\nQA Round4 项目 17\nQA Round4 项目 18\nQA Round4 项目 19\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 21\nQA Round4 项目 22\nQA Round4 项目 23\nQA Round4 项目 24\nQA Round4 超长项目 25 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 26\nQA Round4 项目 27\nQA Round4 项目 28\nQA Round4 项目 29\nQA Round4 超长项目 30 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 01\nQA Round4 项目 02\nQA Round4 项目 03\n空闲\n专家工具\n全部项目\n30\n已有初稿\n0\n当前项目\n未选择\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nQA Round4 项目 04\n实用新型 · 8050fd78\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 08\n实用新型 · 48d803e4\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 12\n实用新型 · 3b512a15\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 16\n实用新型 · 3b5eb937\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n实用新型 · 52ec3f58\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 24\n实用新型 · 3a8529d9\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 28\n实用新型 · dcc02d42\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除",
+  "utilityMetrics": {
+    "rows": 7,
+    "scrollWidth": 1440,
+    "innerWidth": 1440
+  },
+  "selectOptionCount": 31,
+  "selectFirstOptions": [
+    {
+      "value": "",
+      "text": "新建项目"
+    },
+    {
+      "value": "8050fd7815984aa4b6bca748a240171b",
+      "text": "QA Round4 项目 04"
+    },
+    {
+      "value": "f16932b81fd040ae95d3600c7fa5bc4a",
+      "text": "QA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken"
+    },
+    {
+      "value": "c5b84f61bd524f5e8ef67927c1217dea",
+      "text": "QA Round4 项目 06"
+    },
+    {
+      "value": "ebfa728071694ca18b567064f82c5283",
+      "text": "QA Round4 项目 07"
+    },
+    {
+      "value": "48d803e433a44566ae80e5f868762baf",
+      "text": "QA Round4 项目 08"
+    },
+    {
+      "value": "e5cef015d0cd4561b207315c64c262e1",
+      "text": "QA Round4 项目 09"
+    },
+    {
+      "value": "6a3bec36ae4941e2950e8d473a25ae52",
+      "text": "QA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken"
+    }
+  ],
+  "selectLastOptions": [
+    {
+      "value": "6f21ee4c6ff44d6997053ca7f54c8c80",
+      "text": "QA Round4 项目 29"
+    },
+    {
+      "value": "9fa94173887b45558fe66fb3443a69ad",
+      "text": "QA Round4 超长项目 30 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken"
+    },
+    {
+      "value": "26f1bc815fe84ffbbf0dca105df98fd6",
+      "text": "QA Round4 项目 01"
+    },
+    {
+      "value": "acea92d7e20e48c8bf150db799aeda81",
+      "text": "QA Round4 项目 02"
+    },
+    {
+      "value": "67f480511437447b924f5b958cc73a7e",
+      "text": "QA Round4 项目 03"
+    }
+  ],
+  "afterSelectText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nQA Round4 项目 12\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nQA Round4 项目 04\nQA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 06\nQA Round4 项目 07\nQA Round4 项目 08\nQA Round4 项目 09\nQA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 11\nQA Round4 项目 12\nQA Round4 项目 13\nQA Round4 项目 14\nQA Round4 超长项目 15 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 16\nQA Round4 项目 17\nQA Round4 项目 18\nQA Round4 项目 19\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 21\nQA Round4 项目 22\nQA Round4 项目 23\nQA Round4 项目 24\nQA Round4 超长项目 25 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 26\nQA Round4 项目 27\nQA Round4 项目 28\nQA Round4 项目 29\nQA Round4 超长项目 30 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 01\nQA Round4 项目 02\nQA Round4 项目 03\n处理中\n专家工具\n正在刷新工作台\n[00:00] 提交请求到本地服务\n[00:01] 写入或读取项目数据\n全部项目\n30\n已有初稿\n0\n当前项目\nQA Round4 项目 12\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nQA Round4 项目 04\n实用新型 · 8050fd78\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 08\n实用新型 · 48d803e4\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 12\n实用新型 · 3b512a15\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n当前项目\n删除\n\n\nQA Round4 项目 16\n实用新型 · 3b5eb937\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n实用新型 · 52ec3f58\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 24\n实用新型 · 3a8529d9\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nQA Round4 项目 28\n实用新型 · dcc02d42\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除",
+  "mobileText": "当前项目\n新建项目\nQA Round4 项目 04\nQA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 06\nQA Round4 项目 07\nQA Round4 项目 08\nQA Round4 项目 09\nQA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 11\nQA Round4 项目 12\nQA Round4 项目 13\nQA Round4 项目 14\nQA Round4 超长项目 15 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 16\nQA Round4 项目 17\nQA Round4 项目 18\nQA Round4 项目 19\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 21\nQA Round4 项目 22\nQA Round4 项目 23\nQA Round4 项目 24\nQA Round4 超长项目 25 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 26\nQA Round4 项目 27\nQA Round4 项目 28\nQA Round4 项目 29\nQA Round4 超长项目 30 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 01\nQA Round4 项目 02\nQA Round4 项目 03\n空闲\n专家工具\n开始\n项目\n设置\n全部项目\n30\n已有初稿\n0\n当前项目\n未选择\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\nQA Round4 项目 04\n实用新型 · 8050fd78\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · f16932b8\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 06\n发明想法 · c5b84f61\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 07\n发明想法 · ebfa7280\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 08\n实用新型 · 48d803e4\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 09\n发明想法 · e5cef015\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · 6a3bec36\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 11\n发明想法 · d7f8f8b4\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 12\n实用新型 · 3b512a15\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 13\n发明想法 · b211316c\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 14\n发明想法 · b5018d18\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 超长项目 15 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · 3ab6d7b0\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 16\n实用新型 · 3b5eb937\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 17\n发明想法 · 868fb838\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 18\n发明想法 · c6fc70f9\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 19\n发明想法 · ef6f5928\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n实用新型 · 52ec3f58\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 21\n发明想法 · 2b6743d5\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 22\n发明想法 · eecb1cfb\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 23\n发明想法 · 3b72580c\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 24\n实用新型 · 3a8529d9\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 超长项目 25 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · 6ac0bae5\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 26\n发明想法 · 416583b7\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 27\n发明想法 · 41034d6d\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 28\n实用新型 · dcc02d42\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 29\n发明想法 · 6f21ee4c\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 超长项目 30 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · 9fa94173\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 01\n发明想法 · 26f1bc81\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 02\n发明想法 · acea92d7\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 03\n发明想法 · 67f48051\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目",
+  "mobileMetrics": {
+    "innerWidth": 390,
+    "scrollWidth": 390,
+    "bodyScrollWidth": 390,
+    "bodyHeight": 1100,
+    "rows": 30,
+    "buttons": [
+      "开始",
+      "项目",
+      "设置",
+      "刷新运行状态",
+      "专家工具",
+      "开始",
+      "项目",
+      "设置",
+      "全部项目\n30",
+      "已有初稿\n0",
+      "仅有想法\n30",
+      "实用新型\n7",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择",
+      "删除",
+      "选择项目",
+      "删除项目",
+      "选择项目",
+      "删除项目",
+      "选择项目",
+      "删除项目",
+      "选择项目",
+      "删除项目"
+    ]
+  }
+}

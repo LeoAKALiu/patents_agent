@@ -1,0 +1,11 @@
+# Round 5 Long Text Fixture
+
+这是一个用于 PatentAgent QA 的长文本材料。它包含重复的中文说明、英文长 token 和边界输入，用于验证文本区域、报告预览、补充材料上传和 Deep Research 提示词区域的换行与滚动表现。
+
+LongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadToken
+
+本段落重复描述一套用于工业巡检的多传感器融合专利方案：系统采集红外热图、声学信号、毫米波雷达和视频帧，对异常设备进行多尺度特征提取、时间同步、可信度融合、风险排序和维修工单生成。该方案应在补充材料面板和提示词区域中稳定换行，不应撑破容器。
+
+本段落重复描述一套用于工业巡检的多传感器融合专利方案：系统采集红外热图、声学信号、毫米波雷达和视频帧，对异常设备进行多尺度特征提取、时间同步、可信度融合、风险排序和维修工单生成。该方案应在补充材料面板和提示词区域中稳定换行，不应撑破容器。
+
+本段落重复描述一套用于工业巡检的多传感器融合专利方案：系统采集红外热图、声学信号、毫米波雷达和视频帧，对异常设备进行多尺度特征提取、时间同步、可信度融合、风险排序和维修工单生成。该方案应在补充材料面板和提示词区域中稳定换行，不应撑破容器。

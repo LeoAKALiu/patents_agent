@@ -1,0 +1,206 @@
+{
+  "desktop": {
+    "errors": [],
+    "text": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n开始撰写\n\n选择本次工作的起点。专家工具仍在二级导航中，默认路径只保留普通用户最常用的三种入口。\n\nv1.1.0\n默认工作区\n专利生成\n入口数量\n3 条路径\n项目状态\n待创建\n专业复核\n提交前必需\n选择起步方式\n\n每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。\n\n从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择\n从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择\n导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择\n正式提交前请专业复核\n\nPatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。",
+    "controls": [
+      {
+        "i": 0,
+        "tag": "BUTTON",
+        "role": null,
+        "type": null,
+        "text": "开始",
+        "disabled": false
+      },
+      {
+        "i": 1,
+        "tag": "BUTTON",
+        "role": null,
+        "type": null,
+        "text": "项目",
+        "disabled": false
+      },
+      {
+        "i": 2,
+        "tag": "BUTTON",
+        "role": null,
+        "type": null,
+        "text": "设置",
+        "disabled": false
+      },
+      {
+        "i": 3,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "刷新运行状态",
+        "disabled": false
+      },
+      {
+        "i": 4,
+        "tag": "SELECT",
+        "role": null,
+        "type": null,
+        "text": "暂无项目",
+        "disabled": false
+      },
+      {
+        "i": 5,
+        "tag": "BUTTON",
+        "role": null,
+        "type": null,
+        "text": "刷新运行状态",
+        "disabled": false
+      },
+      {
+        "i": 6,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "开始",
+        "disabled": false
+      },
+      {
+        "i": 7,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "项目",
+        "disabled": false
+      },
+      {
+        "i": 8,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "设置",
+        "disabled": false
+      },
+      {
+        "i": 9,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择",
+        "disabled": false
+      },
+      {
+        "i": 10,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择",
+        "disabled": false
+      },
+      {
+        "i": 11,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择",
+        "disabled": false
+      }
+    ]
+  },
+  "mobile": {
+    "errors": [],
+    "text": "当前项目\n暂无项目\n空闲\n开始\n项目\n设置\n开始撰写\n\n选择本次工作的起点。专家工具仍在二级导航中，默认路径只保留普通用户最常用的三种入口。\n\nv1.1.0\n默认工作区\n专利生成\n入口数量\n3 条路径\n项目状态\n待创建\n专业复核\n提交前必需\n选择起步方式\n\n每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。\n\n从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择\n从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择\n导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择\n正式提交前请专业复核\n\nPatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。",
+    "controls": [
+      {
+        "i": 0,
+        "tag": "BUTTON",
+        "role": null,
+        "type": null,
+        "text": "开始",
+        "disabled": false
+      },
+      {
+        "i": 1,
+        "tag": "BUTTON",
+        "role": null,
+        "type": null,
+        "text": "项目",
+        "disabled": false
+      },
+      {
+        "i": 2,
+        "tag": "BUTTON",
+        "role": null,
+        "type": null,
+        "text": "设置",
+        "disabled": false
+      },
+      {
+        "i": 3,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "刷新运行状态",
+        "disabled": false
+      },
+      {
+        "i": 4,
+        "tag": "SELECT",
+        "role": null,
+        "type": null,
+        "text": "暂无项目",
+        "disabled": false
+      },
+      {
+        "i": 5,
+        "tag": "BUTTON",
+        "role": null,
+        "type": null,
+        "text": "刷新运行状态",
+        "disabled": false
+      },
+      {
+        "i": 6,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "开始",
+        "disabled": false
+      },
+      {
+        "i": 7,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "项目",
+        "disabled": false
+      },
+      {
+        "i": 8,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "设置",
+        "disabled": false
+      },
+      {
+        "i": 9,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择",
+        "disabled": false
+      },
+      {
+        "i": 10,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择",
+        "disabled": false
+      },
+      {
+        "i": 11,
+        "tag": "BUTTON",
+        "role": null,
+        "type": "button",
+        "text": "导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择",
+        "disabled": false
+      }
+    ]
+  }
+}

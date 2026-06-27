@@ -1,0 +1,80 @@
+{
+  "projectA": {
+    "id": "6f569c14914844d69c8e23772ff22cf6",
+    "name": "Round12 运行中切换 A 1782490867258",
+    "draft_text": "一种运行中项目切换保护方法，用于确保用户在发明点提炼尚未结束时切换到另一项目，不会把运行结果写入错误项目。",
+    "patent_type": "invention",
+    "package": null,
+    "created_at": "2026-06-26 16:21:07",
+    "updated_at": "2026-06-26 16:21:07",
+    "applicant": "",
+    "inventors": "",
+    "technical_field": "",
+    "background": "",
+    "pain_point": "",
+    "technical_solution": "",
+    "innovation": "",
+    "embodiments": "",
+    "beneficial_effects": ""
+  },
+  "projectB": {
+    "id": "6aed0468047642b798d4d0ee119edd5b",
+    "name": "Round12 运行中切换 B 1782490867258",
+    "draft_text": "一种用于对照测试的第二项目，用户在第一个项目的长任务运行时切换到该项目，应保持该项目没有继承第一个项目的运行结果。",
+    "patent_type": "invention",
+    "package": null,
+    "created_at": "2026-06-26 16:21:07",
+    "updated_at": "2026-06-26 16:21:07",
+    "applicant": "",
+    "inventors": "",
+    "technical_field": "",
+    "background": "",
+    "pain_point": "",
+    "technical_solution": "",
+    "innovation": "",
+    "embodiments": "",
+    "beneficial_effects": ""
+  },
+  "selectValues": [
+    {
+      "value": "6aed0468047642b798d4d0ee119edd5b",
+      "text": "Round12 运行中切换 B 1782490867258"
+    },
+    {
+      "value": "standard",
+      "text": "标准（默认）"
+    }
+  ],
+  "mutatingRequests": [
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:5174/api/projects/6f569c14914844d69c8e23772ff22cf6/disclosures",
+      "ts": 1782490871170
+    }
+  ],
+  "runningAText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound12 运行中切换 A 1782490867258\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound12 运行中切换 A 1782490867258\nRound12 运行中切换 B 1782490867258\n空闲\n专家工具\n前置材料生成已启动：排队中\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n发明点提炼运行中\n00:00\nrun 5913a8e296 / 运行中\nstage disclosure scan\nprovider llm\ntask project/material scan\nelapsed 00:00\npartials 0\nwarnings 0\nevent run started\n取消运行\n\n点击“提炼发明点”后显示候选主线。",
+  "afterSwitchText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound12 运行中切换 B 1782490867258\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound12 运行中切换 A 1782490867258\nRound12 运行中切换 B 1782490867258\n空闲\n专家工具\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n研究模式\n标准（默认）\n免费 Deep Research（公开检索 + 多轮分析）\n\n标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。\n\n提炼发明点\n\n点击“提炼发明点”后显示候选主线。",
+  "projectADisclosures": {
+    "status": 200,
+    "body": "{\"runs\":[{\"id\":\"5913a8e296984d13892ef1ba7dc9abfd\",\"project_id\":\"6f569c14914844d69c8e23772ff22cf6\",\"status\":\"running\",\"trace\":false,\"max_prior_art_results\":8,\"research_mode\":\"standard\",\"run_dir\":\".gstack/qa-reports/runtime-data-round12/disclosures/6f569c14914844d69c8e23772ff22cf6/5913a8e296984d13892ef1ba7dc9abfd\",\"stage_results\":[],\"package\":null,\"failures\":[],\"failure_details\":[],\"events\":[\"run started\"],\"runtime_state\":{\"current_stage\":\"disclosure_scan\",\"provider\":\"llm\",\"query\":\"\",\"subtask\":\"project/material scan\",\"heartbeat_at\":\"2026-06-26T16:21:11Z\",\"elapsed_ms\":2,\"warning_count\":0,\"partial_artifact_count\":0,\"timeout_ms\":null,\"attempt\":null},\"cancel_requested\":false,\"retry_of\":null}]}"
+  },
+  "projectBDisclosures": {
+    "status": 200,
+    "body": "{\"runs\":[]}"
+  },
+  "projectAPoints": {
+    "status": 200,
+    "body": "{\"points\":[]}"
+  },
+  "projectBPoints": {
+    "status": 200,
+    "body": "{\"points\":[]}"
+  },
+  "failedRequests": [],
+  "consoleMessages": [],
+  "screenshots": [
+    "screenshots/round12-project-a-before-run.png",
+    "screenshots/round12-project-a-running.png",
+    "screenshots/round12-project-b-after-switch.png"
+  ]
+}

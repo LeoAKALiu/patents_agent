@@ -1,0 +1,203 @@
+{
+  "errors": [],
+  "responses": [
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/materials",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/deliberations",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/disclosures",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/formula-runs",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/formula-requirement",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/official-compile-runs",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/post-draft-reviews",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/external-drafts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/patent-points",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/filing-readiness",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/grantability-reports",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/completion-runs",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/claim-defense-worksheets",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/materials",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/materials",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/materials",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "/api/projects/6153aa3c64c54a4180ee5ab01997019a/materials",
+      "status": 200,
+      "method": "GET"
+    }
+  ],
+  "projects": [
+    {
+      "id": "6153aa3c64c54a4180ee5ab01997019a",
+      "name": "QA Round5 LongText NameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameToken"
+    }
+  ],
+  "beforeText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nQA Round5 LongText NameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameToken\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nQA Round5 LongText NameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameToken\n空闲\n专家工具\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n研究模式\n标准（默认）\n免费 Deep Research（公开检索 + 多轮分析）\n\n标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。\n\n提炼发明点\n\n点击“提炼发明点”后显示候选主线。",
+  "fileInputs": [
+    {
+      "i": 0,
+      "accept": ".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown",
+      "multiple": true,
+      "hidden": false,
+      "display": "block"
+    }
+  ],
+  "afterCancelText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nQA Round5 LongText NameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameToken\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nQA Round5 LongText NameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameToken\n空闲\n专家工具\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n研究模式\n标准（默认）\n免费 Deep Research（公开检索 + 多轮分析）\n\n标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。\n\n提炼发明点\n\n点击“提炼发明点”后显示候选主线。",
+  "afterUnsupportedText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nQA Round5 LongText NameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameToken\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nQA Round5 LongText NameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameToken\n空闲\n专家工具\n材料解析失败：Unsupported project material file type: .xyz\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n当前已有 1 份材料。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n研究模式\n标准（默认）\n免费 Deep Research（公开检索 + 多轮分析）\n\n标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。\n\n提炼发明点\n\n点击“提炼发明点”后显示候选主线。",
+  "materialsAfterUnsupported": {
+    "materials": [
+      {
+        "id": "c950e3cee6b44ce6bf8046e8416af776",
+        "project_id": "6153aa3c64c54a4180ee5ab01997019a",
+        "file_name": "unsupported-round5.xyz",
+        "path": ".gstack/qa-reports/runtime-data-round5/project-materials/6153aa3c64c54a4180ee5ab01997019a/a903fb3abbbf46ee844aa8190eeac55c-unsupported-round5.xyz",
+        "file_type": "xyz",
+        "text": "",
+        "status": "failed",
+        "warnings": [
+          "Unsupported project material file type: .xyz"
+        ],
+        "metadata": {}
+      }
+    ]
+  },
+  "afterLongMdText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nQA Round5 LongText NameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameToken\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nQA Round5 LongText NameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameTokenNameToken\n空闲\n专家工具\n已上传材料：long-round5.md\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n当前已有 2 份材料。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n研究模式\n标准（默认）\n免费 Deep Research（公开检索 + 多轮分析）\n\n标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。\n\n提炼发明点\n\n点击“提炼发明点”后显示候选主线。",
+  "materialsAfterLong": {
+    "materials": [
+      {
+        "id": "5d37904c5fc44acab9c156a32b9bb13f",
+        "project_id": "6153aa3c64c54a4180ee5ab01997019a",
+        "file_name": "long-round5.md",
+        "path": ".gstack/qa-reports/runtime-data-round5/project-materials/6153aa3c64c54a4180ee5ab01997019a/fdc7f09606294b1a9eb69f40304c54e9-long-round5.md",
+        "file_type": "md",
+        "text": "# Round 5 Long Text Fixture\n\n这是一个用于 PatentAgent QA 的长文本材料。它包含重复的中文说明、英文长 token 和边界输入，用于验证文本区域、报告预览、补充材料上传和 Deep Research 提示词区域的换行与滚动表现。\n\nLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadTokenLongUnbrokenUploadToken\n\n本段落重复描述一套用于工业巡检的多传感器融合专利方案：系统采集红外热图、声学信号、毫米波雷达和视频帧，对异常设备进行多尺度特征提取、时间同步、可信度融合、风险排序和维修工单生成。该方案应在补充材料面板和提示词区域中稳定换行，不应撑破容器。\n\n本段落重复描述一套用于工业巡检的多传感器融合专利方案：系统采集红外热图、声学信号、毫米波雷达和视频帧，对异常设备进行多尺度特征提取、时间同步、可信度融合、风险排序和维修工单生成。该方案应在补充材料面板和提示词区域中稳定换行，不应撑破容器。\n\n本段落重复描述一套用于工业巡检的多传感器融合专利方案：系统采集红外热图、声学信号、毫米波雷达和视频帧，对异常设备进行多尺度特征提取、时间同步、可信度融合、风险排序和维修工单生成。该方案应在补充材料面板和提示词区域中稳定换行，不应撑破容器。",
+        "status": "processed",
+        "warnings": [],
+        "metadata": {}
+      },
+      {
+        "id": "c950e3cee6b44ce6bf8046e8416af776",
+        "project_id": "6153aa3c64c54a4180ee5ab01997019a",
+        "file_name": "unsupported-round5.xyz",
+        "path": ".gstack/qa-reports/runtime-data-round5/project-materials/6153aa3c64c54a4180ee5ab01997019a/a903fb3abbbf46ee844aa8190eeac55c-unsupported-round5.xyz",
+        "file_type": "xyz",
+        "text": "",
+        "status": "failed",
+        "warnings": [
+          "Unsupported project material file type: .xyz"
+        ],
+        "metadata": {}
+      }
+    ]
+  },
+  "metrics": {
+    "innerWidth": 1440,
+    "scrollWidth": 1440,
+    "bodyScrollWidth": 1440,
+    "bodyHeight": 1100,
+    "visibleButtons": [
+      "开始",
+      "项目",
+      "设置",
+      "01 想法与材料",
+      "02 发明点确认",
+      "03 多智能体会审",
+      "刷新运行状态",
+      "专家工具",
+      "开始",
+      "项目",
+      "设置",
+      "1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成",
+      "2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤",
+      "3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁",
+      "4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁",
+      "5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁",
+      "6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁",
+      "7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁",
+      "8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁",
+      "9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁",
+      "提炼发明点",
+      "查看前置材料详情",
+      "查看护城河地图",
+      "复制 Deep Research 提示词",
+      "选择并上传多份报告/补充材料",
+      "提炼发明点"
+    ]
+  }
+}

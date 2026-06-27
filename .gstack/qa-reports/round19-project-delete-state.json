@@ -1,0 +1,3464 @@
+{
+  "generatedAt": "2026-06-26T17:37:50.591Z",
+  "baseUrl": "http://127.0.0.1:5174/",
+  "events": {
+    "console": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+      }
+    ],
+    "pageErrors": [],
+    "requestFailures": [],
+    "dialogs": [
+      {
+        "type": "confirm",
+        "message": "确认删除项目“Round19 待删除当前项目 1782495470591”？该项目的运行记录和专利点也会删除。",
+        "action": "dismiss"
+      },
+      {
+        "type": "confirm",
+        "message": "确认删除项目“Round19 待删除当前项目 1782495470591”？该项目的运行记录和专利点也会删除。",
+        "action": "accept"
+      }
+    ],
+    "projectResponses": [
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "POST"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/materials",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/deliberations",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/disclosures",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/formula-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/formula-requirement",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/official-compile-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/external-drafts",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/post-draft-reviews",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/patent-points",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/grantability-reports",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/claim-defense-worksheets",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/filing-readiness",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/completion-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "POST"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/materials",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/deliberations",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/disclosures",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/formula-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/formula-requirement",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/official-compile-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/post-draft-reviews",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/external-drafts",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/filing-readiness",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/patent-points",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/claim-defense-worksheets",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/grantability-reports",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/completion-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/materials",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/deliberations",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/disclosures",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/formula-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/formula-requirement",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/post-draft-reviews",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/external-drafts",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/official-compile-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/patent-points",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/completion-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/grantability-reports",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/claim-defense-worksheets",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769/filing-readiness",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/3430f9dd11eb44a499b277b12209f769",
+        "status": 200,
+        "method": "DELETE"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/deliberations",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/materials",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/disclosures",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/formula-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/post-draft-reviews",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/formula-requirement",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/official-compile-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/patent-points",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/external-drafts",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/filing-readiness",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/grantability-reports",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/claim-defense-worksheets",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects/2d12b4777c1f4e258b652010b4c48d20/completion-runs",
+        "status": 200,
+        "method": "GET"
+      },
+      {
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200,
+        "method": "GET"
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "step": "01-load-app",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/01-load-app.png",
+      "metrics": {
+        "label": "01-load-app",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 573,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n未配置\n智能体\n未知\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n处理中\n正在刷新工作台\n[00:00] 提交请求到本地服务\n开始撰写\n\n选择本次工作的起点。专家工具仍在二级导航中，默认路径只保留普通用户最常用的三种入口。\n\nv1.1.0\n默认工作区\n专利生成\n入口数量\n3 条路径\n项目状态\n待创建\n专业复核\n提交前必需\n选择起步方式\n\n每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。\n\n从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择\n从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择\n导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择\n正式提交前请专业复核\n\nPatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "从技术想法撰写发明专利 输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。 发明专利 想法录入后进入发明点确认 选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "从结构方案撰写实用新型 聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。 实用新型 结构方案优先，跳过发明专属重步骤 选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "导入已有稿件进行润色提升 上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。 已有稿件 先选择项目，再解析章节并确认工作稿 选择",
+            "disabled": false,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    },
+    {
+      "step": "project-form-keep",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/project-form-keep.png",
+      "metrics": {
+        "label": "project-form-keep",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 1188,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n未配置\n智能体\n未知\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n处理中\n专家工具\n返回三选一\n正在刷新工作台\n[00:00] 提交请求到本地服务\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n当前步骤\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n未解锁\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n0/9 已完成\n当前进度：0%\n\n先创建项目；已有稿件可从第三个入口导入。\n\n填写并创建项目\n等待首 Mile 输入\n\n请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。\n\n把你的想法写成一段话\n\n系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。\n\n入口方式\n从想法生成\n项目\nRound19 保留项目 1782495470591\n专利类型\n发明专利\n补充材料\n材料可选\n起步配置\n\n先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。\n\n从想法生成\n导入外部初稿\n项目基础信息\n\n创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。\n\n项目名称\n一句话想法\n结构化元数据（可选）\n\n填写以下字段可提升后续发明点提炼精度和说明书生成质量。所有字段均为可选，可留空由系统自动生成。\n\n展开元数据字段\n专利类型\n\n影响流程深度、发明点提炼方式和后续正式稿边界。\n\n发明专利\n\n覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。\n\n实用新型专利\n\n聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。\n\n撰写目标\n\n目标模式只影响项目提示词和后续策略，不会跳过必要的质量门。\n\n授权稳健\n\n收紧独权，强调组合闭环和说明书支撑。\n\n保护范围优先\n\n先上位覆盖，再用从权兜底替代实现。\n\n快速初稿\n\n优先生成可审阅的完整初稿。\n\n专利护城河\n\n允许可行未验证方案进入内部策略和分案布局。\n\n当前目标：授权稳健；创建后进入发明点/结构方案确认。\n创建并继续\n材料摘要\n\n补充材料会作为发明点提炼、说明书支撑和质量检查的参考输入。\n\n暂无补充材料\n\n可先不上传材料，系统会基于想法生成第一版。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专家工具",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "1 想法与材料 输入一句想法，上传可选材料。 当前步骤",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "2 发明点 确认主发明点、证据状态和护城河方向。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "5 生成初稿 生成摘要、权利要求书和说明书。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "9 导出 确认风险并导出正式稿和内部报告。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "填写并创建项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "从想法生成",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "导入外部初稿",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "展开元数据字段",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "发明专利 覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "实用新型专利 聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "授权稳健 收紧独权，强调组合闭环和说明书支撑。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "保护范围优先 先上位覆盖，再用从权兜底替代实现。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "快速初稿 优先生成可审阅的完整初稿。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专利护城河 允许可行未验证方案进入内部策略和分案布局。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "创建并继续",
+            "disabled": false,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    },
+    {
+      "step": "project-created-keep",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/project-created-keep.png",
+      "metrics": {
+        "label": "project-created-keep",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 1448,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound19 保留项目 1782495410745\nRound19 待删除当前项目 1782495270762\nRound19 保留项目 1782495270762\nRound19 待删除当前项目 1782495210477\nRound19 保留项目 1782495210477\nRound19 待删除当前项目 1782495150284\nRound19 保留项目 1782495150284\nRound19 待删除当前项目 1782495096058\nRound19 保留项目 1782495096058\nRound19 保留项目 1782495024119\n处理中\n专家工具\n返回三选一\n正在刷新工作台\n[00:00] 提交请求到本地服务\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n当前步骤\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n未解锁\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n0/9 已完成\n当前进度：0%\n\n先创建项目；已有稿件可从第三个入口导入。\n\n填写并创建项目\n等待首 Mile 输入\n\n请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。\n\n把你的想法写成一段话\n\n系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。\n\n入口方式\n从想法生成\n项目\n待创建\n专利类型\n发明专利\n补充材料\n材料可选\n起步配置\n\n先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。\n\n从想法生成\n导入外部初稿\n项目基础信息\n\n创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。\n\n项目名称\n一句话想法\n结构化元数据（可选）\n\n填写以下字段可提升后续发明点提炼精度和说明书生成质量。所有字段均为可选，可留空由系统自动生成。\n\n展开元数据字段\n专利类型\n\n影响流程深度、发明点提炼方式和后续正式稿边界。\n\n发明专利\n\n覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。\n\n实用新型专利\n\n聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。\n\n撰写目标\n\n目标模式只影响项目提示词和后续策略，不会跳过必要的质量门。\n\n授权稳健\n\n收紧独权，强调组合闭环和说明书支撑。\n\n保护范围优先\n\n先上位覆盖，再用从权兜底替代实现。\n\n快速初稿\n\n优先生成可审阅的完整初稿。\n\n专利护城河\n\n允许可行未验证方案进入内部策略和分案布局。\n\n当前目标：授权稳健；创建后进入发明点/结构方案确认。\n创建并继续\n材料摘要\n\n补充材料会作为发明点提炼、说明书支撑和质量检查的参考输入。\n\n暂无补充材料\n\n可先不上传材料，系统会基于想法生成第一版。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专家工具",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "1 想法与材料 输入一句想法，上传可选材料。 当前步骤",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "2 发明点 确认主发明点、证据状态和护城河方向。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "5 生成初稿 生成摘要、权利要求书和说明书。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "9 导出 确认风险并导出正式稿和内部报告。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "填写并创建项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "从想法生成",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "导入外部初稿",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "展开元数据字段",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "发明专利 覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "实用新型专利 聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "授权稳健 收紧独权，强调组合闭环和说明书支撑。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "保护范围优先 先上位覆盖，再用从权兜底替代实现。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "快速初稿 优先生成可审阅的完整初稿。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专利护城河 允许可行未验证方案进入内部策略和分案布局。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "创建并继续",
+            "disabled": true,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    },
+    {
+      "step": "project-form-delete",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/project-form-delete.png",
+      "metrics": {
+        "label": "project-form-delete",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 1447,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound19 保留项目 1782495410745\nRound19 待删除当前项目 1782495270762\nRound19 保留项目 1782495270762\nRound19 待删除当前项目 1782495210477\nRound19 保留项目 1782495210477\nRound19 待删除当前项目 1782495150284\nRound19 保留项目 1782495150284\nRound19 待删除当前项目 1782495096058\nRound19 保留项目 1782495096058\nRound19 保留项目 1782495024119\n空闲\n专家工具\n返回三选一\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n当前步骤\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n未解锁\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n0/9 已完成\n当前进度：0%\n\n先创建项目；已有稿件可从第三个入口导入。\n\n填写并创建项目\n等待首 Mile 输入\n\n请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。\n\n把你的想法写成一段话\n\n系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。\n\n入口方式\n从想法生成\n项目\nRound19 待删除当前项目 1782495470591\n专利类型\n发明专利\n补充材料\n材料可选\n起步配置\n\n先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。\n\n从想法生成\n导入外部初稿\n项目基础信息\n\n创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。\n\n项目名称\n一句话想法\n结构化元数据（可选）\n\n填写以下字段可提升后续发明点提炼精度和说明书生成质量。所有字段均为可选，可留空由系统自动生成。\n\n展开元数据字段\n专利类型\n\n影响流程深度、发明点提炼方式和后续正式稿边界。\n\n发明专利\n\n覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。\n\n实用新型专利\n\n聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。\n\n撰写目标\n\n目标模式只影响项目提示词和后续策略，不会跳过必要的质量门。\n\n授权稳健\n\n收紧独权，强调组合闭环和说明书支撑。\n\n保护范围优先\n\n先上位覆盖，再用从权兜底替代实现。\n\n快速初稿\n\n优先生成可审阅的完整初稿。\n\n专利护城河\n\n允许可行未验证方案进入内部策略和分案布局。\n\n当前目标：授权稳健；创建后进入发明点/结构方案确认。\n创建并继续\n材料摘要\n\n补充材料会作为发明点提炼、说明书支撑和质量检查的参考输入。\n\n暂无补充材料\n\n可先不上传材料，系统会基于想法生成第一版。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专家工具",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "1 想法与材料 输入一句想法，上传可选材料。 当前步骤",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "2 发明点 确认主发明点、证据状态和护城河方向。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "5 生成初稿 生成摘要、权利要求书和说明书。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "9 导出 确认风险并导出正式稿和内部报告。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "填写并创建项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "从想法生成",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "导入外部初稿",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "展开元数据字段",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "发明专利 覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "实用新型专利 聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "授权稳健 收紧独权，强调组合闭环和说明书支撑。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "保护范围优先 先上位覆盖，再用从权兜底替代实现。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "快速初稿 优先生成可审阅的完整初稿。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专利护城河 允许可行未验证方案进入内部策略和分案布局。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "创建并继续",
+            "disabled": false,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    },
+    {
+      "step": "project-created-delete",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/project-created-delete.png",
+      "metrics": {
+        "label": "project-created-delete",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 1475,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound19 保留项目 1782495470591\nRound19 保留项目 1782495410745\nRound19 待删除当前项目 1782495270762\nRound19 保留项目 1782495270762\nRound19 待删除当前项目 1782495210477\nRound19 保留项目 1782495210477\nRound19 待删除当前项目 1782495150284\nRound19 保留项目 1782495150284\nRound19 待删除当前项目 1782495096058\nRound19 保留项目 1782495096058\nRound19 保留项目 1782495024119\n处理中\n专家工具\n返回三选一\n正在刷新工作台\n[00:00] 提交请求到本地服务\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n当前步骤\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n未解锁\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n0/9 已完成\n当前进度：0%\n\n先创建项目；已有稿件可从第三个入口导入。\n\n填写并创建项目\n等待首 Mile 输入\n\n请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。\n\n把你的想法写成一段话\n\n系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。\n\n入口方式\n从想法生成\n项目\n待创建\n专利类型\n发明专利\n补充材料\n材料可选\n起步配置\n\n先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。\n\n从想法生成\n导入外部初稿\n项目基础信息\n\n创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。\n\n项目名称\n一句话想法\n结构化元数据（可选）\n\n填写以下字段可提升后续发明点提炼精度和说明书生成质量。所有字段均为可选，可留空由系统自动生成。\n\n展开元数据字段\n专利类型\n\n影响流程深度、发明点提炼方式和后续正式稿边界。\n\n发明专利\n\n覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。\n\n实用新型专利\n\n聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。\n\n撰写目标\n\n目标模式只影响项目提示词和后续策略，不会跳过必要的质量门。\n\n授权稳健\n\n收紧独权，强调组合闭环和说明书支撑。\n\n保护范围优先\n\n先上位覆盖，再用从权兜底替代实现。\n\n快速初稿\n\n优先生成可审阅的完整初稿。\n\n专利护城河\n\n允许可行未验证方案进入内部策略和分案布局。\n\n当前目标：授权稳健；创建后进入发明点/结构方案确认。\n创建并继续\n材料摘要\n\n补充材料会作为发明点提炼、说明书支撑和质量检查的参考输入。\n\n暂无补充材料\n\n可先不上传材料，系统会基于想法生成第一版。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专家工具",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "1 想法与材料 输入一句想法，上传可选材料。 当前步骤",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "2 发明点 确认主发明点、证据状态和护城河方向。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "5 生成初稿 生成摘要、权利要求书和说明书。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "9 导出 确认风险并导出正式稿和内部报告。 未解锁",
+            "disabled": true,
+            "ariaDisabled": "true"
+          },
+          {
+            "text": "填写并创建项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "从想法生成",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "导入外部初稿",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "展开元数据字段",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "发明专利 覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "实用新型专利 聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "授权稳健 收紧独权，强调组合闭环和说明书支撑。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "保护范围优先 先上位覆盖，再用从权兜底替代实现。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "快速初稿 优先生成可审阅的完整初稿。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专利护城河 允许可行未验证方案进入内部策略和分案布局。",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "创建并继续",
+            "disabled": true,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    },
+    {
+      "step": "02-project-list-before-delete",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/02-project-list-before-delete.png",
+      "metrics": {
+        "label": "02-project-list-before-delete",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 1544,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound19 保留项目 1782495470591\nRound19 保留项目 1782495410745\nRound19 待删除当前项目 1782495270762\nRound19 保留项目 1782495270762\nRound19 待删除当前项目 1782495210477\nRound19 保留项目 1782495210477\nRound19 待删除当前项目 1782495150284\nRound19 保留项目 1782495150284\nRound19 待删除当前项目 1782495096058\nRound19 保留项目 1782495096058\nRound19 保留项目 1782495024119\n处理中\n专家工具\n返回三选一\n正在刷新工作台\n[00:00] 提交请求到本地服务\n全部项目\n11\n已有初稿\n0\n当前项目\n未选择\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n11\n已有初稿\n0\n仅有想法\n11\n实用新型\n0\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound19 保留项目 1782495470591\n发明想法 · 2d12b477\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495410745\n发明想法 · 71a9649e\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495270762\n发明想法 · 10071489\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495270762\n发明想法 · 6fe491b8\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495210477\n发明想法 · a8833f79\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495210477\n发明想法 · d42635bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495150284\n发明想法 · 296ddd94\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495150284\n发明想法 · b4edeace\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495096058\n发明想法 · 2bdee284\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495096058\n发明想法 · b11849ce\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495024119\n发明想法 · 427776bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专家工具",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "全部项目 11",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "已有初稿 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "仅有想法 11",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "实用新型 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    },
+    {
+      "step": "03-after-first-delete-click",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/03-after-first-delete-click.png",
+      "metrics": {
+        "label": "03-after-first-delete-click",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 1750,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound19 待删除当前项目 1782495470591\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound19 待删除当前项目 1782495470591\nRound19 保留项目 1782495470591\nRound19 保留项目 1782495410745\nRound19 待删除当前项目 1782495270762\nRound19 保留项目 1782495270762\nRound19 待删除当前项目 1782495210477\nRound19 保留项目 1782495210477\nRound19 待删除当前项目 1782495150284\nRound19 保留项目 1782495150284\nRound19 待删除当前项目 1782495096058\nRound19 保留项目 1782495096058\nRound19 保留项目 1782495024119\n处理中\n专家工具\n返回三选一\n正在刷新工作台\n[00:00] 提交请求到本地服务\n全部项目\n12\n已有初稿\n0\n当前项目\nRound19 待删除当前项目 1782495470591\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n12\n已有初稿\n0\n仅有想法\n12\n实用新型\n0\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound19 待删除当前项目 1782495470591\n发明想法 · 3430f9dd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n当前项目\n删除\n\n\nRound19 保留项目 1782495470591\n发明想法 · 2d12b477\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495410745\n发明想法 · 71a9649e\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495270762\n发明想法 · 10071489\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495270762\n发明想法 · 6fe491b8\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495210477\n发明想法 · a8833f79\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495210477\n发明想法 · d42635bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495150284\n发明想法 · 296ddd94\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495150284\n发明想法 · b4edeace\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495096058\n发明想法 · 2bdee284\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495096058\n发明想法 · b11849ce\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495024119\n发明想法 · 427776bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "01 想法与材料",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "02 发明点确认",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "03 多智能体会审",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专家工具",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "全部项目 12",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "已有初稿 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "仅有想法 12",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "实用新型 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "当前项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "当前项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    },
+    {
+      "step": "04-after-cancel-delete",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/04-after-cancel-delete.png",
+      "metrics": {
+        "label": "04-after-cancel-delete",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 1750,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound19 待删除当前项目 1782495470591\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound19 待删除当前项目 1782495470591\nRound19 保留项目 1782495470591\nRound19 保留项目 1782495410745\nRound19 待删除当前项目 1782495270762\nRound19 保留项目 1782495270762\nRound19 待删除当前项目 1782495210477\nRound19 保留项目 1782495210477\nRound19 待删除当前项目 1782495150284\nRound19 保留项目 1782495150284\nRound19 待删除当前项目 1782495096058\nRound19 保留项目 1782495096058\nRound19 保留项目 1782495024119\n处理中\n专家工具\n返回三选一\n正在刷新工作台\n[00:00] 提交请求到本地服务\n全部项目\n12\n已有初稿\n0\n当前项目\nRound19 待删除当前项目 1782495470591\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n12\n已有初稿\n0\n仅有想法\n12\n实用新型\n0\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound19 待删除当前项目 1782495470591\n发明想法 · 3430f9dd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n当前项目\n删除\n\n\nRound19 保留项目 1782495470591\n发明想法 · 2d12b477\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495410745\n发明想法 · 71a9649e\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495270762\n发明想法 · 10071489\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495270762\n发明想法 · 6fe491b8\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495210477\n发明想法 · a8833f79\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495210477\n发明想法 · d42635bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495150284\n发明想法 · 296ddd94\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495150284\n发明想法 · b4edeace\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495096058\n发明想法 · 2bdee284\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495096058\n发明想法 · b11849ce\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495024119\n发明想法 · 427776bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "01 想法与材料",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "02 发明点确认",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "03 多智能体会审",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专家工具",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "全部项目 12",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "已有初稿 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "仅有想法 12",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "实用新型 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "当前项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "当前项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    },
+    {
+      "step": "05-before-confirm-delete",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/05-before-confirm-delete.png",
+      "metrics": {
+        "label": "05-before-confirm-delete",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 1750,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound19 待删除当前项目 1782495470591\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound19 待删除当前项目 1782495470591\nRound19 保留项目 1782495470591\nRound19 保留项目 1782495410745\nRound19 待删除当前项目 1782495270762\nRound19 保留项目 1782495270762\nRound19 待删除当前项目 1782495210477\nRound19 保留项目 1782495210477\nRound19 待删除当前项目 1782495150284\nRound19 保留项目 1782495150284\nRound19 待删除当前项目 1782495096058\nRound19 保留项目 1782495096058\nRound19 保留项目 1782495024119\n处理中\n专家工具\n返回三选一\n正在刷新工作台\n[00:00] 提交请求到本地服务\n全部项目\n12\n已有初稿\n0\n当前项目\nRound19 待删除当前项目 1782495470591\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n12\n已有初稿\n0\n仅有想法\n12\n实用新型\n0\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound19 待删除当前项目 1782495470591\n发明想法 · 3430f9dd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n当前项目\n删除\n\n\nRound19 保留项目 1782495470591\n发明想法 · 2d12b477\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495410745\n发明想法 · 71a9649e\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495270762\n发明想法 · 10071489\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495270762\n发明想法 · 6fe491b8\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495210477\n发明想法 · a8833f79\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495210477\n发明想法 · d42635bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495150284\n发明想法 · 296ddd94\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495150284\n发明想法 · b4edeace\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495096058\n发明想法 · 2bdee284\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495096058\n发明想法 · b11849ce\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495024119\n发明想法 · 427776bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "01 想法与材料",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "02 发明点确认",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "03 多智能体会审",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专家工具",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "全部项目 12",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "已有初稿 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "仅有想法 12",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "实用新型 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "当前项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "当前项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    },
+    {
+      "step": "06-after-confirm-delete",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round19/06-after-confirm-delete.png",
+      "metrics": {
+        "label": "06-after-confirm-delete",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "bodyScrollWidth": 1440,
+        "documentScrollWidth": 1440,
+        "innerWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 1598,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound19 保留项目 1782495470591\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound19 保留项目 1782495470591\nRound19 保留项目 1782495410745\nRound19 待删除当前项目 1782495270762\nRound19 保留项目 1782495270762\nRound19 待删除当前项目 1782495210477\nRound19 保留项目 1782495210477\nRound19 待删除当前项目 1782495150284\nRound19 保留项目 1782495150284\nRound19 待删除当前项目 1782495096058\nRound19 保留项目 1782495096058\nRound19 保留项目 1782495024119\n空闲\n专家工具\n返回三选一\n全部项目\n11\n已有初稿\n0\n当前项目\nRound19 保留项目 1782495470591\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n11\n已有初稿\n0\n仅有想法\n11\n实用新型\n0\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound19 保留项目 1782495470591\n发明想法 · 2d12b477\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n当前项目\n删除\n\n\nRound19 保留项目 1782495410745\n发明想法 · 71a9649e\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495270762\n发明想法 · 10071489\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495270762\n发明想法 · 6fe491b8\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495210477\n发明想法 · a8833f79\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495210477\n发明想法 · d42635bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495150284\n发明想法 · 296ddd94\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495150284\n发明想法 · b4edeace\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 待删除当前项目 1782495096058\n发明想法 · 2bdee284\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495096058\n发明想法 · b11849ce\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除\n\n\nRound19 保留项目 1782495024119\n发明想法 · 427776bd\n\t想法已录入\t待生成\t未生成初稿\t\n06/26\n创建 06/26\n\t\n选择\n删除",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "01 想法与材料",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "02 发明点确认",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "03 多智能体会审",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "专家工具",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "开始",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "设置",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "全部项目 11",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "已有初稿 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "仅有想法 11",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "实用新型 0",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "当前项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "当前项目",
+            "disabled": true,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "选择项目",
+            "disabled": false,
+            "ariaDisabled": null
+          },
+          {
+            "text": "删除项目",
+            "disabled": false,
+            "ariaDisabled": null
+          }
+        ]
+      }
+    }
+  ],
+  "assertions": {
+    "deleteButtonCount": 12,
+    "cancelDialogShown": true,
+    "confirmDialogShown": true,
+    "deleteResponseStatus": 200,
+    "keepPresentAfterConfirm": true,
+    "deletedAbsentAfterConfirm": true,
+    "cancelPreservedBoth": true,
+    "apiDeletedAbsentAfterConfirm": true,
+    "apiKeepPresentAfterConfirm": true,
+    "pageErrors": 0,
+    "requestFailures": 0,
+    "consoleErrors": 0
+  },
+  "apiBeforeDelete": {
+    "projects": [
+      {
+        "id": "3430f9dd11eb44a499b277b12209f769",
+        "name": "Round19 待删除当前项目 1782495470591",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:37:54",
+        "updated_at": "2026-06-26 17:37:54",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "2d12b4777c1f4e258b652010b4c48d20",
+        "name": "Round19 保留项目 1782495470591",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:37:52",
+        "updated_at": "2026-06-26 17:37:52",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "71a9649ee6fb4ef7926af223a957d669",
+        "name": "Round19 保留项目 1782495410745",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:36:52",
+        "updated_at": "2026-06-26 17:36:52",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "100714893b8d4019a39bf612990e5109",
+        "name": "Round19 待删除当前项目 1782495270762",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:34:34",
+        "updated_at": "2026-06-26 17:34:34",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "6fe491b865754992bc00c3e311c320d0",
+        "name": "Round19 保留项目 1782495270762",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:34:32",
+        "updated_at": "2026-06-26 17:34:32",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "a8833f79efb64c17bf8dffecc21d4f72",
+        "name": "Round19 待删除当前项目 1782495210477",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:33:34",
+        "updated_at": "2026-06-26 17:33:34",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "d42635bdeb7c46de815db109c751f2dc",
+        "name": "Round19 保留项目 1782495210477",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:33:32",
+        "updated_at": "2026-06-26 17:33:32",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "296ddd94cec94cbcb071462b775fbd86",
+        "name": "Round19 待删除当前项目 1782495150284",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:32:34",
+        "updated_at": "2026-06-26 17:32:34",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "b4edeaceb88744ca8b80cab54925f7e0",
+        "name": "Round19 保留项目 1782495150284",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:32:32",
+        "updated_at": "2026-06-26 17:32:32",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "2bdee284dd82478e8b20edceca235884",
+        "name": "Round19 待删除当前项目 1782495096058",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:31:39",
+        "updated_at": "2026-06-26 17:31:39",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "b11849ceb2844024bae5af9c4b39eea5",
+        "name": "Round19 保留项目 1782495096058",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:31:38",
+        "updated_at": "2026-06-26 17:31:38",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "427776bdb1384bbf834fc20423a1a9df",
+        "name": "Round19 保留项目 1782495024119",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:30:26",
+        "updated_at": "2026-06-26 17:30:26",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      }
+    ]
+  },
+  "apiAfterCancel": {
+    "projects": [
+      {
+        "id": "3430f9dd11eb44a499b277b12209f769",
+        "name": "Round19 待删除当前项目 1782495470591",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:37:54",
+        "updated_at": "2026-06-26 17:37:54",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "2d12b4777c1f4e258b652010b4c48d20",
+        "name": "Round19 保留项目 1782495470591",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:37:52",
+        "updated_at": "2026-06-26 17:37:52",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "71a9649ee6fb4ef7926af223a957d669",
+        "name": "Round19 保留项目 1782495410745",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:36:52",
+        "updated_at": "2026-06-26 17:36:52",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "100714893b8d4019a39bf612990e5109",
+        "name": "Round19 待删除当前项目 1782495270762",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:34:34",
+        "updated_at": "2026-06-26 17:34:34",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "6fe491b865754992bc00c3e311c320d0",
+        "name": "Round19 保留项目 1782495270762",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:34:32",
+        "updated_at": "2026-06-26 17:34:32",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "a8833f79efb64c17bf8dffecc21d4f72",
+        "name": "Round19 待删除当前项目 1782495210477",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:33:34",
+        "updated_at": "2026-06-26 17:33:34",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "d42635bdeb7c46de815db109c751f2dc",
+        "name": "Round19 保留项目 1782495210477",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:33:32",
+        "updated_at": "2026-06-26 17:33:32",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "296ddd94cec94cbcb071462b775fbd86",
+        "name": "Round19 待删除当前项目 1782495150284",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:32:34",
+        "updated_at": "2026-06-26 17:32:34",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "b4edeaceb88744ca8b80cab54925f7e0",
+        "name": "Round19 保留项目 1782495150284",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:32:32",
+        "updated_at": "2026-06-26 17:32:32",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "2bdee284dd82478e8b20edceca235884",
+        "name": "Round19 待删除当前项目 1782495096058",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:31:39",
+        "updated_at": "2026-06-26 17:31:39",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "b11849ceb2844024bae5af9c4b39eea5",
+        "name": "Round19 保留项目 1782495096058",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:31:38",
+        "updated_at": "2026-06-26 17:31:38",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "427776bdb1384bbf834fc20423a1a9df",
+        "name": "Round19 保留项目 1782495024119",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:30:26",
+        "updated_at": "2026-06-26 17:30:26",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      }
+    ]
+  },
+  "apiAfterConfirm": {
+    "projects": [
+      {
+        "id": "2d12b4777c1f4e258b652010b4c48d20",
+        "name": "Round19 保留项目 1782495470591",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:37:52",
+        "updated_at": "2026-06-26 17:37:52",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "71a9649ee6fb4ef7926af223a957d669",
+        "name": "Round19 保留项目 1782495410745",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:36:52",
+        "updated_at": "2026-06-26 17:36:52",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "100714893b8d4019a39bf612990e5109",
+        "name": "Round19 待删除当前项目 1782495270762",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:34:34",
+        "updated_at": "2026-06-26 17:34:34",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "6fe491b865754992bc00c3e311c320d0",
+        "name": "Round19 保留项目 1782495270762",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:34:32",
+        "updated_at": "2026-06-26 17:34:32",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "a8833f79efb64c17bf8dffecc21d4f72",
+        "name": "Round19 待删除当前项目 1782495210477",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:33:34",
+        "updated_at": "2026-06-26 17:33:34",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "d42635bdeb7c46de815db109c751f2dc",
+        "name": "Round19 保留项目 1782495210477",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:33:32",
+        "updated_at": "2026-06-26 17:33:32",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "296ddd94cec94cbcb071462b775fbd86",
+        "name": "Round19 待删除当前项目 1782495150284",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:32:34",
+        "updated_at": "2026-06-26 17:32:34",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "b4edeaceb88744ca8b80cab54925f7e0",
+        "name": "Round19 保留项目 1782495150284",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:32:32",
+        "updated_at": "2026-06-26 17:32:32",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "2bdee284dd82478e8b20edceca235884",
+        "name": "Round19 待删除当前项目 1782495096058",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:31:39",
+        "updated_at": "2026-06-26 17:31:39",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "b11849ceb2844024bae5af9c4b39eea5",
+        "name": "Round19 保留项目 1782495096058",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:31:38",
+        "updated_at": "2026-06-26 17:31:38",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      },
+      {
+        "id": "427776bdb1384bbf834fc20423a1a9df",
+        "name": "Round19 保留项目 1782495024119",
+        "draft_text": "目标模式：授权稳健。\n一种用于测试项目删除状态一致性的专利撰写辅助方案，包含项目选择、删除确认、取消恢复和列表刷新。",
+        "patent_type": "invention",
+        "package": null,
+        "created_at": "2026-06-26 17:30:26",
+        "updated_at": "2026-06-26 17:30:26",
+        "applicant": "",
+        "inventors": "",
+        "technical_field": "",
+        "background": "",
+        "pain_point": "",
+        "technical_solution": "",
+        "innovation": "",
+        "embodiments": "",
+        "beneficial_effects": ""
+      }
+    ]
+  }
+}

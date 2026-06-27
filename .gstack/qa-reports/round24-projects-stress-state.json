@@ -1,0 +1,3230 @@
+{
+  "generatedAt": "2026-06-27T01:17:51.809Z",
+  "baseUrl": "http://127.0.0.1:5174/",
+  "apiBaseUrl": "http://127.0.0.1:8000",
+  "seed": {
+    "suffix": 1782523063801,
+    "projectCount": 30,
+    "utilityCount": 7,
+    "targetProject": {
+      "id": "43e538a01bb74791b9db47403e06a30c",
+      "name": "Round24 项目 12  1782523063801"
+    }
+  },
+  "events": {
+    "console": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+      }
+    ],
+    "pageErrors": [],
+    "requestFailures": [],
+    "projectResponses": [
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/materials",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/formula-requirement",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/deliberations",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/official-compile-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/formula-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/post-draft-reviews",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/patent-points",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/grantability-reports",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/external-drafts",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/filing-readiness",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/completion-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/43e538a01bb74791b9db47403e06a30c/claim-defense-worksheets",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/materials",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/deliberations",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/formula-requirement",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/formula-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/official-compile-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/external-drafts",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/post-draft-reviews",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/patent-points",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/filing-readiness",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/grantability-reports",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/claim-defense-worksheets",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/projects/879f846e1ca8443690d6730e6e103521/completion-runs",
+        "status": 200
+      }
+    ]
+  },
+  "screenshots": {
+    "desktopMany": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round24/01-projects-many-desktop.png",
+    "desktopUtilityFilter": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round24/02-projects-utility-filter-desktop.png",
+    "desktopAfterTopSelect": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round24/03-projects-after-top-select-desktop.png",
+    "mobileMany": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round24/04-projects-many-mobile.png",
+    "mobileAfterSelect": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round24/05-projects-mobile-after-select.png"
+  },
+  "api": {
+    "projectsAfterSeed": {
+      "status": 200,
+      "text": "{\"projects\":[{\"id\":\"0ad562ae929e453ba85bc880368cbc80\",\"name\":\"Round24 项目 01  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 1。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"4733331708e141f09de872a4a52ef570\",\"name\":\"Round24 项目 02  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 2。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"64046aaf82114d1c9826eef1dc4535fc\",\"name\":\"Round24 项目 03  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 3。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"879f846e1ca8443690d6730e6e103521\",\"name\":\"Round24 项目 04  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 4。\",\"patent_type\":\"utility_model\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"e61860a9a61c47b2ac95f6d241b34d7b\",\"name\":\"Round24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 5。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"b058ea26c27249e3ab6f9f76409985fe\",\"name\":\"Round24 项目 06  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 6。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"70f5ccbceb334421847611ac99b29c55\",\"name\":\"Round24 项目 07  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 7。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"72ac260bf2bb493c99c653b520b06933\",\"name\":\"Round24 项目 08  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 8。\",\"patent_type\":\"utility_model\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"61bbe3419e9d43e5b75c5f073f336427\",\"name\":\"Round24 项目 09  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 9。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"1a0bc59d3a6044f1987a4ae227dc1978\",\"name\":\"Round24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 10。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"6e09397a4fdf4e2b852e416550f99812\",\"name\":\"Round24 项目 11  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 11。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"43e538a01bb74791b9db47403e06a30c\",\"name\":\"Round24 项目 12  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 12。\",\"patent_type\":\"utility_model\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"f39128956ebb4017aeb60e7caf2ef830\",\"name\":\"Round24 项目 13  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 13。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"9c8774b79beb4c56ad1676414aba8153\",\"name\":\"Round24 项目 14  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 14。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"5703856f5b5544bab7e8c944f79098e4\",\"name\":\"Round24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 15。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"4100c73eed584329a99ed4bbe84199a5\",\"name\":\"Round24 项目 16  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 16。\",\"patent_type\":\"utility_model\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"fed9808615e846978e79fdb3930504c1\",\"name\":\"Round24 项目 17  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 17。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"b4109063ace74ba794a7b36db7cd4279\",\"name\":\"Round24 项目 18  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 18。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"e3dcaf3987074c69ac1d617f0d989eb3\",\"name\":\"Round24 项目 19  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 19。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"1759cc126a0e44d29eac736c1721db0e\",\"name\":\"Round24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 20。\",\"patent_type\":\"utility_model\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"c072f00753994218a11cb37f99e8e444\",\"name\":\"Round24 项目 21  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 21。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"c5861e9d81b849dfa86cf8344c33db4f\",\"name\":\"Round24 项目 22  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 22。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"ce71036f948d49febeadbcc90ec13b1a\",\"name\":\"Round24 项目 23  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 23。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"73b015ad18774921a0137ec408560833\",\"name\":\"Round24 项目 24  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 24。\",\"patent_type\":\"utility_model\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"84c7a01fab8147ed997f0e56e752f3c8\",\"name\":\"Round24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 25。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"0d607724b1c846f3aaddccc8069887f4\",\"name\":\"Round24 项目 26  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 26。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"0a26618d3d8d4d89ae9cc7538e8bafa5\",\"name\":\"Round24 项目 27  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 27。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"fd57d35df79e43fdb0c28804060f9fff\",\"name\":\"Round24 项目 28  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 28。\",\"patent_type\":\"utility_model\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"fbbc63e9fc1b4fc591db93fba9c79d49\",\"name\":\"Round24 项目 29  1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 29。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"},{\"id\":\"f18ab749343a409792a489387e7bcc05\",\"name\":\"Round24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\",\"draft_text\":\"用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 30。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:17:43\",\"updated_at\":\"2026-06-27 01:17:43\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"}]}",
+      "json": {
+        "projects": [
+          {
+            "id": "0ad562ae929e453ba85bc880368cbc80",
+            "name": "Round24 项目 01  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 1。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "4733331708e141f09de872a4a52ef570",
+            "name": "Round24 项目 02  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 2。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "64046aaf82114d1c9826eef1dc4535fc",
+            "name": "Round24 项目 03  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 3。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "879f846e1ca8443690d6730e6e103521",
+            "name": "Round24 项目 04  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 4。",
+            "patent_type": "utility_model",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "e61860a9a61c47b2ac95f6d241b34d7b",
+            "name": "Round24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 5。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "b058ea26c27249e3ab6f9f76409985fe",
+            "name": "Round24 项目 06  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 6。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "70f5ccbceb334421847611ac99b29c55",
+            "name": "Round24 项目 07  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 7。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "72ac260bf2bb493c99c653b520b06933",
+            "name": "Round24 项目 08  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 8。",
+            "patent_type": "utility_model",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "61bbe3419e9d43e5b75c5f073f336427",
+            "name": "Round24 项目 09  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 9。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "1a0bc59d3a6044f1987a4ae227dc1978",
+            "name": "Round24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 10。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "6e09397a4fdf4e2b852e416550f99812",
+            "name": "Round24 项目 11  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 11。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "43e538a01bb74791b9db47403e06a30c",
+            "name": "Round24 项目 12  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 12。",
+            "patent_type": "utility_model",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "f39128956ebb4017aeb60e7caf2ef830",
+            "name": "Round24 项目 13  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 13。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "9c8774b79beb4c56ad1676414aba8153",
+            "name": "Round24 项目 14  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 14。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "5703856f5b5544bab7e8c944f79098e4",
+            "name": "Round24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 15。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "4100c73eed584329a99ed4bbe84199a5",
+            "name": "Round24 项目 16  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 16。",
+            "patent_type": "utility_model",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "fed9808615e846978e79fdb3930504c1",
+            "name": "Round24 项目 17  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 17。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "b4109063ace74ba794a7b36db7cd4279",
+            "name": "Round24 项目 18  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 18。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "e3dcaf3987074c69ac1d617f0d989eb3",
+            "name": "Round24 项目 19  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 19。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "1759cc126a0e44d29eac736c1721db0e",
+            "name": "Round24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 20。",
+            "patent_type": "utility_model",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "c072f00753994218a11cb37f99e8e444",
+            "name": "Round24 项目 21  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 21。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "c5861e9d81b849dfa86cf8344c33db4f",
+            "name": "Round24 项目 22  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 22。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "ce71036f948d49febeadbcc90ec13b1a",
+            "name": "Round24 项目 23  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 23。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "73b015ad18774921a0137ec408560833",
+            "name": "Round24 项目 24  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 24。",
+            "patent_type": "utility_model",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "84c7a01fab8147ed997f0e56e752f3c8",
+            "name": "Round24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 25。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "0d607724b1c846f3aaddccc8069887f4",
+            "name": "Round24 项目 26  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 26。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "0a26618d3d8d4d89ae9cc7538e8bafa5",
+            "name": "Round24 项目 27  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 27。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "fd57d35df79e43fdb0c28804060f9fff",
+            "name": "Round24 项目 28  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 28。",
+            "patent_type": "utility_model",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "fbbc63e9fc1b4fc591db93fba9c79d49",
+            "name": "Round24 项目 29  1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 29。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          },
+          {
+            "id": "f18ab749343a409792a489387e7bcc05",
+            "name": "Round24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801",
+            "draft_text": "用于验证 30 个历史项目列表、筛选、移动端按钮边界和当前项目选择的一段技术想法 30。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:17:43",
+            "updated_at": "2026-06-27 01:17:43",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          }
+        ]
+      }
+    }
+  },
+  "states": {
+    "desktopMany": {
+      "label": "desktop-many",
+      "url": "http://127.0.0.1:5174/",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n专家工具\n全部项目\n30\n已有初稿\n0\n当前项目\n未选择\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound24 项目 01 1782523063801\n发明想法 · 0ad562ae\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 02 1782523063801\n发明想法 · 47333317\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 03 1782523063801\n发明想法 · 64046aaf\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n发明想法 · e61860a9\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 06 1782523063801\n发明想法 · b058ea26\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 07 1782523063801\n发明想法 · 70f5ccbc\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 09 1782523063801\n发明想法 · 61bbe341\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n发明想法 · 1a0bc59d\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 11 1782523063801\n发明想法 · 6e09397a\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 12 1782523063801\n实用新型 · 43e538a0\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 13 1782523063801\n发明想法 · f3912895\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 14 1782523063801\n发明想法 · 9c8774b7\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n发明想法 · 5703856f\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 16 1782523063801\n实用新型 · 4100c73e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 17 1782523063801\n发明想法 · fed98086\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 18 1782523063801\n发明想法 · b4109063\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 19 1782523063801\n发明想法 · e3dcaf39\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n实用新型 · 1759cc12\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 21 1782523063801\n发明想法 · c072f007\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 22 1782523063801\n发明想法 · c5861e9d\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 23 1782523063801\n发明想法 · ce71036f\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 24 1782523063801\n实用新型 · 73b015ad\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n发明想法 · 84c7a01f\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 26 1782523063801\n发明想法 · 0d607724\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 27 1782523063801\n发明想法 · 0a26618d\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 28 1782523063801\n实用新型 · fd57d35d\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 29 1782523063801\n发明想法 · fbbc63e9\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n发明想法 · f18ab749\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除",
+      "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n专家工具\n全部项目\n30\n已有初稿\n0\n当前项目\n未选择\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound24 项目 01 1782523063801\n发明想法 · 0ad562ae\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 02 1782523063801\n发明想法 · 47333317\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 03 1782523063801\n发明想法 · 64046aaf\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n发明想法 · e61860a9\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 06 1782523063801\n发明想法 · b058ea26\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 07 1782523063801\n发明想法 · 70f5ccbc\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 09 1782523063801\n发明想法 · 61bbe341\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名",
+      "documentWidth": 1440,
+      "hasHorizontalOverflow": false,
+      "visibleButtons": [
+        {
+          "text": "开始",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 123,
+            "bottom": 167,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "项目",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 171,
+            "bottom": 215,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "设置",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 219,
+            "bottom": 263,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "刷新运行状态",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 1042,
+            "bottom": 1082,
+            "width": 230,
+            "height": 40
+          }
+        },
+        {
+          "text": "专家工具",
+          "disabled": false,
+          "rect": {
+            "left": 1263,
+            "right": 1364,
+            "top": 14,
+            "bottom": 58,
+            "width": 101,
+            "height": 44
+          }
+        },
+        {
+          "text": "刷新运行状态",
+          "disabled": false,
+          "rect": {
+            "left": 1372,
+            "right": 1416,
+            "top": 14,
+            "bottom": 58,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 927,
+            "right": 1035,
+            "top": 218,
+            "bottom": 254,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 1043,
+            "right": 1143,
+            "top": 218,
+            "bottom": 254,
+            "width": 101,
+            "height": 36
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 1151,
+            "right": 1258,
+            "top": 218,
+            "bottom": 254,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 1266,
+            "right": 1367,
+            "top": 218,
+            "bottom": 254,
+            "width": 101,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 343,
+            "bottom": 379,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 343,
+            "bottom": 379,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 416,
+            "bottom": 452,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 416,
+            "bottom": 452,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 489,
+            "bottom": 525,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 489,
+            "bottom": 525,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 562,
+            "bottom": 598,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 562,
+            "bottom": 598,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 635,
+            "bottom": 671,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 635,
+            "bottom": 671,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 708,
+            "bottom": 744,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 708,
+            "bottom": 744,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 781,
+            "bottom": 817,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 781,
+            "bottom": 817,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 854,
+            "bottom": 890,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 854,
+            "bottom": 890,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 927,
+            "bottom": 963,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 927,
+            "bottom": 963,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 1000,
+            "bottom": 1036,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 1000,
+            "bottom": 1036,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 1073,
+            "bottom": 1109,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 1073,
+            "bottom": 1109,
+            "width": 78,
+            "height": 36
+          }
+        }
+      ],
+      "actionButtons": [],
+      "filterButtons": [
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 927,
+            "right": 1035,
+            "top": 218,
+            "bottom": 254,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 1043,
+            "right": 1143,
+            "top": 218,
+            "bottom": 254,
+            "width": 101,
+            "height": 36
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 1151,
+            "right": 1258,
+            "top": 218,
+            "bottom": 254,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 1266,
+            "right": 1367,
+            "top": 218,
+            "bottom": 254,
+            "width": 101,
+            "height": 36
+          }
+        }
+      ],
+      "overflowingElements": [],
+      "visibleSelects": [
+        {
+          "value": "",
+          "selectedText": "新建项目",
+          "optionCount": 31
+        }
+      ]
+    },
+    "desktopUtilityFilter": {
+      "label": "desktop-utility-filter",
+      "url": "http://127.0.0.1:5174/",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n专家工具\n全部项目\n30\n已有初稿\n0\n当前项目\n未选择\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 12 1782523063801\n实用新型 · 43e538a0\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 16 1782523063801\n实用新型 · 4100c73e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n实用新型 · 1759cc12\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 24 1782523063801\n实用新型 · 73b015ad\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 28 1782523063801\n实用新型 · fd57d35d\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除",
+      "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n专家工具\n全部项目\n30\n已有初稿\n0\n当前项目\n未选择\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 12 1782523063801\n实用新型 · 43e538a0\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 16 1782523063801\n实用新型 · 4100c73e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n实用新型 · 1759cc12\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 24 1782523063801\n实用新型 · 73b015ad\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 28 1782523063801\n实用新型 · fd57d35d\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除",
+      "documentWidth": 1440,
+      "hasHorizontalOverflow": false,
+      "visibleButtons": [
+        {
+          "text": "开始",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 123,
+            "bottom": 167,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "项目",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 171,
+            "bottom": 215,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "设置",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 219,
+            "bottom": 263,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "刷新运行状态",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 1042,
+            "bottom": 1082,
+            "width": 230,
+            "height": 40
+          }
+        },
+        {
+          "text": "专家工具",
+          "disabled": false,
+          "rect": {
+            "left": 1263,
+            "right": 1364,
+            "top": 14,
+            "bottom": 58,
+            "width": 101,
+            "height": 44
+          }
+        },
+        {
+          "text": "刷新运行状态",
+          "disabled": false,
+          "rect": {
+            "left": 1372,
+            "right": 1416,
+            "top": 14,
+            "bottom": 58,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 927,
+            "right": 1035,
+            "top": 218,
+            "bottom": 254,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 1043,
+            "right": 1143,
+            "top": 218,
+            "bottom": 254,
+            "width": 101,
+            "height": 36
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 1151,
+            "right": 1258,
+            "top": 218,
+            "bottom": 254,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 1266,
+            "right": 1367,
+            "top": 218,
+            "bottom": 254,
+            "width": 101,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 343,
+            "bottom": 379,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 343,
+            "bottom": 379,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 416,
+            "bottom": 452,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 416,
+            "bottom": 452,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 489,
+            "bottom": 525,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 489,
+            "bottom": 525,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 562,
+            "bottom": 598,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 562,
+            "bottom": 598,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 635,
+            "bottom": 671,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 635,
+            "bottom": 671,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 708,
+            "bottom": 744,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 708,
+            "bottom": 744,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 781,
+            "bottom": 817,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 781,
+            "bottom": 817,
+            "width": 78,
+            "height": 36
+          }
+        }
+      ],
+      "actionButtons": [],
+      "filterButtons": [
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 927,
+            "right": 1035,
+            "top": 218,
+            "bottom": 254,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 1043,
+            "right": 1143,
+            "top": 218,
+            "bottom": 254,
+            "width": 101,
+            "height": 36
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 1151,
+            "right": 1258,
+            "top": 218,
+            "bottom": 254,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 1266,
+            "right": 1367,
+            "top": 218,
+            "bottom": 254,
+            "width": 101,
+            "height": 36
+          }
+        }
+      ],
+      "overflowingElements": [],
+      "visibleSelects": [
+        {
+          "value": "",
+          "selectedText": "新建项目",
+          "optionCount": 31
+        }
+      ]
+    },
+    "desktopAfterTopSelect": {
+      "label": "desktop-after-top-select",
+      "url": "http://127.0.0.1:5174/",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound24 项目 12 1782523063801\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n处理中\n专家工具\n正在刷新工作台\n[00:00] 提交请求到本地服务\n全部项目\n30\n已有初稿\n0\n当前项目\nRound24 项目 12 1782523063801\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 12 1782523063801\n实用新型 · 43e538a0\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n当前项目\n删除\n\n\nRound24 项目 16 1782523063801\n实用新型 · 4100c73e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n实用新型 · 1759cc12\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 24 1782523063801\n实用新型 · 73b015ad\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 28 1782523063801\n实用新型 · fd57d35d\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除",
+      "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound24 项目 12 1782523063801\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n处理中\n专家工具\n正在刷新工作台\n[00:00] 提交请求到本地服务\n全部项目\n30\n已有初稿\n0\n当前项目\nRound24 项目 12 1782523063801\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\n项目\t当前步骤\t风险状态\t导出状态\t更新时间\t操作\n\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 12 1782523063801\n实用新型 · 43e538a0\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n当前项目\n删除\n\n\nRound24 项目 16 1782523063801\n实用新型 · 4100c73e\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n实用新型 · 1759cc12\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 24 1782523063801\n实用新型 · 73b015ad\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除\n\n\nRound24 项目 28 1782523063801\n实用新型 · fd57d35d\n\t想法已录入\t待生成\t未生成初稿\t\n06/27\n创建 06/27\n\t\n选择\n删除",
+      "documentWidth": 1440,
+      "hasHorizontalOverflow": false,
+      "visibleButtons": [
+        {
+          "text": "开始",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 123,
+            "bottom": 167,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "项目",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 171,
+            "bottom": 215,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "设置",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 219,
+            "bottom": 263,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "01 想法与材料",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 320,
+            "bottom": 364,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "02 发明点确认",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 368,
+            "bottom": 412,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "03 多智能体会审",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 416,
+            "bottom": 460,
+            "width": 230,
+            "height": 44
+          }
+        },
+        {
+          "text": "刷新运行状态",
+          "disabled": false,
+          "rect": {
+            "left": 14,
+            "right": 244,
+            "top": 1042,
+            "bottom": 1082,
+            "width": 230,
+            "height": 40
+          }
+        },
+        {
+          "text": "专家工具",
+          "disabled": false,
+          "rect": {
+            "left": 1263,
+            "right": 1364,
+            "top": 14,
+            "bottom": 58,
+            "width": 101,
+            "height": 44
+          }
+        },
+        {
+          "text": "刷新运行状态",
+          "disabled": false,
+          "rect": {
+            "left": 1372,
+            "right": 1416,
+            "top": 14,
+            "bottom": 58,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 927,
+            "right": 1035,
+            "top": 320,
+            "bottom": 356,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 1043,
+            "right": 1143,
+            "top": 320,
+            "bottom": 356,
+            "width": 101,
+            "height": 36
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 1151,
+            "right": 1258,
+            "top": 320,
+            "bottom": 356,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 1266,
+            "right": 1367,
+            "top": 320,
+            "bottom": 356,
+            "width": 101,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 445,
+            "bottom": 481,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 445,
+            "bottom": 481,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 518,
+            "bottom": 554,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 518,
+            "bottom": 554,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "当前项目",
+          "disabled": true,
+          "rect": {
+            "left": 1179,
+            "right": 1285,
+            "top": 591,
+            "bottom": 627,
+            "width": 106,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 591,
+            "bottom": 627,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 664,
+            "bottom": 700,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 664,
+            "bottom": 700,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 737,
+            "bottom": 773,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 737,
+            "bottom": 773,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 810,
+            "bottom": 846,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 810,
+            "bottom": 846,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "选择",
+          "disabled": false,
+          "rect": {
+            "left": 1207,
+            "right": 1285,
+            "top": 883,
+            "bottom": 919,
+            "width": 78,
+            "height": 36
+          }
+        },
+        {
+          "text": "删除",
+          "disabled": false,
+          "rect": {
+            "left": 1293,
+            "right": 1371,
+            "top": 883,
+            "bottom": 919,
+            "width": 78,
+            "height": 36
+          }
+        }
+      ],
+      "actionButtons": [
+        {
+          "text": "当前项目",
+          "disabled": true,
+          "rect": {
+            "left": 1179,
+            "right": 1285,
+            "top": 591,
+            "bottom": 627,
+            "width": 106,
+            "height": 36
+          }
+        }
+      ],
+      "filterButtons": [
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 927,
+            "right": 1035,
+            "top": 320,
+            "bottom": 356,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 1043,
+            "right": 1143,
+            "top": 320,
+            "bottom": 356,
+            "width": 101,
+            "height": 36
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 1151,
+            "right": 1258,
+            "top": 320,
+            "bottom": 356,
+            "width": 107,
+            "height": 36
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 1266,
+            "right": 1367,
+            "top": 320,
+            "bottom": 356,
+            "width": 101,
+            "height": 36
+          }
+        }
+      ],
+      "overflowingElements": [],
+      "visibleSelects": [
+        {
+          "value": "43e538a01bb74791b9db47403e06a30c",
+          "selectedText": "Round24 项目 12 1782523063801",
+          "optionCount": 31
+        }
+      ]
+    },
+    "mobileMany": {
+      "label": "mobile-many",
+      "url": "http://127.0.0.1:5174/",
+      "viewport": {
+        "width": 390,
+        "height": 1100
+      },
+      "bodyText": "当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n专家工具\n开始\n项目\n设置\n全部项目\n30\n已有初稿\n0\n当前项目\nRound24 项目 12 1782523063801\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 12 1782523063801\n实用新型 · 43e538a0\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n当前项目\n删除项目\nRound24 项目 16 1782523063801\n实用新型 · 4100c73e\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n实用新型 · 1759cc12\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 24 1782523063801\n实用新型 · 73b015ad\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 28 1782523063801\n实用新型 · fd57d35d\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目",
+      "bodyTextSample": "当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n专家工具\n开始\n项目\n设置\n全部项目\n30\n已有初稿\n0\n当前项目\nRound24 项目 12 1782523063801\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 12 1782523063801\n实用新型 · 43e538a0\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n当前项目\n删除项目\nRound24 项目 16 1782523063801\n实用新型 · 4100c73e\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n实用新型 · 1759cc12\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 24 1782523063801\n实用新型 · 73b015ad\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 28 1782523063801\n实用新型 · fd57d35d\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目",
+      "documentWidth": 390,
+      "hasHorizontalOverflow": false,
+      "visibleButtons": [
+        {
+          "text": "专家工具",
+          "disabled": false,
+          "rect": {
+            "left": 60,
+            "right": 161,
+            "top": 62,
+            "bottom": 106,
+            "width": 101,
+            "height": 44
+          }
+        },
+        {
+          "text": "刷新运行状态",
+          "disabled": false,
+          "rect": {
+            "left": 169,
+            "right": 213,
+            "top": 62,
+            "bottom": 106,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "text": "开始",
+          "disabled": false,
+          "rect": {
+            "left": 19,
+            "right": 132,
+            "top": 1041,
+            "bottom": 1085,
+            "width": 113,
+            "height": 44
+          }
+        },
+        {
+          "text": "项目",
+          "disabled": false,
+          "rect": {
+            "left": 138,
+            "right": 252,
+            "top": 1041,
+            "bottom": 1085,
+            "width": 113,
+            "height": 44
+          }
+        },
+        {
+          "text": "设置",
+          "disabled": false,
+          "rect": {
+            "left": 258,
+            "right": 371,
+            "top": 1041,
+            "bottom": 1085,
+            "width": 113,
+            "height": 44
+          }
+        },
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 45,
+            "right": 191,
+            "top": 570,
+            "bottom": 614,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 199,
+            "right": 345,
+            "top": 570,
+            "bottom": 614,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 45,
+            "right": 191,
+            "top": 622,
+            "bottom": 666,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 199,
+            "right": 345,
+            "top": 622,
+            "bottom": 666,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "选择项目",
+          "disabled": false,
+          "rect": {
+            "left": 58,
+            "right": 378,
+            "top": 880,
+            "bottom": 924,
+            "width": 320,
+            "height": 44
+          }
+        },
+        {
+          "text": "删除项目",
+          "disabled": false,
+          "rect": {
+            "left": 58,
+            "right": 378,
+            "top": 932,
+            "bottom": 976,
+            "width": 320,
+            "height": 44
+          }
+        }
+      ],
+      "actionButtons": [
+        {
+          "text": "选择项目",
+          "disabled": false,
+          "rect": {
+            "left": 58,
+            "right": 378,
+            "top": 880,
+            "bottom": 924,
+            "width": 320,
+            "height": 44
+          }
+        },
+        {
+          "text": "删除项目",
+          "disabled": false,
+          "rect": {
+            "left": 58,
+            "right": 378,
+            "top": 932,
+            "bottom": 976,
+            "width": 320,
+            "height": 44
+          }
+        }
+      ],
+      "filterButtons": [
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 45,
+            "right": 191,
+            "top": 570,
+            "bottom": 614,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 199,
+            "right": 345,
+            "top": 570,
+            "bottom": 614,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 45,
+            "right": 191,
+            "top": 622,
+            "bottom": 666,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 199,
+            "right": 345,
+            "top": 622,
+            "bottom": 666,
+            "width": 146,
+            "height": 44
+          }
+        }
+      ],
+      "overflowingElements": [
+        {
+          "tag": "div",
+          "text": "Round24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 1952,
+            "bottom": 1996,
+            "width": 2030,
+            "height": 44
+          },
+          "className": "flex items-start justify-between gap-3"
+        },
+        {
+          "tag": "div",
+          "text": "Round24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1",
+          "rect": {
+            "left": 58,
+            "right": 2022,
+            "top": 1952,
+            "bottom": 1996,
+            "width": 1964,
+            "height": 44
+          },
+          "className": "min-w-0"
+        },
+        {
+          "tag": "strong",
+          "text": "Round24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1",
+          "rect": {
+            "left": 58,
+            "right": 2022,
+            "top": 1952,
+            "bottom": 1976,
+            "width": 1964,
+            "height": 24
+          },
+          "className": "block truncate text-[var(--text-primary)]"
+        },
+        {
+          "tag": "span",
+          "text": "实用新型 · 1759cc12",
+          "rect": {
+            "left": 58,
+            "right": 2022,
+            "top": 1980,
+            "bottom": 1996,
+            "width": 1964,
+            "height": 16
+          },
+          "className": "mt-1 block text-xs text-[var(--text-muted)]"
+        },
+        {
+          "tag": "span",
+          "text": "待生成",
+          "rect": {
+            "left": 2034,
+            "right": 2088,
+            "top": 1952,
+            "bottom": 1976,
+            "width": 54,
+            "height": 24
+          },
+          "className": "inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dl",
+          "text": "当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 2012,
+            "bottom": 2104,
+            "width": 2030,
+            "height": 92
+          },
+          "className": "grid grid-cols-2 gap-3 text-sm"
+        },
+        {
+          "tag": "div",
+          "text": "当前步骤\n想法已录入",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2012,
+            "bottom": 2056,
+            "width": 1009,
+            "height": 44
+          },
+          "className": ""
+        },
+        {
+          "tag": "dt",
+          "text": "当前步骤",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2012,
+            "bottom": 2028,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "text-xs font-semibold text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dd",
+          "text": "想法已录入",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2032,
+            "bottom": 2052,
+            "width": 1009,
+            "height": 20
+          },
+          "className": "m-0 mt-1 text-[var(--text-primary)]"
+        },
+        {
+          "tag": "div",
+          "text": "导出状态\n未生成初稿",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2012,
+            "bottom": 2056,
+            "width": 1009,
+            "height": 44
+          },
+          "className": ""
+        },
+        {
+          "tag": "dt",
+          "text": "导出状态",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2012,
+            "bottom": 2028,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "text-xs font-semibold text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dd",
+          "text": "未生成初稿",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2032,
+            "bottom": 2056,
+            "width": 1009,
+            "height": 24
+          },
+          "className": "m-0 mt-1"
+        },
+        {
+          "tag": "span",
+          "text": "未生成初稿",
+          "rect": {
+            "left": 1079,
+            "right": 1157,
+            "top": 2032,
+            "bottom": 2056,
+            "width": 78,
+            "height": 24
+          },
+          "className": "inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[var(--text-soft)]"
+        },
+        {
+          "tag": "div",
+          "text": "创建\n2026/06/27 01:17",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2068,
+            "bottom": 2104,
+            "width": 1009,
+            "height": 36
+          },
+          "className": ""
+        },
+        {
+          "tag": "dt",
+          "text": "创建",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2068,
+            "bottom": 2084,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "text-xs font-semibold text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dd",
+          "text": "2026/06/27 01:17",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2088,
+            "bottom": 2104,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "m-0 mt-1 font-mono text-xs text-[var(--text-primary)]"
+        },
+        {
+          "tag": "div",
+          "text": "更新\n2026/06/27 01:17",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2068,
+            "bottom": 2104,
+            "width": 1009,
+            "height": 36
+          },
+          "className": ""
+        },
+        {
+          "tag": "dt",
+          "text": "更新",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2068,
+            "bottom": 2084,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "text-xs font-semibold text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dd",
+          "text": "2026/06/27 01:17",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2088,
+            "bottom": 2104,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "m-0 mt-1 font-mono text-xs text-[var(--text-primary)]"
+        },
+        {
+          "tag": "div",
+          "text": "选择项目\n删除项目",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 2120,
+            "bottom": 2216,
+            "width": 2030,
+            "height": 96
+          },
+          "className": "project-mobile-actions grid grid-cols-2 gap-2"
+        },
+        {
+          "tag": "button",
+          "text": "选择项目",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 2120,
+            "bottom": 2164,
+            "width": 2030,
+            "height": 44
+          },
+          "className": "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55 border-[color-mix(in_oklch,var(--action-primary),transparent_60%)] bg-[var(--action-primary)] text-[var(--action-primary-contrast)]"
+        },
+        {
+          "tag": "svg",
+          "text": "",
+          "rect": {
+            "left": 1030,
+            "right": 1047,
+            "top": 2133,
+            "bottom": 2150,
+            "width": 17,
+            "height": 17
+          },
+          "className": ""
+        },
+        {
+          "tag": "circle",
+          "text": "",
+          "rect": {
+            "left": 1032,
+            "right": 1046,
+            "top": 2135,
+            "bottom": 2149,
+            "width": 14,
+            "height": 14
+          },
+          "className": ""
+        },
+        {
+          "tag": "path",
+          "text": "",
+          "rect": {
+            "left": 1037,
+            "right": 1041,
+            "top": 2140,
+            "bottom": 2143,
+            "width": 4,
+            "height": 3
+          },
+          "className": ""
+        },
+        {
+          "tag": "span",
+          "text": "选择项目",
+          "rect": {
+            "left": 1055,
+            "right": 1115,
+            "top": 2130,
+            "bottom": 2154,
+            "width": 60,
+            "height": 24
+          },
+          "className": ""
+        },
+        {
+          "tag": "button",
+          "text": "删除项目",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 2172,
+            "bottom": 2216,
+            "width": 2030,
+            "height": 44
+          },
+          "className": "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 text-sm font-semibold text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-55"
+        },
+        {
+          "tag": "svg",
+          "text": "",
+          "rect": {
+            "left": 1030,
+            "right": 1047,
+            "top": 2185,
+            "bottom": 2202,
+            "width": 17,
+            "height": 17
+          },
+          "className": ""
+        },
+        {
+          "tag": "path",
+          "text": "",
+          "rect": {
+            "left": 1037,
+            "right": 1037,
+            "top": 2193,
+            "bottom": 2197,
+            "width": 0,
+            "height": 4
+          },
+          "className": ""
+        },
+        {
+          "tag": "path",
+          "text": "",
+          "rect": {
+            "left": 1040,
+            "right": 1040,
+            "top": 2193,
+            "bottom": 2197,
+            "width": 0,
+            "height": 4
+          },
+          "className": ""
+        },
+        {
+          "tag": "path",
+          "text": "",
+          "rect": {
+            "left": 1034,
+            "right": 1044,
+            "top": 2189,
+            "bottom": 2201,
+            "width": 10,
+            "height": 11
+          },
+          "className": ""
+        }
+      ],
+      "visibleSelects": [
+        {
+          "value": "43e538a01bb74791b9db47403e06a30c",
+          "selectedText": "Round24 项目 12 1782523063801",
+          "optionCount": 31
+        }
+      ]
+    },
+    "mobileAfterSelect": {
+      "label": "mobile-after-select",
+      "url": "http://127.0.0.1:5174/",
+      "viewport": {
+        "width": 390,
+        "height": 1100
+      },
+      "bodyText": "当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n处理中\n专家工具\n开始\n项目\n设置\n正在刷新工作台\n[00:00] 提交请求到本地服务\n全部项目\n30\n已有初稿\n0\n当前项目\nRound24 项目 04 1782523063801\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n当前项目\n删除项目\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 12 1782523063801\n实用新型 · 43e538a0\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 16 1782523063801\n实用新型 · 4100c73e\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n实用新型 · 1759cc12\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 24 1782523063801\n实用新型 · 73b015ad\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 28 1782523063801\n实用新型 · fd57d35d\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目",
+      "bodyTextSample": "当前项目\n新建项目\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n处理中\n专家工具\n开始\n项目\n设置\n正在刷新工作台\n[00:00] 提交请求到本地服务\n全部项目\n30\n已有初稿\n0\n当前项目\nRound24 项目 04 1782523063801\n最近更新\n06/27\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\nRound24 项目 04 1782523063801\n实用新型 · 879f846e\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n当前项目\n删除项目\nRound24 项目 08 1782523063801\n实用新型 · 72ac260b\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 12 1782523063801\n实用新型 · 43e538a0\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 16 1782523063801\n实用新型 · 4100c73e\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n实用新型 · 1759cc12\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 24 1782523063801\n实用新型 · 73b015ad\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目\nRound24 项目 28 1782523063801\n实用新型 · fd57d35d\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17\n选择项目\n删除项目",
+      "documentWidth": 390,
+      "hasHorizontalOverflow": false,
+      "visibleButtons": [
+        {
+          "text": "专家工具",
+          "disabled": false,
+          "rect": {
+            "left": 72,
+            "right": 173,
+            "top": 62,
+            "bottom": 106,
+            "width": 101,
+            "height": 44
+          }
+        },
+        {
+          "text": "刷新运行状态",
+          "disabled": false,
+          "rect": {
+            "left": 181,
+            "right": 225,
+            "top": 62,
+            "bottom": 106,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "text": "开始",
+          "disabled": false,
+          "rect": {
+            "left": 19,
+            "right": 132,
+            "top": 1041,
+            "bottom": 1085,
+            "width": 113,
+            "height": 44
+          }
+        },
+        {
+          "text": "项目",
+          "disabled": false,
+          "rect": {
+            "left": 138,
+            "right": 252,
+            "top": 1041,
+            "bottom": 1085,
+            "width": 113,
+            "height": 44
+          }
+        },
+        {
+          "text": "设置",
+          "disabled": false,
+          "rect": {
+            "left": 258,
+            "right": 371,
+            "top": 1041,
+            "bottom": 1085,
+            "width": 113,
+            "height": 44
+          }
+        },
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 45,
+            "right": 191,
+            "top": 615,
+            "bottom": 659,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 199,
+            "right": 345,
+            "top": 615,
+            "bottom": 659,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 45,
+            "right": 191,
+            "top": 667,
+            "bottom": 711,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 199,
+            "right": 345,
+            "top": 667,
+            "bottom": 711,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "当前项目",
+          "disabled": true,
+          "rect": {
+            "left": 42,
+            "right": 362,
+            "top": 925,
+            "bottom": 969,
+            "width": 320,
+            "height": 44
+          }
+        },
+        {
+          "text": "删除项目",
+          "disabled": false,
+          "rect": {
+            "left": 42,
+            "right": 362,
+            "top": 977,
+            "bottom": 1021,
+            "width": 320,
+            "height": 44
+          }
+        }
+      ],
+      "actionButtons": [
+        {
+          "text": "当前项目",
+          "disabled": true,
+          "rect": {
+            "left": 42,
+            "right": 362,
+            "top": 925,
+            "bottom": 969,
+            "width": 320,
+            "height": 44
+          }
+        },
+        {
+          "text": "删除项目",
+          "disabled": false,
+          "rect": {
+            "left": 42,
+            "right": 362,
+            "top": 977,
+            "bottom": 1021,
+            "width": 320,
+            "height": 44
+          }
+        }
+      ],
+      "filterButtons": [
+        {
+          "text": "全部项目\n30",
+          "disabled": false,
+          "rect": {
+            "left": 45,
+            "right": 191,
+            "top": 615,
+            "bottom": 659,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "已有初稿\n0",
+          "disabled": false,
+          "rect": {
+            "left": 199,
+            "right": 345,
+            "top": 615,
+            "bottom": 659,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "仅有想法\n30",
+          "disabled": false,
+          "rect": {
+            "left": 45,
+            "right": 191,
+            "top": 667,
+            "bottom": 711,
+            "width": 146,
+            "height": 44
+          }
+        },
+        {
+          "text": "实用新型\n7",
+          "disabled": false,
+          "rect": {
+            "left": 199,
+            "right": 345,
+            "top": 667,
+            "bottom": 711,
+            "width": 146,
+            "height": 44
+          }
+        }
+      ],
+      "overflowingElements": [
+        {
+          "tag": "div",
+          "text": "Round24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 1997,
+            "bottom": 2041,
+            "width": 2030,
+            "height": 44
+          },
+          "className": "flex items-start justify-between gap-3"
+        },
+        {
+          "tag": "div",
+          "text": "Round24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1",
+          "rect": {
+            "left": 58,
+            "right": 2022,
+            "top": 1997,
+            "bottom": 2041,
+            "width": 1964,
+            "height": 44
+          },
+          "className": "min-w-0"
+        },
+        {
+          "tag": "strong",
+          "text": "Round24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1",
+          "rect": {
+            "left": 58,
+            "right": 2022,
+            "top": 1997,
+            "bottom": 2021,
+            "width": 1964,
+            "height": 24
+          },
+          "className": "block truncate text-[var(--text-primary)]"
+        },
+        {
+          "tag": "span",
+          "text": "实用新型 · 1759cc12",
+          "rect": {
+            "left": 58,
+            "right": 2022,
+            "top": 2025,
+            "bottom": 2041,
+            "width": 1964,
+            "height": 16
+          },
+          "className": "mt-1 block text-xs text-[var(--text-muted)]"
+        },
+        {
+          "tag": "span",
+          "text": "待生成",
+          "rect": {
+            "left": 2034,
+            "right": 2088,
+            "top": 1997,
+            "bottom": 2021,
+            "width": 54,
+            "height": 24
+          },
+          "className": "inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dl",
+          "text": "当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/27 01:17\n更新\n2026/06/27 01:17",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 2057,
+            "bottom": 2149,
+            "width": 2030,
+            "height": 92
+          },
+          "className": "grid grid-cols-2 gap-3 text-sm"
+        },
+        {
+          "tag": "div",
+          "text": "当前步骤\n想法已录入",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2057,
+            "bottom": 2101,
+            "width": 1009,
+            "height": 44
+          },
+          "className": ""
+        },
+        {
+          "tag": "dt",
+          "text": "当前步骤",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2057,
+            "bottom": 2073,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "text-xs font-semibold text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dd",
+          "text": "想法已录入",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2077,
+            "bottom": 2097,
+            "width": 1009,
+            "height": 20
+          },
+          "className": "m-0 mt-1 text-[var(--text-primary)]"
+        },
+        {
+          "tag": "div",
+          "text": "导出状态\n未生成初稿",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2057,
+            "bottom": 2101,
+            "width": 1009,
+            "height": 44
+          },
+          "className": ""
+        },
+        {
+          "tag": "dt",
+          "text": "导出状态",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2057,
+            "bottom": 2073,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "text-xs font-semibold text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dd",
+          "text": "未生成初稿",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2077,
+            "bottom": 2101,
+            "width": 1009,
+            "height": 24
+          },
+          "className": "m-0 mt-1"
+        },
+        {
+          "tag": "span",
+          "text": "未生成初稿",
+          "rect": {
+            "left": 1079,
+            "right": 1157,
+            "top": 2077,
+            "bottom": 2101,
+            "width": 78,
+            "height": 24
+          },
+          "className": "inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[var(--text-soft)]"
+        },
+        {
+          "tag": "div",
+          "text": "创建\n2026/06/27 01:17",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2113,
+            "bottom": 2149,
+            "width": 1009,
+            "height": 36
+          },
+          "className": ""
+        },
+        {
+          "tag": "dt",
+          "text": "创建",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2113,
+            "bottom": 2129,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "text-xs font-semibold text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dd",
+          "text": "2026/06/27 01:17",
+          "rect": {
+            "left": 58,
+            "right": 1067,
+            "top": 2133,
+            "bottom": 2149,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "m-0 mt-1 font-mono text-xs text-[var(--text-primary)]"
+        },
+        {
+          "tag": "div",
+          "text": "更新\n2026/06/27 01:17",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2113,
+            "bottom": 2149,
+            "width": 1009,
+            "height": 36
+          },
+          "className": ""
+        },
+        {
+          "tag": "dt",
+          "text": "更新",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2113,
+            "bottom": 2129,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "text-xs font-semibold text-[var(--text-soft)]"
+        },
+        {
+          "tag": "dd",
+          "text": "2026/06/27 01:17",
+          "rect": {
+            "left": 1079,
+            "right": 2088,
+            "top": 2133,
+            "bottom": 2149,
+            "width": 1009,
+            "height": 16
+          },
+          "className": "m-0 mt-1 font-mono text-xs text-[var(--text-primary)]"
+        },
+        {
+          "tag": "div",
+          "text": "选择项目\n删除项目",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 2165,
+            "bottom": 2261,
+            "width": 2030,
+            "height": 96
+          },
+          "className": "project-mobile-actions grid grid-cols-2 gap-2"
+        },
+        {
+          "tag": "button",
+          "text": "选择项目",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 2165,
+            "bottom": 2209,
+            "width": 2030,
+            "height": 44
+          },
+          "className": "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55 border-[color-mix(in_oklch,var(--action-primary),transparent_60%)] bg-[var(--action-primary)] text-[var(--action-primary-contrast)]"
+        },
+        {
+          "tag": "svg",
+          "text": "",
+          "rect": {
+            "left": 1030,
+            "right": 1047,
+            "top": 2179,
+            "bottom": 2196,
+            "width": 17,
+            "height": 17
+          },
+          "className": ""
+        },
+        {
+          "tag": "circle",
+          "text": "",
+          "rect": {
+            "left": 1032,
+            "right": 1046,
+            "top": 2180,
+            "bottom": 2195,
+            "width": 14,
+            "height": 14
+          },
+          "className": ""
+        },
+        {
+          "tag": "path",
+          "text": "",
+          "rect": {
+            "left": 1037,
+            "right": 1041,
+            "top": 2186,
+            "bottom": 2189,
+            "width": 4,
+            "height": 3
+          },
+          "className": ""
+        },
+        {
+          "tag": "span",
+          "text": "选择项目",
+          "rect": {
+            "left": 1055,
+            "right": 1115,
+            "top": 2175,
+            "bottom": 2199,
+            "width": 60,
+            "height": 24
+          },
+          "className": ""
+        },
+        {
+          "tag": "button",
+          "text": "删除项目",
+          "rect": {
+            "left": 58,
+            "right": 2088,
+            "top": 2217,
+            "bottom": 2261,
+            "width": 2030,
+            "height": 44
+          },
+          "className": "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 text-sm font-semibold text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-55"
+        },
+        {
+          "tag": "svg",
+          "text": "",
+          "rect": {
+            "left": 1030,
+            "right": 1047,
+            "top": 2231,
+            "bottom": 2248,
+            "width": 17,
+            "height": 17
+          },
+          "className": ""
+        },
+        {
+          "tag": "path",
+          "text": "",
+          "rect": {
+            "left": 1037,
+            "right": 1037,
+            "top": 2239,
+            "bottom": 2243,
+            "width": 0,
+            "height": 4
+          },
+          "className": ""
+        },
+        {
+          "tag": "path",
+          "text": "",
+          "rect": {
+            "left": 1040,
+            "right": 1040,
+            "top": 2239,
+            "bottom": 2243,
+            "width": 0,
+            "height": 4
+          },
+          "className": ""
+        },
+        {
+          "tag": "path",
+          "text": "",
+          "rect": {
+            "left": 1034,
+            "right": 1044,
+            "top": 2235,
+            "bottom": 2247,
+            "width": 10,
+            "height": 11
+          },
+          "className": ""
+        }
+      ],
+      "visibleSelects": [
+        {
+          "value": "879f846e1ca8443690d6730e6e103521",
+          "selectedText": "Round24 项目 04 1782523063801",
+          "optionCount": 31
+        }
+      ]
+    }
+  },
+  "assertions": {
+    "seededThirtyProjects": true,
+    "apiShowsThirtyProjects": true,
+    "desktopShowsThirtyProjects": true,
+    "desktopShowsSevenUtilityModels": true,
+    "desktopUtilityFilterApplied": true,
+    "topSelectorCanChooseProject": true,
+    "desktopNoHorizontalOverflow": true,
+    "mobileNoDocumentHorizontalOverflow": true,
+    "mobileFilterChipsWithinViewport": true,
+    "mobileActionButtonsWithinViewport": true,
+    "mobileAfterSelectElementsWithinViewport": true,
+    "mobileSelectButtonVisibleBeforeClick": true,
+    "pageErrors": 0,
+    "requestFailures": 0,
+    "consoleErrors": 0
+  }
+}

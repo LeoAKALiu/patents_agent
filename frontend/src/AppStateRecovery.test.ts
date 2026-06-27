@@ -112,6 +112,19 @@ describe("app state recovery", () => {
     expect(outcome.text).toContain("bad.xyz");
   });
 
+  it("keeps a later successful material outcome when the first selected file is rejected", () => {
+    const outcome = summarizeMaterialUploadOutcome(
+      2,
+      [material("valid-after-bad.md")],
+      [{ fileName: "first-bad.xyz", error: new Error("材料上传失败：不支持的文件类型。") }],
+    );
+
+    expect(outcome.level).toBe("message");
+    expect(outcome.text).toContain("1 份可用");
+    expect(outcome.text).toContain("1 份失败");
+    expect(outcome.text).toContain("first-bad.xyz");
+  });
+
   it("reports all rejected material uploads as an error summary", () => {
     const outcome = summarizeMaterialUploadOutcome(
       2,

@@ -1,0 +1,47 @@
+```mermaid
+flowchart TD
+    subgraph 本地化部署环境[企业内部网络/离线容器]
+        A[技术交底文档] --> B[材料解析模块]
+        B --> C[技术要素图]
+        C --> D[发明点提炼模块]
+        D --> E[候选发明点列表]
+        E --> F{用户双击交互确认}
+        F -- 调整/选择 --> D
+        F -- 确认 --> G[确认的发明点]
+        
+        G --> H[权利要求会审模块]
+        H --> I[权利要求草案及修改建议]
+        I --> J[正式稿编译模块]
+        J --> K[标准专利五书]
+        
+        subgraph 证据链总线[证据链管理模块]
+            L[监听并记录各环节事件]
+        end
+        
+        B -.-> L
+        D -.-> L
+        F -.-> L
+        H -.-> L
+        J -.-> L
+        L --> M[(结构化日志与哈希链<br/>可追溯审计)]
+        
+        subgraph 本地知识库[本地私密知识库]
+            N[技术领域知识图谱]
+            O[现有技术知识库]
+            P[审查规则库]
+            Q[法律规范映射库]
+            R[专利模板库]
+        end
+        
+        B --- N
+        D --- O
+        H --- P
+        H --- Q
+        J --- R
+    end
+
+    style A fill:#e1f5e1,stroke:#333
+    style K fill:#e1f5e1,stroke:#333
+    style M fill:#f9f,stroke:#333
+    style L fill:#ffe6e6,stroke:#333
+```

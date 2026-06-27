@@ -1,0 +1,338 @@
+{
+  "errors": [],
+  "bounds": [
+    {
+      "i": 4,
+      "text": "专家工具",
+      "left": 60,
+      "right": 161,
+      "top": 58,
+      "bottom": 90,
+      "width": 101,
+      "height": 32,
+      "visible": true
+    },
+    {
+      "i": 5,
+      "text": "",
+      "left": 169,
+      "right": 201,
+      "top": 58,
+      "bottom": 90,
+      "width": 32,
+      "height": 32,
+      "visible": true
+    },
+    {
+      "i": 6,
+      "text": "开始",
+      "left": 19,
+      "right": 132.328125,
+      "top": 1041,
+      "bottom": 1085,
+      "width": 113.328125,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 7,
+      "text": "项目",
+      "left": 138.328125,
+      "right": 251.65625,
+      "top": 1041,
+      "bottom": 1085,
+      "width": 113.328125,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 8,
+      "text": "设置",
+      "left": 257.65625,
+      "right": 371,
+      "top": 1041,
+      "bottom": 1085,
+      "width": 113.34375,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 9,
+      "text": "全部项目\n30",
+      "left": 45,
+      "right": 152.25,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 107.25,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 10,
+      "text": "已有初稿\n0",
+      "left": 160.25,
+      "right": 260.875,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 100.625,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 11,
+      "text": "仅有想法\n30",
+      "left": 268.875,
+      "right": 376.125,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 107.25,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 12,
+      "text": "实用新型\n7",
+      "left": 384.125,
+      "right": 484.75,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 100.625,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 73,
+      "text": "选择项目",
+      "left": 62,
+      "right": 786.484375,
+      "top": 783.703125,
+      "bottom": 827.703125,
+      "width": 724.484375,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 75,
+      "text": "选择项目",
+      "left": 62,
+      "right": 786.484375,
+      "top": 1041.703125,
+      "bottom": 1085.703125,
+      "width": 724.484375,
+      "height": 44,
+      "visible": true
+    }
+  ],
+  "offscreen": [
+    {
+      "i": 12,
+      "text": "实用新型\n7",
+      "left": 384.125,
+      "right": 484.75,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 100.625,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 73,
+      "text": "选择项目",
+      "left": 62,
+      "right": 786.484375,
+      "top": 783.703125,
+      "bottom": 827.703125,
+      "width": 724.484375,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 75,
+      "text": "选择项目",
+      "left": 62,
+      "right": 786.484375,
+      "top": 1041.703125,
+      "bottom": 1085.703125,
+      "width": 724.484375,
+      "height": 44,
+      "visible": true
+    }
+  ],
+  "firstSelectBox": {
+    "x": 62,
+    "y": 783.703125,
+    "width": 724.484375,
+    "height": 44
+  },
+  "firstSelectClick": "ok",
+  "afterClickText": "当前项目\n新建项目\nQA Round4 项目 04\nQA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 06\nQA Round4 项目 07\nQA Round4 项目 08\nQA Round4 项目 09\nQA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 11\nQA Round4 项目 12\nQA Round4 项目 13\nQA Round4 项目 14\nQA Round4 超长项目 15 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 16\nQA Round4 项目 17\nQA Round4 项目 18\nQA Round4 项目 19\nQA Round4 超长项目 20 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 21\nQA Round4 项目 22\nQA Round4 项目 23\nQA Round4 项目 24\nQA Round4 超长项目 25 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 26\nQA Round4 项目 27\nQA Round4 项目 28\nQA Round4 项目 29\nQA Round4 超长项目 30 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\nQA Round4 项目 01\nQA Round4 项目 02\nQA Round4 项目 03\n空闲\n专家工具\n开始\n项目\n设置\n全部项目\n30\n已有初稿\n0\n当前项目\nQA Round4 项目 04\n最近更新\n06/26\n项目列表\n\n选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。\n\n全部项目\n30\n已有初稿\n0\n仅有想法\n30\n实用新型\n7\nQA Round4 项目 04\n实用新型 · 8050fd78\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n当前项目\n删除项目\nQA Round4 超长项目 5 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · f16932b8\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 06\n发明想法 · c5b84f61\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 07\n发明想法 · ebfa7280\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 08\n实用新型 · 48d803e4\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 09\n发明想法 · e5cef015\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 超长项目 10 LongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectTokenLongUnbrokenProjectToken\n发明想法 · 6a3bec36\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 11\n发明想法 · d7f8f8b4\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 12\n实用新型 · 3b512a15\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 13\n发明想法 · b211316c\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 项目 14\n发明想法 · b5018d18\n待生成\n当前步骤\n想法已录入\n导出状态\n未生成初稿\n创建\n2026/06/26 15:17\n更新\n2026/06/26 15:17\n选择项目\n删除项目\nQA Round4 超",
+  "afterClickBounds": [
+    {
+      "i": 7,
+      "text": "专家工具",
+      "left": 60,
+      "right": 161,
+      "top": 58,
+      "bottom": 90,
+      "width": 101,
+      "height": 32,
+      "visible": true
+    },
+    {
+      "i": 8,
+      "text": "",
+      "left": 169,
+      "right": 201,
+      "top": 58,
+      "bottom": 90,
+      "width": 32,
+      "height": 32,
+      "visible": true
+    },
+    {
+      "i": 9,
+      "text": "开始",
+      "left": 19,
+      "right": 132.328125,
+      "top": 1041,
+      "bottom": 1085,
+      "width": 113.328125,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 10,
+      "text": "项目",
+      "left": 138.328125,
+      "right": 251.65625,
+      "top": 1041,
+      "bottom": 1085,
+      "width": 113.328125,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 11,
+      "text": "设置",
+      "left": 257.65625,
+      "right": 371,
+      "top": 1041,
+      "bottom": 1085,
+      "width": 113.34375,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 12,
+      "text": "全部项目\n30",
+      "left": -17,
+      "right": 90.25,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 107.25,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 13,
+      "text": "已有初稿\n0",
+      "left": 98.25,
+      "right": 198.875,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 100.625,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 14,
+      "text": "仅有想法\n30",
+      "left": 206.875,
+      "right": 314.125,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 107.25,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 15,
+      "text": "实用新型\n7",
+      "left": 322.125,
+      "right": 422.75,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 100.625,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 76,
+      "text": "当前项目",
+      "left": 0,
+      "right": 724.484375,
+      "top": 783.703125,
+      "bottom": 827.703125,
+      "width": 724.484375,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 78,
+      "text": "选择项目",
+      "left": 0,
+      "right": 724.484375,
+      "top": 1041.703125,
+      "bottom": 1085.703125,
+      "width": 724.484375,
+      "height": 44,
+      "visible": true
+    }
+  ],
+  "afterClickOffscreen": [
+    {
+      "i": 12,
+      "text": "全部项目\n30",
+      "left": -17,
+      "right": 90.25,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 107.25,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 15,
+      "text": "实用新型\n7",
+      "left": 322.125,
+      "right": 422.75,
+      "top": 529.703125,
+      "bottom": 565.703125,
+      "width": 100.625,
+      "height": 36,
+      "visible": true
+    },
+    {
+      "i": 76,
+      "text": "当前项目",
+      "left": 0,
+      "right": 724.484375,
+      "top": 783.703125,
+      "bottom": 827.703125,
+      "width": 724.484375,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "i": 78,
+      "text": "选择项目",
+      "left": 0,
+      "right": 724.484375,
+      "top": 1041.703125,
+      "bottom": 1085.703125,
+      "width": 724.484375,
+      "height": 44,
+      "visible": true
+    }
+  ]
+}

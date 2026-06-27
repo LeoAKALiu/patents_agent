@@ -1,0 +1,314 @@
+{
+  "consoleErrors": [],
+  "pageErrors": [],
+  "responses": [
+    {
+      "url": "/api/health",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/corpus",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/health",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/projects",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/corpus",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/agents/doctor",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/corpus/stats",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/corpus/versions",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/desktop-config",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/desktop-config",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/agents/doctor",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/corpus/versions",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/corpus/stats",
+      "status": 200,
+      "method": "GET",
+      "body": ""
+    },
+    {
+      "url": "/api/desktop-config",
+      "status": 200,
+      "method": "PATCH",
+      "body": ""
+    },
+    {
+      "url": "/api/desktop-config/health",
+      "status": 200,
+      "method": "POST",
+      "body": ""
+    },
+    {
+      "url": "/api/desktop-config",
+      "status": 200,
+      "method": "PATCH",
+      "body": ""
+    }
+  ],
+  "requestsFailed": [],
+  "initialText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n环境变量\n密钥指纹\n（未配置）\n模型\ndeepseek-v4-pro\nBase URL\nhttps://api.deepseek.com\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+  "afterSaveText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n本机配置\n密钥指纹\n••••••••••••••••••real\n模型\nqa-503-model\nBase URL\nhttp://127.0.0.1:8766/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n\n已保存（2026-06-26T15:43:56Z）\n\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+  "afterTestText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n本机配置\n密钥指纹\n••••••••••••••••••real\n模型\nqa-503-model\nBase URL\nhttp://127.0.0.1:8766/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n\n已保存（2026-06-26T15:43:56Z）\n\nInternalServerError: Error code: 503 - {'error': {'message': 'QA mock provider unavailable', 'type': 'server_error', 'code': 'qa_503'}}\n\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+  "afterClearText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n环境变量\n密钥指纹\n（未配置）\n模型\nqa-503-model\nBase URL\nhttp://127.0.0.1:8766/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n\n已保存（2026-06-26T15:44:01Z）\n\n尚未配置 API Key\n\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+  "controls": [
+    {
+      "i": 0,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "开始",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 1,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "项目",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 2,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "设置",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 3,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "刷新运行状态",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 4,
+      "tag": "SELECT",
+      "type": null,
+      "text": "暂无项目",
+      "placeholder": null,
+      "disabled": false,
+      "labels": [
+        "当前项目\n暂无项目"
+      ]
+    },
+    {
+      "i": 5,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "专家工具",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 6,
+      "tag": "BUTTON",
+      "type": null,
+      "text": "刷新运行状态",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 7,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "开始",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 8,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "项目",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 9,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "设置",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 10,
+      "tag": "INPUT",
+      "type": "text",
+      "text": "qa-mock",
+      "placeholder": "deepseek",
+      "disabled": false,
+      "labels": [
+        "Provider"
+      ]
+    },
+    {
+      "i": 11,
+      "tag": "INPUT",
+      "type": "url",
+      "text": "http://127.0.0.1:8766/v1",
+      "placeholder": "https://api.deepseek.com",
+      "disabled": false,
+      "labels": [
+        "Base URL"
+      ]
+    },
+    {
+      "i": 12,
+      "tag": "INPUT",
+      "type": "text",
+      "text": "qa-503-model",
+      "placeholder": "deepseek-v4-pro",
+      "disabled": false,
+      "labels": [
+        "Model"
+      ]
+    },
+    {
+      "i": 13,
+      "tag": "INPUT",
+      "type": "password",
+      "text": "输入 API Key",
+      "placeholder": "输入 API Key",
+      "disabled": false,
+      "labels": [
+        "API Key\n密钥只发往本机后端，界面不会回显明文"
+      ]
+    },
+    {
+      "i": 14,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "显示密钥",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 15,
+      "tag": "BUTTON",
+      "type": "submit",
+      "text": "保存",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 16,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "测试连通",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 17,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "清除密钥",
+      "placeholder": null,
+      "disabled": true,
+      "labels": []
+    },
+    {
+      "i": 18,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "自动",
+      "placeholder": null,
+      "disabled": true,
+      "labels": []
+    },
+    {
+      "i": 19,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "浅色",
+      "placeholder": null,
+      "disabled": false,
+      "labels": []
+    },
+    {
+      "i": 20,
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "深色",
+      "placeholder": null,
+      "disabled": true,
+      "labels": []
+    }
+  ]
+}

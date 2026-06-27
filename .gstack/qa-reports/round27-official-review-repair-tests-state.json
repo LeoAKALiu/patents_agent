@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-06-27T02:23:20+08:00",
+  "commands": [
+    {
+      "command": "python3 -m pytest tests/test_official_compile.py tests/test_post_draft_review.py tests/test_post_draft_repair.py -q",
+      "exitCode": 0,
+      "summary": {
+        "passed": 71,
+        "failed": 0,
+        "warnings": 43
+      }
+    },
+    {
+      "command": "npm --prefix frontend test -- PostDraftRepairEditor.test.tsx --run",
+      "exitCode": 0,
+      "summary": {
+        "testFilesPassed": 1,
+        "testsPassed": 8,
+        "failed": 0
+      }
+    }
+  ],
+  "coveredTestCases": [
+    "TC-EXPORT-002",
+    "TC-REPAIR-001"
+  ],
+  "assertions": {
+    "officialCompileTestsPassed": true,
+    "postDraftReviewTestsPassed": true,
+    "postDraftRepairTestsPassed": true,
+    "postDraftRepairEditorFrontendTestsPassed": true,
+    "noNewBugOpened": true
+  },
+  "stdoutSummary": [
+    "71 passed, 43 warnings in 4.16s",
+    "PostDraftRepairEditor.test.tsx: 1 test file passed, 8 tests passed in 1.39s",
+    "Warnings are Chroma DeprecationWarning messages from chromadb collection configuration."
+  ]
+}

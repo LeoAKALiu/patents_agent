@@ -1,0 +1,1267 @@
+{
+  "generatedAt": "2026-06-27T01:19:42.366Z",
+  "appUrl": "http://127.0.0.1:5174/",
+  "apiBase": "http://127.0.0.1:8000",
+  "projectName": "Round32 长报告预览 1782523182366",
+  "seeded": {
+    "projectId": "3ebee111ce924ecb858cd76f16f8b7fc",
+    "sourceId": "937a7617bf604fe0be53a66b517519cc",
+    "intakeRunId": "6517c60695e245788bc55a4e5d6f5228",
+    "readinessId": "0642a069c92d4e4d9d3611d31fb6c184",
+    "compileRunId": "1de65a192dd643b1bd9ba7499625d38c",
+    "longToken": "ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+    "longTokenLength": 670,
+    "confirmedPackageLengths": {
+      "title": 698,
+      "abstract": 536,
+      "claims": 1612,
+      "description": 9429,
+      "drawing_description": 690
+    }
+  },
+  "events": {
+    "console": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "pageErrors": [],
+    "requestFailures": [],
+    "apiResponses": [
+      {
+        "method": "POST",
+        "path": "/api/projects",
+        "status": 200,
+        "bodySample": "{\"id\":\"3ebee111ce924ecb858cd76f16f8b7fc\",\"name\":\"Round32 长报告预览 1782523182366\",\"draft_text\":\"Round32 long report preview setup\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:19:42\",\"updated_at\":\"2026-06-27 01:19:42\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background"
+      },
+      {
+        "method": "POST",
+        "path": "/api/projects/3ebee111ce924ecb858cd76f16f8b7fc/external-drafts",
+        "status": 200,
+        "bodySample": "{\"id\":\"937a7617bf604fe0be53a66b517519cc\",\"project_id\":\"3ebee111ce924ecb858cd76f16f8b7fc\",\"source_type\":\"pasted_text\",\"file_name\":\"round32-long-report.md\",\"content_hash\":\"f17fb9dec397c2e611cf67628f5b4581dc10bffdb6c3f5bcfae50e13c36a601a\",\"raw_text\":\"# Round32 长报告预览 1782523182366\\n\\n## 摘要\\n本段用于验证专利正式稿报"
+      },
+      {
+        "method": "POST",
+        "path": "/api/projects/3ebee111ce924ecb858cd76f16f8b7fc/external-drafts/937a7617bf604fe0be53a66b517519cc/intake-runs",
+        "status": 200,
+        "bodySample": "{\"id\":\"6517c60695e245788bc55a4e5d6f5228\",\"project_id\":\"3ebee111ce924ecb858cd76f16f8b7fc\",\"source_id\":\"937a7617bf604fe0be53a66b517519cc\",\"status\":\"completed\",\"parser_version\":\"external-draft-parser-v1\",\"source_hash\":\"f17fb9dec397c2e611cf67628f5b4581dc10bffdb6c3f5bcfae50e13c36a601a\",\"parsed_package\":{"
+      },
+      {
+        "method": "POST",
+        "path": "/api/projects/3ebee111ce924ecb858cd76f16f8b7fc/external-draft-intake-runs/6517c60695e245788bc55a4e5d6f5228/confirm",
+        "status": 200,
+        "bodySample": "{\"id\":\"6517c60695e245788bc55a4e5d6f5228\",\"project_id\":\"3ebee111ce924ecb858cd76f16f8b7fc\",\"source_id\":\"937a7617bf604fe0be53a66b517519cc\",\"status\":\"completed\",\"parser_version\":\"external-draft-parser-v1\",\"source_hash\":\"f17fb9dec397c2e611cf67628f5b4581dc10bffdb6c3f5bcfae50e13c36a601a\",\"parsed_package\":{"
+      },
+      {
+        "method": "POST",
+        "path": "/api/projects/3ebee111ce924ecb858cd76f16f8b7fc/filing-readiness",
+        "status": 200,
+        "bodySample": "{\"id\":\"0642a069c92d4e4d9d3611d31fb6c184\",\"project_id\":\"3ebee111ce924ecb858cd76f16f8b7fc\",\"draft_package_hash\":\"f428a1d73ec90e88d255c93dd3247394ba30975a01665dfc781ab1b03d4b5c22\",\"status\":\"high_risk\",\"rules_version\":\"filing-readiness-v1\",\"issues\":[{\"category\":\"internal_trace\",\"severity\":\"high\",\"target"
+      },
+      {
+        "method": "POST",
+        "path": "/api/projects/3ebee111ce924ecb858cd76f16f8b7fc/official-compile-runs",
+        "status": 200,
+        "bodySample": "{\"id\":\"1de65a192dd643b1bd9ba7499625d38c\",\"project_id\":\"3ebee111ce924ecb858cd76f16f8b7fc\",\"status\":\"completed\",\"source_draft_hash\":\"f428a1d73ec90e88d255c93dd3247394ba30975a01665dfc781ab1b03d4b5c22\",\"official_package_hash\":\"1f9a9f1b47af083c156ede0abd47c5588b6932da645f7a7596205fd749b0324c\",\"official_pa"
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "name": "01-app-loaded",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round32/01-app-loaded.png",
+      "metrics": {
+        "label": "01-app-loaded",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 2343,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound32 长报告预览 1782523182366\nRound31 用户猴子导航 1782523158617\nRound31 用户猴子导航 1782523120118\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n开始撰写\n\n选择本次工作的起点。专家工具仍在二级导航中，默认路径只保留普通用户最常用的三种入口。\n\nv1.1.0\n默认工作区\n专利生成\n入口数量\n3 条路径\n项目状态\n待创建\n专业复核\n提交前必需\n选择起步方式\n\n每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。\n\n从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择\n从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择\n导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择\n正式提交前请专业复核\n\nPatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。",
+        "longTokenVisible": false,
+        "longTokenElements": [],
+        "overflowers": [],
+        "visibleButtons": [
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "text": "新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "从技术想法撰写发明专利 输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。 发明专利 想法录入后进入发明点确认 选择",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "从结构方案撰写实用新型 聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。 实用新型 结构方案优先，跳过发明专属重步骤 选择",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "导入已有稿件进行润色提升 上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。 已有稿件 先选择项目，再解析章节并确认工作稿 选择",
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "02-project-selected",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round32/02-project-selected.png",
+      "metrics": {
+        "label": "02-project-selected",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 2715,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound32 长报告预览 1782523182366\n已有初稿\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound32 长报告预览 1782523182366\nRound31 用户猴子导航 1782523158617\nRound31 用户猴子导航 1782523120118\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n专家工具\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n已完成\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n已完成\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n已完成\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n已完成\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n当前步骤\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n5/9 已完成\n当前进度：56%\n\n串行运行提交成熟度、权利要求防线和初稿完善。\n\n运行质量检查\n质量检查与补强\n\n依次运行提交成熟度、权利要求防线、初稿完善和审查意见。\n\n状态\n高风险，等待成稿会审\n授权稳定性\n未评分\n保护范围\n未评分\n提交成熟度\n未评分\n已有结果\n可以继续补强，也可以重新运行质量检查。\n\n当前摘要包含 1 个成熟度命中、0 个支撑缺口和 0 个完善任务。\n\n检查入口\n\n进入对应专家视图查看完整报告，当前面板只保留工作流必看的摘要。\n\n提交成熟度\n\n1 项命中\n\n查看\n权利要求防线\n\n标记区别特征、支撑缺口与从属兜底。\n\n查看\n初稿完善\n\n生成补强任务和候选 patch。\n\n查看\n运行会刷新成熟度、防线和完善结果；一键提升会尝试采纳可进入工作稿的补丁。\n运行质量检查\n一键提升分数\n风险命中\n\n仅展示前 5 条工作流必看项，完整列表在提交成熟度视图中。\n\ninternal_trace\n\n正式稿导出字段包含内部过程痕迹。\n\n高风险\n\n正式提交包中删除该内部字段，仅保留可提交正文。",
+        "longTokenVisible": false,
+        "longTokenElements": [],
+        "overflowers": [
+          {
+            "tag": "span",
+            "text": "Round32 长报告预览 1782523182366",
+            "className": "min-w-0 flex-1 truncate text-xs text-app-muted",
+            "left": 27,
+            "right": 149,
+            "top": 819,
+            "width": 122,
+            "height": 16,
+            "clientWidth": 122,
+            "scrollWidth": 206,
+            "overflowX": "hidden"
+          }
+        ],
+        "visibleButtons": [
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "01 想法与材料",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "02 发明点确认",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "03 多智能体会审",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "text": "新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "专家工具",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "1 想法与材料 输入一句想法，上传可选材料。 已完成",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "2 发明点 确认主发明点、证据状态和护城河方向。 已完成",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 已完成",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "4 核心公式 凝练算法公式、变量定义和权利要求落点。 已完成",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "5 生成初稿 生成摘要、权利要求书和说明书。 已完成",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 当前步骤",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁",
+            "disabled": true
+          },
+          {
+            "tag": "button",
+            "text": "8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁",
+            "disabled": true
+          },
+          {
+            "tag": "button",
+            "text": "9 导出 确认风险并导出正式稿和内部报告。 未解锁",
+            "disabled": true
+          },
+          {
+            "tag": "button",
+            "text": "运行质量检查",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "查看",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "查看",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "查看",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "运行质量检查",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "一键提升分数",
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "03-expert-tools",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round32/03-expert-tools.png",
+      "metrics": {
+        "label": "03-expert-tools",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 2728,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound32 长报告预览 1782523182366\n已有初稿\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound32 长报告预览 1782523182366\nRound31 用户猴子导航 1782523158617\nRound31 用户猴子导航 1782523120118\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n返回向导\n返回三选一\n当前工具\n语料库建设\n工具分组\n5 组\n可用入口\n12 个\n默认流程\n不受影响\n知识库\n\n语料库建设、知识库检索。证据输入类工具，结果可回写主流程。\n\n证据输入\n语料库建设\n导入官方导出物\n当前\n已打开\n知识库检索\n检索授权专利片段\n检索\n打开\n发明点\n\n护城河地图和候选分案点。该内容只进入内部策略稿。\n\n内部策略\n护城河地图\n管理发明点和证据状态\n内部策略\n查看\n交底与策略\n\n前置材料、多智能体会审、分步撰写，辅助形成撰写策略。\n\n策略生成\n前置材料\n生成交底书和候选发明点\n可回写\n编辑\n多智能体会审\n生成撰写策略\n策略生成\n进入\n分步撰写\n手动生成申请文本\n高级\n打开\n质检\n\n提交成熟度、授权前景、权利要求防线、初稿完善和审查修改。\n\n门禁\n提交成熟度\n检查正式稿清洁度\n门禁\n进入\n授权前景\n分析现有技术攻击和可授权性\n查新\n生成\n权利要求防线\n分析区别特征和支撑缺口\n运行\n打开\n初稿完善\n生成补强任务和候选补丁\n补强\n打开\n审查修改\n生成审查意见\n审查\n打开\n导出\n\n导出正式稿、内部稿和复核报告。\n\n文件\n导出文件\n导出正式稿和内部稿\n文件\n查看\n官方导出物批量建库\n\n支持 ZIP、CSV/XLSX 元数据表和 PDF/XML/TXT/DOCX 全文配对导入；扫描版 PDF 会进入失败清单。\n\n运行导入\n导入任务\n来源类型\nCNIPA 导出\n地方系统导出\nGoogle Patents 导出\n公共服务平台导出\n来源名称\n检索式 / 批次说明\n语料版本\n创建任务\n上传\n任务进度\n\n先创建导入任务，再上传官方导出物。\n\n语料统计\n专利数\n0\n片段数\n0\n权利要求覆盖\n0%\n全文章节覆盖\n0%\nIPC 分布\n\n暂无数据\n\n申请年份\n\n暂无数据\n\n来源系统\n\n暂无数据\n\n语料版本\n\n暂无版本",
+        "longTokenVisible": false,
+        "longTokenElements": [],
+        "overflowers": [
+          {
+            "tag": "span",
+            "text": "Round32 长报告预览 1782523182366",
+            "className": "min-w-0 flex-1 truncate text-xs text-app-muted",
+            "left": 27,
+            "right": 149,
+            "top": 819,
+            "width": 122,
+            "height": 16,
+            "clientWidth": 122,
+            "scrollWidth": 206,
+            "overflowX": "hidden"
+          }
+        ],
+        "visibleButtons": [
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "01 想法与材料",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "02 发明点确认",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "03 多智能体会审",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "text": "新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "返回向导",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "返回三选一",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "语料库建设 导入官方导出物 当前 已打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "知识库检索 检索授权专利片段 检索 打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "护城河地图 管理发明点和证据状态 内部策略 查看",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "前置材料 生成交底书和候选发明点 可回写 编辑",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "多智能体会审 生成撰写策略 策略生成 进入",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "分步撰写 手动生成申请文本 高级 打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "提交成熟度 检查正式稿清洁度 门禁 进入",
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "04-filing-readiness-tool",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round32/04-filing-readiness-tool.png",
+      "metrics": {
+        "label": "04-filing-readiness-tool",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 3167,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound32 长报告预览 1782523182366\n已有初稿\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound32 长报告预览 1782523182366\nRound31 用户猴子导航 1782523158617\nRound31 用户猴子导航 1782523120118\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n返回向导\n返回三选一\n当前工具\n提交成熟度\n工具分组\n5 组\n可用入口\n12 个\n默认流程\n不受影响\n知识库\n\n语料库建设、知识库检索。证据输入类工具，结果可回写主流程。\n\n证据输入\n语料库建设\n导入官方导出物\n可回写\n打开\n知识库检索\n检索授权专利片段\n检索\n打开\n发明点\n\n护城河地图和候选分案点。该内容只进入内部策略稿。\n\n内部策略\n护城河地图\n管理发明点和证据状态\n内部策略\n查看\n交底与策略\n\n前置材料、多智能体会审、分步撰写，辅助形成撰写策略。\n\n策略生成\n前置材料\n生成交底书和候选发明点\n可回写\n编辑\n多智能体会审\n生成撰写策略\n策略生成\n进入\n分步撰写\n手动生成申请文本\n高级\n打开\n质检\n\n提交成熟度、授权前景、权利要求防线、初稿完善和审查修改。\n\n门禁\n提交成熟度\n检查正式稿清洁度\n当前\n已打开\n授权前景\n分析现有技术攻击和可授权性\n查新\n生成\n权利要求防线\n分析区别特征和支撑缺口\n运行\n打开\n初稿完善\n生成补强任务和候选补丁\n补强\n打开\n审查修改\n生成审查意见\n审查\n打开\n导出\n\n导出正式稿、内部稿和复核报告。\n\n文件\n导出文件\n导出正式稿和内部稿\n文件\n查看\n提交成熟度\n高风险\n命中项\n1 项\n正式稿入口\n已锁定\n正式稿版本\n1f9a9f1b47af\n提交成熟度\n\n检查官方提交导出、内部策略稿和申请文本中的占位符、敏感表述与高风险命中项。\n\n运行检查\n导出门禁\n\n正式提交稿、内部策略稿与检查报告分离展示，避免把内部材料混进正式稿。\n\n高风险\n高风险但可继续复核\n\n请先处理报告中的不利表述、内部痕迹或支撑缺口，再让专利代理师或律师复核。\n\n导出阻断\n正式稿入口已锁定\n\n需先生成正式稿，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。\n\n版本绑定\n当前正式稿版本\n\n1f9a9f1b47af\n\n官方 DOCX\n\n正式提交候选包，必须绑定成稿会审结果。\n\n已锁定\n下载\n官方 MD\n\n正式提交稿 Markdown，用于最终复核。\n\n已锁定\n下载\n内部策略稿\n\n仅供内部复核，可能含护城河、风险说明和策略备注。\n\n内部材料\n下载\n检查报告\n\n1 项命中，规则版本 filing-readiness-v1\n\n高风险\n下载\n历史检查\n\n保留每次成熟度检查的状态、命中数和规则版本。\n\n2026-06-27T01:19:42.390997+00:00\n\nfiling-readiness-v1\n\n高风险\n1 项命中\n命中项\n\n高/中/低风险分层展示，正式稿风险和导出阻断会明确标注。\n\n高风险\n1 项\n高 1\n中 0\n\ninternal_trace / export\n\n正式稿导出字段包含内部过程痕迹。\n\n高\n可自动清理\ngeneration_logs\n\n正式提交包中删除该内部字段，仅保留可提交正文。\n\n正式导出需要当前正式稿与成稿会审 hash 匹配。\n重新运行检查",
+        "longTokenVisible": false,
+        "longTokenElements": [],
+        "overflowers": [
+          {
+            "tag": "span",
+            "text": "Round32 长报告预览 1782523182366",
+            "className": "min-w-0 flex-1 truncate text-xs text-app-muted",
+            "left": 27,
+            "right": 149,
+            "top": 819,
+            "width": 122,
+            "height": 16,
+            "clientWidth": 122,
+            "scrollWidth": 206,
+            "overflowX": "hidden"
+          }
+        ],
+        "visibleButtons": [
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "01 想法与材料",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "02 发明点确认",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "03 多智能体会审",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "text": "新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "返回向导",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "返回三选一",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "语料库建设 导入官方导出物 可回写 打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "知识库检索 检索授权专利片段 检索 打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "护城河地图 管理发明点和证据状态 内部策略 查看",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "前置材料 生成交底书和候选发明点 可回写 编辑",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "多智能体会审 生成撰写策略 策略生成 进入",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "分步撰写 手动生成申请文本 高级 打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "提交成熟度 检查正式稿清洁度 当前 已打开",
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "05-export-files-tool",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round32/05-export-files-tool.png",
+      "metrics": {
+        "label": "05-export-files-tool",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 5058,
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound32 长报告预览 1782523182366\n已有初稿\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound32 长报告预览 1782523182366\nRound31 用户猴子导航 1782523158617\nRound31 用户猴子导航 1782523120118\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n返回向导\n返回三选一\n当前工具\n导出文件\n工具分组\n5 组\n可用入口\n12 个\n默认流程\n不受影响\n知识库\n\n语料库建设、知识库检索。证据输入类工具，结果可回写主流程。\n\n证据输入\n语料库建设\n导入官方导出物\n可回写\n打开\n知识库检索\n检索授权专利片段\n检索\n打开\n发明点\n\n护城河地图和候选分案点。该内容只进入内部策略稿。\n\n内部策略\n护城河地图\n管理发明点和证据状态\n内部策略\n查看\n交底与策略\n\n前置材料、多智能体会审、分步撰写，辅助形成撰写策略。\n\n策略生成\n前置材料\n生成交底书和候选发明点\n可回写\n编辑\n多智能体会审\n生成撰写策略\n策略生成\n进入\n分步撰写\n手动生成申请文本\n高级\n打开\n质检\n\n提交成熟度、授权前景、权利要求防线、初稿完善和审查修改。\n\n门禁\n提交成熟度\n检查正式稿清洁度\n门禁\n进入\n授权前景\n分析现有技术攻击和可授权性\n查新\n生成\n权利要求防线\n分析区别特征和支撑缺口\n运行\n打开\n初稿完善\n生成补强任务和候选补丁\n补强\n打开\n审查修改\n生成审查意见\n审查\n打开\n导出\n\n导出正式稿、内部稿和复核报告。\n\n文件\n导出文件\n导出正式稿和内部稿\n当前\n已打开\n正式稿状态\n等待会审\n源稿哈希\nf428a1d73ec9\n正式稿哈希\n1f9a9f1b47af\n最近导出\n无有效导出\n导出边界\n\n正式提交稿、内部策略稿和风险说明使用不同容器，避免内部会审内容进入可提交文件。\n\n正式提交稿\n\n只包含清污后的权利要求、说明书和摘要；必须由正式稿编译和成稿会审共同解锁。\n\n内部策略稿\n\n保留会审结论、护城河、支撑缺口和补强建议，仅供内部复核，不作为提交稿。\n\n风险说明\n\n解释导出阻断、清污命中和版本哈希来源，帮助人工复核，不替代专利代理师或律师意见。\n\n正式稿门禁\n正式稿入口已锁定\n\n正式稿需先生成，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。\n\n需处理\n导出文件\n\n正式稿导出受门禁控制；内部材料始终带有策略语境，请不要直接提交。\n\n正式提交稿 DOCX\n正式提交稿 MD\nDOCX\nMarkdown\nMermaid\n绘图提示词\n包内容预览\n\n用于人工复核导出内容，正式提交前仍需专业人员确认。\n\n摘要\n本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n权利要求书\n1. 一种长文本报告预览测试方法，其特征在于，包括：获取目标专利文本，生成包含连续技术标识符 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 的正式稿报告；\n2. 根据权利要求1所述的方法，其中，所述连续技术标识符用于模拟客户粘贴的型号、哈希值、设备编号或未断行公式。\n3. 根据权利要求1所述的方法，其中，报告正文包含 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术",
+        "longTokenVisible": true,
+        "longTokenElements": [
+          {
+            "tag": "div",
+            "className": "",
+            "visible": true,
+            "text": "PA PatentAgent 授权导向专利工程系统 Main 开始 项目 设置 关键节点 01 想法与材料 02 发明点确认 03 多智能体会审 当前项目 Round32 长报告预览 1782523182366 已有初稿 模型与智能体 基础模型 可用 智能体 完整会审 内部痕迹检查 可用 刷新运行状态 当前项目 新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 0",
+            "left": 0,
+            "right": 1440,
+            "top": 0,
+            "bottom": 1100,
+            "width": 1440,
+            "height": 1100,
+            "clientWidth": 1440,
+            "scrollWidth": 1440,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "div",
+            "className": "app-shell",
+            "visible": true,
+            "text": "PA PatentAgent 授权导向专利工程系统 Main 开始 项目 设置 关键节点 01 想法与材料 02 发明点确认 03 多智能体会审 当前项目 Round32 长报告预览 1782523182366 已有初稿 模型与智能体 基础模型 可用 智能体 完整会审 内部痕迹检查 可用 刷新运行状态 当前项目 新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 0",
+            "left": 0,
+            "right": 1440,
+            "top": 0,
+            "bottom": 1100,
+            "width": 1440,
+            "height": 1100,
+            "clientWidth": 1440,
+            "scrollWidth": 1440,
+            "overflowX": "hidden",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "main",
+            "className": "main-area",
+            "visible": true,
+            "text": "当前项目 新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03 1782523063801 Round24 项目 04 1782523063801 Round24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUT",
+            "left": 259,
+            "right": 1440,
+            "top": 0,
+            "bottom": 1100,
+            "width": 1181,
+            "height": 1100,
+            "clientWidth": 1181,
+            "scrollWidth": 1181,
+            "overflowX": "hidden",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "div",
+            "className": "workspace",
+            "visible": true,
+            "text": "当前工具 导出文件 工具分组 5 组 可用入口 12 个 默认流程 不受影响 知识库 语料库建设、知识库检索。证据输入类工具，结果可回写主流程。 证据输入 语料库建设 导入官方导出物 可回写 打开 知识库检索 检索授权专利片段 检索 打开 发明点 护城河地图和候选分案点。该内容只进入内部策略稿。 内部策略 护城河地图 管理发明点和证据状态 内部策略 查看 交底与策略 前置材料、多智能体会审、分步撰写，辅助形成撰写策略。 策略生成 前置材料 生成交底书和候选发明点 可回写 编辑 多智能体会审 生成撰写策略 策略生成 ",
+            "left": 259,
+            "right": 1440,
+            "top": 73,
+            "bottom": 1100,
+            "width": 1181,
+            "height": 1027,
+            "clientWidth": 1181,
+            "scrollWidth": 1181,
+            "overflowX": "hidden",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "div",
+            "className": "flex flex-col gap-4",
+            "visible": true,
+            "text": "当前工具 导出文件 工具分组 5 组 可用入口 12 个 默认流程 不受影响 知识库 语料库建设、知识库检索。证据输入类工具，结果可回写主流程。 证据输入 语料库建设 导入官方导出物 可回写 打开 知识库检索 检索授权专利片段 检索 打开 发明点 护城河地图和候选分案点。该内容只进入内部策略稿。 内部策略 护城河地图 管理发明点和证据状态 内部策略 查看 交底与策略 前置材料、多智能体会审、分步撰写，辅助形成撰写策略。 策略生成 前置材料 生成交底书和候选发明点 可回写 编辑 多智能体会审 生成撰写策略 策略生成 ",
+            "left": 279,
+            "right": 1420,
+            "top": -914,
+            "bottom": 2414,
+            "width": 1141,
+            "height": 3328,
+            "clientWidth": 1141,
+            "scrollWidth": 1141,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "section",
+            "className": "col-span-full grid gap-5",
+            "visible": true,
+            "text": "正式稿状态 等待会审 源稿哈希 f428a1d73ec9 正式稿哈希 1f9a9f1b47af 最近导出 无有效导出 导出边界 正式提交稿、内部策略稿和风险说明使用不同容器，避免内部会审内容进入可提交文件。 正式提交稿 只包含清污后的权利要求、说明书和摘要；必须由正式稿编译和成稿会审共同解锁。 内部策略稿 保留会审结论、护城河、支撑缺口和补强建议，仅供内部复核，不作为提交稿。 风险说明 解释导出阻断、清污命中和版本哈希来源，帮助人工复核，不替代专利代理师或律师意见。 正式稿门禁 正式稿入口已锁定 正式稿需先生成，并",
+            "left": 279,
+            "right": 1420,
+            "top": 661,
+            "bottom": 2414,
+            "width": 1141,
+            "height": 1753,
+            "clientWidth": 1141,
+            "scrollWidth": 1141,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "section",
+            "className": "settings-group",
+            "visible": false,
+            "text": "包内容预览 用于人工复核导出内容，正式提交前仍需专业人员确认。 摘要 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文",
+            "left": 279,
+            "right": 1420,
+            "top": 1562,
+            "bottom": 2386,
+            "width": 1141,
+            "height": 824,
+            "clientWidth": 1141,
+            "scrollWidth": 1141,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "div",
+            "className": "report-preview-pane",
+            "visible": false,
+            "text": "摘要 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告",
+            "left": 279,
+            "right": 1420,
+            "top": 1617,
+            "bottom": 2386,
+            "width": 1141,
+            "height": 769,
+            "clientWidth": 1141,
+            "scrollWidth": 1141,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "section",
+            "className": "flex flex-col gap-4 text-sm",
+            "visible": false,
+            "text": "摘要 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告",
+            "left": 279,
+            "right": 1420,
+            "top": 1617,
+            "bottom": 2386,
+            "width": 1141,
+            "height": 769,
+            "clientWidth": 1141,
+            "scrollWidth": 1141,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "article",
+            "className": "p-6 bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-lg shadow-sm",
+            "visible": false,
+            "text": "权利要求书 1. 一种长文本报告预览测试方法，其特征在于，包括：获取目标专利文本，生成包含连续技术标识符 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDE",
+            "left": 279,
+            "right": 1420,
+            "top": 1832,
+            "bottom": 2214,
+            "width": 1141,
+            "height": 383,
+            "clientWidth": 1139,
+            "scrollWidth": 1139,
+            "overflowX": "hidden",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "pre",
+            "className": "",
+            "visible": false,
+            "text": "1. 一种长文本报告预览测试方法，其特征在于，包括：获取目标专利文本，生成包含连续技术标识符 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJK",
+            "left": 304,
+            "right": 1395,
+            "top": 1877,
+            "bottom": 2189,
+            "width": 1091,
+            "height": 313,
+            "clientWidth": 1091,
+            "scrollWidth": 1091,
+            "overflowX": "auto",
+            "whiteSpace": "pre-wrap"
+          }
+        ],
+        "overflowers": [
+          {
+            "tag": "span",
+            "text": "Round32 长报告预览 1782523182366",
+            "className": "min-w-0 flex-1 truncate text-xs text-app-muted",
+            "left": 27,
+            "right": 149,
+            "top": 819,
+            "width": 122,
+            "height": 16,
+            "clientWidth": 122,
+            "scrollWidth": 206,
+            "overflowX": "hidden"
+          }
+        ],
+        "visibleButtons": [
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "01 想法与材料",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "02 发明点确认",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "03 多智能体会审",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "select",
+            "text": "新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "返回向导",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "返回三选一",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "提交成熟度 检查正式稿清洁度 门禁 进入",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "授权前景 分析现有技术攻击和可授权性 查新 生成",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "权利要求防线 分析区别特征和支撑缺口 运行 打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "初稿完善 生成补强任务和候选补丁 补强 打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "审查修改 生成审查意见 审查 打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "导出文件 导出正式稿和内部稿 当前 已打开",
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "06-export-files-mobile",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round32/06-export-files-mobile.png",
+      "metrics": {
+        "label": "06-export-files-mobile",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 390,
+          "height": 1100
+        },
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 4915,
+        "bodyTextSample": "当前项目\n新建项目\nRound32 长报告预览 1782523182366\nRound31 用户猴子导航 1782523158617\nRound31 用户猴子导航 1782523120118\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n返回向导\n返回三选一\n开始\n项目\n设置\n当前工具\n导出文件\n工具分组\n5 组\n可用入口\n12 个\n默认流程\n不受影响\n知识库\n\n语料库建设、知识库检索。证据输入类工具，结果可回写主流程。\n\n证据输入\n语料库建设\n导入官方导出物\n可回写\n打开\n知识库检索\n检索授权专利片段\n检索\n打开\n发明点\n\n护城河地图和候选分案点。该内容只进入内部策略稿。\n\n内部策略\n护城河地图\n管理发明点和证据状态\n内部策略\n查看\n交底与策略\n\n前置材料、多智能体会审、分步撰写，辅助形成撰写策略。\n\n策略生成\n前置材料\n生成交底书和候选发明点\n可回写\n编辑\n多智能体会审\n生成撰写策略\n策略生成\n进入\n分步撰写\n手动生成申请文本\n高级\n打开\n质检\n\n提交成熟度、授权前景、权利要求防线、初稿完善和审查修改。\n\n门禁\n提交成熟度\n检查正式稿清洁度\n门禁\n进入\n授权前景\n分析现有技术攻击和可授权性\n查新\n生成\n权利要求防线\n分析区别特征和支撑缺口\n运行\n打开\n初稿完善\n生成补强任务和候选补丁\n补强\n打开\n审查修改\n生成审查意见\n审查\n打开\n导出\n\n导出正式稿、内部稿和复核报告。\n\n文件\n导出文件\n导出正式稿和内部稿\n当前\n已打开\n正式稿状态\n等待会审\n源稿哈希\nf428a1d73ec9\n正式稿哈希\n1f9a9f1b47af\n最近导出\n无有效导出\n导出边界\n\n正式提交稿、内部策略稿和风险说明使用不同容器，避免内部会审内容进入可提交文件。\n\n正式提交稿\n\n只包含清污后的权利要求、说明书和摘要；必须由正式稿编译和成稿会审共同解锁。\n\n内部策略稿\n\n保留会审结论、护城河、支撑缺口和补强建议，仅供内部复核，不作为提交稿。\n\n风险说明\n\n解释导出阻断、清污命中和版本哈希来源，帮助人工复核，不替代专利代理师或律师意见。\n\n正式稿门禁\n正式稿入口已锁定\n\n正式稿需先生成，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。\n\n需处理\n导出文件\n\n正式稿导出受门禁控制；内部材料始终带有策略语境，请不要直接提交。\n\n正式提交稿 DOCX\n正式提交稿 MD\nDOCX\nMarkdown\nMermaid\n绘图提示词\n包内容预览\n\n用于人工复核导出内容，正式提交前仍需专业人员确认。\n\n摘要\n本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n权利要求书\n1. 一种长文本报告预览测试方法，其特征在于，包括：获取目标专利文本，生成包含连续技术标识符 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 的正式稿报告；\n2. 根据权利要求1所述的方法，其中，所述连续技术标识符用于模拟客户粘贴的型号、哈希值、设备编号或未断行公式。\n3. 根据权利要求1所述的方法，其中，报告正文包含 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\nMermaid流程图\n绘图提示词",
+        "longTokenVisible": true,
+        "longTokenElements": [
+          {
+            "tag": "div",
+            "className": "",
+            "visible": true,
+            "text": "当前项目 新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03 1782523063801 Round24 项目 04 1782523063801 Round24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUT",
+            "left": 0,
+            "right": 390,
+            "top": 0,
+            "bottom": 1100,
+            "width": 390,
+            "height": 1100,
+            "clientWidth": 390,
+            "scrollWidth": 390,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "div",
+            "className": "app-shell",
+            "visible": true,
+            "text": "当前项目 新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03 1782523063801 Round24 项目 04 1782523063801 Round24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUT",
+            "left": 0,
+            "right": 390,
+            "top": 0,
+            "bottom": 1100,
+            "width": 390,
+            "height": 1100,
+            "clientWidth": 390,
+            "scrollWidth": 390,
+            "overflowX": "hidden",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "main",
+            "className": "main-area",
+            "visible": true,
+            "text": "当前项目 新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03 1782523063801 Round24 项目 04 1782523063801 Round24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUT",
+            "left": 0,
+            "right": 390,
+            "top": 0,
+            "bottom": 1100,
+            "width": 390,
+            "height": 1100,
+            "clientWidth": 390,
+            "scrollWidth": 390,
+            "overflowX": "hidden",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "div",
+            "className": "workspace",
+            "visible": true,
+            "text": "当前工具 导出文件 工具分组 5 组 可用入口 12 个 默认流程 不受影响 知识库 语料库建设、知识库检索。证据输入类工具，结果可回写主流程。 证据输入 语料库建设 导入官方导出物 可回写 打开 知识库检索 检索授权专利片段 检索 打开 发明点 护城河地图和候选分案点。该内容只进入内部策略稿。 内部策略 护城河地图 管理发明点和证据状态 内部策略 查看 交底与策略 前置材料、多智能体会审、分步撰写，辅助形成撰写策略。 策略生成 前置材料 生成交底书和候选发明点 可回写 编辑 多智能体会审 生成撰写策略 策略生成 ",
+            "left": 0,
+            "right": 390,
+            "top": 115,
+            "bottom": 1100,
+            "width": 390,
+            "height": 985,
+            "clientWidth": 390,
+            "scrollWidth": 390,
+            "overflowX": "hidden",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "div",
+            "className": "flex flex-col gap-4",
+            "visible": true,
+            "text": "当前工具 导出文件 工具分组 5 组 可用入口 12 个 默认流程 不受影响 知识库 语料库建设、知识库检索。证据输入类工具，结果可回写主流程。 证据输入 语料库建设 导入官方导出物 可回写 打开 知识库检索 检索授权专利片段 检索 打开 发明点 护城河地图和候选分案点。该内容只进入内部策略稿。 内部策略 护城河地图 管理发明点和证据状态 内部策略 查看 交底与策略 前置材料、多智能体会审、分步撰写，辅助形成撰写策略。 策略生成 前置材料 生成交底书和候选发明点 可回写 编辑 多智能体会审 生成撰写策略 策略生成 ",
+            "left": 12,
+            "right": 378,
+            "top": -880,
+            "bottom": 4623,
+            "width": 366,
+            "height": 5503,
+            "clientWidth": 366,
+            "scrollWidth": 366,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "section",
+            "className": "col-span-full grid gap-5",
+            "visible": false,
+            "text": "正式稿状态 等待会审 源稿哈希 f428a1d73ec9 正式稿哈希 1f9a9f1b47af 最近导出 无有效导出 导出边界 正式提交稿、内部策略稿和风险说明使用不同容器，避免内部会审内容进入可提交文件。 正式提交稿 只包含清污后的权利要求、说明书和摘要；必须由正式稿编译和成稿会审共同解锁。 内部策略稿 保留会审结论、护城河、支撑缺口和补强建议，仅供内部复核，不作为提交稿。 风险说明 解释导出阻断、清污命中和版本哈希来源，帮助人工复核，不替代专利代理师或律师意见。 正式稿门禁 正式稿入口已锁定 正式稿需先生成，并",
+            "left": 12,
+            "right": 378,
+            "top": 1837,
+            "bottom": 4623,
+            "width": 366,
+            "height": 2785,
+            "clientWidth": 366,
+            "scrollWidth": 366,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "section",
+            "className": "settings-group",
+            "visible": false,
+            "text": "包内容预览 用于人工复核导出内容，正式提交前仍需专业人员确认。 摘要 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文",
+            "left": 12,
+            "right": 378,
+            "top": 3301,
+            "bottom": 4595,
+            "width": 366,
+            "height": 1293,
+            "clientWidth": 366,
+            "scrollWidth": 366,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "div",
+            "className": "report-preview-pane",
+            "visible": false,
+            "text": "摘要 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告",
+            "left": 12,
+            "right": 378,
+            "top": 3356,
+            "bottom": 4595,
+            "width": 366,
+            "height": 1239,
+            "clientWidth": 366,
+            "scrollWidth": 366,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "section",
+            "className": "flex flex-col gap-4 text-sm",
+            "visible": false,
+            "text": "摘要 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告",
+            "left": 12,
+            "right": 378,
+            "top": 3356,
+            "bottom": 4595,
+            "width": 366,
+            "height": 1239,
+            "clientWidth": 366,
+            "scrollWidth": 366,
+            "overflowX": "visible",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "article",
+            "className": "p-6 bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-lg shadow-sm",
+            "visible": false,
+            "text": "权利要求书 1. 一种长文本报告预览测试方法，其特征在于，包括：获取目标专利文本，生成包含连续技术标识符 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDE",
+            "left": 12,
+            "right": 378,
+            "top": 3847,
+            "bottom": 4423,
+            "width": 366,
+            "height": 576,
+            "clientWidth": 364,
+            "scrollWidth": 364,
+            "overflowX": "hidden",
+            "whiteSpace": "normal"
+          },
+          {
+            "tag": "pre",
+            "className": "",
+            "visible": false,
+            "text": "1. 一种长文本报告预览测试方法，其特征在于，包括：获取目标专利文本，生成包含连续技术标识符 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJK",
+            "left": 37,
+            "right": 353,
+            "top": 3892,
+            "bottom": 4398,
+            "width": 316,
+            "height": 506,
+            "clientWidth": 316,
+            "scrollWidth": 316,
+            "overflowX": "auto",
+            "whiteSpace": "pre-wrap"
+          }
+        ],
+        "overflowers": [],
+        "visibleButtons": [
+          {
+            "tag": "select",
+            "text": "新建项目 Round32 长报告预览 1782523182366 Round31 用户猴子导航 1782523158617 Round31 用户猴子导航 1782523120118 Round24 项目 01 1782523063801 Round24 项目 02 1782523063801 Round24 项目 03",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "返回向导",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "返回三选一",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "护城河地图 管理发明点和证据状态 内部策略 查看",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "前置材料 生成交底书和候选发明点 可回写 编辑",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "多智能体会审 生成撰写策略 策略生成 进入",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "分步撰写 手动生成申请文本 高级 打开",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "提交成熟度 检查正式稿清洁度 门禁 进入",
+            "disabled": false
+          },
+          {
+            "tag": "button",
+            "text": "授权前景 分析现有技术攻击和可授权性 查新 生成",
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "07-official-compile-report-md-mobile",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round32/07-official-compile-report-md-mobile.png",
+      "metrics": {
+        "label": "07-official-compile-report-md-mobile",
+        "url": "http://127.0.0.1:8000/api/projects/3ebee111ce924ecb858cd76f16f8b7fc/official-compile-runs/1de65a192dd643b1bd9ba7499625d38c/report.md",
+        "viewport": {
+          "width": 390,
+          "height": 1100
+        },
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 374,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 15101,
+        "bodyTextSample": "# OFFICIAL_COMPILE_RUN\n\n- run_id: 1de65a192dd643b1bd9ba7499625d38c\n- project_id: 3ebee111ce924ecb858cd76f16f8b7fc\n- status: completed\n- source_draft_hash: f428a1d73ec90e88d255c93dd3247394ba30975a01665dfc781ab1b03d4b5c22\n- official_package_hash: 1f9a9f1b47af083c156ede0abd47c5588b6932da645f7a7596205fd749b0324c\n\n## Blocked Items\n- 无\n\n## Contamination Removed\n- 无\n\n## Sidecar Notes\n- 无\n\n## Official Package\n\n# Round32 长报告预览 1782523182366 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n\n## 摘要\n本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n\n## 权利要求书\n1. 一种长文本报告预览测试方法，其特征在于，包括：获取目标专利文本，生成包含连续技术标识符 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 的正式稿报告；\n2. 根据权利要求1所述的方法，其中，所述连续技术标识符用于模拟客户粘贴的型号、哈希值、设备编号或未断行公式。\n3. 根据权利要求1所述的方法，其中，报告正文包含 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n\n## 说明书\n技术领域：本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n\n背景技术：本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n\n发明内容：系统需要处理 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEF",
+        "longTokenVisible": true,
+        "longTokenElements": [
+          {
+            "tag": "pre",
+            "className": "",
+            "visible": true,
+            "text": "# OFFICIAL_COMPILE_RUN - run_id: 1de65a192dd643b1bd9ba7499625d38c - project_id: 3ebee111ce924ecb858cd76f16f8b7fc - status: completed - source_draft_hash: f428a1d73ec90e88d255c93dd3247394ba30975a01665dfc781ab1b03d4b5c22 - official_package_hash: 1f9a9f1b47af083c",
+            "left": 8,
+            "right": 382,
+            "top": 13,
+            "bottom": 8896,
+            "width": 374,
+            "height": 8883,
+            "clientWidth": 374,
+            "scrollWidth": 374,
+            "overflowX": "visible",
+            "whiteSpace": "pre-wrap"
+          }
+        ],
+        "overflowers": [],
+        "visibleButtons": []
+      }
+    },
+    {
+      "name": "08-official-compile-report-md-desktop",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round32/08-official-compile-report-md-desktop.png",
+      "metrics": {
+        "label": "08-official-compile-report-md-desktop",
+        "url": "http://127.0.0.1:8000/api/projects/3ebee111ce924ecb858cd76f16f8b7fc/official-compile-runs/1de65a192dd643b1bd9ba7499625d38c/report.md",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1424,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 15101,
+        "bodyTextSample": "# OFFICIAL_COMPILE_RUN\n\n- run_id: 1de65a192dd643b1bd9ba7499625d38c\n- project_id: 3ebee111ce924ecb858cd76f16f8b7fc\n- status: completed\n- source_draft_hash: f428a1d73ec90e88d255c93dd3247394ba30975a01665dfc781ab1b03d4b5c22\n- official_package_hash: 1f9a9f1b47af083c156ede0abd47c5588b6932da645f7a7596205fd749b0324c\n\n## Blocked Items\n- 无\n\n## Contamination Removed\n- 无\n\n## Sidecar Notes\n- 无\n\n## Official Package\n\n# Round32 长报告预览 1782523182366 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n\n## 摘要\n本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n\n## 权利要求书\n1. 一种长文本报告预览测试方法，其特征在于，包括：获取目标专利文本，生成包含连续技术标识符 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 的正式稿报告；\n2. 根据权利要求1所述的方法，其中，所述连续技术标识符用于模拟客户粘贴的型号、哈希值、设备编号或未断行公式。\n3. 根据权利要求1所述的方法，其中，报告正文包含 本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n\n## 说明书\n技术领域：本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n\n背景技术：本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。本段用于验证专利正式稿报告和导出预览区域对长中文技术文本的换行滚动能力，界面应保持当前项目选择器、二级导航、报告正文和导出提示都可读。\n\n发明内容：系统需要处理 ROUND32_NO_BREAK_TECH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEF",
+        "longTokenVisible": true,
+        "longTokenElements": [
+          {
+            "tag": "pre",
+            "className": "",
+            "visible": true,
+            "text": "# OFFICIAL_COMPILE_RUN - run_id: 1de65a192dd643b1bd9ba7499625d38c - project_id: 3ebee111ce924ecb858cd76f16f8b7fc - status: completed - source_draft_hash: f428a1d73ec90e88d255c93dd3247394ba30975a01665dfc781ab1b03d4b5c22 - official_package_hash: 1f9a9f1b47af083c",
+            "left": 8,
+            "right": 1432,
+            "top": 13,
+            "bottom": 2824,
+            "width": 1424,
+            "height": 2811,
+            "clientWidth": 1424,
+            "scrollWidth": 1424,
+            "overflowX": "visible",
+            "whiteSpace": "pre-wrap"
+          }
+        ],
+        "overflowers": [],
+        "visibleButtons": []
+      }
+    },
+    {
+      "name": "09-filing-readiness-export-md-desktop",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round32/09-filing-readiness-export-md-desktop.png",
+      "metrics": {
+        "label": "09-filing-readiness-export-md-desktop",
+        "url": "http://127.0.0.1:8000/api/projects/3ebee111ce924ecb858cd76f16f8b7fc/filing-readiness/0642a069c92d4e4d9d3611d31fb6c184/export.md",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1424,
+        "hasHorizontalOverflow": false,
+        "bodyTextLength": 453,
+        "bodyTextSample": "# FILING_READINESS_REPORT\n\n- report_id: 0642a069c92d4e4d9d3611d31fb6c184\n- project_id: 3ebee111ce924ecb858cd76f16f8b7fc\n- status: high_risk\n- rules_version: filing-readiness-v1\n- draft_package_hash: f428a1d73ec90e88d255c93dd3247394ba30975a01665dfc781ab1b03d4b5c22\n\n## Issues\n\n### 1. internal_trace\n- severity: high\n- target: export\n- matched_text: generation_logs\n- problem: 正式稿导出字段包含内部过程痕迹。\n- suggestion: 正式提交包中删除该内部字段，仅保留可提交正文。\n- can_auto_clean: True\n",
+        "longTokenVisible": false,
+        "longTokenElements": [],
+        "overflowers": [],
+        "visibleButtons": []
+      }
+    }
+  ],
+  "actions": [
+    {
+      "label": "select seeded project",
+      "ok": true
+    },
+    {
+      "label": "open expert tools",
+      "ok": true
+    },
+    {
+      "label": "open filing readiness tool card",
+      "ok": true
+    },
+    {
+      "label": "return expert tools",
+      "ok": true
+    },
+    {
+      "label": "open expert tools again",
+      "ok": true
+    },
+    {
+      "label": "open export files tool card",
+      "ok": true
+    }
+  ],
+  "assertions": {
+    "seededProjectId": "3ebee111ce924ecb858cd76f16f8b7fc",
+    "compileRunId": "1de65a192dd643b1bd9ba7499625d38c",
+    "readinessId": "0642a069c92d4e4d9d3611d31fb6c184",
+    "actionFailures": [],
+    "pageErrors": 0,
+    "requestFailures": 0,
+    "consoleErrors": 1,
+    "appEvidenceWithHorizontalOverflow": [
+      "02-project-selected",
+      "03-expert-tools",
+      "04-filing-readiness-tool",
+      "05-export-files-tool"
+    ],
+    "markdownPreviewWithHorizontalOverflow": [],
+    "longTokenVisibleInApp": true,
+    "longTokenVisibleInMarkdown": true
+  }
+}

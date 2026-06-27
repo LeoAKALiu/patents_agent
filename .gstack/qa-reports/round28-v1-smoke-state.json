@@ -1,0 +1,75 @@
+{
+  "generatedAt": "2026-06-27T02:25:30+08:00",
+  "command": "bash scripts/v1_smoke.sh",
+  "exitCode": 0,
+  "coveredTestCases": [
+    "TC-EXPORT-001"
+  ],
+  "steps": [
+    {
+      "name": "backend_pytest",
+      "summary": {
+        "passed": 420,
+        "failed": 0,
+        "warnings": 147,
+        "duration": "18.24s"
+      }
+    },
+    {
+      "name": "v1_api_smoke",
+      "summary": {
+        "status": "passed",
+        "repeatCount": 2,
+        "qualityReportJson": ".artifacts/v1.1.0-quality/v1_1_quality_report.json",
+        "qualityReportMarkdown": ".artifacts/v1.1.0-quality/v1_1_quality_report.md"
+      }
+    },
+    {
+      "name": "frontend_vitest",
+      "summary": {
+        "testFilesPassed": 14,
+        "testsPassed": 130,
+        "failed": 0,
+        "duration": "1.70s"
+      }
+    },
+    {
+      "name": "frontend_build",
+      "summary": {
+        "status": "passed",
+        "tool": "vite v7.3.5"
+      }
+    },
+    {
+      "name": "tauri_cargo_check",
+      "summary": {
+        "status": "passed"
+      }
+    },
+    {
+      "name": "tauri_cargo_test",
+      "summary": {
+        "passed": 5,
+        "failed": 0
+      }
+    }
+  ],
+  "assertions": {
+    "v1SmokeCompleted": true,
+    "officialCompilePathCovered": true,
+    "qualityGatePassed": true,
+    "frontendBuildPassed": true,
+    "tauriChecksPassed": true,
+    "noNewBugOpened": true
+  },
+  "stdoutSummary": [
+    "420 passed, 147 warnings in 18.24s",
+    "v1.1 deterministic quality gate passed",
+    "v1 API smoke passed",
+    "Frontend Vitest: 14 test files passed, 130 tests passed",
+    "Vite build passed",
+    "cargo check passed",
+    "cargo test: 5 passed",
+    "v1 smoke completed successfully"
+  ]
+}

@@ -1,0 +1,1757 @@
+{
+  "generatedAt": "2026-06-26T19:14:56.519Z",
+  "appUrl": "http://127.0.0.1:5174/",
+  "apiBase": "http://127.0.0.1:8000",
+  "projectName": "Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  "longTokenLength": 680,
+  "longIdeaLength": 2225,
+  "events": {
+    "console": [],
+    "pageErrors": [],
+    "requestFailures": [
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/agents/doctor",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5174/api/agents/doctor",
+        "failure": "net::ERR_ABORTED"
+      }
+    ],
+    "mutatingRequests": [
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:5174/api/projects",
+        "ts": 1782501301091
+      }
+    ]
+  },
+  "actions": [
+    {
+      "label": "open start nav",
+      "ok": true
+    },
+    {
+      "label": "open invention create form",
+      "ok": true
+    },
+    {
+      "label": "fill long project name",
+      "ok": true
+    },
+    {
+      "label": "fill long idea textarea",
+      "ok": true
+    },
+    {
+      "label": "submit long create form",
+      "ok": true
+    },
+    {
+      "label": "open start nav",
+      "ok": true
+    },
+    {
+      "label": "open invention create form",
+      "ok": true
+    },
+    {
+      "label": "fill mobile long project name",
+      "ok": true
+    },
+    {
+      "label": "fill mobile long idea textarea",
+      "ok": true
+    }
+  ],
+  "evidence": [
+    {
+      "name": "01-start-desktop",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round34-editable/01-start-desktop.png",
+      "metrics": {
+        "label": "01-start-desktop",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "hasPageHorizontalOverflow": false,
+        "bodyTextSample": "PA PatentAgent 授权导向专利工程系统 Main 开始 项目 设置 当前项目 未选择 新建中 模型与智能体 基础模型 未配置 智能体 未知 内部痕迹检查 可用 刷新运行状态 当前项目 暂无项目 处理中 正在刷新工作台 [00:00] 提交请求到本地服务 开始撰写 选择本次工作的起点。专家工具仍在二级导航中，默认路径只保留普通用户最常用的三种入口。 v1.1.0 默认工作区 专利生成 入口数量 3 条路径 项目状态 待创建 专业复核 提交前必需 选择起步方式 每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。 从技术想法撰写发明专利 输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。 发明专利 想法录入后进入发明点确认 选择 从结构方案撰写实用新型 聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。 实用新型 结构方案优先，跳过发明专属重步骤 选择 导入已有稿件进行润色提升 上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。 已有稿件 先选择项目，再解析章节并确认工作稿 选择 正式提交前请专业复核 PatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。",
+        "editables": [],
+        "controls": [
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 123,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 171,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 219,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 1042,
+            "width": 230,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "select",
+            "text": "暂无项目",
+            "disabled": false,
+            "left": 1216,
+            "right": 1314,
+            "top": 16,
+            "width": 98,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 1384,
+            "right": 1416,
+            "top": 20,
+            "width": 32,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "从技术想法撰写发明专利 输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。 发明专利 想法录入后进入发明点确认 选择",
+            "disabled": false,
+            "left": 311,
+            "right": 1388,
+            "top": 435,
+            "width": 1077,
+            "height": 99,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "从结构方案撰写实用新型 聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。 实用新型 结构方案优先，跳过发明专属重步骤 选择",
+            "disabled": false,
+            "left": 311,
+            "right": 1388,
+            "top": 544,
+            "width": 1077,
+            "height": 99,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "导入已有稿件进行润色提升 上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。 已有稿件 先选择项目，再解析章节并确认工作稿 选择",
+            "disabled": false,
+            "left": 311,
+            "right": 1388,
+            "top": 653,
+            "width": 1077,
+            "height": 99,
+            "horizontallyOffscreen": false
+          }
+        ],
+        "overflowers": []
+      }
+    },
+    {
+      "name": "02-create-form-empty-desktop",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round34-editable/02-create-form-empty-desktop.png",
+      "metrics": {
+        "label": "02-create-form-empty-desktop",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "hasPageHorizontalOverflow": false,
+        "bodyTextSample": "PA PatentAgent 授权导向专利工程系统 Main 开始 项目 设置 当前项目 未选择 新建中 模型与智能体 基础模型 可用 智能体 完整会审 内部痕迹检查 可用 刷新运行状态 当前项目 暂无项目 空闲 专家工具 返回三选一 1 想法与材料 输入一句想法，上传可选材料。 当前步骤 2 发明点 确认主发明点、证据状态和护城河方向。 未解锁 3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁 4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁 5 生成初稿 生成摘要、权利要求书和说明书。 未解锁 6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁 7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁 8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁 9 导出 确认风险并导出正式稿和内部报告。 未解锁 0/9 已完成 当前进度：0% 先创建项目；已有稿件可从第三个入口导入。 填写并创建项目 等待首 Mile 输入 请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。 把你的想法写成一段话 系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。 入口方式 从想法生成 项目 待创建 专利类型 发明专利 补充材料 材料可选 起步配置 先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。 从想法生成 导入外部初稿 项目基础信息 创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。 项目名称 一句话想法 结构化元数据（可选） 填写以下字段可提升后续发明点提炼精度和说明书生成质量。所有字段均为可选，可留空由系统自动生成。 展开元数据字段 专利类型 影响流程深度、发明点提炼方式和后续正式稿边界。 发明专利 覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。 实用新型专利 聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。 撰写目标 目标模式只影响项目提示词和后续策略，不会跳过必要的质量门。 授权稳健 收紧独权，强调组合闭环和说明书支撑。 保护范围优先 先上位覆盖，再用从权兜底替代实现。 快速初稿 优先生成可审阅的完整初稿。 专利护城河 允许可行未验证方案进入内部策略和分案布局。 当前目标：授权稳健；创建后进入发明点/结构方案确认。 创建并继续 材料摘要 补充材料会作为发明点提炼、说明书支撑和质量检查的参考输入。 暂无补充材料 可先不上传材料，系统会基于想法生成第一版。",
+        "editables": [
+          {
+            "tag": "input",
+            "type": null,
+            "label": "项目名称",
+            "valueLength": 0,
+            "hasLongToken": false,
+            "valuePreview": "",
+            "left": 407,
+            "right": 681,
+            "top": 951,
+            "width": 274,
+            "height": 40,
+            "clientWidth": 272,
+            "scrollWidth": 272,
+            "clientHeight": 38,
+            "scrollHeight": 38,
+            "overflowX": "clip",
+            "overflowY": "clip",
+            "whiteSpace": "normal",
+            "wordBreak": "break-word",
+            "overflowWrap": "break-word",
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": false,
+            "parent": {
+              "tag": "label",
+              "className": "field",
+              "left": 407,
+              "right": 681,
+              "width": 274,
+              "clientWidth": 274,
+              "scrollWidth": 274,
+              "overflowX": "visible"
+            }
+          },
+          {
+            "tag": "textarea",
+            "type": null,
+            "label": "一句话想法",
+            "valueLength": 0,
+            "hasLongToken": false,
+            "valuePreview": "",
+            "left": 693,
+            "right": 1332,
+            "top": 951,
+            "width": 639,
+            "height": 124,
+            "clientWidth": 637,
+            "scrollWidth": 637,
+            "clientHeight": 122,
+            "scrollHeight": 122,
+            "overflowX": "auto",
+            "overflowY": "auto",
+            "whiteSpace": "pre-wrap",
+            "wordBreak": "break-word",
+            "overflowWrap": "break-word",
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": false,
+            "parent": {
+              "tag": "label",
+              "className": "field field-wide",
+              "left": 693,
+              "right": 1332,
+              "width": 639,
+              "clientWidth": 639,
+              "scrollWidth": 639,
+              "overflowX": "visible"
+            }
+          }
+        ],
+        "controls": [
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 123,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 171,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 219,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 1042,
+            "width": 230,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "select",
+            "text": "暂无项目",
+            "disabled": false,
+            "left": 997,
+            "right": 1095,
+            "top": 16,
+            "width": 98,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "专家工具",
+            "disabled": false,
+            "left": 1153,
+            "right": 1254,
+            "top": 20,
+            "width": 101,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "返回三选一",
+            "disabled": false,
+            "left": 1262,
+            "right": 1376,
+            "top": 20,
+            "width": 114,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 1384,
+            "right": 1416,
+            "top": 20,
+            "width": 32,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "1 想法与材料 输入一句想法，上传可选材料。 当前步骤",
+            "disabled": false,
+            "left": 311,
+            "right": 520,
+            "top": 116,
+            "width": 209,
+            "height": 94,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "2 发明点 确认主发明点、证据状态和护城河方向。 未解锁",
+            "disabled": true,
+            "left": 528,
+            "right": 737,
+            "top": 116,
+            "width": 209,
+            "height": 94,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁",
+            "disabled": true,
+            "left": 745,
+            "right": 954,
+            "top": 116,
+            "width": 209,
+            "height": 94,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁",
+            "disabled": true,
+            "left": 962,
+            "right": 1171,
+            "top": 116,
+            "width": 209,
+            "height": 94,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "5 生成初稿 生成摘要、权利要求书和说明书。 未解锁",
+            "disabled": true,
+            "left": 1179,
+            "right": 1388,
+            "top": 116,
+            "width": 209,
+            "height": 94,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁",
+            "disabled": true,
+            "left": 311,
+            "right": 520,
+            "top": 218,
+            "width": 209,
+            "height": 111,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁",
+            "disabled": true,
+            "left": 528,
+            "right": 737,
+            "top": 218,
+            "width": 209,
+            "height": 111,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁",
+            "disabled": true,
+            "left": 745,
+            "right": 954,
+            "top": 218,
+            "width": 209,
+            "height": 111,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "9 导出 确认风险并导出正式稿和内部报告。 未解锁",
+            "disabled": true,
+            "left": 962,
+            "right": 1171,
+            "top": 218,
+            "width": 209,
+            "height": 111,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "填写并创建项目",
+            "disabled": true,
+            "left": 1229,
+            "right": 1373,
+            "top": 360,
+            "width": 144,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "从想法生成",
+            "disabled": false,
+            "left": 337,
+            "right": 432,
+            "top": 770,
+            "width": 95,
+            "height": 36,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "导入外部初稿",
+            "disabled": false,
+            "left": 436,
+            "right": 546,
+            "top": 770,
+            "width": 110,
+            "height": 36,
+            "horizontallyOffscreen": false
+          }
+        ],
+        "overflowers": []
+      }
+    },
+    {
+      "name": "03-create-form-filled-desktop",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round34-editable/03-create-form-filled-desktop.png",
+      "metrics": {
+        "label": "03-create-form-filled-desktop",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "hasPageHorizontalOverflow": false,
+        "bodyTextSample": "PA PatentAgent 授权导向专利工程系统 Main 开始 项目 设置 当前项目 未选择 新建中 模型与智能体 基础模型 可用 智能体 完整会审 内部痕迹检查 可用 刷新运行状态 当前项目 暂无项目 空闲 专家工具 返回三选一 1 想法与材料 输入一句想法，上传可选材料。 当前步骤 2 发明点 确认主发明点、证据状态和护城河方向。 未解锁 3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁 4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁 5 生成初稿 生成摘要、权利要求书和说明书。 未解锁 6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁 7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁 8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁 9 导出 确认风险并导出正式稿和内部报告。 未解锁 0/9 已完成 当前进度：0% 先创建项目；已有稿件可从第三个入口导入。 填写并创建项目 等待首 Mile 输入 请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。 把你的想法写成一段话 系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。 入口方式 从想法生成 项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOP",
+        "editables": [
+          {
+            "tag": "input",
+            "type": null,
+            "label": "项目名称",
+            "valueLength": 709,
+            "hasLongToken": true,
+            "valuePreview": "Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJK",
+            "left": 407,
+            "right": 681,
+            "top": 566,
+            "width": 274,
+            "height": 40,
+            "clientWidth": 272,
+            "scrollWidth": 5881,
+            "clientHeight": 38,
+            "scrollHeight": 38,
+            "overflowX": "clip",
+            "overflowY": "clip",
+            "whiteSpace": "normal",
+            "wordBreak": "break-word",
+            "overflowWrap": "break-word",
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": true,
+            "internallyVerticalOverflow": false,
+            "parent": {
+              "tag": "label",
+              "className": "field",
+              "left": 407,
+              "right": 681,
+              "width": 274,
+              "clientWidth": 274,
+              "scrollWidth": 274,
+              "overflowX": "visible"
+            }
+          },
+          {
+            "tag": "textarea",
+            "type": null,
+            "label": "一句话想法",
+            "valueLength": 2225,
+            "hasLongToken": true,
+            "valuePreview": "本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按",
+            "left": 693,
+            "right": 1332,
+            "top": 566,
+            "width": 639,
+            "height": 124,
+            "clientWidth": 637,
+            "scrollWidth": 637,
+            "clientHeight": 122,
+            "scrollHeight": 973,
+            "overflowX": "auto",
+            "overflowY": "auto",
+            "whiteSpace": "pre-wrap",
+            "wordBreak": "break-word",
+            "overflowWrap": "break-word",
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": true,
+            "parent": {
+              "tag": "label",
+              "className": "field field-wide",
+              "left": 693,
+              "right": 1332,
+              "width": 639,
+              "clientWidth": 639,
+              "scrollWidth": 639,
+              "overflowX": "visible"
+            }
+          }
+        ],
+        "controls": [
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 123,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 171,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 219,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 1042,
+            "width": 230,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "select",
+            "text": "暂无项目",
+            "disabled": false,
+            "left": 997,
+            "right": 1095,
+            "top": 16,
+            "width": 98,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "专家工具",
+            "disabled": false,
+            "left": 1153,
+            "right": 1254,
+            "top": 20,
+            "width": 101,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "返回三选一",
+            "disabled": false,
+            "left": 1262,
+            "right": 1376,
+            "top": 20,
+            "width": 114,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 1384,
+            "right": 1416,
+            "top": 20,
+            "width": 32,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "从想法生成",
+            "disabled": false,
+            "left": 337,
+            "right": 432,
+            "top": 385,
+            "width": 95,
+            "height": 36,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "导入外部初稿",
+            "disabled": false,
+            "left": 436,
+            "right": 546,
+            "top": 385,
+            "width": 110,
+            "height": 36,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "展开元数据字段",
+            "disabled": false,
+            "left": 332,
+            "right": 1367,
+            "top": 781,
+            "width": 1035,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "发明专利 覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。",
+            "disabled": false,
+            "left": 332,
+            "right": 845,
+            "top": 916,
+            "width": 512,
+            "height": 132,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "实用新型专利 聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。",
+            "disabled": false,
+            "left": 855,
+            "right": 1367,
+            "top": 916,
+            "width": 512,
+            "height": 132,
+            "horizontallyOffscreen": false
+          }
+        ],
+        "overflowers": [
+          {
+            "tag": "input",
+            "text": "Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNO",
+            "className": "",
+            "left": 407,
+            "right": 681,
+            "top": 566,
+            "width": 274,
+            "height": 40,
+            "clientWidth": 272,
+            "scrollWidth": 5881,
+            "overflowX": "clip",
+            "whiteSpace": "normal",
+            "hasLongToken": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "04-after-create-desktop",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round34-editable/04-after-create-desktop.png",
+      "metrics": {
+        "label": "04-after-create-desktop",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 1440,
+          "height": 1100
+        },
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "hasPageHorizontalOverflow": false,
+        "bodyTextSample": "PA PatentAgent 授权导向专利工程系统 Main 开始 项目 设置 关键节点 01 想法与材料 02 发明点确认 03 多智能体会审 当前项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 新建中 模型与智能体 基础模型 可用 智能体 完整会审 内部痕迹检查 可用 刷新运行状态 当前项目 新建项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGH",
+        "editables": [
+          {
+            "tag": "textarea",
+            "type": null,
+            "label": "外部 Deep Research 提示词",
+            "valueLength": 3748,
+            "hasLongToken": true,
+            "valuePreview": "你是一名专利情报研究员。请为 PatentAgent 第 2 步“发明点确认”准备外部 Deep Research 报告。\n\n重要边界：不要写专利申请初稿，不要直接撰写权利要求。请聚焦检索、对比、区别特征、可保护发明点和证据缺口。\n\n项目上下文：\n- 项目名称: Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_IN",
+            "left": 347,
+            "right": 1352,
+            "top": 430,
+            "width": 1005,
+            "height": 260,
+            "clientWidth": 1003,
+            "scrollWidth": 1003,
+            "clientHeight": 258,
+            "scrollHeight": 1270,
+            "overflowX": "auto",
+            "overflowY": "auto",
+            "whiteSpace": "pre-wrap",
+            "wordBreak": "break-word",
+            "overflowWrap": "break-word",
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": true,
+            "parent": {
+              "tag": "details",
+              "className": "external-research-prompt",
+              "left": 347,
+              "right": 1352,
+              "width": 1005,
+              "clientWidth": 1005,
+              "scrollWidth": 1005,
+              "overflowX": "visible"
+            }
+          },
+          {
+            "tag": "input",
+            "type": "file",
+            "label": "上传外部研究报告或补充材料",
+            "valueLength": 0,
+            "hasLongToken": false,
+            "valuePreview": "",
+            "left": 347,
+            "right": 1083,
+            "top": 737,
+            "width": 736,
+            "height": 40,
+            "clientWidth": 734,
+            "scrollWidth": 734,
+            "clientHeight": 38,
+            "scrollHeight": 38,
+            "overflowX": "clip",
+            "overflowY": "clip",
+            "whiteSpace": "pre",
+            "wordBreak": "break-word",
+            "overflowWrap": "break-word",
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": false,
+            "parent": {
+              "tag": "div",
+              "className": "external-research-upload-field",
+              "left": 347,
+              "right": 1083,
+              "width": 736,
+              "clientWidth": 736,
+              "scrollWidth": 736,
+              "overflowX": "visible"
+            }
+          }
+        ],
+        "controls": [
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 123,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 171,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 219,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "01 想法与材料",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 320,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "02 发明点确认",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 368,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "03 多智能体会审",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 416,
+            "width": 230,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 14,
+            "right": 244,
+            "top": 1042,
+            "width": 230,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "select",
+            "text": "新建项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEF",
+            "disabled": false,
+            "left": -4983,
+            "right": 1095,
+            "top": 16,
+            "width": 6078,
+            "height": 40,
+            "horizontallyOffscreen": true
+          },
+          {
+            "tag": "button",
+            "text": "专家工具",
+            "disabled": false,
+            "left": 1153,
+            "right": 1254,
+            "top": 20,
+            "width": 101,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "返回三选一",
+            "disabled": false,
+            "left": 1262,
+            "right": 1376,
+            "top": 20,
+            "width": 114,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 1384,
+            "right": 1416,
+            "top": 20,
+            "width": 32,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "提炼发明点",
+            "disabled": false,
+            "left": 1255,
+            "right": 1373,
+            "top": -6,
+            "width": 118,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "查看前置材料详情",
+            "disabled": false,
+            "left": 332,
+            "right": 486,
+            "top": 143,
+            "width": 154,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "查看护城河地图",
+            "disabled": false,
+            "left": 494,
+            "right": 633,
+            "top": 143,
+            "width": 139,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "复制 Deep Research 提示词",
+            "disabled": false,
+            "left": 347,
+            "right": 591,
+            "top": 343,
+            "width": 244,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "选择并上传多份报告/补充材料",
+            "disabled": false,
+            "left": 1095,
+            "right": 1352,
+            "top": 790,
+            "width": 257,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "select",
+            "text": "标准（默认） 免费 Deep Research（公开检索 + 多轮分析）",
+            "disabled": false,
+            "left": 332,
+            "right": 1367,
+            "top": 883,
+            "width": 1035,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "提炼发明点",
+            "disabled": false,
+            "left": 332,
+            "right": 1367,
+            "top": 961,
+            "width": 1035,
+            "height": 40,
+            "horizontallyOffscreen": false
+          }
+        ],
+        "overflowers": [
+          {
+            "tag": "span",
+            "text": "Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNO",
+            "className": "min-w-0 flex-1 truncate text-xs text-app-muted",
+            "left": 27,
+            "right": 161,
+            "top": 819,
+            "width": 134,
+            "height": 16,
+            "clientWidth": 134,
+            "scrollWidth": 5407,
+            "overflowX": "hidden",
+            "whiteSpace": "nowrap",
+            "hasLongToken": true
+          },
+          {
+            "tag": "div",
+            "text": "当前项目 新建项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDE",
+            "className": "topbar-actions-group",
+            "left": -5043,
+            "right": 1416,
+            "top": 16,
+            "width": 6459,
+            "height": 40,
+            "clientWidth": 6459,
+            "scrollWidth": 6459,
+            "overflowX": "visible",
+            "whiteSpace": "normal",
+            "hasLongToken": true
+          },
+          {
+            "tag": "label",
+            "text": "当前项目 新建项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDE",
+            "className": "flex flex-col md:flex-row items-start md:items-center gap-3",
+            "left": -5043,
+            "right": 1095,
+            "top": 16,
+            "width": 6138,
+            "height": 40,
+            "clientWidth": 6138,
+            "scrollWidth": 6138,
+            "overflowX": "visible",
+            "whiteSpace": "nowrap",
+            "hasLongToken": true
+          },
+          {
+            "tag": "select",
+            "text": "新建项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJ",
+            "className": "",
+            "left": -4983,
+            "right": 1095,
+            "top": 16,
+            "width": 6078,
+            "height": 40,
+            "clientWidth": 6076,
+            "scrollWidth": 6076,
+            "overflowX": "visible",
+            "whiteSpace": "pre",
+            "hasLongToken": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "06-create-form-empty-mobile",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round34-editable/06-create-form-empty-mobile.png",
+      "metrics": {
+        "label": "06-create-form-empty-mobile",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 390,
+          "height": 1100
+        },
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390,
+        "hasPageHorizontalOverflow": false,
+        "bodyTextSample": "当前项目 新建项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 空闲 专家工具 返回三选一 开始 项目 设置 1 想法与材料 输入一句想法，上传可选材料。 当前步骤 2 发明点 确认主发明点、证据状态和护城河方向。 未解锁 3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁 4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁 5 生成初稿 生成摘要、权利要求书和说明书。 未解锁 6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁 7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁 8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁 9 导出 确认风险并导出正式稿和内部报告。 未解锁 0/9 已完成 当前进度：0% 先创建项目；已有稿件可从第三个入口导入。 填写并创建项目 等待首 Mile 输入 请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。 把你的想法写成一段话 系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。 入口方式 从想法生成 项目 待创建 专利类型 发明专利 补充材料 材料可选 起步配置",
+        "editables": [],
+        "controls": [
+          {
+            "tag": "select",
+            "text": "新建项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEF",
+            "disabled": false,
+            "left": 70,
+            "right": 380,
+            "top": 8,
+            "width": 310,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "专家工具",
+            "disabled": false,
+            "left": 60,
+            "right": 161,
+            "top": 58,
+            "width": 101,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "返回三选一",
+            "disabled": false,
+            "left": 169,
+            "right": 283,
+            "top": 58,
+            "width": 114,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 291,
+            "right": 323,
+            "top": 58,
+            "width": 32,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false,
+            "left": 19,
+            "right": 132,
+            "top": 1041,
+            "width": 113,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false,
+            "left": 138,
+            "right": 252,
+            "top": 1041,
+            "width": 113,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false,
+            "left": 258,
+            "right": 371,
+            "top": 1041,
+            "width": 113,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "1 想法与材料 输入一句想法，上传可选材料。 当前步骤",
+            "disabled": false,
+            "left": 28,
+            "right": 362,
+            "top": 127,
+            "width": 334,
+            "height": 78,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "2 发明点 确认主发明点、证据状态和护城河方向。 未解锁",
+            "disabled": true,
+            "left": 28,
+            "right": 362,
+            "top": 213,
+            "width": 334,
+            "height": 78,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁",
+            "disabled": true,
+            "left": 28,
+            "right": 362,
+            "top": 298,
+            "width": 334,
+            "height": 78,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁",
+            "disabled": true,
+            "left": 28,
+            "right": 362,
+            "top": 384,
+            "width": 334,
+            "height": 78,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "5 生成初稿 生成摘要、权利要求书和说明书。 未解锁",
+            "disabled": true,
+            "left": 28,
+            "right": 362,
+            "top": 469,
+            "width": 334,
+            "height": 78,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁",
+            "disabled": true,
+            "left": 28,
+            "right": 362,
+            "top": 555,
+            "width": 334,
+            "height": 78,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁",
+            "disabled": true,
+            "left": 28,
+            "right": 362,
+            "top": 640,
+            "width": 334,
+            "height": 78,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁",
+            "disabled": true,
+            "left": 28,
+            "right": 362,
+            "top": 726,
+            "width": 334,
+            "height": 94,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "9 导出 确认风险并导出正式稿和内部报告。 未解锁",
+            "disabled": true,
+            "left": 28,
+            "right": 362,
+            "top": 828,
+            "width": 334,
+            "height": 78,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "填写并创建项目",
+            "disabled": true,
+            "left": 43,
+            "right": 347,
+            "top": 1024,
+            "width": 304,
+            "height": 40,
+            "horizontallyOffscreen": false
+          }
+        ],
+        "overflowers": []
+      }
+    },
+    {
+      "name": "07-create-form-filled-mobile",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round34-editable/07-create-form-filled-mobile.png",
+      "metrics": {
+        "label": "07-create-form-filled-mobile",
+        "url": "http://127.0.0.1:5174/",
+        "viewport": {
+          "width": 390,
+          "height": 1100
+        },
+        "documentScrollWidth": 390,
+        "bodyScrollWidth": 390,
+        "hasPageHorizontalOverflow": false,
+        "bodyTextSample": "当前项目 新建项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 空闲 专家工具 返回三选一 开始 项目 设置 1 想法与材料 输入一句想法，上传可选材料。 当前步骤 2 发明点 确认主发明点、证据状态和护城河方向。 未解锁 3 多智能体会审 会审权利要求边界、说明书支撑和规避风险。 未解锁 4 核心公式 凝练算法公式、变量定义和权利要求落点。 未解锁 5 生成初稿 生成摘要、权利要求书和说明书。 未解锁 6 质量检查 运行提交成熟度、权利要求防线和初稿完善。 未解锁 7 正式稿编译 清除内部痕迹，生成可提交正式稿包。 未解锁 8 成稿会审 提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。 未解锁 9 导出 确认风险并导出正式稿和内部报告。 未解锁 0/9 已完成 当前进度：0% 先创建项目；已有稿件可从第三个入口导入。 填写并创建项目 等待首 Mile 输入 请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。 把你的想法写成一段话 系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。 入口方式 从想法生成 项目 Round34 移动端可编辑长文本 1782501304",
+        "editables": [
+          {
+            "tag": "input",
+            "type": null,
+            "label": "项目名称",
+            "valueLength": 712,
+            "hasLongToken": true,
+            "valuePreview": "Round34 移动端可编辑长文本 1782501304585 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGH",
+            "left": 64,
+            "right": 326,
+            "top": 503,
+            "width": 262,
+            "height": 40,
+            "clientWidth": 260,
+            "scrollWidth": 5920,
+            "clientHeight": 38,
+            "scrollHeight": 38,
+            "overflowX": "clip",
+            "overflowY": "clip",
+            "whiteSpace": "normal",
+            "wordBreak": "break-word",
+            "overflowWrap": "break-word",
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": true,
+            "internallyVerticalOverflow": false,
+            "parent": {
+              "tag": "label",
+              "className": "field",
+              "left": 64,
+              "right": 326,
+              "width": 262,
+              "clientWidth": 262,
+              "scrollWidth": 262,
+              "overflowX": "visible"
+            }
+          },
+          {
+            "tag": "textarea",
+            "type": null,
+            "label": "一句话想法",
+            "valueLength": 2225,
+            "hasLongToken": true,
+            "valuePreview": "本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按",
+            "left": 64,
+            "right": 326,
+            "top": 580,
+            "width": 262,
+            "height": 124,
+            "clientWidth": 260,
+            "scrollWidth": 260,
+            "clientHeight": 122,
+            "scrollHeight": 2387,
+            "overflowX": "auto",
+            "overflowY": "auto",
+            "whiteSpace": "pre-wrap",
+            "wordBreak": "break-word",
+            "overflowWrap": "break-word",
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": true,
+            "parent": {
+              "tag": "label",
+              "className": "field field-wide",
+              "left": 64,
+              "right": 326,
+              "width": 262,
+              "clientWidth": 262,
+              "scrollWidth": 262,
+              "overflowX": "visible"
+            }
+          }
+        ],
+        "controls": [
+          {
+            "tag": "select",
+            "text": "新建项目 Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEF",
+            "disabled": false,
+            "left": 70,
+            "right": 380,
+            "top": 8,
+            "width": 310,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "专家工具",
+            "disabled": false,
+            "left": 60,
+            "right": 161,
+            "top": 58,
+            "width": 101,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "返回三选一",
+            "disabled": false,
+            "left": 169,
+            "right": 283,
+            "top": 58,
+            "width": 114,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "刷新运行状态",
+            "disabled": false,
+            "left": 291,
+            "right": 323,
+            "top": 58,
+            "width": 32,
+            "height": 32,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "开始",
+            "disabled": false,
+            "left": 19,
+            "right": 132,
+            "top": 1041,
+            "width": 113,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "项目",
+            "disabled": false,
+            "left": 138,
+            "right": 252,
+            "top": 1041,
+            "width": 113,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "设置",
+            "disabled": false,
+            "left": 258,
+            "right": 371,
+            "top": 1041,
+            "width": 113,
+            "height": 44,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "从想法生成",
+            "disabled": false,
+            "left": 54,
+            "right": 149,
+            "top": 253,
+            "width": 95,
+            "height": 36,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "导入外部初稿",
+            "disabled": false,
+            "left": 153,
+            "right": 263,
+            "top": 253,
+            "width": 110,
+            "height": 36,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "展开元数据字段",
+            "disabled": false,
+            "left": 49,
+            "right": 341,
+            "top": 831,
+            "width": 292,
+            "height": 40,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "发明专利 覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。",
+            "disabled": false,
+            "left": 49,
+            "right": 341,
+            "top": 984,
+            "width": 292,
+            "height": 175,
+            "horizontallyOffscreen": false
+          },
+          {
+            "tag": "button",
+            "text": "创建并继续",
+            "disabled": false,
+            "left": 49,
+            "right": 341,
+            "top": 958,
+            "width": 292,
+            "height": 40,
+            "horizontallyOffscreen": false
+          }
+        ],
+        "overflowers": [
+          {
+            "tag": "form",
+            "text": "项目基础信息 创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。 项目名称 一句话想法 结构化元数据（可选） 填写以下字段可提升后续发明点提炼精度和说明书生成质量。所有字段均为可选，可留空由系统自动生成。 展开元数据字段 专利类型 影响流程深度、发明点提炼方式和后续正式稿边界。 发明专利 覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。 实用新型专利 聚焦产品结构、部件连接关系、安装位置与附图，强调结",
+            "className": "guided-intake guided-intake-form",
+            "left": 49,
+            "right": 341,
+            "top": 340,
+            "width": 292,
+            "height": 1796,
+            "clientWidth": 292,
+            "scrollWidth": 304,
+            "overflowX": "visible",
+            "whiteSpace": "normal",
+            "hasLongToken": false
+          },
+          {
+            "tag": "input",
+            "text": "Round34 移动端可编辑长文本 1782501304585 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKL",
+            "className": "",
+            "left": 64,
+            "right": 326,
+            "top": 503,
+            "width": 262,
+            "height": 40,
+            "clientWidth": 260,
+            "scrollWidth": 5920,
+            "overflowX": "clip",
+            "whiteSpace": "normal",
+            "hasLongToken": true
+          }
+        ]
+      }
+    }
+  ],
+  "assertions": {
+    "actionFailures": [],
+    "pageErrors": 0,
+    "requestFailures": 2,
+    "consoleErrors": 0,
+    "createdProjectId": "f00a139b829441b6a2b06294d5752b70",
+    "evidenceWithPageHorizontalOverflow": [],
+    "visibleEditableStates": [
+      {
+        "name": "02-create-form-empty-desktop",
+        "editables": [
+          {
+            "tag": "input",
+            "type": null,
+            "label": "项目名称",
+            "valueLength": 0,
+            "hasLongToken": false,
+            "width": 274,
+            "scrollWidth": 272,
+            "height": 40,
+            "scrollHeight": 38,
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": false,
+            "overflowX": "clip",
+            "overflowY": "clip",
+            "whiteSpace": "normal",
+            "overflowWrap": "break-word"
+          },
+          {
+            "tag": "textarea",
+            "type": null,
+            "label": "一句话想法",
+            "valueLength": 0,
+            "hasLongToken": false,
+            "width": 639,
+            "scrollWidth": 637,
+            "height": 124,
+            "scrollHeight": 122,
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": false,
+            "overflowX": "auto",
+            "overflowY": "auto",
+            "whiteSpace": "pre-wrap",
+            "overflowWrap": "break-word"
+          }
+        ]
+      },
+      {
+        "name": "03-create-form-filled-desktop",
+        "editables": [
+          {
+            "tag": "input",
+            "type": null,
+            "label": "项目名称",
+            "valueLength": 709,
+            "hasLongToken": true,
+            "width": 274,
+            "scrollWidth": 5881,
+            "height": 40,
+            "scrollHeight": 38,
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": true,
+            "internallyVerticalOverflow": false,
+            "overflowX": "clip",
+            "overflowY": "clip",
+            "whiteSpace": "normal",
+            "overflowWrap": "break-word"
+          },
+          {
+            "tag": "textarea",
+            "type": null,
+            "label": "一句话想法",
+            "valueLength": 2225,
+            "hasLongToken": true,
+            "width": 639,
+            "scrollWidth": 637,
+            "height": 124,
+            "scrollHeight": 973,
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": true,
+            "overflowX": "auto",
+            "overflowY": "auto",
+            "whiteSpace": "pre-wrap",
+            "overflowWrap": "break-word"
+          }
+        ]
+      },
+      {
+        "name": "04-after-create-desktop",
+        "editables": [
+          {
+            "tag": "textarea",
+            "type": null,
+            "label": "外部 Deep Research 提示词",
+            "valueLength": 3748,
+            "hasLongToken": true,
+            "width": 1005,
+            "scrollWidth": 1003,
+            "height": 260,
+            "scrollHeight": 1270,
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": true,
+            "overflowX": "auto",
+            "overflowY": "auto",
+            "whiteSpace": "pre-wrap",
+            "overflowWrap": "break-word"
+          },
+          {
+            "tag": "input",
+            "type": "file",
+            "label": "上传外部研究报告或补充材料",
+            "valueLength": 0,
+            "hasLongToken": false,
+            "width": 736,
+            "scrollWidth": 734,
+            "height": 40,
+            "scrollHeight": 38,
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": false,
+            "overflowX": "clip",
+            "overflowY": "clip",
+            "whiteSpace": "pre",
+            "overflowWrap": "break-word"
+          }
+        ]
+      },
+      {
+        "name": "07-create-form-filled-mobile",
+        "editables": [
+          {
+            "tag": "input",
+            "type": null,
+            "label": "项目名称",
+            "valueLength": 712,
+            "hasLongToken": true,
+            "width": 262,
+            "scrollWidth": 5920,
+            "height": 40,
+            "scrollHeight": 38,
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": true,
+            "internallyVerticalOverflow": false,
+            "overflowX": "clip",
+            "overflowY": "clip",
+            "whiteSpace": "normal",
+            "overflowWrap": "break-word"
+          },
+          {
+            "tag": "textarea",
+            "type": null,
+            "label": "一句话想法",
+            "valueLength": 2225,
+            "hasLongToken": true,
+            "width": 262,
+            "scrollWidth": 260,
+            "height": 124,
+            "scrollHeight": 2387,
+            "horizontallyOffscreen": false,
+            "internallyHorizontalOverflow": false,
+            "internallyVerticalOverflow": true,
+            "overflowX": "auto",
+            "overflowY": "auto",
+            "whiteSpace": "pre-wrap",
+            "overflowWrap": "break-word"
+          }
+        ]
+      }
+    ],
+    "longTokenVisibleInEditable": true,
+    "offscreenLongTokenEditables": [],
+    "abortedAgentDoctorRequests": 2
+  },
+  "createdProject": {
+    "id": "f00a139b829441b6a2b06294d5752b70",
+    "name": "Round34 可编辑长文本 1782501296519 ROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+    "draft_text": "目标模式：授权稳健。\n本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。\n\nROUND34_EDITABLE_INPUT_NO_BREAK_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n\n技术效果：本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。本段用于验证真实可编辑输入区对长中文专利文本的换行、内部滚动、可见提交按钮和移动端布局保持能力。",
+    "patent_type": "invention",
+    "package": null,
+    "created_at": "2026-06-26 19:15:01",
+    "updated_at": "2026-06-26 19:15:01",
+    "applicant": "",
+    "inventors": "",
+    "technical_field": "",
+    "background": "",
+    "pain_point": "",
+    "technical_solution": "",
+    "innovation": "",
+    "embodiments": "",
+    "beneficial_effects": ""
+  }
+}

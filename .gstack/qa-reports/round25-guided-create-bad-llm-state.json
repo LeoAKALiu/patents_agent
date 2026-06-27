@@ -1,0 +1,1231 @@
+{
+  "generatedAt": "2026-06-27T01:50:27.474Z",
+  "baseUrl": "http://127.0.0.1:5175/",
+  "apiBaseUrl": "http://127.0.0.1:8000",
+  "projectName": "Round25 Guided 错误配置项目 1782525016020",
+  "settings": {
+    "provider": "qa-bad-guided",
+    "baseUrl": "http://127.0.0.1:9/v1",
+    "model": "qa-guided-bad-model",
+    "savedSettingsSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n本机配置\n密钥指纹\n•••••••••••••••••••real\n模型\nqa-guided-bad-model\nBase URL\nhttp://127.0.0.1:9/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n\n已保存（2026-06-27T01:50:19Z）\n\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。"
+  },
+  "events": {
+    "console": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+      }
+    ],
+    "pageErrors": [],
+    "requestFailures": [],
+    "mutatingRequests": [
+      {
+        "method": "PATCH",
+        "url": "http://127.0.0.1:5175/api/desktop-config",
+        "postData": "{\"provider\":\"qa-bad-guided\",\"base_url\":\"http://127.0.0.1:9/v1\",\"model\":\"qa-guided-bad-model\",\"api_key\":\"qa-round25-key-not-real\"}",
+        "ts": 1782525019314
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:5175/api/projects",
+        "postData": "{\"name\":\"Round25 Guided 错误配置项目 1782525016020\",\"draft_text\":\"目标模式：授权稳健。\\n一种用于验证授权导向专利撰写主路径的本地智能代理系统，在错误 LLM 配置下应安全失败并保留项目上下文。\",\"patent_type\":\"invention\"}",
+        "ts": 1782525022157
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/disclosures",
+        "postData": "{\"trace\":false,\"max_prior_art_results\":8,\"research_mode\":\"standard\"}",
+        "ts": 1782525023855
+      }
+    ],
+    "appResponses": [
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/desktop-config",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/desktop-config",
+        "status": 200
+      },
+      {
+        "method": "PATCH",
+        "url": "http://127.0.0.1:5175/api/desktop-config",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:5175/api/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/deliberations",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/materials",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/official-compile-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/formula-requirement",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/formula-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/post-draft-reviews",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/external-drafts",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/patent-points",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/filing-readiness",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/grantability-reports",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/claim-defense-worksheets",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/completion-runs",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/patent-points",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/official-compile-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/deliberations",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/formula-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/formula-requirement",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/post-draft-reviews",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/deliberations",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/official-compile-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/formula-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/post-draft-reviews",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/formula-requirement",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/patent-points",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/deliberations",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/disclosures",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/formula-requirement",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/formula-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/official-compile-runs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:5175/api/projects/5a3d57c7c7934c6084d745c4884c8cc5/post-draft-reviews",
+        "status": 200
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "step": "00-home",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round25/00-home.png",
+      "state": {
+        "label": "00-home",
+        "url": "http://127.0.0.1:5175/",
+        "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n未配置\n智能体\n未知\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n处理中\n正在刷新工作台\n[00:00] 提交请求到本地服务\n开始撰写\n\n选择本次工作的起点。专家工具仍在二级导航中，默认路径只保留普通用户最常用的三种入口。\n\nv1.1.0\n默认工作区\n专利生成\n入口数量\n3 条路径\n项目状态\n待创建\n专业复核\n提交前必需\n选择起步方式\n\n每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。\n\n从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择\n从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择\n导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择\n正式提交前请专业复核\n\nPatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。",
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n未配置\n智能体\n未知\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n处理中\n正在刷新工作台\n[00:00] 提交请求到本地服务\n开始撰写\n\n选择本次工作的起点。专家工具仍在二级导航中，默认路径只保留普通用户最常用的三种入口。\n\nv1.1.0\n默认工作区\n专利生成\n入口数量\n3 条路径\n项目状态\n待创建\n专业复核\n提交前必需\n选择起步方式\n\n每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。\n\n从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择\n从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择\n导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择\n正式提交前请专业复核\n\nPatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择",
+            "disabled": false
+          },
+          {
+            "text": "从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择",
+            "disabled": false
+          },
+          {
+            "text": "导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择",
+            "disabled": false
+          }
+        ],
+        "visibleInputs": [
+          {
+            "tag": "select",
+            "type": "",
+            "value": "",
+            "placeholder": "",
+            "label": "当前项目\n暂无项目"
+          }
+        ]
+      }
+    },
+    {
+      "step": "01-settings-initial",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round25/01-settings-initial.png",
+      "state": {
+        "label": "01-settings-initial",
+        "url": "http://127.0.0.1:5175/",
+        "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n环境变量\n密钥指纹\n（未配置）\n模型\nqa-rate-limit-model\nBase URL\nhttp://127.0.0.1:8767/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n环境变量\n密钥指纹\n（未配置）\n模型\nqa-rate-limit-model\nBase URL\nhttp://127.0.0.1:8767/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "专家工具",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "显示密钥",
+            "disabled": false
+          },
+          {
+            "text": "保存",
+            "disabled": false
+          },
+          {
+            "text": "测试连通",
+            "disabled": false
+          },
+          {
+            "text": "清除密钥",
+            "disabled": true
+          },
+          {
+            "text": "自动",
+            "disabled": true
+          },
+          {
+            "text": "浅色",
+            "disabled": false
+          },
+          {
+            "text": "深色",
+            "disabled": true
+          }
+        ],
+        "visibleInputs": [
+          {
+            "tag": "select",
+            "type": "",
+            "value": "",
+            "placeholder": "",
+            "label": "当前项目\n暂无项目"
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "value": "qa-rate-limit",
+            "placeholder": "deepseek",
+            "label": "Provider"
+          },
+          {
+            "tag": "input",
+            "type": "url",
+            "value": "http://127.0.0.1:8767/v1",
+            "placeholder": "https://api.deepseek.com",
+            "label": "Base URL"
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "value": "qa-rate-limit-model",
+            "placeholder": "deepseek-v4-pro",
+            "label": "Model"
+          },
+          {
+            "tag": "input",
+            "type": "password",
+            "value": "",
+            "placeholder": "输入 API Key",
+            "label": "API Key\n密钥只发往本机后端，界面不会回显明文"
+          }
+        ]
+      }
+    },
+    {
+      "step": "02-settings-bad-llm-filled",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round25/02-settings-bad-llm-filled.png",
+      "state": {
+        "label": "02-settings-bad-llm-filled",
+        "url": "http://127.0.0.1:5175/",
+        "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n环境变量\n密钥指纹\n（未配置）\n模型\nqa-rate-limit-model\nBase URL\nhttp://127.0.0.1:8767/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n环境变量\n密钥指纹\n（未配置）\n模型\nqa-rate-limit-model\nBase URL\nhttp://127.0.0.1:8767/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "专家工具",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "显示密钥",
+            "disabled": false
+          },
+          {
+            "text": "保存",
+            "disabled": false
+          },
+          {
+            "text": "测试连通",
+            "disabled": false
+          },
+          {
+            "text": "清除密钥",
+            "disabled": true
+          },
+          {
+            "text": "自动",
+            "disabled": true
+          },
+          {
+            "text": "浅色",
+            "disabled": false
+          },
+          {
+            "text": "深色",
+            "disabled": true
+          }
+        ],
+        "visibleInputs": [
+          {
+            "tag": "select",
+            "type": "",
+            "value": "",
+            "placeholder": "",
+            "label": "当前项目\n暂无项目"
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "value": "qa-bad-guided",
+            "placeholder": "deepseek",
+            "label": "Provider"
+          },
+          {
+            "tag": "input",
+            "type": "url",
+            "value": "http://127.0.0.1:9/v1",
+            "placeholder": "https://api.deepseek.com",
+            "label": "Base URL"
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "value": "qa-guided-bad-model",
+            "placeholder": "deepseek-v4-pro",
+            "label": "Model"
+          },
+          {
+            "tag": "input",
+            "type": "password",
+            "value": "qa-round25-key-not-real",
+            "placeholder": "输入 API Key",
+            "label": "API Key\n密钥只发往本机后端，界面不会回显明文"
+          }
+        ]
+      }
+    },
+    {
+      "step": "03-settings-bad-llm-saved",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round25/03-settings-bad-llm-saved.png",
+      "state": {
+        "label": "03-settings-bad-llm-saved",
+        "url": "http://127.0.0.1:5175/",
+        "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n本机配置\n密钥指纹\n•••••••••••••••••••real\n模型\nqa-guided-bad-model\nBase URL\nhttp://127.0.0.1:9/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n\n已保存（2026-06-27T01:50:19Z）\n\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n设置 · LLM 服务\n\n在本机保存 LLM 服务参数。密钥仅写在本机配置文件中，权限受限； 界面只会显示是否已配置和指纹，不会回显明文。\n\n状态\n本机配置\n密钥指纹\n•••••••••••••••••••real\n模型\nqa-guided-bad-model\nBase URL\nhttp://127.0.0.1:9/v1\nProvider\nBase URL\nModel\nAPI Key\n密钥只发往本机后端，界面不会回显明文\n保存\n测试连通\n清除密钥\n\n已保存（2026-06-27T01:50:19Z）\n\n外观\n自动\n浅色\n深色\n\n暗色模式正在开发中，当前仅浅色模式可用。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "专家工具",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "显示密钥",
+            "disabled": false
+          },
+          {
+            "text": "保存",
+            "disabled": false
+          },
+          {
+            "text": "测试连通",
+            "disabled": false
+          },
+          {
+            "text": "清除密钥",
+            "disabled": false
+          },
+          {
+            "text": "自动",
+            "disabled": true
+          },
+          {
+            "text": "浅色",
+            "disabled": false
+          },
+          {
+            "text": "深色",
+            "disabled": true
+          }
+        ],
+        "visibleInputs": [
+          {
+            "tag": "select",
+            "type": "",
+            "value": "",
+            "placeholder": "",
+            "label": "当前项目\n暂无项目"
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "value": "qa-bad-guided",
+            "placeholder": "deepseek",
+            "label": "Provider"
+          },
+          {
+            "tag": "input",
+            "type": "url",
+            "value": "http://127.0.0.1:9/v1",
+            "placeholder": "https://api.deepseek.com",
+            "label": "Base URL"
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "value": "qa-guided-bad-model",
+            "placeholder": "deepseek-v4-pro",
+            "label": "Model"
+          },
+          {
+            "tag": "input",
+            "type": "password",
+            "value": "",
+            "placeholder": "（已配置）输入新值以替换",
+            "label": "API Key\n密钥只发往本机后端，界面不会回显明文"
+          }
+        ]
+      }
+    },
+    {
+      "step": "04-start-after-bad-settings",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round25/04-start-after-bad-settings.png",
+      "state": {
+        "label": "04-start-after-bad-settings",
+        "url": "http://127.0.0.1:5175/",
+        "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n开始撰写\n\n选择本次工作的起点。专家工具仍在二级导航中，默认路径只保留普通用户最常用的三种入口。\n\nv1.1.0\n默认工作区\n专利生成\n入口数量\n3 条路径\n项目状态\n待创建\n专业复核\n提交前必需\n选择起步方式\n\n每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。\n\n从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择\n从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择\n导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择\n正式提交前请专业复核\n\nPatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。",
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n开始撰写\n\n选择本次工作的起点。专家工具仍在二级导航中，默认路径只保留普通用户最常用的三种入口。\n\nv1.1.0\n默认工作区\n专利生成\n入口数量\n3 条路径\n项目状态\n待创建\n专业复核\n提交前必需\n选择起步方式\n\n每张配置卡都会进入同一条 guided flow，只是预设项目类型、录入方式和后续节奏不同。\n\n从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择\n从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择\n导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择\n正式提交前请专业复核\n\nPatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "从技术想法撰写发明专利\n\n输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。\n\n发明专利\n想法录入后进入发明点确认\n选择",
+            "disabled": false
+          },
+          {
+            "text": "从结构方案撰写实用新型\n\n聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。\n\n实用新型\n结构方案优先，跳过发明专属重步骤\n选择",
+            "disabled": false
+          },
+          {
+            "text": "导入已有稿件进行润色提升\n\n上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。\n\n已有稿件\n先选择项目，再解析章节并确认工作稿\n选择",
+            "disabled": false
+          }
+        ],
+        "visibleInputs": [
+          {
+            "tag": "select",
+            "type": "",
+            "value": "",
+            "placeholder": "",
+            "label": "当前项目\n暂无项目"
+          }
+        ]
+      }
+    },
+    {
+      "step": "05-guided-form-filled",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round25/05-guided-form-filled.png",
+      "state": {
+        "label": "05-guided-form-filled",
+        "url": "http://127.0.0.1:5175/",
+        "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n返回三选一\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n当前步骤\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n未解锁\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n0/9 已完成\n当前进度：0%\n\n先创建项目；已有稿件可从第三个入口导入。\n\n填写并创建项目\n等待首 Mile 输入\n\n请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。\n\n把你的想法写成一段话\n\n系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。\n\n入口方式\n从想法生成\n项目\nRound25 Guided 错误配置项目 1782525016020\n专利类型\n发明专利\n补充材料\n材料可选\n起步配置\n\n先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。\n\n从想法生成\n导入外部初稿\n项目基础信息\n\n创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。\n\n项目名称\n一句话想法\n结构化元数据（可选）\n\n填写以下字段可提升后续发明点提炼精度和说明书生成质量。所有字段均为可选，可留空由系统自动生成。\n\n展开元数据字段\n专利类型\n\n影响流程深度、发明点提炼方式和后续正式稿边界。\n\n发明专利\n\n覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。\n\n实用新型专利\n\n聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。\n\n撰写目标\n\n目标模式只影响项目提示词和后续策略，不会跳过必要的质量门。\n\n授权稳健\n\n收紧独权，强调组合闭环和说明书支撑。\n\n保护范围优先\n\n先上位覆盖，再用从权兜底替代实现。\n\n快速初稿\n\n优先生成可审阅的完整初稿。\n\n专利护城河\n\n允许可行未验证方案进入内部策略和分案布局。\n\n当前目标：授权稳健；创建后进入发明点/结构方案确认。\n创建并继续\n材料摘要\n\n补充材料会作为发明点提炼、说明书支撑和质量检查的参考输入。\n\n暂无补充材料\n\n可先不上传材料，系统会基于想法生成第一版。",
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n暂无项目\n空闲\n专家工具\n返回三选一\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n当前步骤\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n未解锁\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n0/9 已完成\n当前进度：0%\n\n先创建项目；已有稿件可从第三个入口导入。\n\n填写并创建项目\n等待首 Mile 输入\n\n请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。\n\n把你的想法写成一段话\n\n系统会基于这段想法提炼发明点、生成专利初稿、运行质检并准备导出文件。\n\n入口方式\n从想法生成\n项目\nRound25 Guided 错误配置项目 1782525016020\n专利类型\n发明专利\n补充材料\n材料可选\n起步配置\n\n先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。\n\n从想法生成\n导入外部初稿\n项目基础信息\n\n创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。\n\n项目名称\n一句话想法\n结构化元数据（可选）\n\n填写以下字段可提升后续发明点提炼精度和说明书生成质量。所有字段均为可选，可留空由系统自动生成。\n\n展开元数据字段\n专利类型\n\n影响流程深度、发明点提炼方式和后续正式稿边界。\n\n发明专利\n\n覆盖方法、算法、系统或产品的技术方案，需要会审、公式和权利要求完整论证。\n\n实用新型专利\n\n聚焦产品结构、部件连接关系、安装位置与附图，强调结构效果，跳过会审等发明专属步骤。\n\n撰写目标\n\n目标模式只影响项目提示词和后续策略，不会跳过必要的质量门。\n\n授权稳健\n\n收紧独权，强调组合闭环和说明书支撑。\n\n保护范围优先\n\n先上位覆盖，再用从权兜底替代实现。\n\n快速初稿\n\n优先生成可审阅的完整初稿。\n\n专利护城河\n\n允许可行未验证方案进入内部策略和分案布局。\n\n当前目标：授权稳健；创建后进入发明点/结构方案确认。\n创建并继续\n材料摘要\n\n补充材料会作为发明点提炼、说明书支撑和质量检查的参考输入。\n\n暂无补充材料\n\n可先不上传材料，系统会基于想法生成第一版。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "专家工具",
+            "disabled": false
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n当前步骤",
+            "disabled": false
+          },
+          {
+            "text": "2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n未解锁",
+            "disabled": true
+          },
+          {
+            "text": "3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁",
+            "disabled": true
+          },
+          {
+            "text": "4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁",
+            "disabled": true
+          },
+          {
+            "text": "5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁",
+            "disabled": true
+          },
+          {
+            "text": "6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁",
+            "disabled": true
+          },
+          {
+            "text": "7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁",
+            "disabled": true
+          },
+          {
+            "text": "8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁",
+            "disabled": true
+          },
+          {
+            "text": "9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁",
+            "disabled": true
+          },
+          {
+            "text": "填写并创建项目",
+            "disabled": true
+          },
+          {
+            "text": "从想法生成",
+            "disabled": false
+          },
+          {
+            "text": "导入外部初稿",
+            "disabled": false
+          }
+        ],
+        "visibleInputs": [
+          {
+            "tag": "select",
+            "type": "",
+            "value": "",
+            "placeholder": "",
+            "label": "当前项目\n暂无项目"
+          },
+          {
+            "tag": "input",
+            "type": "",
+            "value": "Round25 Guided 错误配置项目 1782525016020",
+            "placeholder": "",
+            "label": "项目名称"
+          },
+          {
+            "tag": "textarea",
+            "type": "",
+            "value": "一种用于验证授权导向专利撰写主路径的本地智能代理系统，在错误 LLM 配置下应安全失败并保留项目上下文。",
+            "placeholder": "例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。",
+            "label": "一句话想法"
+          }
+        ]
+      }
+    },
+    {
+      "step": "06-after-create",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round25/06-after-create.png",
+      "state": {
+        "label": "06-after-create",
+        "url": "http://127.0.0.1:5175/",
+        "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound25 Guided 错误配置项目 1782525016020\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound25 Guided 错误配置项目 1782525016020\n空闲\n专家工具\n返回三选一\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n研究模式\n标准（默认）\n免费 Deep Research（公开检索 + 多轮分析）\n\n标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。\n\n提炼发明点\n\n点击“提炼发明点”后显示候选主线。",
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound25 Guided 错误配置项目 1782525016020\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound25 Guided 错误配置项目 1782525016020\n空闲\n专家工具\n返回三选一\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n研究模式\n标准（默认）\n免费 Deep Research（公开检索 + 多轮分析）\n\n标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。\n\n提炼发明点\n\n点击“提炼发明点”后显示候选主线。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "text": "01 想法与材料",
+            "disabled": false
+          },
+          {
+            "text": "02 发明点确认",
+            "disabled": false
+          },
+          {
+            "text": "03 多智能体会审",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "专家工具",
+            "disabled": false
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "提炼发明点",
+            "disabled": false
+          },
+          {
+            "text": "查看前置材料详情",
+            "disabled": false
+          },
+          {
+            "text": "查看护城河地图",
+            "disabled": false
+          },
+          {
+            "text": "复制 Deep Research 提示词",
+            "disabled": false
+          },
+          {
+            "text": "选择并上传多份报告/补充材料",
+            "disabled": false
+          },
+          {
+            "text": "提炼发明点",
+            "disabled": false
+          }
+        ],
+        "visibleInputs": [
+          {
+            "tag": "select",
+            "type": "",
+            "value": "5a3d57c7c7934c6084d745c4884c8cc5",
+            "placeholder": "",
+            "label": "当前项目\n新建项目\nRound25 Guided 错误配置项目 1782525016020"
+          },
+          {
+            "tag": "textarea",
+            "type": "",
+            "value": "你是一名专利情报研究员。请为 PatentAgent 第 2 步“发明点确认”准备外部 Deep Research 报告。\n\n重要边界：不要写专利申请初稿，不要直接撰写权利要求。请聚焦检索、对比、区别特征、可保护发明点和证据缺口。\n\n项目上下文：\n- 项目名称: Round25 Guided 错误配置项目 1782525016020\n- 一句话方案: 目标模式：授权稳健。\n一种用于验证授权导向专利撰写主路径的本地智能代理系统，在错误 LLM 配置下应安全失败并保留项目上下文。\n- 技术领域: （请补充）\n- 背景技术: （请补充）\n- 技术痛点: （请补充）\n- 技术方案: （请补充）\n- 已知创新点: （请补充）\n- 实施方式: （请补充）\n- 有益效果: （请补充）\n\n请完成以下研究：\n1. 检索中英文公开专利、论文、技术博客、产品文档和开源项目，列出最接近现有技术。\n2. 对每个相关来源提取：标题、来源类型、链接/公开号、公开日期、关键技术特征、与本方案重合点、差异点。\n3. 反向归纳本方案可能真正可保护的区别特征，并说明这些区别特征解决了什么技术问题、带来什么技术效果。\n4. 输出 3-5 个候选发明点，每个候选包含：名称、核心技术问题、关键技术特征组合、区别于现有技术的点、证据强度、风险、需要补充的实验/材料。\n5. 标出会削弱新颖性或创造性的最危险现有技术，并给出规避或收窄建议。\n\n请按以下 Markdown 结构输出：\n# 外部 Deep Research 报告\n## 1. 研究范围与检索式\n## 2. 最接近现有技术\n| 来源 | 标题 | 链接/公开号 | 相关特征 | 重合点 | 差异点 | 风险等级 |\n| --- | --- | --- | --- | --- | --- | --- |\n## 3. 可保护发明点候选\n## 4. 支撑缺口与补充材料建议\n## 5. 推荐给 PatentAgent 的摘要\n\n最后一节请用 300-600 字总结：哪些发明点最值得作为主线、哪些只能作为后备路线、上传给 PatentAgent 后应重点关注哪些支撑缺口。",
+            "placeholder": "",
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "type": "file",
+            "value": "",
+            "placeholder": "",
+            "label": "上传外部研究报告或补充材料"
+          },
+          {
+            "tag": "select",
+            "type": "",
+            "value": "standard",
+            "placeholder": "",
+            "label": "研究模式"
+          }
+        ]
+      }
+    },
+    {
+      "step": "07-after-click-extract",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round25/07-after-click-extract.png",
+      "state": {
+        "label": "07-after-click-extract",
+        "url": "http://127.0.0.1:5175/",
+        "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound25 Guided 错误配置项目 1782525016020\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound25 Guided 错误配置项目 1782525016020\n空闲\n专家工具\n返回三选一\n前置材料生成已启动：排队中\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n发明点提炼运行中\n00:01\n运行 运行中\n阶段 发明点提炼\n服务 模型服务\n任务 项目与材料分析\n耗时 00:01\n中间结果 0\n提示 0\n事件 已开始\n取消运行\n\n点击“提炼发明点”后显示候选主线。",
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound25 Guided 错误配置项目 1782525016020\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound25 Guided 错误配置项目 1782525016020\n空闲\n专家工具\n返回三选一\n前置材料生成已启动：排队中\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n发明点提炼运行中\n00:01\n运行 运行中\n阶段 发明点提炼\n服务 模型服务\n任务 项目与材料分析\n耗时 00:01\n中间结果 0\n提示 0\n事件 已开始\n取消运行\n\n点击“提炼发明点”后显示候选主线。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "text": "01 想法与材料",
+            "disabled": false
+          },
+          {
+            "text": "02 发明点确认",
+            "disabled": false
+          },
+          {
+            "text": "03 多智能体会审",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "专家工具",
+            "disabled": false
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "提炼发明点",
+            "disabled": false
+          },
+          {
+            "text": "查看前置材料详情",
+            "disabled": false
+          },
+          {
+            "text": "查看护城河地图",
+            "disabled": false
+          },
+          {
+            "text": "复制 Deep Research 提示词",
+            "disabled": false
+          },
+          {
+            "text": "选择并上传多份报告/补充材料",
+            "disabled": false
+          },
+          {
+            "text": "取消运行",
+            "disabled": false
+          }
+        ],
+        "visibleInputs": [
+          {
+            "tag": "select",
+            "type": "",
+            "value": "5a3d57c7c7934c6084d745c4884c8cc5",
+            "placeholder": "",
+            "label": "当前项目\n新建项目\nRound25 Guided 错误配置项目 1782525016020"
+          },
+          {
+            "tag": "textarea",
+            "type": "",
+            "value": "你是一名专利情报研究员。请为 PatentAgent 第 2 步“发明点确认”准备外部 Deep Research 报告。\n\n重要边界：不要写专利申请初稿，不要直接撰写权利要求。请聚焦检索、对比、区别特征、可保护发明点和证据缺口。\n\n项目上下文：\n- 项目名称: Round25 Guided 错误配置项目 1782525016020\n- 一句话方案: 目标模式：授权稳健。\n一种用于验证授权导向专利撰写主路径的本地智能代理系统，在错误 LLM 配置下应安全失败并保留项目上下文。\n- 技术领域: （请补充）\n- 背景技术: （请补充）\n- 技术痛点: （请补充）\n- 技术方案: （请补充）\n- 已知创新点: （请补充）\n- 实施方式: （请补充）\n- 有益效果: （请补充）\n\n请完成以下研究：\n1. 检索中英文公开专利、论文、技术博客、产品文档和开源项目，列出最接近现有技术。\n2. 对每个相关来源提取：标题、来源类型、链接/公开号、公开日期、关键技术特征、与本方案重合点、差异点。\n3. 反向归纳本方案可能真正可保护的区别特征，并说明这些区别特征解决了什么技术问题、带来什么技术效果。\n4. 输出 3-5 个候选发明点，每个候选包含：名称、核心技术问题、关键技术特征组合、区别于现有技术的点、证据强度、风险、需要补充的实验/材料。\n5. 标出会削弱新颖性或创造性的最危险现有技术，并给出规避或收窄建议。\n\n请按以下 Markdown 结构输出：\n# 外部 Deep Research 报告\n## 1. 研究范围与检索式\n## 2. 最接近现有技术\n| 来源 | 标题 | 链接/公开号 | 相关特征 | 重合点 | 差异点 | 风险等级 |\n| --- | --- | --- | --- | --- | --- | --- |\n## 3. 可保护发明点候选\n## 4. 支撑缺口与补充材料建议\n## 5. 推荐给 PatentAgent 的摘要\n\n最后一节请用 300-600 字总结：哪些发明点最值得作为主线、哪些只能作为后备路线、上传给 PatentAgent 后应重点关注哪些支撑缺口。",
+            "placeholder": "",
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "type": "file",
+            "value": "",
+            "placeholder": "",
+            "label": "上传外部研究报告或补充材料"
+          }
+        ]
+      }
+    },
+    {
+      "step": "08-after-run-terminal-or-timeout",
+      "screenshot": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round25/08-after-run-terminal-or-timeout.png",
+      "state": {
+        "label": "08-after-run-terminal-or-timeout",
+        "url": "http://127.0.0.1:5175/",
+        "bodyText": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound25 Guided 错误配置项目 1782525016020\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound25 Guided 错误配置项目 1782525016020\n空闲\n专家工具\n返回三选一\n前置材料生成已启动：排队中\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n研究模式\n标准（默认）\n免费 Deep Research（公开检索 + 多轮分析）\n\n标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。\n\n提炼发明点\n\n发明点提炼失败：请检查 Base URL、网络、代理配置或本机服务端口后重试。\n\n诊断详情\n重试\n\n点击“提炼发明点”后显示候选主线。",
+        "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound25 Guided 错误配置项目 1782525016020\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound25 Guided 错误配置项目 1782525016020\n空闲\n专家工具\n返回三选一\n前置材料生成已启动：排队中\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n提炼发明点\n确认发明点与护城河\n\n确认主线后，才会进入初稿生成。\n\n查看前置材料详情\n查看护城河地图\n外部 Deep Research 辅助\n\n先复制提示词去外部 Deep Research，拿到报告后在这里上传；报告会进入补充材料，再参与发明点提炼。\n\n1\n复制研究提示词\n\n围绕现有技术、区别特征和可保护主线做检索。\n\n2\n导出研究报告\n\n建议保存为 Markdown、TXT、PDF 或 DOCX。\n\n3\n上传后再提炼\n\n上传后再点击提炼发明点。\n\n复制 Deep Research 提示词\n上传后可在前置材料详情中查看。\n查看完整提示词\n上传外部研究报告或补充材料\n点击右侧按钮可一次选择多份文件，选择后会自动上传。\n支持多选 PDF、DOCX、PPT、Markdown 或 TXT。\n选择并上传多份报告/补充材料\n研究模式\n标准（默认）\n免费 Deep Research（公开检索 + 多轮分析）\n\n标准模式只走常规交底书流水线；如希望系统在交底阶段做更深的公开检索调研，可切换为免费 Deep Research。\n\n提炼发明点\n\n发明点提炼失败：请检查 Base URL、网络、代理配置或本机服务端口后重试。\n\n诊断详情\n重试\n\n点击“提炼发明点”后显示候选主线。",
+        "visibleButtons": [
+          {
+            "text": "开始",
+            "disabled": false
+          },
+          {
+            "text": "项目",
+            "disabled": false
+          },
+          {
+            "text": "设置",
+            "disabled": false
+          },
+          {
+            "text": "01 想法与材料",
+            "disabled": false
+          },
+          {
+            "text": "02 发明点确认",
+            "disabled": false
+          },
+          {
+            "text": "03 多智能体会审",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "专家工具",
+            "disabled": false
+          },
+          {
+            "text": "返回三选一",
+            "disabled": false
+          },
+          {
+            "text": "刷新运行状态",
+            "disabled": false
+          },
+          {
+            "text": "提炼发明点",
+            "disabled": false
+          },
+          {
+            "text": "查看前置材料详情",
+            "disabled": false
+          },
+          {
+            "text": "查看护城河地图",
+            "disabled": false
+          },
+          {
+            "text": "复制 Deep Research 提示词",
+            "disabled": false
+          },
+          {
+            "text": "选择并上传多份报告/补充材料",
+            "disabled": false
+          },
+          {
+            "text": "提炼发明点",
+            "disabled": false
+          }
+        ],
+        "visibleInputs": [
+          {
+            "tag": "select",
+            "type": "",
+            "value": "5a3d57c7c7934c6084d745c4884c8cc5",
+            "placeholder": "",
+            "label": "当前项目\n新建项目\nRound25 Guided 错误配置项目 1782525016020"
+          },
+          {
+            "tag": "textarea",
+            "type": "",
+            "value": "你是一名专利情报研究员。请为 PatentAgent 第 2 步“发明点确认”准备外部 Deep Research 报告。\n\n重要边界：不要写专利申请初稿，不要直接撰写权利要求。请聚焦检索、对比、区别特征、可保护发明点和证据缺口。\n\n项目上下文：\n- 项目名称: Round25 Guided 错误配置项目 1782525016020\n- 一句话方案: 目标模式：授权稳健。\n一种用于验证授权导向专利撰写主路径的本地智能代理系统，在错误 LLM 配置下应安全失败并保留项目上下文。\n- 技术领域: （请补充）\n- 背景技术: （请补充）\n- 技术痛点: （请补充）\n- 技术方案: （请补充）\n- 已知创新点: （请补充）\n- 实施方式: （请补充）\n- 有益效果: （请补充）\n\n请完成以下研究：\n1. 检索中英文公开专利、论文、技术博客、产品文档和开源项目，列出最接近现有技术。\n2. 对每个相关来源提取：标题、来源类型、链接/公开号、公开日期、关键技术特征、与本方案重合点、差异点。\n3. 反向归纳本方案可能真正可保护的区别特征，并说明这些区别特征解决了什么技术问题、带来什么技术效果。\n4. 输出 3-5 个候选发明点，每个候选包含：名称、核心技术问题、关键技术特征组合、区别于现有技术的点、证据强度、风险、需要补充的实验/材料。\n5. 标出会削弱新颖性或创造性的最危险现有技术，并给出规避或收窄建议。\n\n请按以下 Markdown 结构输出：\n# 外部 Deep Research 报告\n## 1. 研究范围与检索式\n## 2. 最接近现有技术\n| 来源 | 标题 | 链接/公开号 | 相关特征 | 重合点 | 差异点 | 风险等级 |\n| --- | --- | --- | --- | --- | --- | --- |\n## 3. 可保护发明点候选\n## 4. 支撑缺口与补充材料建议\n## 5. 推荐给 PatentAgent 的摘要\n\n最后一节请用 300-600 字总结：哪些发明点最值得作为主线、哪些只能作为后备路线、上传给 PatentAgent 后应重点关注哪些支撑缺口。",
+            "placeholder": "",
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "type": "file",
+            "value": "",
+            "placeholder": "",
+            "label": "上传外部研究报告或补充材料"
+          },
+          {
+            "tag": "select",
+            "type": "",
+            "value": "standard",
+            "placeholder": "",
+            "label": "研究模式"
+          }
+        ]
+      }
+    }
+  ],
+  "api": {
+    "createResponseStatus": 200,
+    "projectsAfterCreate": {
+      "status": 200,
+      "text": "{\"projects\":[{\"id\":\"5a3d57c7c7934c6084d745c4884c8cc5\",\"name\":\"Round25 Guided 错误配置项目 1782525016020\",\"draft_text\":\"目标模式：授权稳健。\\n一种用于验证授权导向专利撰写主路径的本地智能代理系统，在错误 LLM 配置下应安全失败并保留项目上下文。\",\"patent_type\":\"invention\",\"package\":null,\"created_at\":\"2026-06-27 01:50:22\",\"updated_at\":\"2026-06-27 01:50:22\",\"applicant\":\"\",\"inventors\":\"\",\"technical_field\":\"\",\"background\":\"\",\"pain_point\":\"\",\"technical_solution\":\"\",\"innovation\":\"\",\"embodiments\":\"\",\"beneficial_effects\":\"\"}]}",
+      "json": {
+        "projects": [
+          {
+            "id": "5a3d57c7c7934c6084d745c4884c8cc5",
+            "name": "Round25 Guided 错误配置项目 1782525016020",
+            "draft_text": "目标模式：授权稳健。\n一种用于验证授权导向专利撰写主路径的本地智能代理系统，在错误 LLM 配置下应安全失败并保留项目上下文。",
+            "patent_type": "invention",
+            "package": null,
+            "created_at": "2026-06-27 01:50:22",
+            "updated_at": "2026-06-27 01:50:22",
+            "applicant": "",
+            "inventors": "",
+            "technical_field": "",
+            "background": "",
+            "pain_point": "",
+            "technical_solution": "",
+            "innovation": "",
+            "embodiments": "",
+            "beneficial_effects": ""
+          }
+        ]
+      }
+    },
+    "project": {
+      "id": "5a3d57c7c7934c6084d745c4884c8cc5",
+      "name": "Round25 Guided 错误配置项目 1782525016020",
+      "draft_text": "目标模式：授权稳健。\n一种用于验证授权导向专利撰写主路径的本地智能代理系统，在错误 LLM 配置下应安全失败并保留项目上下文。",
+      "patent_type": "invention",
+      "package": null,
+      "created_at": "2026-06-27 01:50:22",
+      "updated_at": "2026-06-27 01:50:22",
+      "applicant": "",
+      "inventors": "",
+      "technical_field": "",
+      "background": "",
+      "pain_point": "",
+      "technical_solution": "",
+      "innovation": "",
+      "embodiments": "",
+      "beneficial_effects": ""
+    },
+    "disclosurePoll": {
+      "latest": {
+        "status": 200,
+        "text": "{\"runs\":[{\"id\":\"81698b11637c4d50b0ca52ae843818e2\",\"project_id\":\"5a3d57c7c7934c6084d745c4884c8cc5\",\"status\":\"failed\",\"trace\":false,\"max_prior_art_results\":8,\"research_mode\":\"standard\",\"run_dir\":\".gstack/qa-reports/runtime-data-product-repair-pr3-pr6/disclosures/5a3d57c7c7934c6084d745c4884c8cc5/81698b11637c4d50b0ca52ae843818e2\",\"stage_results\":[],\"package\":null,\"failures\":[\"Connection error.\"],\"failure_details\":[{\"flow\":\"disclosure\",\"stage\":\"disclosure_scan\",\"provider\":\"llm\",\"reason\":\"exception\",\"message\":\"Connection error.\",\"retryable\":true,\"elapsed_ms\":2462,\"repair_suggestion\":\"Retry after fixing the disclosure provider or prompt/schema issue.\",\"partial_artifact_count\":0,\"created_at\":\"2026-06-27T01:50:26Z\"}],\"events\":[\"run started\",\"run failed: Connection error.\"],\"runtime_state\":{\"current_stage\":\"disclosure_scan\",\"provider\":\"llm\",\"query\":\"\",\"subtask\":\"project/material scan\",\"heartbeat_at\":\"2026-06-27T01:50:23Z\",\"elapsed_ms\":1,\"warning_count\":0,\"partial_artifact_count\":0,\"timeout_ms\":null,\"attempt\":null},\"cancel_requested\":false,\"retry_of\":null}]}",
+        "json": {
+          "runs": [
+            {
+              "id": "81698b11637c4d50b0ca52ae843818e2",
+              "project_id": "5a3d57c7c7934c6084d745c4884c8cc5",
+              "status": "failed",
+              "trace": false,
+              "max_prior_art_results": 8,
+              "research_mode": "standard",
+              "run_dir": ".gstack/qa-reports/runtime-data-product-repair-pr3-pr6/disclosures/5a3d57c7c7934c6084d745c4884c8cc5/81698b11637c4d50b0ca52ae843818e2",
+              "stage_results": [],
+              "package": null,
+              "failures": [
+                "Connection error."
+              ],
+              "failure_details": [
+                {
+                  "flow": "disclosure",
+                  "stage": "disclosure_scan",
+                  "provider": "llm",
+                  "reason": "exception",
+                  "message": "Connection error.",
+                  "retryable": true,
+                  "elapsed_ms": 2462,
+                  "repair_suggestion": "Retry after fixing the disclosure provider or prompt/schema issue.",
+                  "partial_artifact_count": 0,
+                  "created_at": "2026-06-27T01:50:26Z"
+                }
+              ],
+              "events": [
+                "run started",
+                "run failed: Connection error."
+              ],
+              "runtime_state": {
+                "current_stage": "disclosure_scan",
+                "provider": "llm",
+                "query": "",
+                "subtask": "project/material scan",
+                "heartbeat_at": "2026-06-27T01:50:23Z",
+                "elapsed_ms": 1,
+                "warning_count": 0,
+                "partial_artifact_count": 0,
+                "timeout_ms": null,
+                "attempt": null
+              },
+              "cancel_requested": false,
+              "retry_of": null
+            }
+          ]
+        }
+      },
+      "timedOut": false
+    }
+  },
+  "assertions": {
+    "settingsSavedAsBadLocalConfig": true,
+    "projectCreateResponseOk": true,
+    "projectCreatedExactlyOnce": true,
+    "enteredDisclosureStep": true,
+    "disclosurePostCount": 1,
+    "exactlyOneDisclosurePost": true,
+    "disclosureReachedTerminalState": true,
+    "disclosureFailedClosed": true,
+    "retryButtonAvailable": true,
+    "uiStillOnProjectContext": true,
+    "rawSdkErrorVisible": false,
+    "userFacingFailureVisible": true,
+    "pageErrors": 0,
+    "requestFailures": 0,
+    "consoleErrors": 0
+  }
+}

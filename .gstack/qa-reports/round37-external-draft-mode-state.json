@@ -1,0 +1,83 @@
+{
+  "generatedAt": "2026-06-27T01:22:04.750Z",
+  "baseUrl": "http://127.0.0.1:5174/",
+  "apiBaseUrl": "http://127.0.0.1:8000",
+  "project": {
+    "id": "97e8b0a3a7ca453682e44e117b3706ea",
+    "name": "Round37 外部稿入口保持 1782523324751",
+    "draft_text": "用于验证第三入口选择已有项目后仍保持外部初稿导入模式的一段技术想法。",
+    "patent_type": "invention",
+    "package": null,
+    "created_at": "2026-06-27 01:22:04",
+    "updated_at": "2026-06-27 01:22:04",
+    "applicant": "",
+    "inventors": "",
+    "technical_field": "",
+    "background": "",
+    "pain_point": "",
+    "technical_solution": "",
+    "innovation": "",
+    "embodiments": "",
+    "beneficial_effects": ""
+  },
+  "events": {
+    "console": [
+      {
+        "type": "debug",
+        "text": "[vite] connecting..."
+      },
+      {
+        "type": "debug",
+        "text": "[vite] connected."
+      },
+      {
+        "type": "info",
+        "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+      }
+    ],
+    "pageErrors": [],
+    "requestFailures": []
+  },
+  "screenshots": {
+    "beforeProjectSelect": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round37-external-draft-mode/01-before-project-select.png",
+    "afterProjectSelect": "/Users/leo/Projects/patents_agent/.gstack/qa-reports/screenshots/round37-external-draft-mode/02-after-project-select.png"
+  },
+  "states": {
+    "beforeProjectSelect": {
+      "label": "before-project-select",
+      "url": "http://127.0.0.1:5174/",
+      "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n当前项目\n未选择\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound37 外部稿入口保持 1782523324751\nRound33 长编辑报告 1782523213083\nRound32 长报告预览 1782523182366\nRound31 用户猴子导航 1782523158617\nRound31 用户猴子导航 1782523120118\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n专家工具\n返回三选一\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n当前步骤\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n未解锁\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n0/9 已完成\n当前进度：0%\n\n先创建项目；已有稿件可从第三个入口导入。\n\n填写并创建项目\n等待首 Mile 输入\n\n请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。\n\n导入外部专利初稿\n\n保存外部稿原文，解析章节，并在人工确认后转为内部工作稿。\n\n入口方式\n导入外部初稿\n项目\n待创建\n专利类型\n发明专利\n外部稿队列\n暂无外部稿\n起步配置\n\n先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。\n\n从想法生成\n导入外部初稿\n当前项目\n未选择\n已保存来源\n0 份\n最近解析\n尚未解析\n确认条件\n需权利要求+说明书\n请先创建或选择项目\n\n外部稿会绑定到当前项目，用于解析章节并生成内部工作稿。\n\n保存外部初稿\n\n可以上传 DOCX/TXT/Markdown，也可以直接粘贴原文。保存后再运行章节解析。\n\n上传文件\n\n适合已有 DOCX、TXT 或 Markdown 初稿。\n\n文件名\n上传外部初稿\n粘贴文本\n\n适合从审稿文件、邮件或网页复制已有初稿。\n\n粘贴稿文件名\n粘贴外部专利初稿\n保存原始外部稿\n来源队列\n\n已保存的外部稿会保留原始哈希，解析结果需要确认后才会覆盖内部工作稿。\n\n暂无外部稿来源\n\n保存外部稿后，系统会解析章节并生成内部工作稿。",
+      "hasExternalHeading": true,
+      "hasSaveExternalDraft": true,
+      "hasUploadExternalDraft": true,
+      "hasExternalQueue": true,
+      "hasInventionStepPanel": false,
+      "hasSupplementalUpload": false,
+      "selectedProjectText": "新建项目",
+      "selectedProjectValue": ""
+    },
+    "afterProjectSelect": {
+      "label": "after-project-select",
+      "url": "http://127.0.0.1:5174/",
+      "bodyTextSample": "PA\nPatentAgent\n授权导向专利工程系统\nMain\n开始\n项目\n设置\n关键节点\n01 想法与材料\n02 发明点确认\n03 多智能体会审\n当前项目\nRound37 外部稿入口保持 1782523324751\n新建中\n模型与智能体\n基础模型\n可用\n智能体\n完整会审\n内部痕迹检查\n可用\n刷新运行状态\n当前项目\n新建项目\nRound37 外部稿入口保持 1782523324751\nRound33 长编辑报告 1782523213083\nRound32 长报告预览 1782523182366\nRound31 用户猴子导航 1782523158617\nRound31 用户猴子导航 1782523120118\nRound24 项目 01 1782523063801\nRound24 项目 02 1782523063801\nRound24 项目 03 1782523063801\nRound24 项目 04 1782523063801\nRound24 项目 05 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 06 1782523063801\nRound24 项目 07 1782523063801\nRound24 项目 08 1782523063801\nRound24 项目 09 1782523063801\nRound24 项目 10 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 11 1782523063801\nRound24 项目 12 1782523063801\nRound24 项目 13 1782523063801\nRound24 项目 14 1782523063801\nRound24 项目 15 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 16 1782523063801\nRound24 项目 17 1782523063801\nRound24 项目 18 1782523063801\nRound24 项目 19 1782523063801\nRound24 项目 20 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 21 1782523063801\nRound24 项目 22 1782523063801\nRound24 项目 23 1782523063801\nRound24 项目 24 1782523063801\nRound24 项目 25 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\nRound24 项目 26 1782523063801\nRound24 项目 27 1782523063801\nRound24 项目 28 1782523063801\nRound24 项目 29 1782523063801\nRound24 项目 30 超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT超长项目名称连续无空格技术识别码LONGPROJECTNAMEWITHOUTBREAKPOINT 1782523063801\n空闲\n专家工具\n返回三选一\n1\n想法与材料\n\n输入一句想法，上传可选材料。\n\n已完成\n2\n发明点\n\n确认主发明点、证据状态和护城河方向。\n\n当前步骤\n3\n多智能体会审\n\n会审权利要求边界、说明书支撑和规避风险。\n\n未解锁\n4\n核心公式\n\n凝练算法公式、变量定义和权利要求落点。\n\n未解锁\n5\n生成初稿\n\n生成摘要、权利要求书和说明书。\n\n未解锁\n6\n质量检查\n\n运行提交成熟度、权利要求防线和初稿完善。\n\n未解锁\n7\n正式稿编译\n\n清除内部痕迹，生成可提交正式稿包。\n\n未解锁\n8\n成稿会审\n\n提交前强制审查权利要求、说明书支撑、内部痕迹和技术硬度。\n\n未解锁\n9\n导出\n\n确认风险并导出正式稿和内部报告。\n\n未解锁\n1/9 已完成\n当前进度：11%\n\n生成候选发明点和护城河方向，然后人工确认主线。\n\n回到当前步骤\n导入外部专利初稿\n\n保存外部稿原文，解析章节，并在人工确认后转为内部工作稿。\n\n入口方式\n导入外部初稿\n项目\nRound37 外部稿入口保持 1782523324751\n专利类型\n发明专利\n外部稿队列\n暂无外部稿\n起步配置\n\n先确认入口，再填写项目内容。后续步骤会沿用这里选择的专利类型和目标模式。\n\n从想法生成\n导入外部初稿\n当前项目\nRound37 外部稿入口保持 1782523324751\n已保存来源\n0 份\n最近解析\n尚未解析\n确认条件\n需权利要求+说明书\n保存外部初稿\n\n可以上传 DOCX/TXT/Markdown，也可以直接粘贴原文。保存后再运行章节解析。\n\n上传文件\n\n适合已有 DOCX、TXT 或 Markdown 初稿。\n\n文件名\n上传外部初稿\n粘贴文本\n\n适合从审稿文件、邮件或网页复制已有初稿。\n\n粘贴稿文件名\n粘贴外部专利初稿\n保存原始外部稿\n来源队列\n\n已保存的外部稿会保留原始哈希，解析结果需要确认后才会覆盖内部工作稿。\n\n暂无外部稿来源\n\n保存外部稿后，系统会解析章节并生成内部工作稿。",
+      "hasExternalHeading": true,
+      "hasSaveExternalDraft": true,
+      "hasUploadExternalDraft": true,
+      "hasExternalQueue": true,
+      "hasInventionStepPanel": false,
+      "hasSupplementalUpload": false,
+      "selectedProjectText": "Round37 外部稿入口保持 1782523324751",
+      "selectedProjectValue": "97e8b0a3a7ca453682e44e117b3706ea"
+    }
+  },
+  "assertions": {
+    "beforeShowsExternalIntake": true,
+    "afterShowsExternalIntake": true,
+    "afterKeepsSelectedProject": true,
+    "afterDoesNotJumpToInventionPanel": true,
+    "afterDoesNotShowSupplementalUpload": true,
+    "pageErrors": 0,
+    "requestFailures": 0,
+    "consoleErrors": 0
+  }
+}
