@@ -66,4 +66,35 @@ describe("SettingsPanel error copy", () => {
       expect(status).not.toHaveTextContent("LLM");
     });
   });
+
+  it("uses generic app copy for settings load 404 errors", async () => {
+    vi.mocked(getDesktopConfig).mockRejectedValue(
+      new Error("GET /api/desktop-config 返回 404：Desktop config not found."),
+    );
+
+    render(<SettingsPanel theme="light" onThemeChange={() => undefined} />);
+
+    const panel = await screen.findByText(/加载失败：/);
+    expect(panel).toHaveTextContent("资源不存在");
+    expect(panel).toHaveTextContent("Desktop config not found.");
+    expect(panel).not.toHaveTextContent("LLM");
+  });
+
+  it("uses generic app copy for settings clear conflict errors", async () => {
+    vi.mocked(clearDesktopConfigKey).mockRejectedValue(
+      new Error("DELETE /api/desktop-config/api-key 返回 409：Config was modified by another session."),
+    );
+
+    render(<SettingsPanel theme="light" onThemeChange={() => undefined} />);
+    await screen.findByTestId("settings-save");
+
+    await userEvent.click(screen.getByRole("button", { name: /清除密钥/ }));
+
+    const status = await screen.findByTestId("settings-save-status");
+    await waitFor(() => {
+      expect(status).toHaveTextContent("操作冲突");
+      expect(status).toHaveTextContent("Config was modified by another session.");
+      expect(status).not.toHaveTextContent("LLM");
+    });
+  });
 });
