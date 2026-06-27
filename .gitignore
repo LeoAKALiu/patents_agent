@@ -10,6 +10,7 @@ __pycache__/
 .omc/
 .gstack/
 .worktrees/
+.reasonix/
 .superpowers/
 .artifacts/
 data/
