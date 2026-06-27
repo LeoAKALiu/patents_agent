@@ -7,6 +7,8 @@ export interface SystemStatusPanelProps {
   selectedProject?: ProjectRecord | null;
   health?: Health | null;
   agentDoctor?: AgentDoctorReport | null;
+  backendStatus?: "unknown" | "online" | "offline";
+  projectListStatus?: "idle" | "loading" | "ready" | "failed";
   agentRunModeLabel?: (mode: string) => string;
   onRefresh?: () => void;
 }
@@ -26,11 +28,21 @@ export function SystemStatusPanel({
   selectedProject,
   health,
   agentDoctor,
+  backendStatus = "unknown",
+  projectListStatus = "idle",
   agentRunModeLabel = (mode) => mode,
   onRefresh,
 }: SystemStatusPanelProps) {
+  const offline = backendStatus === "offline";
   return (
     <div className="grid min-w-0 max-w-full gap-2.5 overflow-hidden">
+      {offline && (
+        <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-app-border bg-app-surface p-3">
+          <h3 className="text-xs font-semibold text-app-muted mb-1">后端离线</h3>
+          <p className="m-0 text-xs leading-5 text-app-muted">无法刷新项目、健康检查和智能体诊断。</p>
+        </div>
+      )}
+
       <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-app-border bg-app-surface p-3">
         <h3 className="text-xs font-semibold text-app-muted mb-1">当前项目</h3>
         <StatusRow label={selectedProject?.name ?? "未选择"}>
@@ -44,24 +56,47 @@ export function SystemStatusPanel({
             </Badge>
           )}
         </StatusRow>
+        {projectListStatus === "failed" && (
+          <StatusRow label="项目列表">
+            <Badge variant="warning" className="min-w-[4.5em] justify-center">
+              加载失败
+            </Badge>
+          </StatusRow>
+        )}
       </div>
 
       <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-app-border bg-app-surface p-3">
         <h3 className="text-xs font-semibold text-app-muted mb-1">模型与智能体</h3>
         <div className="grid min-w-0">
           <StatusRow label="基础模型">
-            {health?.llm_configured ? (
+            {offline ? (
+              <Badge variant="destructive" className="min-w-[4.5em] justify-center">
+                离线
+              </Badge>
+            ) : health?.llm_configured ? (
               <Badge variant="success" className="min-w-[4.5em] justify-center">
                 可用
               </Badge>
-            ) : (
+            ) : health ? (
               <Badge variant="destructive" className="min-w-[4.5em] justify-center">
                 未配置
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="min-w-[4.5em] justify-center">
+                检测中
               </Badge>
             )}
           </StatusRow>
           <StatusRow label="智能体">
-            {agentDoctor?.status === "blocked" ? (
+            {offline ? (
+              <Badge variant="destructive" className="min-w-[4.5em] justify-center">
+                离线
+              </Badge>
+            ) : !agentDoctor ? (
+              <Badge variant="secondary" className="min-w-[4.5em] justify-center">
+                检测中
+              </Badge>
+            ) : agentDoctor.status === "blocked" ? (
               <Badge variant="warning" className="min-w-[4.5em] justify-center">
                 {agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}
               </Badge>
@@ -72,9 +107,15 @@ export function SystemStatusPanel({
             )}
           </StatusRow>
           <StatusRow label="内部痕迹检查">
-            <Badge variant="success" className="min-w-[4.5em] justify-center">
-              可用
-            </Badge>
+            {offline ? (
+              <Badge variant="destructive" className="min-w-[4.5em] justify-center">
+                离线
+              </Badge>
+            ) : (
+              <Badge variant="success" className="min-w-[4.5em] justify-center">
+                可用
+              </Badge>
+            )}
           </StatusRow>
         </div>
       </div>

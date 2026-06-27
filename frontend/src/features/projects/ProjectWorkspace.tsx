@@ -4,6 +4,7 @@ import {
   ProjectSelect,
   ProjectsOverview,
   StartChoiceScreen,
+  type ProjectListLoadStatus,
 } from "@/views/projectViews";
 import { GuidedPatentFlowView } from "@/GuidedPatentFlow";
 
@@ -70,6 +71,15 @@ export interface ProjectWorkspaceHandlers {
     idea: string;
     mode: PatentGoalMode;
     patentType: PatentType;
+    applicant?: string;
+    inventors?: string;
+    technical_field?: string;
+    background?: string;
+    pain_point?: string;
+    technical_solution?: string;
+    innovation?: string;
+    embodiments?: string;
+    beneficial_effects?: string;
   }) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
   onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
@@ -102,6 +112,7 @@ export interface ProjectWorkspaceHandlers {
   onStartOfficialCompile: () => void;
   onStartKimiLanguagePolish: () => void;
   onStartPostDraftReview: () => void;
+  onApplyOfficialCompileCleanup: (runId: string) => void;
   onApplyPostDraftSafePatches: (runId: string) => void;
   onSaveDraftPackage: (payload: {
     title: string;
@@ -128,6 +139,7 @@ export interface ProjectWorkspaceProps {
   section: "generate" | "utility" | "projects";
   state: ProjectWorkspaceState;
   handlers: ProjectWorkspaceHandlers;
+  loadStatus?: ProjectListLoadStatus;
   /**
    * Optional override for the fixed goal mode (utility vs invention). Set when
    * the user picked the "实用新型" start choice.
@@ -161,6 +173,7 @@ export function ProjectWorkspace({
   section,
   state,
   handlers,
+  loadStatus = "idle",
   fixedGoalMode,
   initialIntakeMode,
 }: ProjectWorkspaceProps) {
@@ -174,6 +187,7 @@ export function ProjectWorkspace({
       <ProjectsOverview
         projects={state.projects}
         selectedProjectId={state.selectedProject?.id ?? ""}
+        loadStatus={loadStatus}
         onSelect={handlers.onSelectProjectId}
         onDelete={(project) => void handlers.onDeleteProject(project)}
         busy={state.busy}
@@ -231,6 +245,7 @@ export function ProjectWorkspace({
       onStartOfficialCompile={handlers.onStartOfficialCompile}
       onStartKimiLanguagePolish={handlers.onStartKimiLanguagePolish}
       onStartPostDraftReview={handlers.onStartPostDraftReview}
+      onApplyOfficialCompileCleanup={handlers.onApplyOfficialCompileCleanup}
       onApplyPostDraftSafePatches={handlers.onApplyPostDraftSafePatches}
       onSaveDraftPackage={handlers.onSaveDraftPackage}
       onCancelPostDraftReviewRun={handlers.onCancelPostDraftReviewRun}
@@ -255,11 +270,13 @@ export function ProjectWorkspace({
 export function ProjectSelectorSlot({
   projects,
   selectedProjectId,
+  loadStatus = "idle",
   onSelect,
 }: {
   projects: ProjectRecord[];
   selectedProjectId: string;
+  loadStatus?: ProjectListLoadStatus;
   onSelect: (id: string) => void;
 }) {
-  return <ProjectSelect projects={projects} selectedProjectId={selectedProjectId} onChange={onSelect} />;
+  return <ProjectSelect projects={projects} selectedProjectId={selectedProjectId} loadStatus={loadStatus} onChange={onSelect} />;
 }

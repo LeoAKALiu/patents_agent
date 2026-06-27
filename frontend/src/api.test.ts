@@ -6,6 +6,7 @@ import {
   cancelProjectDeliberation,
   cancelProjectDisclosure,
   acceptAllCompletionPatches,
+  applyOfficialCompileCleanup,
   getHealth,
   importPatent,
   retryFormulaRun,
@@ -73,6 +74,10 @@ describe("runtime control API", () => {
         action: acceptAllCompletionPatches,
         url: "/api/projects/project-1/completion-runs/run-1/patches/accept-all",
       },
+      {
+        action: applyOfficialCompileCleanup,
+        url: "/api/projects/project-1/official-compile-runs/run-1/apply-cleanup",
+      },
     ];
 
     for (const { action } of calls) {
@@ -90,6 +95,33 @@ describe("runtime control API", () => {
     }));
 
     await expect(getHealth()).rejects.toThrow("GET /api/health 请求失败：Load failed");
+  });
+
+  it("maps browser file permission upload failures to user guidance", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }));
+    const file = new File(["private"], "round30-unreadable-material.md", { type: "text/markdown" });
+
+    await expect(uploadProjectMaterial("project-1", file)).rejects.toThrow(
+      "无法读取该文件，请检查文件权限或重新选择可读文件。",
+    );
+    await expect(uploadProjectMaterial("project-1", file)).rejects.not.toThrow("/api/projects/");
+    await expect(uploadProjectMaterial("project-1", file)).rejects.not.toThrow("Failed to fetch");
+  });
+
+  it("maps project material validation failures without exposing the upload endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => (
+      new Response(JSON.stringify({ detail: "文件为空或没有可解析文本。" }), {
+        status: 422,
+        statusText: "Unprocessable Entity",
+        headers: { "Content-Type": "application/json" },
+      })
+    )));
+    const file = new File([""], "empty.md", { type: "text/markdown" });
+
+    await expect(uploadProjectMaterial("project-1", file)).rejects.toThrow("材料上传失败：文件为空或没有可解析文本。");
+    await expect(uploadProjectMaterial("project-1", file)).rejects.not.toThrow("/api/projects/");
   });
 
   it("routes direct upload fetches through the Tauri backend base URL", async () => {

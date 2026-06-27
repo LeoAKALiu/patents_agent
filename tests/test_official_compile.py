@@ -32,6 +32,36 @@ def test_compiler_blocks_internal_pollution_in_official_fields():
     assert any(item["category"] == "official_hygiene_contamination" for item in run.blocked_items)
 
 
+def test_compiler_cleans_observed_surface_pollution_without_claiming_dirty_output_clean():
+    package = _draft_package(
+        title="一种城市体检指标驱动无人机主动采集方法方法",
+        claims="好的，根据技术交底书撰写权利要求。\n1. 一种待验证的城市体检指标驱动无人机采集方法。",
+        description="主席修订：本发明颠覆固定航线模式，需在提交前补充实验数据。",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "completed"
+    assert run.official_package is not None
+    official_text = "\n".join(
+        [
+            run.official_package.title,
+            run.official_package.claims,
+            run.official_package.description,
+        ]
+    )
+    for term in ("好的，根据", "待验证", "主席修订", "需在提交前补充", "颠覆", "方法方法"):
+        assert term not in official_text
+    assert {item["pattern"] for item in run.contamination_removed} >= {
+        "方法方法",
+        "好的，根据",
+        "待验证",
+        "主席修订",
+        "需在提交前补充",
+        "颠覆",
+    }
+
+
 def test_compiler_blocks_cross_project_title_contamination():
     package = _draft_package(
         description="本说明书还包括：基于边缘端动态推理的无人机飞行中任务调整方法。"
@@ -229,6 +259,140 @@ def test_official_compile_api_creates_lists_gets_and_exports_report(tmp_path):
     assert "## Official Package" in report_response.text
 
 
+def test_official_compile_cleanup_applies_blocked_hygiene_to_source_draft(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    dirty_package = _draft_package(
+        claims=(
+            "### 权利要求书\n"
+            "1. 一种方法，包括生成无人机任务包。\n\n"
+            "### support_gaps（提交前需补强的实验或工程材料）"
+        ),
+        description=(
+            "好的，以下是根据您提供的技术交底材料、权利要求书及多智能体会审策略撰写的说明书，并列出 support_gaps。\n"
+            "### 说明书\n"
+            "#### 技术领域\n"
+            "本发明涉及无人机任务规划技术领域。\n"
+            "#### 具体实施方式\n"
+            "系统依据城市体检指标生成采集任务。"
+        ),
+        drawing_description="#### 附图说明\n图1为方法流程图。",
+    )
+    project_id = _create_project_with_package(client, dirty_package)
+    blocked_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert blocked_response.status_code == 200
+    blocked = blocked_response.json()
+    assert blocked["status"] == "blocked"
+    assert blocked["contamination_removed"]
+
+    cleanup_response = client.post(
+        f"/api/projects/{project_id}/official-compile-runs/{blocked['id']}/apply-cleanup",
+        json={},
+    )
+
+    assert cleanup_response.status_code == 200
+    cleanup = cleanup_response.json()
+    assert cleanup["compile_run_id"] == blocked["id"]
+    assert cleanup["previous_draft_hash"] == blocked["source_draft_hash"]
+    assert cleanup["current_draft_hash"] != blocked["source_draft_hash"]
+    assert cleanup["applied_count"] == len(blocked["contamination_removed"])
+    cleaned_package = cleanup["package"]
+    for field in ("claims", "description", "drawing_description"):
+        assert "###" not in cleaned_package[field]
+        assert "####" not in cleaned_package[field]
+        assert "support_gaps" not in cleaned_package[field]
+        assert "好的，以下" not in cleaned_package[field]
+
+    listed = client.get(f"/api/projects/{project_id}/official-compile-runs").json()
+    assert listed["current_source_draft_hash"] == cleanup["current_draft_hash"]
+
+    recompile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    assert recompile_response.status_code == 200
+    recompiled = recompile_response.json()
+    assert recompiled["status"] == "completed"
+    assert recompiled["source_draft_hash"] == cleanup["current_draft_hash"]
+    assert recompiled["official_package"]["claims"].startswith("1. 一种方法")
+
+
+def test_official_compile_cleanup_rejects_stale_blocked_run(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _draft_package(claims="### 权利要求书\n1. 一种方法，包括生成无人机任务包。"),
+    )
+    blocked = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert blocked["status"] == "blocked"
+    client.app.state.store.update_project_package(project_id, _draft_package(abstract="修改后的摘要。"))
+
+    response = client.post(
+        f"/api/projects/{project_id}/official-compile-runs/{blocked['id']}/apply-cleanup",
+        json={},
+    )
+
+    assert response.status_code == 409
+    assert "stale" in response.json()["detail"]
+
+
+def test_blocked_compile_cleanup_rechecks_quality_and_unlocks_export_loop(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    dirty_package = _draft_package(
+        claims=(
+            "### 权利要求书\n"
+            "1. 一种城市体检指标驱动的无人机主动采集方法，包括生成任务有向无环图。"
+        ),
+        description=(
+            "### 说明书\n"
+            "本发明涉及城市体检智能体任务编排技术领域。\n"
+            "### support_gaps（提交前需补强的实验或工程材料）\n"
+            "#### 具体实施方式\n"
+            "系统依据任务有向无环图调度采集、复核和交付物生成。"
+        ),
+    )
+    project_id = _create_project_with_package(client, dirty_package)
+
+    first_quality = _run_quality_cycle(client, project_id)
+    blocked = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert blocked["status"] == "blocked"
+    assert blocked["source_draft_hash"] == first_quality["filing"]["draft_package_hash"]
+    assert blocked["source_draft_hash"] == first_quality["completion"]["draft_package_hash"]
+
+    cleanup = client.post(
+        f"/api/projects/{project_id}/official-compile-runs/{blocked['id']}/apply-cleanup",
+        json={},
+    ).json()
+    current_hash = cleanup["current_draft_hash"]
+    assert current_hash != blocked["source_draft_hash"]
+    stale_quality = client.get(f"/api/projects/{project_id}/filing-readiness").json()
+    assert stale_quality["current_source_draft_hash"] == current_hash
+    assert stale_quality["reports"][0]["draft_package_hash"] != current_hash
+
+    stale_export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert stale_export.status_code == 409
+    assert "Official draft compile is required" in stale_export.json()["detail"]
+
+    refreshed_quality = _run_quality_cycle(client, project_id)
+    assert refreshed_quality["filing"]["draft_package_hash"] == current_hash
+    assert refreshed_quality["completion"]["draft_package_hash"] == current_hash
+
+    compiled = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert compiled["status"] == "completed"
+    assert compiled["source_draft_hash"] == current_hash
+
+    pre_review_export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert pre_review_export.status_code == 409
+    assert "Post-draft multi-agent review is required" in pre_review_export.json()["detail"]
+
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    assert review["status"] == "completed"
+    assert review["export_allowed"] is True
+    assert review["official_compile_run_id"] == compiled["id"]
+
+    export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert export.status_code == 200
+    assert "权利要求书" in export.text
+    assert "support_gaps" not in export.text
+    assert "###" not in export.text
+
+
 def test_post_draft_review_requires_completed_official_compile(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _draft_package())
@@ -392,6 +556,20 @@ def _create_project_with_package(client: TestClient, package: DraftPackage) -> s
     ).json()["id"]
     client.app.state.store.update_project_package(project_id, package)
     return project_id
+
+
+def _run_quality_cycle(client: TestClient, project_id: str) -> dict:
+    filing_response = client.post(f"/api/projects/{project_id}/filing-readiness")
+    assert filing_response.status_code == 200
+    worksheet_response = client.post(f"/api/projects/{project_id}/claim-defense-worksheets")
+    assert worksheet_response.status_code == 200
+    completion_response = client.post(f"/api/projects/{project_id}/completion-runs")
+    assert completion_response.status_code == 200
+    return {
+        "filing": filing_response.json(),
+        "worksheet": worksheet_response.json(),
+        "completion": completion_response.json(),
+    }
 
 
 def _draft_package(**overrides) -> DraftPackage:

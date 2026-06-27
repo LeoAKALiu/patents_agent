@@ -37,6 +37,7 @@ from backend.app.services.project_service import (
     evaluate_point_moat,
     import_project_material,
     merge_patent_point_update,
+    project_material_upload_error,
 )
 
 router = APIRouter(tags=["projects"])
@@ -99,12 +100,20 @@ async def upload_project_material(
     stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
     with stored_path.open("wb") as handle:
         shutil.copyfileobj(file.file, handle)
-    material = import_project_material(
-        project_id=project_id,
-        file_name=safe_name,
-        stored_path=stored_path,
-        repo=repo,
-    )
+    try:
+        material = import_project_material(
+            project_id=project_id,
+            file_name=safe_name,
+            stored_path=stored_path,
+            repo=repo,
+        )
+    except ValueError as exc:
+        try:
+            stored_path.unlink()
+        except OSError:
+            pass
+        status_code, detail = project_material_upload_error(exc)
+        raise HTTPException(status_code=status_code, detail=detail) from exc
     return material.model_dump(mode="json")
 
 

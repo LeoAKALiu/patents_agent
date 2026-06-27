@@ -30,7 +30,15 @@ RESIDUAL_INTERNAL_PATTERNS = (
     "system_trace",
     "official_safe_patches",
     "好的，下面",
+    "好的，根据",
+    "待验证",
+    "主席修订",
+    "需在提交前补充",
+    "提交前补充",
+    "方法方法",
+    "颠覆",
 )
+AUTO_CLEANED_TEXT_CATEGORY = "auto_cleaned_text"
 INTERNAL_FIELD_RE = re.compile(
     r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs|attorney_memo|system_trace|official_safe_patches)["']?\s*[:：=]""",
     re.IGNORECASE,
@@ -51,13 +59,28 @@ def official_package_hash(package: OfficialDraftPackage) -> str:
     return hashlib.sha256(canonical.model_dump_json().encode("utf-8")).hexdigest()
 
 
+def clean_source_draft_for_official_compile(
+    package: DraftPackage,
+) -> tuple[DraftPackage, list[dict[str, str]], list[dict[str, str]]]:
+    contamination_removed: list[dict[str, str]] = []
+    sidecar_notes: list[dict[str, str]] = []
+    cleaned_fields = {
+        section: _clean_section(
+            section=section,
+            text=getattr(package, section),
+            contamination_removed=contamination_removed,
+            sidecar_notes=sidecar_notes,
+        )
+        for section in ("title", *REQUIRED_SECTIONS)
+    }
+    return package.model_copy(update=cleaned_fields), contamination_removed, sidecar_notes
+
+
 class OfficialDraftCompiler:
     def compile(self, project_id: str, package: DraftPackage) -> OfficialCompileRun:
         run_id = uuid.uuid4().hex
         now = _utc_now_iso()
         package_hash = source_draft_hash(package)
-        contamination_removed: list[dict[str, str]] = []
-        sidecar_notes: list[dict[str, str]] = []
         blocked_items: list[dict[str, str]] = []
         logs: list[DeliberationLogEntry] = [
             DeliberationLogEntry(
@@ -87,21 +110,9 @@ class OfficialDraftCompiler:
                 }
             )
 
-        cleaned_title = _clean_section(
-            section="title",
-            text=package.title,
-            contamination_removed=contamination_removed,
-            sidecar_notes=sidecar_notes,
-        )
-        cleaned = {
-            section: _clean_section(
-                section=section,
-                text=getattr(package, section),
-                contamination_removed=contamination_removed,
-                sidecar_notes=sidecar_notes,
-            )
-            for section in REQUIRED_SECTIONS
-        }
+        cleaned_package, contamination_removed, sidecar_notes = clean_source_draft_for_official_compile(package)
+        cleaned_title = cleaned_package.title
+        cleaned = {section: getattr(cleaned_package, section) for section in REQUIRED_SECTIONS}
 
         if not cleaned_title.strip():
             blocked_items.append(
@@ -127,6 +138,8 @@ class OfficialDraftCompiler:
         all_cleaned_text = {"title": cleaned_title, **cleaned}
         for item in contamination_removed:
             if item["section"] not in HARD_GATED_SECTIONS:
+                continue
+            if item["category"] == AUTO_CLEANED_TEXT_CATEGORY:
                 continue
             blocked_items.append(
                 {
@@ -301,8 +314,60 @@ def _clean_section(
             if removal["category"] == "support_gap":
                 sidecar_notes.append(item.copy())
             continue
-        kept.append(_strip_inline_markdown(line))
+        cleaned_line = _strip_inline_markdown(line)
+        cleaned_line = _clean_inline_official_text(
+            section=section,
+            text=cleaned_line,
+            contamination_removed=contamination_removed,
+        )
+        if cleaned_line:
+            kept.append(cleaned_line)
     return "\n".join(kept).strip()
+
+
+def _clean_inline_official_text(
+    *,
+    section: str,
+    text: str,
+    contamination_removed: list[dict[str, str]],
+) -> str:
+    cleaned = text
+    replacements = (
+        ("方法方法", "方法"),
+        ("颠覆", "改变"),
+        ("待验证", ""),
+        ("主席修订", ""),
+        ("需在提交前补充", ""),
+        ("提交前补充", ""),
+    )
+    for pattern, replacement in replacements:
+        if pattern not in cleaned:
+            continue
+        before = cleaned
+        cleaned = cleaned.replace(pattern, replacement)
+        contamination_removed.append(
+            {
+                "category": AUTO_CLEANED_TEXT_CATEGORY,
+                "section": section,
+                "pattern": pattern,
+                "text": before,
+            }
+        )
+
+    before_preface = cleaned
+    cleaned = re.sub(r"^好的，根据[^，。]*(?:[，。])?", "", cleaned).strip()
+    if cleaned != before_preface:
+        contamination_removed.append(
+            {
+                "category": AUTO_CLEANED_TEXT_CATEGORY,
+                "section": section,
+                "pattern": "好的，根据",
+                "text": before_preface,
+            }
+        )
+
+    cleaned = re.sub(r"^[：:，,。；;\s]+", "", cleaned).strip()
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
 
 
 def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:

@@ -55,6 +55,7 @@ from backend.app.llm_cache import CachedStageLLMClient, clear_project_llm_cache
 from backend.app.moat import score_moat
 from backend.app.official_compile import (
     OfficialDraftCompiler,
+    clean_source_draft_for_official_compile,
     export_official_package_docx,
     official_compile_run_to_markdown,
     official_package_to_markdown,
@@ -112,6 +113,7 @@ from backend.app.schemas import (
     InventionBrief,
     OfficialDraftPackage,
     OfficialCompileRunCreate,
+    OfficialCompileCleanupResult,
     OfficialCompileRun,
     PatentChunk,
     PatentPointCandidate,
@@ -1611,6 +1613,17 @@ def create_app(
             raise HTTPException(status_code=404, detail="Official compile run not found.")
         return PlainTextResponse(official_compile_run_to_markdown(run), media_type="text/markdown; charset=utf-8")
 
+    @app.post("/api/projects/{project_id}/official-compile-runs/{run_id}/apply-cleanup")
+    def apply_official_compile_cleanup(project_id: str, run_id: str) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        run = store.get_official_compile_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Official compile run not found.")
+        result = _apply_official_compile_cleanup(project_id=project_id, package=package, run=run)
+        store.update_project_package(project_id, result.package)
+        return result.model_dump(mode="json")
+
     @app.post("/api/projects/{project_id}/official-compile-runs/{run_id}/kimi-language-polish")
     async def create_kimi_language_polish_run(project_id: str, run_id: str) -> dict:
         _require_project(store, project_id)
@@ -2169,10 +2182,11 @@ def _execute_post_draft_review(
             llm=llm,
             prompt_pack_version="post-draft-review-v1",
         )
+        runtime_llm = _RuntimeCheckpointLLM(cached_llm, runtime=runtime)
         generated = run_post_draft_review(
             project_id=project_id,
             package=package,
-            llm=cached_llm,
+            llm=runtime_llm,
             providers=providers,
             official_compile_run_id=official_compile_run_id,
             participant_providers=participant_providers,
@@ -2277,7 +2291,7 @@ def _execute_disclosure(
         cancel_check=is_cancelled,
         on_update=persist_runtime,
     )
-    materials = store.list_project_materials(project.id)
+    materials = _processed_project_materials(store.list_project_materials(project.id))
     brief = _brief_from_draft(project)
     context = _retrieve_generation_context(index, brief)
 
@@ -2393,6 +2407,21 @@ def _execute_disclosure(
         return failed
     except Exception as exc:
         current = store.get_disclosure_run(project.id, run.id) or running
+        if current.cancel_requested:
+            failure_details = list(current.failure_details)
+            if not any(failure.reason == "cancelled" for failure in failure_details):
+                failure_details.append(runtime.cancelled_failure())
+            interrupted = current.model_copy(
+                update={
+                    "status": "interrupted",
+                    "stage_results": partial_stage_results or current.stage_results,
+                    "cancel_requested": True,
+                    "failure_details": failure_details,
+                    "events": _with_event_once(list(current.events), "run cancelled"),
+                }
+            )
+            store.update_disclosure_run(interrupted)
+            return interrupted
         failure = runtime.failure(
             reason="exception",
             message=str(exc),
@@ -2769,7 +2798,7 @@ def _build_evidence_bindings_for_project(store: SQLiteStore, project: ProjectRec
     list[FormulaRun],
     list[EvidenceBinding],
 ]:
-    materials = store.list_project_materials(project.id)
+    materials = _processed_project_materials(store.list_project_materials(project.id))
     disclosures = store.list_disclosure_runs(project.id)
     patent_points = store.list_project_patent_points(project.id)
     formula_runs = store.list_formula_runs(project.id)
@@ -2781,6 +2810,10 @@ def _build_evidence_bindings_for_project(store: SQLiteStore, project: ProjectRec
         formula_runs=formula_runs,
     )
     return materials, disclosures, patent_points, formula_runs, evidence_bindings
+
+
+def _processed_project_materials(materials: list[ProjectMaterial]) -> list[ProjectMaterial]:
+    return [material for material in materials if material.status == "processed"]
 
 
 def _deep_research_packets_from_disclosures(disclosures: list[DisclosureRun]) -> list[DeepResearchPacket]:
@@ -2842,6 +2875,18 @@ def _cached_llm(
         timeout_s=timeout_s,
         retries=1,
     )
+
+
+class _RuntimeCheckpointLLM:
+    def __init__(self, delegate: LLMClient, *, runtime: RuntimeContext) -> None:
+        self.delegate = delegate
+        self.runtime = runtime
+
+    def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
+        self.runtime.begin_stage(stage, provider="llm", subtask=stage)
+        response = self.delegate.complete_stage(stage, system_prompt, user_prompt)
+        self.runtime.complete_stage()
+        return response
 
 
 def _hash_payload(payload: object) -> str:
@@ -2935,6 +2980,59 @@ def _apply_completion_patch(
     if patch.target_section == "drawing":
         return package.model_copy(update={"drawing_description": _insert_or_append(package.drawing_description, patch, "补充附图说明")})
     return package
+
+
+def _apply_official_compile_cleanup(
+    *,
+    project_id: str,
+    package: DraftPackage,
+    run: OfficialCompileRun,
+) -> OfficialCompileCleanupResult:
+    previous_hash = source_draft_hash(package)
+    if run.source_draft_hash and run.source_draft_hash != previous_hash:
+        raise HTTPException(
+            status_code=409,
+            detail="Official compile cleanup is stale for the current draft.",
+        )
+    if not run.contamination_removed:
+        raise HTTPException(status_code=409, detail="Official compile run did not record cleanup candidates.")
+
+    cleaned_package, contamination_removed, _sidecar_notes = clean_source_draft_for_official_compile(package)
+    applied_actions = [_official_compile_cleanup_action_label(item) for item in contamination_removed]
+    changed_sections = [
+        section
+        for section in ("title", "abstract", "claims", "description", "drawing_description")
+        if getattr(package, section) != getattr(cleaned_package, section)
+    ]
+    if not changed_sections:
+        raise HTTPException(status_code=409, detail="No official compile cleanup changed the current draft.")
+
+    cleaned_package = cleaned_package.model_copy(
+        update={
+            "generation_logs": [
+                *cleaned_package.generation_logs,
+                f"official_compile_cleanup: applied {len(applied_actions)} cleanup items from run {run.id}",
+            ]
+        }
+    )
+    return OfficialCompileCleanupResult(
+        project_id=project_id,
+        compile_run_id=run.id,
+        applied_count=len(applied_actions),
+        applied_actions=applied_actions,
+        previous_draft_hash=previous_hash,
+        current_draft_hash=source_draft_hash(cleaned_package),
+        package=cleaned_package,
+    )
+
+
+def _official_compile_cleanup_action_label(item: dict[str, str]) -> str:
+    section = item.get("section") or "unknown"
+    pattern = item.get("pattern") or item.get("category") or "cleanup"
+    text = (item.get("text") or "").strip()
+    if len(text) > 80:
+        text = f"{text[:77]}..."
+    return f"{section}: removed {pattern}" + (f" `{text}`" if text else "")
 
 
 def _apply_post_draft_safe_patches(

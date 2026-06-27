@@ -56,6 +56,29 @@ def test_disclosure_timeout_preserves_partial_stage_results(tmp_path):
     assert run["failure_details"][0]["partial_artifact_count"] >= 1
 
 
+def test_disclosure_cancel_request_wins_provider_exception_race(tmp_path):
+    llm = _CancelThenFailDisclosureLLM(_disclosure_responses())
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=llm,
+            prior_art_provider=StaticPriorArtProvider(),
+            load_env_file=False,
+        )
+    )
+    project_id = _create_project(client)
+    llm.store = client.app.state.store
+    llm.project_id = project_id
+
+    run = client.post(f"/api/projects/{project_id}/disclosures", json={}).json()
+
+    assert run["status"] == "interrupted"
+    assert run["cancel_requested"] is True
+    assert run["failure_details"][0]["reason"] == "cancelled"
+    assert "run cancelled" in run["events"]
+    assert not any("Connection error" in event for event in run["events"])
+
+
 def test_deliberation_cancel_marks_queued_run_and_retry_links_previous(tmp_path, monkeypatch):
     monkeypatch.setattr("backend.app.main.inspect_agent_environment", _retry_ready_doctor)
     client = TestClient(
@@ -184,6 +207,25 @@ def test_formula_cancel_marks_queued_run(tmp_path):
 class _SlowDisclosureLLM(FakeLLMClient):
     def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
         time.sleep(0.005)
+        return super().complete_stage(stage, system_prompt, user_prompt)
+
+
+class _CancelThenFailDisclosureLLM(FakeLLMClient):
+    store = None
+    project_id = None
+
+    def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
+        if stage == "disclosure_scan" and self.store is not None and self.project_id is not None:
+            run = self.store.list_disclosure_runs(self.project_id)[0]
+            self.store.update_disclosure_run(
+                run.model_copy(
+                    update={
+                        "cancel_requested": True,
+                        "events": [*run.events, "cancel requested"],
+                    }
+                )
+            )
+            raise RuntimeError("Connection error.")
         return super().complete_stage(stage, system_prompt, user_prompt)
 
 
