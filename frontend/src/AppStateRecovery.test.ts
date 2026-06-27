@@ -4,9 +4,10 @@ import {
   installAppHistoryGuard,
   sanitizePersistedAppState,
   resolveRecoveredProjectSelection,
+  summarizeMaterialUploadOutcome,
   type PersistedAppState,
 } from "./App";
-import type { ProjectRecord } from "./api";
+import type { ProjectMaterial, ProjectRecord } from "./api";
 
 const project = (id: string): ProjectRecord => ({
   id,
@@ -25,6 +26,18 @@ const project = (id: string): ProjectRecord => ({
   innovation: "",
   embodiments: "",
   beneficial_effects: "",
+});
+
+const material = (fileName: string, status: ProjectMaterial["status"] = "processed"): ProjectMaterial => ({
+  id: fileName,
+  project_id: "p-1",
+  file_name: fileName,
+  path: `data/project-materials/p-1/${fileName}`,
+  file_type: "md",
+  text: status === "processed" ? "有效材料" : "",
+  status,
+  warnings: status === "processed" ? [] : ["文件为空或没有可解析文本。"],
+  metadata: {},
 });
 
 describe("app state recovery", () => {
@@ -82,5 +95,36 @@ describe("app state recovery", () => {
     expect(recover).toHaveBeenCalledTimes(2);
 
     cleanup();
+  });
+
+  it("summarizes mixed material upload results without hiding successful files", () => {
+    const outcome = summarizeMaterialUploadOutcome(
+      3,
+      [material("valid.md"), material("empty.md", "failed")],
+      [{ fileName: "bad.xyz", error: new Error("材料上传失败：不支持的文件类型。") }],
+    );
+
+    expect(outcome.level).toBe("message");
+    expect(outcome.text).toContain("3 份材料");
+    expect(outcome.text).toContain("1 份可用");
+    expect(outcome.text).toContain("2 份失败");
+    expect(outcome.text).toContain("empty.md");
+    expect(outcome.text).toContain("bad.xyz");
+  });
+
+  it("reports all rejected material uploads as an error summary", () => {
+    const outcome = summarizeMaterialUploadOutcome(
+      2,
+      [],
+      [
+        { fileName: "bad-1.xyz", error: new Error("材料上传失败：不支持的文件类型。") },
+        { fileName: "bad-2.md", error: new Error("材料上传失败：文件为空或没有可解析文本。") },
+      ],
+    );
+
+    expect(outcome.level).toBe("error");
+    expect(outcome.text).toContain("2 份材料均上传失败");
+    expect(outcome.text).toContain("bad-1.xyz");
+    expect(outcome.text).toContain("bad-2.md");
   });
 });

@@ -137,7 +137,7 @@ import {
   runtimeDisplayElapsedMs,
   runtimeDisplayElapsedSeconds,
   useRuntimeNow,
-  userFacingErrorMessage,
+  userFacingAppErrorMessage,
 } from "./runtimeDisplay";
 import {
   loadPatentPoints as projectDataLoadPatentPoints,
@@ -286,6 +286,8 @@ type BusyTimer = {
 
 export type BackendStatus = "unknown" | "online" | "offline";
 export type ProjectListStatus = "idle" | "loading" | "ready" | "failed";
+export type MaterialUploadFailure = { fileName: string; error: unknown };
+export type MaterialUploadOutcome = { level: "message" | "error"; text: string };
 
 export type PersistedAppState = {
   selectedProjectId: string;
@@ -311,6 +313,53 @@ const validExpertToolIds = new Set<ExpertToolId>(
   expertToolGroups.flatMap((group) => group.tools.map((tool) => tool.id)),
 );
 const validStartChoiceIds = new Set<StartChoiceId>(v1StartChoices.map((choice) => choice.id));
+
+function materialUploadFailureText(error: unknown): string {
+  if (error == null) return "未知错误";
+  const raw = error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
+  return raw.replace(/^材料上传失败：/, "").trim() || "未知错误";
+}
+
+export function summarizeMaterialUploadOutcome(
+  totalFileCount: number,
+  uploadedMaterials: ProjectMaterial[],
+  rejectedUploads: MaterialUploadFailure[],
+): MaterialUploadOutcome {
+  const processed = uploadedMaterials.filter((material) => material.status === "processed");
+  const parsedFailed = uploadedMaterials.filter((material) => material.status !== "processed");
+  const failedLabels = [
+    ...parsedFailed.map((material) => `${material.file_name}（${material.warnings[0] ?? "解析失败"}）`),
+    ...rejectedUploads.map((failure) => `${failure.fileName}（${materialUploadFailureText(failure.error)}）`),
+  ];
+  const failureCount = failedLabels.length;
+
+  if (totalFileCount === 1) {
+    const material = uploadedMaterials[0];
+    if (material) {
+      return {
+        level: material.status === "processed" ? "message" : "error",
+        text: material.status === "processed" ? `已上传材料：${material.file_name}` : `材料解析失败：${material.warnings[0] ?? "解析失败"}`,
+      };
+    }
+    const failure = rejectedUploads[0];
+    return {
+      level: "error",
+      text: `材料上传失败：${failure?.fileName ?? "所选文件"}：${materialUploadFailureText(failure?.error)}`,
+    };
+  }
+
+  if (failureCount > 0) {
+    const text = processed.length > 0
+      ? `已处理 ${totalFileCount} 份材料：${processed.length} 份可用，${failureCount} 份失败：${failedLabels.join("、")}`
+      : `${totalFileCount} 份材料均上传失败：${failedLabels.join("、")}`;
+    return { level: processed.length > 0 ? "message" : "error", text };
+  }
+
+  return {
+    level: "message",
+    text: `已上传 ${uploadedMaterials.length} 份材料：${uploadedMaterials.map((material) => material.file_name).join("、")}`,
+  };
+}
 
 export function sanitizePersistedAppState(value: unknown): PersistedAppState {
   const record = value && typeof value === "object" ? value as Record<string, unknown> : {};
@@ -962,12 +1011,7 @@ function App() {
     try {
       await task();
     } catch (err) {
-      const rawMessage = err instanceof Error ? err.message : typeof err === "string" ? err : "";
-      setError(
-        rawMessage.includes("无法读取该文件") || rawMessage.startsWith("材料上传失败：")
-          ? rawMessage
-          : userFacingErrorMessage(err),
-      );
+      setError(userFacingAppErrorMessage(err));
     } finally {
       setBusy("");
     }
@@ -1229,25 +1273,28 @@ function App() {
     const files = Array.from(input.files ?? []);
     if (files.length === 0) return;
     await withStatus("material-upload", async () => {
-      const uploadedMaterials: ProjectMaterial[] = [];
-      for (const file of files) {
-        uploadedMaterials.push(await uploadProjectMaterial(projectId, file));
+      const results = await Promise.all(
+        files.map(async (file) => {
+          try {
+            return { status: "fulfilled" as const, fileName: file.name, material: await uploadProjectMaterial(projectId, file) };
+          } catch (error) {
+            return { status: "rejected" as const, fileName: file.name, error };
+          }
+        }),
+      );
+      const uploadedMaterials = results.flatMap((result) => result.status === "fulfilled" ? [result.material] : []);
+      const rejectedUploads = results.flatMap((result) =>
+        result.status === "rejected" ? [{ fileName: result.fileName, error: result.error }] : [],
+      );
+      if (uploadedMaterials.length > 0) {
+        const stillSelected = await loadMaterials(projectId);
+        if (!stillSelected) return;
       }
-      const stillSelected = await loadMaterials(projectId);
-      if (!stillSelected) return;
-      const processed = uploadedMaterials.filter((material) => material.status === "processed");
-      const failed = uploadedMaterials.filter((material) => material.status !== "processed");
-      if (uploadedMaterials.length === 1) {
-        const material = uploadedMaterials[0];
-        setMessage(material.status === "processed" ? `已上传材料：${material.file_name}` : `材料解析失败：${material.warnings[0]}`);
-      } else if (failed.length > 0) {
-        setMessage(
-          `已上传 ${processed.length}/${uploadedMaterials.length} 份材料，${failed.length} 份解析失败：${failed
-            .map((material) => material.file_name)
-            .join("、")}`,
-        );
+      const outcome = summarizeMaterialUploadOutcome(files.length, uploadedMaterials, rejectedUploads);
+      if (outcome.level === "error") {
+        setError(outcome.text);
       } else {
-        setMessage(`已上传 ${uploadedMaterials.length} 份材料：${uploadedMaterials.map((material) => material.file_name).join("、")}`);
+        setMessage(outcome.text);
       }
       input.value = "";
     });

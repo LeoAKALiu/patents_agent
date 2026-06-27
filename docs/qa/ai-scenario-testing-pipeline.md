@@ -6,7 +6,7 @@
 场景清单 -> 测试矩阵 -> 人工/AI 探索 -> BUGS.md -> 分级 -> 修复 -> 回归测试 -> 发布前冒烟测试
 ```
 
-当前测试与问题记录阶段完成度审计见：`docs/qa/scenario-testing-completion-audit-2026-06-27.md`。
+首次使用这条流水线时，先创建本页后续章节列出的场景、矩阵和缺陷台账文件；完成一次完整测试后，再按需新增带日期的 completion audit 文档。
 
 适用范围：
 
@@ -39,7 +39,7 @@ git rev-parse --short HEAD
 
 ## 1. 用户场景清单
 
-先维护 `docs/qa/user-scenarios.md`。按真实用户角色补全场景：
+先创建并维护 `docs/qa/user-scenarios.md`。按真实用户角色补全场景：
 
 - 新手用户：第一次打开应用，只有一句技术想法。
 - 熟练用户：已有材料，反复运行质量检查和导出。
@@ -58,7 +58,7 @@ git rev-parse --short HEAD
 
 ## 2. 测试用例矩阵
 
-用 `docs/qa/test-case-matrix.md` 维护测试矩阵。生成矩阵时使用以下提示词：
+创建 `docs/qa/test-case-matrix.md` 维护测试矩阵。生成矩阵时使用以下提示词：
 
 ```text
 你是一名软件测试工程师。请阅读本项目代码和 README，基于真实用户使用场景设计测试用例矩阵。
@@ -111,7 +111,7 @@ git rev-parse --short HEAD
 
 ## 4. BUGS.md 台账
 
-所有发现项进入根目录 `BUGS.md`。不要把“猜测的根因”当作事实，必须区分：
+创建根目录 `BUGS.md` 作为缺陷台账，所有发现项进入该文件。不要把“猜测的根因”当作事实，必须区分：
 
 - 已复现事实
 - 影响范围

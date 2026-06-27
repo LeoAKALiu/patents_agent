@@ -51,6 +51,17 @@ function includesAny(haystack: string, needles: string[]): boolean {
   return needles.some((needle) => haystack.includes(needle));
 }
 
+function extractHttpDetail(text: string): { statusCode: number | null; detail: string } {
+  const match = text.match(/\b(?:返回|code:|status(?:_code)?["': ]+)?\s*(4\d\d|5\d\d)\b[：:\s-]*(.*)$/i);
+  if (!match) {
+    return { statusCode: extractStatusCode(text), detail: "" };
+  }
+  return {
+    statusCode: Number.parseInt(match[1], 10),
+    detail: match[2]?.trim() ?? "",
+  };
+}
+
 export function userFacingErrorCopy(
   error: unknown,
   options: { statusCode?: number | null; fallbackTitle?: string; fallbackMessage?: string } = {},
@@ -135,6 +146,102 @@ export function userFacingErrorCopy(
 
 export function userFacingErrorMessage(error: unknown, options: Parameters<typeof userFacingErrorCopy>[1] = {}): string {
   const copy = userFacingErrorCopy(error, options);
+  return `${copy.title}：${copy.message}`;
+}
+
+export function userFacingAppErrorCopy(
+  error: unknown,
+  options: { statusCode?: number | null; fallbackTitle?: string; fallbackMessage?: string } = {},
+): UserFacingCopy {
+  const raw = normalizeErrorText(error).trim();
+  const lower = raw.toLowerCase();
+  const parsed = extractHttpDetail(raw);
+  const statusCode = options.statusCode ?? parsed.statusCode;
+  const backendDetail = parsed.detail || raw;
+  const fallbackTitle = options.fallbackTitle ?? "操作失败";
+
+  if (statusCode === 404) {
+    return {
+      title: "资源不存在",
+      message: backendDetail || "请求的项目、运行记录或文件不存在，请刷新后重试。",
+      detail: raw || undefined,
+      tone: "warn",
+    };
+  }
+
+  if (statusCode === 409) {
+    return {
+      title: "操作冲突",
+      message: backendDetail || "当前数据状态已变化，请刷新后重试。",
+      detail: raw || undefined,
+      tone: "warn",
+    };
+  }
+
+  if (statusCode === 422) {
+    return {
+      title: "输入未通过校验",
+      message: backendDetail || "请检查输入内容或上传文件后重试。",
+      detail: raw || undefined,
+      tone: "warn",
+    };
+  }
+
+  if (statusCode === 400) {
+    return {
+      title: "请求参数错误",
+      message: backendDetail || "请检查当前操作所需的输入后重试。",
+      detail: raw || undefined,
+      tone: "warn",
+    };
+  }
+
+  if (statusCode === 401 || statusCode === 403) {
+    return {
+      title: "权限或认证失败",
+      message: backendDetail || "请检查当前配置、权限或本机服务状态后重试。",
+      detail: raw || undefined,
+      tone: "error",
+    };
+  }
+
+  if (statusCode && statusCode >= 500) {
+    return {
+      title: "服务端操作失败",
+      message: backendDetail || "应用后端返回异常，请查看日志或稍后重试。",
+      detail: raw || undefined,
+      tone: "error",
+    };
+  }
+
+  if (includesAny(lower, ["failed to fetch", "networkerror", "econnrefused", "connection refused", "请求失败"])) {
+    return {
+      title: "无法连接到应用后端",
+      message: "请确认本机后端服务正在运行，或刷新后重试。",
+      detail: raw || undefined,
+      tone: "error",
+    };
+  }
+
+  if (includesAny(lower, ["timeout", "timed out", "超时"])) {
+    return {
+      title: "操作响应超时",
+      message: backendDetail || "本次操作响应超时，请稍后重试。",
+      detail: raw || undefined,
+      tone: "warn",
+    };
+  }
+
+  return {
+    title: fallbackTitle,
+    message: backendDetail || options.fallbackMessage || "请检查输入、配置或应用后端状态后重试。",
+    detail: raw || undefined,
+    tone: "error",
+  };
+}
+
+export function userFacingAppErrorMessage(error: unknown, options: Parameters<typeof userFacingAppErrorCopy>[1] = {}): string {
+  const copy = userFacingAppErrorCopy(error, options);
   return `${copy.title}：${copy.message}`;
 }
 

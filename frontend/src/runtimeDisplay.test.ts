@@ -4,6 +4,7 @@ import {
   runtimeDisplayElapsedMs,
   runtimeDisplayElapsedSeconds,
   runtimeFailureCopy,
+  userFacingAppErrorCopy,
   userFacingErrorCopy,
 } from "./runtimeDisplay";
 
@@ -53,6 +54,22 @@ describe("user-facing runtime error copy", () => {
     expect(serverError.title).toBe("LLM 服务暂时不可用");
     expect(serverError.message).toContain("服务是否正常运行");
     expect(serverError.message).not.toContain("InternalServerError");
+  });
+
+  it("preserves backend detail for generic app errors instead of using LLM provider copy", () => {
+    const stale = userFacingAppErrorCopy(
+      new Error("POST /api/projects/p-1/official-compile-runs/r-1/cleanup 返回 409：源稿已变化，请刷新后重新质量检查。"),
+    );
+    const validation = userFacingAppErrorCopy("POST /api/projects/p-1/materials 返回 422：文件为空或没有可解析文本。");
+    const backend = userFacingAppErrorCopy("POST /api/projects/p-1/reviews 返回 500：repair-session payload invalid");
+
+    expect(stale.title).toBe("操作冲突");
+    expect(stale.message).toBe("源稿已变化，请刷新后重新质量检查。");
+    expect(stale.message).not.toContain("LLM");
+    expect(validation.title).toBe("输入未通过校验");
+    expect(validation.message).toBe("文件为空或没有可解析文本。");
+    expect(backend.title).toBe("服务端操作失败");
+    expect(backend.message).toBe("repair-session payload invalid");
   });
 
   it("maps cancellation runtime failures to non-alarming retry guidance", () => {
