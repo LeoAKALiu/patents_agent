@@ -139,6 +139,7 @@ import {
   useRuntimeNow,
   userFacingAppErrorMessage,
 } from "./runtimeDisplay";
+import { uploadProjectMaterialBatch, type MaterialUploadFailure } from "./materialUploadBatch";
 import {
   loadPatentPoints as projectDataLoadPatentPoints,
   loadDeliberations as projectDataLoadDeliberations,
@@ -286,7 +287,6 @@ type BusyTimer = {
 
 export type BackendStatus = "unknown" | "online" | "offline";
 export type ProjectListStatus = "idle" | "loading" | "ready" | "failed";
-export type MaterialUploadFailure = { fileName: string; error: unknown };
 export type MaterialUploadOutcome = { level: "message" | "error"; text: string };
 
 export type PersistedAppState = {
@@ -1273,23 +1273,11 @@ function App() {
     const files = Array.from(input.files ?? []);
     if (files.length === 0) return;
     await withStatus("material-upload", async () => {
-      const results = await Promise.all(
-        files.map(async (file) => {
-          try {
-            return { status: "fulfilled" as const, fileName: file.name, material: await uploadProjectMaterial(projectId, file) };
-          } catch (error) {
-            return { status: "rejected" as const, fileName: file.name, error };
-          }
-        }),
-      );
-      const uploadedMaterials = results.flatMap((result) => result.status === "fulfilled" ? [result.material] : []);
-      const rejectedUploads = results.flatMap((result) =>
-        result.status === "rejected" ? [{ fileName: result.fileName, error: result.error }] : [],
-      );
-      if (uploadedMaterials.length > 0) {
-        const stillSelected = await loadMaterials(projectId);
-        if (!stillSelected) return;
-      }
+      const { uploadedMaterials, rejectedUploads, refreshed } = await uploadProjectMaterialBatch(projectId, files, {
+        uploadProjectMaterial,
+        loadMaterials,
+      });
+      if (uploadedMaterials.length > 0 && !refreshed) return;
       const outcome = summarizeMaterialUploadOutcome(files.length, uploadedMaterials, rejectedUploads);
       if (outcome.level === "error") {
         setError(outcome.text);
