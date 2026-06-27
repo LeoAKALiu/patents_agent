@@ -33,7 +33,7 @@ import {
   getDesktopConfig,
   updateDesktopConfig,
 } from "./api";
-import { userFacingErrorCopy, userFacingErrorMessage } from "./runtimeDisplay";
+import { userFacingAppErrorMessage, userFacingErrorCopy } from "./runtimeDisplay";
 
 type SaveStatus =
   | { kind: "idle" }
@@ -90,7 +90,7 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
       setApiKeyInput("");
       setClearRequested(false);
     } catch (err) {
-      setLoadError(userFacingErrorMessage(err, { fallbackTitle: "设置加载失败" }));
+      setLoadError(userFacingAppErrorMessage(err, { fallbackTitle: "设置加载失败" }));
     } finally {
       setLoading(false);
     }
@@ -149,7 +149,7 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
     } catch (err) {
       setSaveStatus({
         kind: "error",
-        message: userFacingErrorMessage(err, { fallbackTitle: "设置保存失败" }),
+        message: userFacingAppErrorMessage(err, { fallbackTitle: "设置保存失败" }),
       });
     }
   };
@@ -166,7 +166,7 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
     } catch (err) {
       setSaveStatus({
         kind: "error",
-        message: userFacingErrorMessage(err, { fallbackTitle: "密钥清除失败" }),
+        message: userFacingAppErrorMessage(err, { fallbackTitle: "密钥清除失败" }),
       });
     }
   };
