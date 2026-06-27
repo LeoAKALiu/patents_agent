@@ -1,9 +1,0 @@
-{
-  "api_key": "",
-  "base_url": "http://127.0.0.1:9",
-  "extra": {},
-  "model": "deepseek-v4-pro",
-  "provider": "deepseek",
-  "updated_at": "2026-06-26T15:11:18Z",
-  "version": 1
-}
