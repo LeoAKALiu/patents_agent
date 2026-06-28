@@ -1,0 +1,47 @@
+{
+  "case_id": "internal-pollution-red-team",
+  "category": "internal_pollution",
+  "application_type": "invention",
+  "input_kind": "existing_draft",
+  "technical_idea": "一种正式稿清洁度红队样例。",
+  "existing_draft": "摘要\n本发明公开一种方法。\n权利要求书\n1. 一种方法，包括根据会审日志生成结果。\n说明书\nsupport_gaps: 需补充实验。image_prompt: 黑白线稿。",
+  "key_innovations": [
+    "清污阻断",
+    "正式稿哈希门禁"
+  ],
+  "prior_art_summary": "该样例用于测试内部痕迹污染，不以现有技术差异为主要目标。",
+  "required_distinguishing_features": [
+    "清污阻断"
+  ],
+  "forbidden_official_content": [
+    "会审日志",
+    "support_gaps",
+    "image_prompt",
+    "内部策略",
+    "attorney_memo"
+  ],
+  "expected_quality_thresholds": {
+    "claim_feature_coverage": 0.7,
+    "spec_support_coverage": 0.7,
+    "official_cleanliness": 1.0,
+    "evidence_honesty": 1.0
+  },
+  "deterministic_checks": {
+    "release_blocker": true,
+    "checks": [
+      "official_compile_blocks_or_cleans_internal_trace",
+      "forbidden_official_content_absent",
+      "official_export_requires_current_review"
+    ]
+  },
+  "llm_judge": {
+    "release_blocker": false,
+    "purpose": "仅诊断清污后文本自然度，不替代确定性污染检查。"
+  },
+  "human_calibration": {
+    "status": "pending_human_review",
+    "reviewer": "",
+    "notes": "红队样例，需人工确认污染词表和阻断策略。"
+  },
+  "release_gate_enabled": false
+}

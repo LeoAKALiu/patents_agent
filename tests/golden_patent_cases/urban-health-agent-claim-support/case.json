@@ -1,0 +1,48 @@
+{
+  "case_id": "urban-health-agent-claim-support",
+  "category": "invention",
+  "application_type": "invention",
+  "input_kind": "idea",
+  "technical_idea": "一种城市体检智能体任务编排与可信复核方法。",
+  "existing_draft": "",
+  "key_innovations": [
+    "任务DAG",
+    "证据链绑定",
+    "可信复核节点"
+  ],
+  "prior_art_summary": "现有系统仅汇总城市体检指标，缺少基于任务DAG的采集链路和证据复核节点。",
+  "required_distinguishing_features": [
+    "任务DAG",
+    "证据链绑定"
+  ],
+  "forbidden_official_content": [
+    "内部策略",
+    "会审日志",
+    "需实验",
+    "模型生成但未验证"
+  ],
+  "expected_quality_thresholds": {
+    "claim_feature_coverage": 0.9,
+    "spec_support_coverage": 0.85,
+    "official_cleanliness": 1.0,
+    "evidence_honesty": 1.0
+  },
+  "deterministic_checks": {
+    "release_blocker": true,
+    "checks": [
+      "required_distinguishing_features_in_claims",
+      "required_distinguishing_features_supported_in_description",
+      "forbidden_official_content_absent"
+    ]
+  },
+  "llm_judge": {
+    "release_blocker": false,
+    "purpose": "语言流畅度和授权说服力诊断，不作为确定性 release gate。"
+  },
+  "human_calibration": {
+    "status": "pending_human_review",
+    "reviewer": "",
+    "notes": "需由专利代理人或人工评审确认阈值。"
+  },
+  "release_gate_enabled": false
+}

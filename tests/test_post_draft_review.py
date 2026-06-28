@@ -131,7 +131,7 @@ def test_official_export_blocks_inline_prompt_after_passing_review(tmp_path):
 
     review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     assert review_response.status_code == 409
-    assert "Official draft compile is required" in review_response.json()["detail"]
+    assert "blocked official compile" in review_response.json()["detail"]
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
@@ -155,7 +155,7 @@ def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path
 
     review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     assert review_response.status_code == 409
-    assert "Official draft compile is required" in review_response.json()["detail"]
+    assert "blocked official compile" in review_response.json()["detail"]
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 

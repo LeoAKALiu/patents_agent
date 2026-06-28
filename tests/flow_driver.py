@@ -162,7 +162,7 @@ class FlowDriver:
         latest_completion = _first(completion.get("runs", []))
 
         quality_gate = _quality_gate(current_hash, latest_filing, latest_worksheet, latest_completion)
-        compile_gate = _hash_gate(current_hash, latest_compile.get("source_draft_hash"))
+        compile_gate = _official_compile_gate(current_hash, latest_compile)
         review_gate = _review_gate(current_hash, latest_compile, latest_review)
         export_allowed = bool(readiness.get("export_allowed"))
 
@@ -216,22 +216,59 @@ def _hash_gate(current_hash: str, run_hash: object) -> str:
     return "current" if str(run_hash) == current_hash else "stale"
 
 
+def _quality_artifact_gate(
+    current_hash: str,
+    artifact: dict[str, Any],
+    *,
+    completed_only: bool = False,
+) -> str:
+    if not artifact:
+        return "missing"
+    artifact_hash = artifact.get("draft_package_hash")
+    status = str(artifact.get("status") or "")
+    if completed_only:
+        if status == "failed" and bool(current_hash) and artifact_hash == current_hash:
+            return "failed"
+        if status != "completed":
+            return "missing"
+    if artifact_hash == current_hash:
+        return "current"
+    if artifact_hash:
+        return "stale"
+    return "unknown"
+
+
+def _official_compile_gate(current_hash: str, run: dict[str, Any]) -> str:
+    if not run:
+        return "missing"
+    if str(run.get("source_draft_hash") or "") != current_hash:
+        return "stale"
+    status = str(run.get("status") or "")
+    if status in {"queued", "running", "blocked", "failed"}:
+        return status
+    if status == "completed" and run.get("official_package") and run.get("official_package_hash"):
+        return "current"
+    return "missing"
+
+
 def _quality_gate(
     current_hash: str,
     filing: dict[str, Any],
     worksheet: dict[str, Any],
     completion: dict[str, Any],
 ) -> str:
-    filing_hash = filing.get("draft_package_hash")
-    worksheet_hash = worksheet.get("draft_package_hash")
-    completion_hash = completion.get("draft_package_hash") if completion.get("status") == "completed" else ""
-    filing_state = _hash_gate(current_hash, filing_hash)
-    worksheet_state = _hash_gate(current_hash, worksheet_hash)
-    completion_state = _hash_gate(current_hash, completion_hash)
-    if filing_state == "current" and worksheet_state == "current" and completion_state == "current":
+    filing_state = _quality_artifact_gate(current_hash, filing)
+    worksheet_state = _quality_artifact_gate(current_hash, worksheet)
+    completion_state = _quality_artifact_gate(current_hash, completion, completed_only=True)
+    states = [filing_state, worksheet_state, completion_state]
+    if "failed" in states:
+        return "failed"
+    if all(state == "current" for state in states):
         return "current"
-    if filing_state == "stale" or worksheet_state == "stale" or completion_state == "stale":
+    if "stale" in states:
         return "stale"
+    if "unknown" in states:
+        return "unknown"
     return "missing"
 
 
@@ -242,10 +279,19 @@ def _review_gate(current_hash: str, compile_run: dict[str, Any], review: dict[st
         review.get("draft_package_hash") == current_hash
         and review.get("official_compile_run_id") == compile_run.get("id")
         and review.get("official_package_hash") == compile_run.get("official_package_hash")
-        and review.get("export_allowed") is True
     ):
-        return "current"
+        status = str(review.get("status") or "")
+        if status != "completed":
+            return status or "stale"
+        return "current" if review.get("export_allowed") is True else _blocked_review_gate_status(review)
     return "stale"
+
+
+def _blocked_review_gate_status(review: dict[str, Any]) -> str:
+    chair_result = review.get("chair_result")
+    if isinstance(chair_result, dict) and chair_result.get("status"):
+        return str(chair_result["status"])
+    return "blocked"
 
 
 def _active_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:

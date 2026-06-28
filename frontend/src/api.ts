@@ -139,7 +139,7 @@ export interface OfficialDraftPackage {
 export interface OfficialCompileRun {
   id: string;
   project_id: string;
-  status: "completed" | "blocked" | "failed";
+  status: "queued" | "running" | "completed" | "blocked" | "failed";
   source_draft_hash: string;
   official_package_hash: string;
   official_package: OfficialDraftPackage | null;
@@ -265,6 +265,7 @@ export interface EvidenceBinding {
 export interface ClaimDefenseWorksheet {
   id: string;
   project_id: string;
+  draft_package_hash: string;
   status: "draft" | "reviewed" | "superseded";
   source: "draft" | "disclosure" | "generated_package" | "manual";
   feature_records: FeatureRecord[];
@@ -609,19 +610,38 @@ export interface DisclosureRun {
   retry_of?: string | null;
 }
 
+export type QualityCheckState = "missing" | "stale" | "failed" | "unknown" | "current";
+export type QualityCheckStates = Record<string, QualityCheckState>;
+
 export interface ExportReadiness {
   export_allowed: boolean;
   draft_required: boolean;
+  quality_required: boolean;
   official_compile_required: boolean;
   post_draft_review_required: boolean;
-  next_action: "generate_draft" | "run_official_compile" | "run_post_draft_review" | "export_ready";
+  next_action: "generate_draft" | "run_quality_checks" | "run_official_compile" | "run_post_draft_review" | "export_ready";
   reason: string;
+  quality_done?: boolean;
+  missing_quality_checks?: string[];
+  stale_quality_checks?: string[];
+  failed_quality_checks?: string[];
+  unknown_quality_checks?: string[];
+  quality_check_states?: QualityCheckStates;
+  filing_readiness_report_id?: string;
+  claim_defense_worksheet_id?: string;
+  draft_completion_run_id?: string;
   compile_run_id?: string;
+  has_compile_run?: boolean;
+  compile_status?: "missing" | "queued" | "running" | "completed" | "blocked" | "failed";
+  compile_blocked_items?: Array<Record<string, string>>;
   review_run_id?: string;
   official_package_hash?: string;
   current_source_draft_hash?: string;
   has_review_run?: boolean;
   review_export_allowed?: boolean;
+  review_status?: "missing" | "queued" | "running" | "completed" | "failed" | "interrupted";
+  review_gate_status?: "missing" | "queued" | "running" | "passed" | "needs_revision" | "blocked" | "failed" | "interrupted";
+  review_blocking_issues?: string[];
 }
 
 export interface Health {

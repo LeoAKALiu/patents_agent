@@ -312,7 +312,7 @@ class OfficialCompileRunCreate(BaseModel):
 class OfficialCompileRun(BaseModel):
     id: str
     project_id: str
-    status: str = Field(pattern="^(completed|blocked|failed)$")
+    status: str = Field(pattern="^(queued|running|completed|blocked|failed)$")
     source_draft_hash: str = ""
     official_package_hash: str = ""
     official_package: OfficialDraftPackage | None = None

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import re
 import uuid
 from pathlib import Path
@@ -22,6 +24,25 @@ HARD_GATED_SECTIONS = ("title", *REQUIRED_SECTIONS)
 RESIDUAL_INTERNAL_PATTERNS = (
     "support_gap",
     "support_gaps",
+    "evidence_id",
+    "evidence_refs",
+    "research_ledger",
+    "publication_number",
+    "patent_url",
+    "source_url",
+    "source_id",
+    "source_label",
+    "material_id",
+    "证据编号",
+    "材料编号",
+    "来源标签",
+    "引用来源",
+    "引用链接",
+    "证据来源",
+    "evidence_status",
+    "verification_status",
+    "internal_only",
+    "patents.google.com",
     "generation_logs",
     "image_prompt",
     "prompt",
@@ -43,11 +64,153 @@ INTERNAL_FIELD_RE = re.compile(
     r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs|attorney_memo|system_trace|official_safe_patches)["']?\s*[:：=]""",
     re.IGNORECASE,
 )
+EVIDENCE_METADATA_FIELD_RE = re.compile(
+    r"""^\s*["']?(evidence_id|evidence_refs|research_ledger|publication_number|patent_url|source_url|url|material_id|source_id|source_label|sources?|references?|citations?|materials?|patent_point|证据编号|材料编号|来源标签|引用来源|引用链接|证据来源|参考资料|参考文献|资料来源|依据材料|支撑材料)["']?\s*[:：=]""",
+    re.IGNORECASE,
+)
 EMPTY_OFFICIAL_FIELD_RE = re.compile(
     r"""^\s*["']?(title|abstract|claims|description|drawing_description)["']?\s*[:：=]\s*["']?\s*["']?\s*,?\s*$""",
     re.IGNORECASE,
 )
+OFFICIAL_FIELD_WRAPPER_RE = re.compile(
+    r"""^\s*[{\[,]?\s*["']?(title|abstract|claims|description|drawing_description)["']?\s*[:：=]\s*.+""",
+    re.IGNORECASE,
+)
 JSON_WRAPPER_RE = re.compile(r"^[{}\[\],]+$")
+URL_RE = re.compile(r"https?://", re.IGNORECASE)
+BRACKETED_EVIDENCE_CITATION_RE = re.compile(
+    r"""(?:\[[^\]]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^\]]+\]|【[^】]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^】]+】|\[(?:EV|EVIDENCE)-[A-Z0-9_-]+\]|【(?:EV|EVIDENCE)-[A-Z0-9_-]+】)""",
+    re.IGNORECASE,
+)
+PARENTHETICAL_EVIDENCE_CITATION_RE = re.compile(
+    r"""(?:\([^)]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^)]+\)|（[^）]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^）]+）)""",
+    re.IGNORECASE,
+)
+XML_EVIDENCE_TAG_RE = re.compile(
+    r"""<\s*/?\s*(?:evidence|source|citation|ref|reference|references|material|materials)\b[^>]*>""",
+    re.IGNORECASE,
+)
+HTML_COMMENT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<!--[^>]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^>]*-->""",
+    re.IGNORECASE,
+)
+HTML_ATTRIBUTE_EVIDENCE_CITATION_RE = re.compile(
+    r"""<[^>]+\s(?:data-)?(?:evidence(?:[-_]?(?:id|ref|refs))?|source(?:[-_]?(?:id|label|ref))?|citation|ref|material(?:[-_]?id)?|证据|来源|引用|材料)\s*=\s*["'][^"']+["'][^>]*>""",
+    re.IGNORECASE,
+)
+HTML_IMAGE_ATTRIBUTE_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*img\b(?=[^>]*\b(?:alt|title|aria-label)\s*=\s*["'][^"']*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^"']*["'])[^>]*>""",
+    re.IGNORECASE,
+)
+HTML_ACCESSIBLE_ATTRIBUTE_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?!img\b)[a-z][\w:-]*\b(?=[^>]*\b(?:alt|title|aria-label)\s*=\s*["'][^"']*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^"']*["'])[^>]*>""",
+    re.IGNORECASE,
+)
+HTML_META_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*meta\b(?=[^>]*\b(?:name|property|itemprop)\s*=\s*["'][^"']*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)[^"']*["'])(?=[^>]*\bcontent\s*=\s*["'][^"']+["'])[^>]*>""",
+    re.IGNORECASE,
+)
+HTML_JSON_LD_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*script\b(?=[^>]*\btype\s*=\s*["']application/ld\+json["'])[^>]*>.*?["'](?:evidence|source|citation|ref|material|证据|来源|引用|材料)(?:[_-]?(?:id|refs?|label|编号|标签|来源))?["']\s*:""",
+    re.IGNORECASE | re.DOTALL,
+)
+MARKDOWN_FOOTNOTE_EVIDENCE_CITATION_RE = re.compile(
+    r"""(?:^|\n)\s*\[\^[^\]\n]+\]\s*:\s*[^\n]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]?[^\n]*""",
+    re.IGNORECASE,
+)
+MARKDOWN_REFERENCE_EVIDENCE_CITATION_RE = re.compile(
+    r"""(?:^|\n)\s*\[(?:evidence|source|citation|ref|material|证据|来源|引用|材料)[^\]\n]*\]\s*:\s*[^\n]+""",
+    re.IGNORECASE,
+)
+MARKDOWN_TABLE_EVIDENCE_CITATION_RE = re.compile(
+    r"""^\s*\|(?:[^|\n]*\|)*\s*(?:evidence(?:_id|_refs)?|source(?:_id|_label)?|citation|ref|material(?:_id)?|证据(?:编号|来源)?|来源(?:标签)?|引用(?:来源)?|材料(?:编号)?)\s*(?:[:：=][^|\n]*)?\|""",
+    re.IGNORECASE | re.MULTILINE,
+)
+MARKDOWN_LIST_EVIDENCE_CITATION_RE = re.compile(
+    r"""^\s*(?:[-*+]|\d+[.)])\s+(?:evidence|source|citation|ref|material|证据|来源|引用|材料)(?:[_-]?(?:id|refs?|label|编号|标签|来源))?\s*[:：=]\s*\S""",
+    re.IGNORECASE | re.MULTILINE,
+)
+MARKDOWN_BLOCKQUOTE_EVIDENCE_CITATION_RE = re.compile(
+    r"""^\s*>+\s*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)(?:[_-]?(?:id|refs?|label|编号|标签|来源))?\s*[:：=]\s*\S""",
+    re.IGNORECASE | re.MULTILINE,
+)
+MARKDOWN_IMAGE_ALT_EVIDENCE_CITATION_RE = re.compile(
+    r"""!\[[^\]\n]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^\]\n]+\]\([^\)\n]*\)""",
+    re.IGNORECASE,
+)
+MARKDOWN_LINK_TITLE_EVIDENCE_CITATION_RE = re.compile(
+    r"""!?\[[^\]\n]*\]\([^\)\n]*(?:"[^"\n]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^"\n]*"|'[^'\n]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^'\n]*')[^\)\n]*\)""",
+    re.IGNORECASE,
+)
+HTML_VISIBLE_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_visible_text_tag>span|sup|sub|small|em|i|b|strong|mark|p|div)\b[^>]*>[^<]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^<]+<\s*/\s*(?P=html_visible_text_tag)\s*>""",
+    re.IGNORECASE,
+)
+HTML_CAPTION_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_caption_text_tag>figcaption|caption)\b[^>]*>[^<]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^<]+<\s*/\s*(?P=html_caption_text_tag)\s*>""",
+    re.IGNORECASE,
+)
+SVG_TITLE_DESC_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<svg_title_desc_tag>title|desc)\b[^>]*>[^<]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^<]+<\s*/\s*(?P=svg_title_desc_tag)\s*>""",
+    re.IGNORECASE,
+)
+SVG_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<svg_text_tag>text|tspan)\b[^>]*>[^<]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^<]+<\s*/\s*(?P=svg_text_tag)\s*>""",
+    re.IGNORECASE,
+)
+HTML_STYLE_TAG_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*style\b[^>]*>.*?(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=].*?<\s*/\s*style\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_INLINE_STYLE_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?!style\b)[a-z][\w:-]*\b(?=[^>]*\bstyle\s*=\s*(?:"[^"]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^"]*"|'[^']*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^']*'))[^>]*>""",
+    re.IGNORECASE,
+)
+HTML_ENTITY_EVIDENCE_CITATION_RE = re.compile(
+    r"""&lt;\s*/?\s*(?:evidence|source|citation|ref|reference|references|material|materials)\b[^\n]*?&gt;""",
+    re.IGNORECASE,
+)
+YAML_FRONT_MATTER_EVIDENCE_KEY_RE = re.compile(
+    r"""^\s*(?:evidence|证据)\s*[:：=]""",
+    re.IGNORECASE,
+)
+TOML_FRONT_MATTER_EVIDENCE_KEY_RE = re.compile(
+    r"""^\s*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)(?:[_-]?(?:id|refs?|label|编号|标签|来源))?\s*=""",
+    re.IGNORECASE,
+)
+INI_EVIDENCE_SECTION_RE = re.compile(
+    r"""^\s*\[\s*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)(?:[_\-\s]*(?:id|refs?|label|编号|标签|来源))?\s*\]\s*$""",
+    re.IGNORECASE,
+)
+INI_EVIDENCE_KEY_RE = re.compile(
+    r"""^\s*(?:id|refs?|label|url|source|evidence|citation|ref|material|编号|标签|来源|证据|引用|材料)\s*=""",
+    re.IGNORECASE,
+)
+CSV_EVIDENCE_METADATA_HEADER_RE = re.compile(
+    r"""^(?:evidence(?:_id|_refs?)?|source(?:_id|_label|_ref)?|citation|ref|material(?:_id)?|证据(?:编号|来源)?|来源(?:标签)?|引用(?:来源)?|材料(?:编号)?)$""",
+    re.IGNORECASE,
+)
+MARKDOWN_CODE_FENCE_RE = re.compile(r"""```(?P<language>[A-Za-z0-9_-]*)[^\n]*\n(?P<body>.*?)\n```""", re.DOTALL)
+JSON_EVIDENCE_METADATA_KEY_RE = re.compile(
+    r""""(?:evidence|source|citation|ref|material|证据|来源|引用|材料)(?:[_-]?(?:id|refs?|label|编号|标签|来源))?"\s*:""",
+    re.IGNORECASE,
+)
+ASCIIDOC_ATTRIBUTE_EVIDENCE_CITATION_RE = re.compile(
+    r"""^\s*:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)(?:[-_\s]?(?:id|refs?|label|编号|标签|来源))?\s*:\s*\S""",
+    re.IGNORECASE | re.MULTILINE,
+)
+LATEX_COMMAND_EVIDENCE_CITATION_RE = re.compile(
+    r"""\\(?:cite\w*|footnote|thanks|ref|autoref)\s*(?:\[[^\]]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^\]]*\]\s*)?\{[^{}]*(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+)[^{}]*\}""",
+    re.IGNORECASE,
+)
+BIBTEX_ENTRY_EVIDENCE_CITATION_RE = re.compile(
+    r"""@\w+\s*\{(?=[\s\S]*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[=:：]|(?:EV|EVIDENCE)-[A-Z0-9_-]+))[\s\S]*?\n\s*\}""",
+    re.IGNORECASE,
+)
+RST_DIRECTIVE_EVIDENCE_CITATION_RE = re.compile(
+    r"""^\s*\.\.\s+(?:evidence|source|citation|ref|material|证据|来源|引用|材料)(?:[-_\s]?(?:id|refs?|label|编号|标签|来源))?\s*::\s*\S""",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 def source_draft_hash(package: DraftPackage) -> str:
@@ -110,6 +273,171 @@ class OfficialDraftCompiler:
                 }
             )
 
+        for section in HARD_GATED_SECTIONS:
+            source_section_text = getattr(package, section)
+            if _contains_fenced_json_evidence_metadata(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "fenced_json_metadata_citation",
+                        "message": "Draft text contains fenced JSON evidence metadata that must not appear in official text.",
+                    }
+                )
+            if ASCIIDOC_ATTRIBUTE_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "asciidoc_attribute_citation",
+                        "message": "Draft text contains AsciiDoc evidence metadata that must not appear in official text.",
+                    }
+                )
+            if LATEX_COMMAND_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "latex_command_citation",
+                        "message": "Draft text contains LaTeX evidence metadata that must not appear in official text.",
+                    }
+                )
+            if BIBTEX_ENTRY_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "bibtex_entry_citation",
+                        "message": "Draft text contains BibTeX evidence metadata that must not appear in official text.",
+                    }
+                )
+            if RST_DIRECTIVE_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "rst_directive_citation",
+                        "message": "Draft text contains reStructuredText evidence metadata that must not appear in official text.",
+                    }
+                )
+            if MARKDOWN_LIST_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_list_citation",
+                        "message": "Draft text contains Markdown list evidence metadata that must not appear in official text.",
+                    }
+                )
+            if MARKDOWN_BLOCKQUOTE_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_blockquote_citation",
+                        "message": "Draft text contains Markdown blockquote evidence metadata that must not appear in official text.",
+                    }
+                )
+            if MARKDOWN_IMAGE_ALT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_image_alt_citation",
+                        "message": "Draft text contains Markdown image alt evidence metadata that must not appear in official text.",
+                    }
+                )
+            if MARKDOWN_LINK_TITLE_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_link_title_citation",
+                        "message": "Draft text contains Markdown link title evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_IMAGE_ATTRIBUTE_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_image_attribute_citation",
+                        "message": "Draft text contains HTML image attribute evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_ACCESSIBLE_ATTRIBUTE_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_accessible_attribute_citation",
+                        "message": "Draft text contains HTML accessible attribute evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_VISIBLE_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_visible_text_citation",
+                        "message": "Draft text contains HTML visible evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_CAPTION_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_caption_text_citation",
+                        "message": "Draft text contains HTML caption evidence metadata that must not appear in official text.",
+                    }
+                )
+            if SVG_TITLE_DESC_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "svg_title_desc_citation",
+                        "message": "Draft text contains SVG title/desc evidence metadata that must not appear in official text.",
+                    }
+                )
+            if SVG_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "svg_text_citation",
+                        "message": "Draft text contains SVG visible text evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_STYLE_TAG_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_style_tag_citation",
+                        "message": "Draft text contains HTML style evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_INLINE_STYLE_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_inline_style_citation",
+                        "message": "Draft text contains HTML inline style evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_ENTITY_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_entity_citation",
+                        "message": "Draft text contains HTML entity-escaped evidence metadata that must not appear in official text.",
+                    }
+                )
+
         cleaned_package, contamination_removed, sidecar_notes = clean_source_draft_for_official_compile(package)
         cleaned_title = cleaned_package.title
         cleaned = {section: getattr(cleaned_package, section) for section in REQUIRED_SECTIONS}
@@ -162,6 +490,294 @@ class OfficialDraftCompiler:
                             "message": "Cleaned official text still contains internal drafting text.",
                         }
                     )
+            if URL_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "url",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if BRACKETED_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "bracketed_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if PARENTHETICAL_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "parenthetical_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if XML_EVIDENCE_TAG_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "xml_evidence_tag",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_COMMENT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_comment_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_ATTRIBUTE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_attribute_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_IMAGE_ATTRIBUTE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_image_attribute_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_ACCESSIBLE_ATTRIBUTE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_accessible_attribute_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_META_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_meta_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_JSON_LD_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_json_ld_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if MARKDOWN_FOOTNOTE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_footnote_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if MARKDOWN_REFERENCE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_reference_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if MARKDOWN_TABLE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_table_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if MARKDOWN_LIST_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_list_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if MARKDOWN_BLOCKQUOTE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_blockquote_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if MARKDOWN_IMAGE_ALT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_image_alt_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if MARKDOWN_LINK_TITLE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "markdown_link_title_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_VISIBLE_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_visible_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_CAPTION_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_caption_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if SVG_TITLE_DESC_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "svg_title_desc_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if SVG_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "svg_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_STYLE_TAG_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_style_tag_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_INLINE_STYLE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_inline_style_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_ENTITY_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_entity_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if ASCIIDOC_ATTRIBUTE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "asciidoc_attribute_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if LATEX_COMMAND_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "latex_command_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if BIBTEX_ENTRY_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "bibtex_entry_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if RST_DIRECTIVE_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "rst_directive_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if _contains_yaml_front_matter_evidence_metadata(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "yaml_front_matter_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if _contains_toml_front_matter_evidence_metadata(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "toml_front_matter_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if _contains_ini_section_evidence_metadata(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "ini_section_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if _contains_csv_evidence_metadata(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "csv_metadata_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
 
         if blocked_items:
             logs.append(
@@ -370,6 +986,82 @@ def _clean_inline_official_text(
     return re.sub(r"\s{2,}", " ", cleaned).strip()
 
 
+def _contains_yaml_front_matter_evidence_metadata(text: str) -> bool:
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        if lines[index].strip() != "---":
+            index += 1
+            continue
+        index += 1
+        while index < len(lines) and lines[index].strip() != "---":
+            if YAML_FRONT_MATTER_EVIDENCE_KEY_RE.search(lines[index]):
+                return True
+            index += 1
+        if index < len(lines) and lines[index].strip() == "---":
+            index += 1
+    return False
+
+
+def _contains_toml_front_matter_evidence_metadata(text: str) -> bool:
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        if lines[index].strip() != "+++":
+            index += 1
+            continue
+        index += 1
+        while index < len(lines) and lines[index].strip() != "+++":
+            if TOML_FRONT_MATTER_EVIDENCE_KEY_RE.search(lines[index]):
+                return True
+            index += 1
+        if index < len(lines) and lines[index].strip() == "+++":
+            index += 1
+    return False
+
+
+def _contains_ini_section_evidence_metadata(text: str) -> bool:
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        if not INI_EVIDENCE_SECTION_RE.search(lines[index]):
+            index += 1
+            continue
+        index += 1
+        while index < len(lines) and not re.match(r"^\s*\[[^\]]+\]\s*$", lines[index]):
+            if INI_EVIDENCE_KEY_RE.search(lines[index]):
+                return True
+            index += 1
+    return False
+
+
+def _contains_csv_evidence_metadata(text: str) -> bool:
+    rows = []
+    try:
+        reader = csv.reader(io.StringIO(text))
+        rows = [[cell.strip().strip("\"'") for cell in row] for row in reader]
+    except csv.Error:
+        return False
+    for index, row in enumerate(rows[:-1]):
+        if len(row) < 2 or not any(CSV_EVIDENCE_METADATA_HEADER_RE.match(cell) for cell in row):
+            continue
+        next_row = rows[index + 1]
+        if len(next_row) >= 2 and any(cell for cell in next_row):
+            return True
+    return False
+
+
+def _contains_fenced_json_evidence_metadata(text: str) -> bool:
+    for match in MARKDOWN_CODE_FENCE_RE.finditer(text):
+        language = match.group("language").strip().lower()
+        body = match.group("body").strip()
+        if language != "json" and not body.startswith(("{", "[")):
+            continue
+        if JSON_EVIDENCE_METADATA_KEY_RE.search(body):
+            return True
+    return False
+
+
 def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
     comparable_line = line.lower()
     if in_fence:
@@ -388,12 +1080,20 @@ def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
     official_field = EMPTY_OFFICIAL_FIELD_RE.match(line)
     if official_field:
         return {"category": "json_wrapper", "pattern": official_field.group(1).lower()}
+    official_field_wrapper = OFFICIAL_FIELD_WRAPPER_RE.match(line)
+    if official_field_wrapper:
+        return {"category": "json_wrapper", "pattern": official_field_wrapper.group(1).lower()}
     internal_field = INTERNAL_FIELD_RE.match(line)
     if internal_field:
         return {"category": "internal_field", "pattern": internal_field.group(1).lower()}
+    evidence_metadata_field = EVIDENCE_METADATA_FIELD_RE.match(line)
+    if evidence_metadata_field:
+        return {"category": "evidence_metadata", "pattern": evidence_metadata_field.group(1).lower()}
     for pattern in ("根据会审策略", "多 Agent 会审", "多Agent会审", "主席汇总", "deliberation", "generation_logs"):
         if pattern.lower() in comparable_line:
             return {"category": "internal_trace", "pattern": pattern}
+    if "patents.google.com" in comparable_line:
+        return {"category": "evidence_metadata", "pattern": "patents.google.com"}
     for pattern in ("可能不具备创造性", "禁止直接提交", "存在充分公开风险"):
         if pattern in line:
             return {"category": "unfavorable_statement", "pattern": pattern}

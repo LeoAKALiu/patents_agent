@@ -13,6 +13,7 @@ import type {
   DeliberationRun,
   DisclosureRun,
   DraftPackage,
+  ExportReadiness,
   FormulaNeedAssessment,
   FormulaRun,
   OfficialCompileRun,
@@ -21,6 +22,7 @@ import type {
   PostDraftReviewRun,
   ProjectMaterial,
   ProjectRecord,
+  QualityCheckStates,
 } from "@/api";
 
 /**
@@ -44,8 +46,11 @@ export interface PostDraftWorkspaceState {
   currentPackage: DraftPackage | null;
   latestOfficialCompileRun: OfficialCompileRun | null;
   latestPostDraftReview: PostDraftReviewRun | null;
+  exportReadiness: ExportReadiness | null;
   currentDraftHash: string;
   currentSourceDraftHash: string;
+  currentQualityChecked: boolean;
+  qualityCheckStates?: QualityCheckStates;
   selectedDeliberationProviders: string[];
   lastExport: {
     format: "docx" | "md" | "sidecar";
@@ -163,8 +168,11 @@ export function PostDraftWorkspace({ tool, state, handlers }: PostDraftWorkspace
           packageValue={state.currentPackage}
           postDraftReview={state.latestPostDraftReview}
           officialCompileRun={state.latestOfficialCompileRun}
+          exportReadiness={state.exportReadiness}
           currentDraftHash={state.currentDraftHash}
           currentSourceDraftHash={state.currentSourceDraftHash}
+          currentQualityChecked={state.currentQualityChecked}
+          qualityCheckStates={state.qualityCheckStates}
           lastExport={state.lastExport}
           onNativeExport={(format) => void handlers.onNativeExport(format)}
           onOpenExportFolder={() => void handlers.onOpenExportFolder()}

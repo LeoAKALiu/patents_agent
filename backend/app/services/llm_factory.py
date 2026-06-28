@@ -10,6 +10,7 @@ import re
 
 from backend.app.desktop_config import DesktopConfig, effective_settings
 from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
+from backend.app.llm_cassette import maybe_wrap_with_cassette
 from backend.app.settings import Settings
 
 _API_KEY_REDACT_PATTERN = re.compile(r"(sk-[A-Za-z0-9_-]{6,})")
@@ -29,10 +30,18 @@ def build_llm(
     )
     api_key = effective["api_key"]
     if not api_key:
-        return MissingLLMClient()
-    return DeepSeekLLMClient(
-        api_key=api_key,
-        base_url=effective["base_url"] or None,
+        return maybe_wrap_with_cassette(
+            MissingLLMClient(),
+            provider="deepseek",
+            model=effective["model"],
+        )
+    return maybe_wrap_with_cassette(
+        DeepSeekLLMClient(
+            api_key=api_key,
+            base_url=effective["base_url"] or None,
+            model=effective["model"],
+        ),
+        provider="deepseek",
         model=effective["model"],
     )
 

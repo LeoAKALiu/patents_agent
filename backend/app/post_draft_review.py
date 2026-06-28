@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import ValidationError
@@ -91,6 +92,7 @@ def run_post_draft_review(
     providers: list[str],
     official_compile_run_id: str,
     participant_providers: list[str] | None = None,
+    on_progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> PostDraftReviewRun:
     run_id = uuid.uuid4().hex
     package_hash = package_hash_for_review(package)
@@ -141,6 +143,7 @@ def run_post_draft_review(
                     detail=json.dumps(result.model_dump(mode="json"), ensure_ascii=False)[:1200],
                 )
             )
+            _publish_progress(on_progress, role_results=role_results, logs=logs)
         current_stage = "post_draft_chair_synthesis"
         try:
             chair_raw = llm.complete_stage(
@@ -221,6 +224,24 @@ def run_post_draft_review(
             export_allowed=False,
             logs=logs,
         )
+
+
+def _publish_progress(
+    callback: Callable[[dict[str, Any]], None] | None,
+    *,
+    role_results: list[PostDraftReviewRoleResult],
+    logs: list[DeliberationLogEntry],
+    chair_result: PostDraftReviewChairResult | None = None,
+) -> None:
+    if callback is None:
+        return
+    progress: dict[str, Any] = {
+        "role_results": list(role_results),
+        "logs": list(logs),
+    }
+    if chair_result is not None:
+        progress["chair_result"] = chair_result
+    callback(progress)
 
 
 def post_draft_review_to_markdown(run: PostDraftReviewRun) -> str:
