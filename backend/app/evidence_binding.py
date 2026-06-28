@@ -44,6 +44,7 @@ def build_evidence_bindings(
 
     builder = _EvidenceBindingBuilder()
     project_id = project.id
+    material_list = list(materials)
 
     for disclosure in disclosures:
         if disclosure.project_id and disclosure.project_id != project_id:
@@ -52,12 +53,12 @@ def build_evidence_bindings(
             continue
         builder.add_disclosure(disclosure)
 
-    for material in materials:
+    for material in material_list:
         if material.project_id and material.project_id != project_id:
             continue
         builder.add_material(material)
 
-    for packet in parse_deep_research_materials(materials):
+    for packet in parse_deep_research_materials(material_list):
         if packet.project_id and packet.project_id != project_id:
             continue
         builder.add_deep_research_packet(packet)

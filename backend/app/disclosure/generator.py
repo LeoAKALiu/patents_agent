@@ -50,7 +50,7 @@ class DisclosureGenerator:
         strategic_context = _format_user_candidates(user_candidates)
         material_context = _format_materials(project, materials)
         deep_research_packets = parse_deep_research_materials(materials)
-        deep_research_context = _format_deep_research_packets(deep_research_packets)
+        deep_research_context = _format_deep_research_prompt_context(deep_research_packets)
         strategic_context = _merge_context_blocks(strategic_context, deep_research_context)
         material_context = _merge_context_blocks(material_context, deep_research_context)
         markdown_hits = [hit for packet in deep_research_packets for hit in packet_prior_art_hits(packet)]
@@ -645,22 +645,38 @@ def _format_materials(project: ProjectRecord, materials: list[ProjectMaterial]) 
     return "\n\n".join(blocks)
 
 
-def _format_deep_research_packets(packets: list[dict[str, Any]] | list[Any]) -> str:
+def _format_deep_research_prompt_context(packets: list[Any]) -> str:
     if not packets:
         return ""
     packet_blocks: list[str] = []
     for index, packet in enumerate(packets, start=1):
-        packet_dict = packet.model_dump(mode="json") if hasattr(packet, "model_dump") else packet
-        if not isinstance(packet_dict, dict):
-            continue
-        packet_blocks.append(
-            "\n".join(
-                [
-                    f"## DeepResearch Packet {index}",
-                    json.dumps(packet_dict, ensure_ascii=False, indent=2),
+        packet_hits = packet_prior_art_hits(packet)
+        lines = [f"## DeepResearch 补充线索 {index}"]
+        if packet_hits:
+            lines.append("现有技术线索：")
+            for hit in packet_hits:
+                detail_parts = [
+                    part
+                    for part in (
+                        hit.publication_number,
+                        hit.title,
+                        hit.url,
+                        hit.abstract or hit.relevance_summary,
+                    )
+                    if part
                 ]
-            )
-        )
+                lines.append(f"- {' | '.join(detail_parts)}")
+        if packet.differentiators:
+            lines.append("关键差异点：")
+            lines.extend(f"- {item}" for item in packet.differentiators)
+        if packet.claim_drafting_constraints:
+            lines.append("权利要求约束：")
+            lines.extend(f"- {item}" for item in packet.claim_drafting_constraints)
+        if packet.suggested_completion_tasks:
+            lines.append("技术补充待办：")
+            lines.extend(f"- {item}" for item in packet.suggested_completion_tasks)
+        if len(lines) > 1:
+            packet_blocks.append("\n".join(lines))
     return "\n\n".join(packet_blocks)
 
 

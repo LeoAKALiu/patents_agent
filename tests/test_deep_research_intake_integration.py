@@ -18,6 +18,12 @@ DEEP_RESEARCH_MD = """
 
 ## 差异点
 - 本方案将检测结果实时回写至采集策略，形成闭环反馈。
+
+## 权利要求约束
+- 独立权利要求应突出检测结果回写采集策略的闭环控制。
+
+## 任务
+- 补充实时回写策略的时序实施例。
 """
 
 
@@ -60,6 +66,11 @@ def test_deepresearch_material_adds_disclosure_stage_context() -> None:
     body_call = next(call for call in llm.calls if call.stage == "disclosure_body")
     assert "CN123456789A" in body_call.user_prompt
     assert "实时闭环反馈" in body_call.user_prompt
+    assert "权利要求约束" in body_call.user_prompt
+    assert "补充实时回写策略的时序实施例" in body_call.user_prompt
+    assert "generation_logs" not in body_call.user_prompt
+    assert "provider_chain" not in body_call.user_prompt
+    assert "internal_only" not in body_call.user_prompt
     assert warnings == []
 
 
@@ -81,3 +92,27 @@ def test_deepresearch_material_becomes_prior_art_evidence_binding() -> None:
     assert prior_art_bindings
     assert prior_art_bindings[0].source_id == "CN123456789A"
     assert prior_art_bindings[0].metadata["url"] == "https://patents.google.com/patent/CN123456789A"
+
+
+def test_deepresearch_iterator_materials_still_become_prior_art_evidence_binding() -> None:
+    project = ProjectRecord(id="p1", name="图像缺陷", draft_text="一种图像缺陷识别方法。")
+    material = ProjectMaterial(
+        id="m1",
+        project_id="p1",
+        file_name="deepresearch.md",
+        path="data/deepresearch.md",
+        file_type="md",
+        text=DEEP_RESEARCH_MD,
+        status="processed",
+    )
+
+    bindings = build_evidence_bindings(
+        project,
+        materials=iter([material]),
+        disclosures=[],
+        patent_points=[],
+    )
+
+    prior_art_bindings = [binding for binding in bindings if binding.source_type == EvidenceBindingSourceType.PRIOR_ART]
+    assert prior_art_bindings
+    assert prior_art_bindings[0].source_id == "CN123456789A"
