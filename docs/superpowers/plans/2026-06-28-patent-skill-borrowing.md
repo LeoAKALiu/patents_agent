@@ -1149,8 +1149,9 @@ git commit -m "feat: persist draft revision ledger records"
 from fastapi.testclient import TestClient
 
 from backend.app.llm import FakeLLMClient
-from backend.app.main import create_app
-from backend.app.schemas import DraftPackage, PostDraftReviewRun
+from backend.app.main import create_app, _repair_patch_store
+from backend.app.official_compile import source_draft_hash
+from backend.app.schemas import DraftPackage, DraftRepairPatch, PostDraftReviewRun
 
 
 def _package() -> DraftPackage:
@@ -1166,11 +1167,12 @@ def _package() -> DraftPackage:
 
 
 def test_revision_ledger_api_lists_records_after_safe_patch(tmp_path) -> None:
-    app = create_app(data_dir=tmp_path, llm=FakeLLMClient({}))
+    app = create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False)
     client = TestClient(app)
     project = client.post("/api/projects", json={"name": "测试", "draft_text": "一种方法。"}).json()
     project_id = project["id"]
-    client.put(f"/api/projects/{project_id}", json={"package": _package().model_dump(mode="json")})
+    package = _package()
+    app.state.store.update_project_package(project_id, package)
 
     run = PostDraftReviewRun(
         id="review-1",
@@ -1178,7 +1180,7 @@ def test_revision_ledger_api_lists_records_after_safe_patch(tmp_path) -> None:
         status="completed",
         providers=["fake"],
         prompt_pack_version="test",
-        draft_package_hash="",
+        draft_package_hash=source_draft_hash(package),
         export_allowed=False,
         blocking_issues=[],
         contamination_hits=[],
@@ -1190,9 +1192,59 @@ def test_revision_ledger_api_lists_records_after_safe_patch(tmp_path) -> None:
 
     assert response.status_code == 200
     assert response.json() == []
-```
 
-This first test proves the endpoint shape without depending on a specific patch fixture. Add a second test for repair patch application after inspecting current `tests/test_post_draft_repair.py`; it should assert that applying a patch creates a `revision_kind == "post_draft_repair"` record.
+
+def test_revision_ledger_records_single_issue_repair_patch(tmp_path) -> None:
+    _repair_patch_store().clear()
+    app = create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False)
+    client = TestClient(app)
+    project = client.post("/api/projects", json={"name": "测试", "draft_text": "一种方法。"}).json()
+    project_id = project["id"]
+    package = _package(title="一种重复重复方法")
+    app.state.store.update_project_package(project_id, package)
+    draft_hash = source_draft_hash(package)
+    run = PostDraftReviewRun(
+        id="review-1",
+        project_id=project_id,
+        status="completed",
+        providers=["fake"],
+        prompt_pack_version="test",
+        draft_package_hash=draft_hash,
+        export_allowed=False,
+        blocking_issues=["标题存在重复词汇"],
+        contamination_hits=[],
+        logs=[],
+    )
+    app.state.store.create_post_draft_review_run(run)
+    patch = DraftRepairPatch(
+        id="patch-1",
+        issue_id="issue-1",
+        project_id=project_id,
+        review_run_id=run.id,
+        status="proposed",
+        target_section="title",
+        original="重复重复",
+        patched="重复",
+        diff_summary="删除重复词",
+        risk_notes=[],
+        draft_package_hash=draft_hash,
+    )
+    _repair_patch_store()[patch.id] = patch
+
+    apply_response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{run.id}/repair-patches/{patch.id}/apply"
+    )
+    assert apply_response.status_code == 200
+
+    response = client.get(f"/api/projects/{project_id}/revision-ledger")
+    assert response.status_code == 200
+    records = response.json()
+    assert len(records) == 1
+    assert records[0]["revision_kind"] == "post_draft_repair"
+    assert records[0]["baseline_artifact_hash"] == draft_hash
+    assert records[0]["new_artifact_hash"] == apply_response.json()["current_draft_hash"]
+    assert records[0]["affected_sections"] == ["title"]
+```
 
 - [ ] **Step 2: Run API tests and verify failure**
 
