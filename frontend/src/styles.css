@@ -2386,6 +2386,24 @@ input:focus, select:focus, textarea:focus {
   transition: width .16s ease;
 }
 
+.guided-progress-action-wrap {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  justify-self: end;
+}
+
+.guided-progress-action-wrap .btn {
+  width: 100%;
+}
+
+.guided-progress-action-wrap .btn:disabled {
+  border-color: var(--border-subtle);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  filter: none;
+}
+
 .guided-stepper { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 
 .guided-step {

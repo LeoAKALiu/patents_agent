@@ -16,7 +16,7 @@ import {
   Wand2,
 } from "lucide-react";
 
-import { AgentProviderCards } from "./AgentProviderCards";
+import { deliberationExpertSeatCount } from "./AgentProviderCards";
 import {
   draftCompletionReportUrl,
   exportUrl,
@@ -49,7 +49,7 @@ import {
   deriveGuidedFlowState,
   guidedOperationLog,
   guidedNextActionDescription,
-  guidedNextActionLabel,
+  guidedProgressActionState,
   guidedStepStatusLabel,
   ideaPatentGoalModes,
   officialCompileActionGate,
@@ -64,6 +64,7 @@ import {
   selectLatestRepairablePostDraftReview,
   type GuidedActionGate,
   type GuidedFlowState,
+  type GuidedProgressActionState,
   type GuidedStepId,
   type GuidedStepState,
   type PatentGoalMode,
@@ -266,8 +267,25 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
     state.hasCompletedExternalDraftIntake || state.draftReady,
   );
   const completedStepCount = state.steps.filter((step) => step.status === "done").length;
+  const progressActionBlockReason = progressActionBlocker({
+    currentStepId: state.currentStepId,
+    selectedDeliberationProviders: props.selectedDeliberationProviders,
+  });
+  const progressAction = guidedProgressActionState({
+    busy: props.busy,
+    currentStepId: state.currentStepId,
+    displayedStepId,
+    actionBlockReason: progressActionBlockReason,
+  });
 
   function handleNextAction(): void {
+    if (progressAction.disabled) {
+      return;
+    }
+    if (progressAction.kind === "return") {
+      setManualViewStepId(null);
+      return;
+    }
     setManualViewStepId(null);
     if (state.currentStepId === "invention") {
       props.onStartDisclosure();
@@ -296,6 +314,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         state={state}
       />
       <GuidedProgressBanner
+        action={progressAction}
         busy={props.busy}
         completedStepCount={completedStepCount}
         currentStepId={state.currentStepId}
@@ -454,6 +473,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
 }
 
 function GuidedProgressBanner({
+  action,
   busy,
   completedStepCount,
   currentStepId,
@@ -461,6 +481,7 @@ function GuidedProgressBanner({
   onNext,
   totalStepCount,
 }: {
+  action: GuidedProgressActionState;
   busy: string;
   completedStepCount: number;
   currentStepId: GuidedStepId;
@@ -469,8 +490,7 @@ function GuidedProgressBanner({
   totalStepCount: number;
 }) {
   const percent = Math.round((completedStepCount / totalStepCount) * 100);
-  const isBrowsingPastStep = displayedStepId !== currentStepId;
-  const actionIsFormOnly = currentStepId === "idea";
+  const actionIsFormOnly = action.disabled && currentStepId === "idea" && displayedStepId === currentStepId;
   return (
     <section className="guided-progress-banner" aria-label="流程进度和下一步">
       <div className="guided-progress-copy">
@@ -483,15 +503,22 @@ function GuidedProgressBanner({
       <div className="guided-progress-meter" aria-hidden="true">
         <span style={{ width: `${percent}%` }} />
       </div>
-      <button
-        className="btn btn-primary"
-        disabled={Boolean(busy) || actionIsFormOnly}
-        onClick={onNext}
-        type="button"
+      <span
+        className="guided-progress-action-wrap"
+        title={action.title}
       >
-        {busy ? <Loader2 className="spin" size={17} /> : <PlayCircle size={17} />}
-        <span>{isBrowsingPastStep ? "回到当前步骤" : guidedNextActionLabel(currentStepId)}</span>
-      </button>
+        <button
+          aria-label={action.label}
+          className="btn btn-primary"
+          disabled={action.disabled}
+          onClick={onNext}
+          title={action.title}
+          type="button"
+        >
+          {busy ? <Loader2 className="spin" size={17} /> : action.kind === "return" ? <RefreshCw size={17} /> : <PlayCircle size={17} />}
+          <span>{action.label}</span>
+        </button>
+      </span>
       {actionIsFormOnly && (
         <div className="callout guided-progress-callout">
           <AlertTriangle size={17} aria-hidden="true" />
@@ -503,6 +530,24 @@ function GuidedProgressBanner({
       )}
     </section>
   );
+}
+
+function progressActionBlocker({
+  currentStepId,
+  selectedDeliberationProviders,
+}: {
+  currentStepId: GuidedStepId;
+  selectedDeliberationProviders: string[];
+}): string {
+  if (
+    (currentStepId === "deliberation" || currentStepId === "postReview")
+    && selectedDeliberationProviders.length < deliberationExpertSeatCount
+  ) {
+    return currentStepId === "postReview"
+      ? "至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。"
+      : "至少需要 Codex 主席 + 2 个可用专家才能启动会审。";
+  }
+  return "";
 }
 
 function WorkflowStepper({

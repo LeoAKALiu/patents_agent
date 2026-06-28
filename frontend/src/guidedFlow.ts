@@ -285,6 +285,14 @@ export type GuidedActionGate = {
   reason: string;
 };
 
+export type GuidedProgressActionState = {
+  kind: "next" | "return";
+  label: string;
+  disabled: boolean;
+  disabledReason: string;
+  title: string;
+};
+
 /** Whether the user may open this step in the guided navigator (view-only; does not advance workflow). */
 export function canNavigateToGuidedStep(step: Pick<GuidedStepState, "status">): boolean {
   return step.status === "done" || step.status === "current";
@@ -402,6 +410,40 @@ export function guidedNextActionDescription(stepId: GuidedStepId): string {
   if (stepId === "officialCompile") return "清除内部痕迹，生成只包含正式申请内容的提交包。";
   if (stepId === "postReview") return "正式提交前复核当前版本、权利要求质量并清理内部痕迹。";
   return "正式稿与内部稿分离导出；提交前仍需专业人员复核。";
+}
+
+export function guidedProgressActionState(input: {
+  busy: string;
+  currentStepId: GuidedStepId;
+  displayedStepId: GuidedStepId;
+  actionBlockReason?: string;
+}): GuidedProgressActionState {
+  if (input.displayedStepId !== input.currentStepId) {
+    return {
+      kind: "return",
+      label: "回到当前步骤",
+      disabled: false,
+      disabledReason: "",
+      title: "回到当前步骤继续流程。",
+    };
+  }
+
+  const label = `下一步：${guidedNextActionLabel(input.currentStepId)}`;
+  const disabledReason = input.busy
+    ? `${guidedBusyLabel(input.busy)}，完成后才能继续下一步。`
+    : input.actionBlockReason
+      ? input.actionBlockReason
+      : input.currentStepId === "idea"
+        ? "请先在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。"
+        : "";
+
+  return {
+    kind: "next",
+    label,
+    disabled: Boolean(disabledReason),
+    disabledReason,
+    title: disabledReason || guidedNextActionDescription(input.currentStepId),
+  };
 }
 
 export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {

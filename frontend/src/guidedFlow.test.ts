@@ -26,6 +26,7 @@ import {
   guidedBusyLabel,
   guidedNextActionDescription,
   guidedNextActionLabel,
+  guidedProgressActionState,
   guidedOperationLog,
   guidedStepLabels,
   guidedStepStatusLabel,
@@ -146,6 +147,35 @@ const completedDeliberation: DeliberationRun = {
   failures: [],
   events: ["run started", "strategy generated"],
   logs: [],
+};
+
+const completedKimiDeliberation: DeliberationRun = {
+  ...completedDeliberation,
+  id: "dr-kimi",
+  providers: ["codex", "deepseek", "kimicode"],
+  stage_results: [
+    ...["codex", "deepseek", "kimicode"].map((provider) => ({
+      phase: "opening",
+      provider_id: provider,
+      label: `opening ${provider}`,
+      payload: {},
+      status: "completed" as const,
+    })),
+    ...["pair codex-vs-deepseek", "pair codex-vs-kimicode", "pair deepseek-vs-kimicode"].map((label) => ({
+      phase: "pair",
+      provider_id: "codex",
+      label,
+      payload: {},
+      status: "completed" as const,
+    })),
+    {
+      phase: "chair",
+      provider_id: "codex",
+      label: "chair synthesis",
+      payload: {},
+      status: "completed",
+    },
+  ],
 };
 
 const failedDeliberation: DeliberationRun = {
@@ -592,6 +622,40 @@ describe("guided flow defaults", () => {
     expect(guidedNextActionLabel("export")).toBe("打开导出工具");
     expect(guidedNextActionDescription("postReview")).toContain("正式提交前");
   });
+
+  it("labels the progress action as an explicit next step and explains disabled blockers", () => {
+    const readyAction = guidedProgressActionState({
+      busy: "",
+      currentStepId: "draft",
+      displayedStepId: "draft",
+    });
+
+    expect(readyAction.label).toBe("下一步：生成专利初稿");
+    expect(readyAction.disabled).toBe(false);
+    expect(readyAction.disabledReason).toBe("");
+
+    const blockedAction = guidedProgressActionState({
+      busy: "",
+      currentStepId: "idea",
+      displayedStepId: "idea",
+    });
+
+    expect(blockedAction.label).toBe("下一步：填写并创建项目");
+    expect(blockedAction.disabled).toBe(true);
+    expect(blockedAction.disabledReason).toContain("填写项目名称");
+  });
+
+  it("uses the progress action as a return control while browsing a completed step", () => {
+    const action = guidedProgressActionState({
+      busy: "",
+      currentStepId: "draft",
+      displayedStepId: "deliberation",
+    });
+
+    expect(action.kind).toBe("return");
+    expect(action.label).toBe("回到当前步骤");
+    expect(action.disabled).toBe(false);
+  });
 });
 
 describe("patent goal modes", () => {
@@ -828,6 +892,25 @@ describe("deriveGuidedFlowState", () => {
       disclosures: [completedDisclosure],
       deliberations: [completedDeliberation],
       patentPoints: [selectedPoint],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(readyForDraft.currentStepId).toBe("draft");
+    expect(readyForDraft.hasCompletedDeliberation).toBe(true);
+  });
+
+  it("accepts a completed deliberation with KimiCode replacing an unavailable Claude expert", () => {
+    const selectedPoint = patentPoint(true);
+    const readyForDraft = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedKimiDeliberation],
+      patentPoints: [selectedPoint],
+      formulaRequirement: formulaNotRequired,
+      formulaRuns: [],
       filingReports: [],
       worksheets: [],
       completionRuns: [],
