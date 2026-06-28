@@ -1260,16 +1260,13 @@ def create_app(
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/accept-all")
     def accept_all_completion_patches(project_id: str, run_id: str) -> dict:
         project = _require_project(store, project_id)
+        package = _require_package(project)
         run = store.get_draft_completion_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
-        package = project.package
-        if run.draft_package_hash:
-            if not package:
-                raise HTTPException(status_code=409, detail="Generate a draft before export.")
-            current_hash = source_draft_hash(package)
-            if run.draft_package_hash != current_hash:
-                raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
+        current_hash = source_draft_hash(package)
+        if run.draft_package_hash and run.draft_package_hash != current_hash:
+            raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
         current = run
         current_package = package
         for patch in [patch for patch in run.patches if patch.status == "proposed"]:
@@ -1277,8 +1274,6 @@ def create_app(
             if not updated:
                 raise HTTPException(status_code=404, detail="Draft completion patch not found.")
             current = updated
-            if current_package is None:
-                continue
             patched_package = _apply_completion_patch(current_package, patch)
             if patched_package != current_package:
                 store.update_project_package(project_id, patched_package)
