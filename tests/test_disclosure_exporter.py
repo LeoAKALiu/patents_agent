@@ -98,6 +98,31 @@ def test_clean_disclosure_scrubs_internal_metadata_from_llm_body() -> None:
     assert "生成日志" not in markdown
 
 
+def test_clean_disclosure_scrubs_inline_and_chinese_internal_markers_from_llm_body() -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "# 技术交底书正文\n\n"
+                "本段保留正常技术方案。\n"
+                "本段包含 evidence_id: E-001，不能进入清洁交底书。\n"
+                "修订记录：根据内部审查意见改写权利要求。\n\n"
+                "## revision_ledger\n"
+                "- changed claims\n\n"
+                "## 二、实施方式\n"
+                "实施方式正文保留。"
+            )
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+
+    assert "本段保留正常技术方案" in markdown
+    assert "实施方式正文保留" in markdown
+    assert "evidence_id" not in markdown
+    assert "修订记录" not in markdown
+    assert "changed claims" not in markdown
+
+
 def test_clean_disclosure_docx_scrubs_internal_metadata_from_llm_body(tmp_path) -> None:
     package = _package().model_copy(
         update={

@@ -13,10 +13,11 @@ from backend.app.schemas import DisclosurePackage
 
 URL_PATTERN = re.compile(r"https?://\S+")
 INTERNAL_METADATA_LINE_RE = re.compile(
-    r"^\s*(?:[-*+]\s*)?(?:[\"']?)"
+    r"(?:^|\s)(?:[-*+]\s*)?(?:[\"']?)"
     r"(?:evidence_id|evidence_refs|research_ledger|generation_logs|provider_diagnostics|"
     r"revision_ledger|source_ledger|sidecar_notes|internal_only|official_safe_patches|"
-    r"attorney_memo|system_trace|material_id|source_id|source_label)"
+    r"attorney_memo|system_trace|material_id|source_id|source_label|"
+    r"修订记录|检索来源台账|证据编号|材料编号|来源标签|引用来源|引用链接|证据来源)"
     r"(?:[\"']?)\s*[:：=]",
     re.IGNORECASE,
 )
@@ -36,10 +37,16 @@ INTERNAL_SECTION_HEADINGS = {
     "材料覆盖",
     "前置材料摘要",
     "research ledger",
+    "research_ledger",
     "source ledger",
+    "source_ledger",
     "revision ledger",
+    "revision_ledger",
+    "修订记录",
     "generation logs",
+    "generation_logs",
     "self check",
+    "provider_diagnostics",
     "sidecar",
 }
 
@@ -218,7 +225,7 @@ def _clean_export_body_markdown(body_markdown: str) -> str:
                 continue
         if skipping_section_level is not None:
             continue
-        if INTERNAL_METADATA_LINE_RE.match(line):
+        if INTERNAL_METADATA_LINE_RE.search(line):
             continue
         lines.append(line.rstrip())
     return "\n".join(lines).strip()
