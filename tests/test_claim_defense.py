@@ -3,6 +3,7 @@ import json
 
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
+from backend.app.official_compile import source_draft_hash
 from backend.app.schemas import (
     ClaimDefenseWorksheet,
     DraftPackage,
@@ -109,9 +110,11 @@ def test_claim_defense_api_persists_multiple_versions(tmp_path):
     assert list_response.status_code == 200
     worksheets = list_response.json()["worksheets"]
     assert len(worksheets) == 2
+    assert worksheets[0]["draft_package_hash"] == source_draft_hash(_package_with_claims())
     detail_response = client.get(f"/api/projects/{project_id}/claim-defense-worksheets/{worksheets[0]['id']}")
     assert detail_response.status_code == 200
     assert detail_response.json()["feature_records"]
+    assert detail_response.json()["draft_package_hash"] == source_draft_hash(_package_with_claims())
 
 
 def test_claim_defense_invalid_llm_output_falls_back_to_rules():

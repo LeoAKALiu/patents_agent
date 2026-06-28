@@ -148,6 +148,7 @@ class FlowDriver:
         self._require_project_id()
         project = self._json(self.client.get(f"/api/projects/{self.project_id}"))
         filing = self._json(self.client.get(f"/api/projects/{self.project_id}/filing-readiness"))
+        worksheets = self._json(self.client.get(f"/api/projects/{self.project_id}/claim-defense-worksheets"))
         completion = self._json(self.client.get(f"/api/projects/{self.project_id}/completion-runs"))
         compile_runs = self._json(self.client.get(f"/api/projects/{self.project_id}/official-compile-runs"))
         reviews = self._json(self.client.get(f"/api/projects/{self.project_id}/post-draft-reviews"))
@@ -157,9 +158,10 @@ class FlowDriver:
         latest_compile = _first(compile_runs.get("runs", []))
         latest_review = _first(reviews.get("runs", []))
         latest_filing = _first(filing.get("reports", []))
+        latest_worksheet = _first(worksheets.get("worksheets", []))
         latest_completion = _first(completion.get("runs", []))
 
-        quality_gate = _quality_gate(current_hash, latest_filing, latest_completion)
+        quality_gate = _quality_gate(current_hash, latest_filing, latest_worksheet, latest_completion)
         compile_gate = _hash_gate(current_hash, latest_compile.get("source_draft_hash"))
         review_gate = _review_gate(current_hash, latest_compile, latest_review)
         export_allowed = bool(readiness.get("export_allowed"))
@@ -185,6 +187,7 @@ class FlowDriver:
                 "current_source_draft_hash": current_hash,
                 "latest_official_source_hash": str(latest_compile.get("source_draft_hash") or ""),
                 "latest_official_package_hash": str(latest_compile.get("official_package_hash") or ""),
+                "latest_worksheet_draft_hash": str(latest_worksheet.get("draft_package_hash") or ""),
                 "latest_review_draft_hash": str(latest_review.get("draft_package_hash") or ""),
                 "latest_review_official_package_hash": str(latest_review.get("official_package_hash") or ""),
             },
@@ -213,14 +216,21 @@ def _hash_gate(current_hash: str, run_hash: object) -> str:
     return "current" if str(run_hash) == current_hash else "stale"
 
 
-def _quality_gate(current_hash: str, filing: dict[str, Any], completion: dict[str, Any]) -> str:
+def _quality_gate(
+    current_hash: str,
+    filing: dict[str, Any],
+    worksheet: dict[str, Any],
+    completion: dict[str, Any],
+) -> str:
     filing_hash = filing.get("draft_package_hash")
+    worksheet_hash = worksheet.get("draft_package_hash")
     completion_hash = completion.get("draft_package_hash") if completion.get("status") == "completed" else ""
     filing_state = _hash_gate(current_hash, filing_hash)
+    worksheet_state = _hash_gate(current_hash, worksheet_hash)
     completion_state = _hash_gate(current_hash, completion_hash)
-    if filing_state == "current" and completion_state == "current":
+    if filing_state == "current" and worksheet_state == "current" and completion_state == "current":
         return "current"
-    if filing_state == "stale" or completion_state == "stale":
+    if filing_state == "stale" or worksheet_state == "stale" or completion_state == "stale":
         return "stale"
     return "missing"
 

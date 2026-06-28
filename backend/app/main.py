@@ -89,6 +89,7 @@ from backend.app.research.providers import ChainedResearchProvider, build_provid
 from backend.app.runtime import RuntimeCancelled, RuntimeContext, RuntimeTimeout
 from backend.app.schemas import (
     AgentFailure,
+    ClaimDefenseWorksheet,
     DeepResearchPacket,
     DeliberationRun,
     DeliberationLogEntry,
@@ -107,6 +108,7 @@ from backend.app.schemas import (
     DraftRepairPatchApplyResult,
     DraftReviewIssue,
     EvidenceBinding,
+    FilingReadinessReport,
     FormulaRun,
     FormulaRunCreate,
     GenerateRequest,
@@ -1657,43 +1659,62 @@ def create_app(
             return {
                 "export_allowed": False,
                 "draft_required": True,
+                "quality_required": False,
                 "official_compile_required": False,
                 "post_draft_review_required": False,
                 "next_action": "generate_draft",
                 "reason": "请先生成专利初稿后再导出。",
             }
         current_source_hash = source_draft_hash(package)
+        quality_state = _current_quality_gate_state(store, project_id, current_source_hash)
+        if quality_state["quality_required"]:
+            return {
+                "export_allowed": False,
+                "draft_required": False,
+                "quality_required": True,
+                "official_compile_required": False,
+                "post_draft_review_required": False,
+                "next_action": "run_quality_checks",
+                "reason": "当前初稿尚未完成质量检查。请先运行提交前质量检查和成稿完整度检查，再进入正式导出链路。",
+                "current_source_draft_hash": current_source_hash,
+                **quality_state,
+            }
         compile_run = store.get_latest_completed_official_compile_run(project_id)
+        latest_compile_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
         compile_current = (
             compile_run
             and compile_run.official_package
             and compile_run.source_draft_hash == current_source_hash
         )
         if not compile_current:
+            compile_for_state = latest_compile_attempt
             return {
                 "export_allowed": False,
                 "draft_required": False,
+                "quality_required": False,
                 "official_compile_required": True,
                 "post_draft_review_required": False,
                 "next_action": "run_official_compile",
                 "reason": "当前初稿尚未编译为正式稿。请先生成正式稿（清除内部痕迹后生成可提交版本）。",
                 "current_source_draft_hash": current_source_hash,
+                "has_compile_run": compile_for_state is not None,
+                "compile_run_id": compile_for_state.id if compile_for_state else None,
+                "compile_status": compile_for_state.status if compile_for_state else "missing",
+                "compile_blocked_items": compile_for_state.blocked_items if compile_for_state else [],
+                **quality_state,
             }
-        latest_matching_review = next(
-            (
-                run
-                for run in store.list_post_draft_review_runs(project_id)
-                if run.status == "completed"
-                and run.draft_package_hash == current_source_hash
-                and run.official_compile_run_id == compile_run.id
-                and run.official_package_hash == compile_run.official_package_hash
-            ),
-            None,
+        matching_review_attempt = _latest_matching_post_draft_review_attempt(
+            store, project_id, current_source_hash, compile_run
+        )
+        latest_matching_review = _latest_completed_matching_post_draft_review(
+            store, project_id, current_source_hash, compile_run
         )
         if not latest_matching_review or not latest_matching_review.export_allowed:
+            review_for_state = latest_matching_review or matching_review_attempt
             return {
                 "export_allowed": False,
                 "draft_required": False,
+                "quality_required": False,
                 "official_compile_required": False,
                 "post_draft_review_required": True,
                 "next_action": "run_post_draft_review",
@@ -1701,18 +1722,25 @@ def create_app(
                 "compile_run_id": compile_run.id,
                 "official_package_hash": compile_run.official_package_hash,
                 "current_source_draft_hash": current_source_hash,
-                "has_review_run": latest_matching_review is not None,
+                "has_review_run": matching_review_attempt is not None,
                 "review_export_allowed": latest_matching_review.export_allowed if latest_matching_review else False,
+                "review_run_id": review_for_state.id if review_for_state else None,
+                "review_status": review_for_state.status if review_for_state else "missing",
+                "review_gate_status": _post_draft_review_gate_status(review_for_state),
+                "review_blocking_issues": review_for_state.blocking_issues if review_for_state else [],
+                **quality_state,
             }
         return {
             "export_allowed": True,
             "draft_required": False,
+            "quality_required": False,
             "official_compile_required": False,
             "post_draft_review_required": False,
             "next_action": "export_ready",
             "reason": "正式导出已就绪。请专业人员最终复核后提交。",
             "compile_run_id": compile_run.id,
             "review_run_id": latest_matching_review.id,
+            **quality_state,
         }
 
     @app.get("/api/projects/{project_id}/official-export.docx")
@@ -3324,15 +3352,162 @@ def _require_latest_completed_official_compile(
     return run
 
 
-def _require_official_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> OfficialCompileRun:
-    current_source_hash = source_draft_hash(package)
-    compile_run = store.get_latest_completed_official_compile_run(project_id)
-    if not compile_run or not compile_run.official_package or compile_run.source_draft_hash != current_source_hash:
-        raise HTTPException(
-            status_code=409,
-            detail="Official draft compile is required for the current draft before official export.",
-        )
-    latest_matching_review = next(
+def _current_quality_artifacts(
+    store: SQLiteStore, project_id: str, current_source_hash: str
+) -> tuple[FilingReadinessReport | None, ClaimDefenseWorksheet | None, DraftCompletionRun | None]:
+    filing_report = next(
+        (
+            report
+            for report in store.list_filing_readiness_reports(project_id)
+            if report.draft_package_hash == current_source_hash
+        ),
+        None,
+    )
+    completion_run = next(
+        (
+            run
+            for run in store.list_draft_completion_runs(project_id)
+            if run.status == "completed" and run.draft_package_hash == current_source_hash
+        ),
+        None,
+    )
+    worksheet = next(
+        (
+            worksheet
+            for worksheet in store.list_claim_defense_worksheets(project_id)
+            if worksheet.draft_package_hash == current_source_hash
+        ),
+        None,
+    )
+    return filing_report, worksheet, completion_run
+
+
+def _current_quality_gate_state(store: SQLiteStore, project_id: str, current_source_hash: str) -> dict:
+    filing_report, worksheet, completion_run = _current_quality_artifacts(store, project_id, current_source_hash)
+    completion_runs = store.list_draft_completion_runs(project_id)
+    latest_filing = next(iter(store.list_filing_readiness_reports(project_id)), None)
+    latest_worksheet = next(iter(store.list_claim_defense_worksheets(project_id)), None)
+    latest_completion = next(
+        (run for run in completion_runs if run.status == "completed"),
+        None,
+    )
+    failed_current_completion = next(
+        (run for run in completion_runs if run.status == "failed" and run.draft_package_hash == current_source_hash),
+        None,
+    )
+    quality_check_states = {
+        "filing_readiness": _quality_artifact_state(
+            current=filing_report,
+            latest_hash=latest_filing.draft_package_hash if latest_filing else "",
+        ),
+        "claim_defense_worksheet": _quality_artifact_state(
+            current=worksheet,
+            latest_hash=latest_worksheet.draft_package_hash if latest_worksheet else "",
+        ),
+        "draft_completion": _quality_artifact_state(
+            current=completion_run,
+            latest_hash=latest_completion.draft_package_hash if latest_completion else "",
+            failed_current=failed_current_completion,
+        ),
+    }
+    missing = [name for name, state in quality_check_states.items() if state == "missing"]
+    stale = [name for name, state in quality_check_states.items() if state == "stale"]
+    failed = [name for name, state in quality_check_states.items() if state == "failed"]
+    return {
+        "quality_done": not missing and not stale and not failed,
+        "quality_required": bool(missing or stale or failed),
+        "missing_quality_checks": missing,
+        "stale_quality_checks": stale,
+        "failed_quality_checks": failed,
+        "quality_check_states": quality_check_states,
+        "filing_readiness_report_id": filing_report.id if filing_report else "",
+        "claim_defense_worksheet_id": worksheet.id if worksheet else "",
+        "draft_completion_run_id": completion_run.id if completion_run else "",
+    }
+
+
+def _quality_artifact_state(*, current: object | None, latest_hash: str, failed_current: object | None = None) -> str:
+    if current is not None:
+        return "current"
+    if failed_current is not None:
+        return "failed"
+    if latest_hash:
+        return "stale"
+    return "missing"
+
+
+def _require_current_quality_gate(store: SQLiteStore, project_id: str, current_source_hash: str) -> None:
+    state = _current_quality_gate_state(store, project_id, current_source_hash)
+    if state["quality_done"]:
+        return
+    raise HTTPException(
+        status_code=409,
+        detail=_quality_gate_error_detail(state),
+    )
+
+
+def _quality_gate_error_detail(state: dict) -> str:
+    missing = ", ".join(state["missing_quality_checks"])
+    stale = ", ".join(state["stale_quality_checks"])
+    failed = ", ".join(state.get("failed_quality_checks", []))
+    details = []
+    if missing:
+        details.append(f"missing quality checks: {missing}")
+    if stale:
+        details.append(f"stale quality checks: {stale}")
+    if failed:
+        details.append(f"failed quality checks: {failed}")
+    return f"Quality checks are required for the current draft before official export: {'; '.join(details)}."
+
+
+def _latest_official_compile_attempt_for_source(
+    store: SQLiteStore,
+    project_id: str,
+    current_source_hash: str,
+) -> OfficialCompileRun | None:
+    return next(
+        (
+            run
+            for run in store.list_official_compile_runs(project_id)
+            if run.source_draft_hash == current_source_hash
+        ),
+        None,
+    )
+
+
+def _official_compile_gate_error_detail(run: OfficialCompileRun | None) -> str:
+    if run and run.status == "blocked":
+        return "Current draft has a blocked official compile. Resolve the blocked compile items and re-run official compile before official export."
+    if run and run.status == "failed":
+        return "Current draft has a failed official compile. Re-run official compile before official export."
+    return "Official draft compile is required for the current draft before official export."
+
+
+def _latest_matching_post_draft_review_attempt(
+    store: SQLiteStore,
+    project_id: str,
+    current_source_hash: str,
+    compile_run: OfficialCompileRun,
+) -> PostDraftReviewRun | None:
+    return next(
+        (
+            run
+            for run in store.list_post_draft_review_runs(project_id)
+            if run.draft_package_hash == current_source_hash
+            and run.official_compile_run_id == compile_run.id
+            and run.official_package_hash == compile_run.official_package_hash
+        ),
+        None,
+    )
+
+
+def _latest_completed_matching_post_draft_review(
+    store: SQLiteStore,
+    project_id: str,
+    current_source_hash: str,
+    compile_run: OfficialCompileRun,
+) -> PostDraftReviewRun | None:
+    return next(
         (
             run
             for run in store.list_post_draft_review_runs(project_id)
@@ -3343,11 +3518,57 @@ def _require_official_export_gate(store: SQLiteStore, project_id: str, package: 
         ),
         None,
     )
+
+
+def _post_draft_review_gate_error_detail(review: PostDraftReviewRun | None) -> str:
+    if review and review.status == "failed":
+        return "Current official draft has a failed post-draft review. Re-run the post-draft multi-agent review before official export."
+    if review and review.status == "interrupted":
+        return "Current official draft has an interrupted post-draft review. Re-run the post-draft multi-agent review before official export."
+    if review and review.status == "completed" and not review.export_allowed:
+        return "Current official draft has a blocked post-draft review. Resolve the review blocking issues and re-run post-draft review before official export."
+    return "Post-draft multi-agent review is required for the current official draft before official export."
+
+
+def _post_draft_review_gate_status(review: PostDraftReviewRun | None) -> str:
+    if review is None:
+        return "missing"
+    if review.status != "completed":
+        return review.status
+    if review.export_allowed:
+        return "passed"
+    if review.chair_result and review.chair_result.status:
+        return review.chair_result.status
+    return "blocked"
+
+
+def _require_official_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> OfficialCompileRun:
+    current_source_hash = source_draft_hash(package)
+    quality_state = _current_quality_gate_state(store, project_id, current_source_hash)
+    if quality_state["quality_required"]:
+        raise HTTPException(
+            status_code=409,
+            detail=_quality_gate_error_detail(quality_state),
+        )
+    latest_compile_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
+    compile_run = store.get_latest_completed_official_compile_run(project_id)
+    if not compile_run or not compile_run.official_package or compile_run.source_draft_hash != current_source_hash:
+        raise HTTPException(
+            status_code=409,
+            detail=_official_compile_gate_error_detail(latest_compile_attempt),
+        )
+    matching_review_attempt = _latest_matching_post_draft_review_attempt(
+        store, project_id, current_source_hash, compile_run
+    )
+    latest_matching_review = _latest_completed_matching_post_draft_review(
+        store, project_id, current_source_hash, compile_run
+    )
     if not latest_matching_review or not latest_matching_review.export_allowed:
         raise HTTPException(
             status_code=409,
-            detail="Post-draft multi-agent review is required for the current official draft before official export.",
+            detail=_post_draft_review_gate_error_detail(latest_matching_review or matching_review_attempt),
         )
+    _require_current_quality_gate(store, project_id, current_source_hash)
     return compile_run
 
 

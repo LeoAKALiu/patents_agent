@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import agent_journey_runner
 from agent_journey_runner import (
     JourneyReport,
     JourneyStepResult,
@@ -68,12 +69,35 @@ def test_write_report_persists_source_identity_steps_and_failures(tmp_path: Path
 def test_collect_source_identity_reports_current_repo() -> None:
     identity = collect_source_identity()
 
-    assert identity.worktree_path.endswith("patents_agent")
-    assert identity.git_top_level.endswith("patents_agent")
+    assert identity.worktree_path
+    assert identity.git_top_level == identity.worktree_path
     assert identity.branch
     assert len(identity.short_sha) >= 7
     assert identity.dirty_status in {"clean", "dirty"}
     assert isinstance(identity.dirty_files_summary, list)
+
+
+def test_collect_source_identity_falls_back_to_head_for_detached_checkout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_git(root: Path, *args: str) -> str:
+        if args == ("status", "--short", "--branch"):
+            return "## HEAD (no branch)"
+        if args == ("rev-parse", "--show-toplevel"):
+            return "/repo"
+        if args == ("branch", "--show-current"):
+            return ""
+        if args == ("rev-parse", "--abbrev-ref", "HEAD"):
+            return "HEAD"
+        if args == ("rev-parse", "--short", "HEAD"):
+            return "abc1234"
+        raise AssertionError(f"unexpected git command: {args}")
+
+    monkeypatch.setattr(agent_journey_runner, "_git", fake_git)
+    monkeypatch.setattr(agent_journey_runner, "_run", lambda root, *args: "/repo")
+
+    identity = collect_source_identity(Path("/repo"))
+
+    assert identity.branch == "HEAD"
+    assert identity.dirty_status == "clean"
 
 
 @pytest.mark.parametrize(
@@ -110,6 +134,12 @@ def test_run_journey_writes_passing_api_report(tmp_path: Path, journey_id: str) 
     assert payload["hashes"]["latest_review_official_package_hash"]
     assert payload["steps"]
     assert payload["failures"] == []
+    if journey_id == "utility_model_from_structure":
+        step_ids = [step["id"] for step in payload["steps"]]
+        assert "formula_requirement" in step_ids
+        draft_step = next(step for step in payload["steps"] if step["id"] == "lightweight_draft")
+        assert "可调安装支架" in draft_step["actual"]
+        assert "底座" in draft_step["actual"]
 
 
 def test_run_journeys_rejects_unknown_journey_id(tmp_path: Path) -> None:
@@ -124,6 +154,47 @@ def test_run_journeys_prevalidates_all_ids_before_writing_reports(tmp_path: Path
     assert list(tmp_path.iterdir()) == []
 
 
+def test_run_journey_writes_failed_report_before_reraising(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_journey(driver, steps):
+        steps.append(
+            JourneyStepResult(
+                id="forced_break",
+                status="failed",
+                input_summary="forced test break",
+                expected="journey continues",
+                actual="forced gate failure",
+            )
+        )
+        raise AssertionError("forced gate failure")
+
+    monkeypatch.setattr(agent_journey_runner, "_run_utility_model_from_structure", fail_journey)
+
+    with pytest.raises(AssertionError, match="forced gate failure"):
+        run_journey(
+            "utility_model_from_structure",
+            tmp_path,
+            source_identity=SourceIdentity(
+                worktree_path="/repo",
+                git_top_level="/repo",
+                branch="test-branch",
+                short_sha="abc1234",
+                dirty_status="clean",
+                dirty_files_summary=[],
+            ),
+        )
+
+    reports = list(tmp_path.glob("*-utility_model_from_structure.json"))
+    assert len(reports) == 1
+    payload = json.loads(reports[0].read_text(encoding="utf-8"))
+    assert payload["execution"]["status"] == "failed"
+    assert payload["steps"][-1]["status"] == "failed"
+    assert payload["failures"][0]["classification"] == "journey_assertion"
+    assert "forced gate failure" in payload["failures"][0]["user_visible_message"]
+
+
 def test_main_runs_selected_journey_and_returns_zero(tmp_path: Path) -> None:
     from agent_journey_runner import main
 
@@ -132,3 +203,23 @@ def test_main_runs_selected_journey_and_returns_zero(tmp_path: Path) -> None:
     assert exit_code == 0
     reports = list(tmp_path.glob("*-utility_model_from_structure.json"))
     assert len(reports) == 1
+
+
+def test_main_returns_one_when_journey_fails_and_keeps_report(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_journey(driver, steps):
+        raise AssertionError("forced main failure")
+
+    monkeypatch.setattr(agent_journey_runner, "_run_utility_model_from_structure", fail_journey)
+
+    exit_code = agent_journey_runner.main(
+        ["--journey", "utility_model_from_structure", "--output-dir", str(tmp_path)]
+    )
+
+    assert exit_code == 1
+    reports = list(tmp_path.glob("*-utility_model_from_structure.json"))
+    assert len(reports) == 1
+    payload = json.loads(reports[0].read_text(encoding="utf-8"))
+    assert payload["execution"]["status"] == "failed"

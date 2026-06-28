@@ -291,6 +291,13 @@ def test_confirmed_external_draft_still_requires_official_export_gate(tmp_path):
 
     blocked_without_compile = client.get(f"/api/projects/{project['id']}/official-export.md")
     assert blocked_without_compile.status_code == 409
+    assert "Quality checks are required" in blocked_without_compile.json()["detail"]
+    assert client.post(f"/api/projects/{project['id']}/filing-readiness").status_code == 200
+    assert client.post(f"/api/projects/{project['id']}/claim-defense-worksheets").status_code == 200
+    assert client.post(f"/api/projects/{project['id']}/completion-runs").status_code == 200
+
+    blocked_without_compile = client.get(f"/api/projects/{project['id']}/official-export.md")
+    assert blocked_without_compile.status_code == 409
     assert "Official draft compile is required" in blocked_without_compile.json()["detail"]
 
     compile_response = client.post(f"/api/projects/{project['id']}/official-compile-runs", json={})

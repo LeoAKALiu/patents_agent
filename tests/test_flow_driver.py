@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
-from backend.app.schemas import CompletionScoreCard, DraftCompletionRun
+from backend.app.schemas import CompletionScoreCard, DraftCompletionRun, OfficialCompileRun, PostDraftReviewRun
 from flow_driver import FlowDriver
 
 
@@ -144,6 +144,21 @@ def test_flow_driver_export_gate_requires_current_quality_checks(tmp_path) -> No
     assert driver.export_official()["ok"] is True
 
 
+def test_flow_driver_state_requires_claim_defense_for_current_quality_gate(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+
+    filing = client.post(f"/api/projects/{driver.project_id}/filing-readiness")
+    assert filing.status_code == 200
+    completion = client.post(f"/api/projects/{driver.project_id}/completion-runs")
+    assert completion.status_code == 200
+
+    state = driver.state()
+
+    assert state.gates["quality"] == "missing"
+    assert state.hashes["latest_worksheet_draft_hash"] == ""
+
+
 def test_official_export_reports_missing_quality_before_missing_compile_for_legacy_drafts(tmp_path) -> None:
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
     driver = _driver_with_working_draft(client)
@@ -231,6 +246,153 @@ def test_export_readiness_reports_mixed_stale_and_missing_quality_checks(tmp_pat
     assert "stale quality checks: filing_readiness, claim_defense_worksheet" in blocked["detail"]
 
 
+def test_export_readiness_reports_failed_current_quality_checks(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    filing = client.post(f"/api/projects/{driver.project_id}/filing-readiness").json()
+    worksheet = client.post(f"/api/projects/{driver.project_id}/claim-defense-worksheets").json()
+    current_hash = filing["draft_package_hash"]
+    assert worksheet["draft_package_hash"] == current_hash
+    client.app.state.store.create_draft_completion_run(
+        DraftCompletionRun(
+            id="failed-current-completion",
+            project_id=driver.project_id,
+            draft_package_hash=current_hash,
+            status="failed",
+            scorecard=_scorecard(),
+            notes=["provider failed before a usable completion report was produced"],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_quality_checks"
+    assert readiness["quality_required"] is True
+    assert readiness["missing_quality_checks"] == []
+    assert readiness["stale_quality_checks"] == []
+    assert readiness["failed_quality_checks"] == ["draft_completion"]
+    assert readiness["quality_check_states"] == {
+        "filing_readiness": "current",
+        "claim_defense_worksheet": "current",
+        "draft_completion": "failed",
+    }
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "failed quality checks: draft_completion" in blocked["detail"]
+
+
+def test_export_readiness_reports_failed_current_post_draft_review(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    compile_run = driver.compile_official()
+    assert compile_run["status"] == "completed"
+    client.app.state.store.create_post_draft_review_run(
+        PostDraftReviewRun(
+            id="failed-current-review",
+            project_id=driver.project_id,
+            status="failed",
+            draft_package_hash=compile_run["source_draft_hash"],
+            official_compile_run_id=compile_run["id"],
+            official_package_hash=compile_run["official_package_hash"],
+            export_allowed=False,
+            blocking_issues=["claims reviewer failed before chair synthesis"],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_post_draft_review"
+    assert readiness["post_draft_review_required"] is True
+    assert readiness["has_review_run"] is True
+    assert readiness["review_run_id"] == "failed-current-review"
+    assert readiness["review_status"] == "failed"
+    assert readiness["review_export_allowed"] is False
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "failed post-draft review" in blocked["detail"]
+
+
+def test_export_readiness_reports_interrupted_current_post_draft_review(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    compile_run = driver.compile_official()
+    assert compile_run["status"] == "completed"
+    client.app.state.store.create_post_draft_review_run(
+        PostDraftReviewRun(
+            id="interrupted-current-review",
+            project_id=driver.project_id,
+            status="interrupted",
+            draft_package_hash=compile_run["source_draft_hash"],
+            official_compile_run_id=compile_run["id"],
+            official_package_hash=compile_run["official_package_hash"],
+            export_allowed=False,
+            blocking_issues=["review was cancelled before chair synthesis"],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_post_draft_review"
+    assert readiness["has_review_run"] is True
+    assert readiness["review_run_id"] == "interrupted-current-review"
+    assert readiness["review_status"] == "interrupted"
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "interrupted post-draft review" in blocked["detail"]
+
+
+def test_export_readiness_reports_blocked_current_official_compile_attempt(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.edit_source_draft(
+        "本发明涉及数据处理技术领域。系统接收输入数据并输出处理结果。\n"
+        "support_gap: 当前正式稿仍包含内部支撑缺口标记。"
+    )
+    driver.run_quality()
+    compile_run = driver.compile_official()
+    assert compile_run["status"] == "blocked"
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_official_compile"
+    assert readiness["official_compile_required"] is True
+    assert readiness["has_compile_run"] is True
+    assert readiness["compile_run_id"] == compile_run["id"]
+    assert readiness["compile_status"] == "blocked"
+    assert readiness["compile_blocked_items"]
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "blocked official compile" in blocked["detail"]
+
+
+def test_export_readiness_reports_failed_current_official_compile_attempt(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    quality = driver.run_quality()
+    current_hash = quality["filing_readiness"]["draft_package_hash"]
+    client.app.state.store.create_official_compile_run(
+        OfficialCompileRun(
+            id="failed-current-compile",
+            project_id=driver.project_id,
+            status="failed",
+            source_draft_hash=current_hash,
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_official_compile"
+    assert readiness["official_compile_required"] is True
+    assert readiness["has_compile_run"] is True
+    assert readiness["compile_run_id"] == "failed-current-compile"
+    assert readiness["compile_status"] == "failed"
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "failed official compile" in blocked["detail"]
+
+
 def test_flow_driver_export_gate_requires_complete_quality_bundle(tmp_path) -> None:
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
     driver = _driver_with_working_draft(client)
@@ -296,9 +458,16 @@ def test_flow_driver_later_blocking_review_invalidates_prior_pass(tmp_path) -> N
     blocking_review = driver.run_post_draft_review()
 
     assert blocking_review["export_allowed"] is False
+    readiness = driver.export_readiness()
+    assert readiness["next_action"] == "run_post_draft_review"
+    assert readiness["has_review_run"] is True
+    assert readiness["review_run_id"] == blocking_review["id"]
+    assert readiness["review_status"] == "completed"
+    assert readiness["review_gate_status"] == "blocked"
+    assert readiness["review_blocking_issues"] == ["说明书存在未解决的正式稿阻断问题。"]
     blocked_export = driver.export_official()
     assert blocked_export["blocked"] is True
-    assert "Post-draft multi-agent review is required" in blocked_export["detail"]
+    assert "blocked post-draft review" in blocked_export["detail"]
 
 
 def test_flow_driver_generates_utility_model_draft_and_reports_readiness(tmp_path) -> None:

@@ -367,7 +367,10 @@ def test_blocked_compile_cleanup_rechecks_quality_and_unlocks_export_loop(tmp_pa
 
     stale_export = client.get(f"/api/projects/{project_id}/official-export.md")
     assert stale_export.status_code == 409
-    assert "Official draft compile is required" in stale_export.json()["detail"]
+    assert "stale quality checks" in stale_export.json()["detail"]
+    assert "filing_readiness" in stale_export.json()["detail"]
+    assert "claim_defense_worksheet" in stale_export.json()["detail"]
+    assert "draft_completion" in stale_export.json()["detail"]
 
     refreshed_quality = _run_quality_cycle(client, project_id)
     assert refreshed_quality["filing"]["draft_package_hash"] == current_hash
@@ -419,6 +422,7 @@ def test_post_draft_review_requires_completed_official_compile_for_current_draft
 def test_post_draft_review_records_official_package_hash_and_unlocks_export(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _draft_package(claims="1. 一种方法。"))
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
     compile_run = compile_response.json()
@@ -449,6 +453,7 @@ def test_official_export_uses_compiled_package_not_raw_draft(tmp_path):
             generation_logs=["generation_logs: internal"],
         ),
     )
+    _run_quality_cycle(client, project_id)
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
 
@@ -463,6 +468,7 @@ def test_official_export_uses_compiled_package_not_raw_draft(tmp_path):
 def test_review_for_previous_compile_run_cannot_unlock_latest_compile(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _draft_package())
+    _run_quality_cycle(client, project_id)
     first_compile = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
     review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
     assert review["export_allowed"] is True
@@ -500,6 +506,7 @@ def test_kimi_language_polish_creates_new_official_compile_version_and_requires_
         )
     )
     project_id = _create_project_with_package(client, _draft_package())
+    _run_quality_cycle(client, project_id)
     original_compile = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
     passed_review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
     assert passed_review["export_allowed"] is True
@@ -539,9 +546,11 @@ def test_kimi_language_polish_creates_new_official_compile_version_and_requires_
 def test_official_export_requires_recompile_when_draft_changes(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _draft_package())
+    _run_quality_cycle(client, project_id)
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     client.app.state.store.update_project_package(project_id, _draft_package(abstract="修改后的摘要。"))
+    _run_quality_cycle(client, project_id)
 
     response = client.get(f"/api/projects/{project_id}/official-export.md")
 
