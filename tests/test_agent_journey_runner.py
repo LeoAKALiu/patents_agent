@@ -98,11 +98,16 @@ def test_run_journey_writes_passing_api_report(tmp_path: Path, journey_id: str) 
     assert payload["execution"]["journey_id"] == journey_id
     assert payload["execution"]["mode"] == "api"
     assert payload["execution"]["llm_mode"] == "fake"
+    assert payload["execution"]["data_dir"].startswith("ephemeral:")
     assert payload["execution"]["status"] == "passed"
     assert payload["source_identity"]["short_sha"] == "abc1234"
+    assert payload["gates"]["quality"] == "current"
     assert payload["gates"]["official_compile"] == "current"
     assert payload["gates"]["post_draft_review"] == "current"
     assert payload["hashes"]["current_source_draft_hash"]
+    assert payload["hashes"]["latest_official_package_hash"]
+    assert payload["hashes"]["latest_review_draft_hash"]
+    assert payload["hashes"]["latest_review_official_package_hash"]
     assert payload["steps"]
     assert payload["failures"] == []
 
@@ -110,3 +115,10 @@ def test_run_journey_writes_passing_api_report(tmp_path: Path, journey_id: str) 
 def test_run_journeys_rejects_unknown_journey_id(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="unknown journey_id"):
         run_journeys(["unknown"], tmp_path)
+
+
+def test_run_journeys_prevalidates_all_ids_before_writing_reports(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown journey_id: unknown"):
+        run_journeys(["invention_from_idea", "unknown"], tmp_path)
+
+    assert list(tmp_path.iterdir()) == []

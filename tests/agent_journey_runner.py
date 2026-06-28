@@ -207,6 +207,7 @@ def _post_review_role(role: str) -> str:
 
 
 def run_journeys(journey_ids: list[str], output_dir: Path) -> list[Path]:
+    _validate_journey_ids(journey_ids)
     return [run_journey(journey_id, output_dir) for journey_id in journey_ids]
 
 
@@ -215,8 +216,7 @@ def run_journey(
     output_dir: Path,
     source_identity: SourceIdentity | None = None,
 ) -> Path:
-    if journey_id not in JOURNEY_IDS:
-        raise ValueError(f"unknown journey_id: {journey_id}")
+    _validate_journey_ids([journey_id])
     identity = source_identity or collect_source_identity()
     started_at = datetime.now(timezone.utc).isoformat()
     with tempfile.TemporaryDirectory(prefix=f"patentagent-{journey_id}-") as data_dir:
@@ -238,7 +238,7 @@ def run_journey(
             mode="api",
             test_target="api_testclient",
             llm_mode="fake",
-            data_dir=data_dir,
+            data_dir=f"ephemeral:{data_dir}",
             started_at=started_at,
             finished_at=finished_at,
             status="passed",
@@ -249,6 +249,13 @@ def run_journey(
             artifacts={"api_payloads": [], "logs": [], "screenshots": []},
         )
         return write_report(report, output_dir)
+
+
+def _validate_journey_ids(journey_ids: list[str]) -> None:
+    unknown_ids = [journey_id for journey_id in journey_ids if journey_id not in JOURNEY_IDS]
+    if unknown_ids:
+        quoted = ", ".join(unknown_ids)
+        raise ValueError(f"unknown journey_id: {quoted}")
 
 
 def _run_invention_from_idea(driver: FlowDriver, steps: list[JourneyStepResult]) -> None:
