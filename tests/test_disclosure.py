@@ -159,7 +159,7 @@ def test_disclosure_generator_runs_pipeline_and_records_prior_art():
     assert package.prior_art_hits[0].url == "https://patents.google.com/patent/CN123456789A"
     assert package.research_ledger["entries"][0]["provider"] == "static_prior_art"
     assert package.research_confidence == "medium"
-    assert stage_results[0]["phase"] == "project_scan"
+    assert [stage["phase"] for stage in stage_results[:2]] == ["deep_research_material_intake", "project_scan"]
     assert warnings == []
 
 
