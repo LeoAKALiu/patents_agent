@@ -9,7 +9,7 @@ describe("App refresh effect dependencies", () => {
     expect(source).toContain("const latestPostDraftReviewId = latestPostDraftReview?.id ?? \"\"");
     expect(source).toContain("const lastExportRefreshKey = lastExport");
 
-    const refreshEffect = source.match(/useEffect\(\(\) => \{\n\s+void refreshAll\(\);\n\s+\}, \[([\s\S]*?)\]\);/);
+    const refreshEffect = source.match(/useEffect\(\(\) => \{[\s\S]*?void refreshAll\(\);[\s\S]*?\}, \[([\s\S]*?)\]\);/);
     expect(refreshEffect?.[1]).toBeDefined();
     const dependencies = refreshEffect?.[1] ?? "";
 
