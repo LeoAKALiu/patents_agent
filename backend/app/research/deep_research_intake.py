@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import hashlib
 import re
-import uuid
 from collections.abc import Iterable
 from typing import Any
 
@@ -62,18 +62,18 @@ def parse_deep_research_markdown(project_id: str, text: str, *, source_label: st
     tasks: list[str] = []
     warnings: list[str] = []
 
-    for heading, body in sections:
+    for section_index, (heading, body) in enumerate(sections, start=1):
         category = _category_for_heading(heading)
         if category is None:
             continue
         bullets = _bullet_items(body)
         if not bullets and body.strip():
             bullets = [_clean(body)]
-        for item in bullets:
-            refs = _evidence_refs_from_item(item)
+        for item_index, item in enumerate(bullets, start=1):
+            refs = _evidence_refs_from_item(item, source_label=source_label)
             evidence_refs.extend(refs)
             finding = DeepResearchFinding(
-                id=f"dr-{uuid.uuid4().hex[:10]}",
+                id=_stable_id("dr", project_id, source_label, section_index, item_index, category, heading, item),
                 category=category,
                 title=_title_from_item(item),
                 summary=item,
@@ -125,7 +125,7 @@ def packet_prior_art_hits(packet: DeepResearchPacket) -> list[PriorArtHit]:
             continue
         hits.append(
             PriorArtHit(
-                id=str(entry.get("evidence_id") or uuid.uuid4().hex),
+                id=str(entry.get("evidence_id") or _stable_id("hit", entry.get("source_label", ""), entry.get("publication_number"), url, title)),
                 source="DeepResearch Markdown",
                 query=str(entry.get("matched_query") or ""),
                 title=title,
@@ -179,14 +179,14 @@ def _bullet_items(body: str) -> list[str]:
     return [item for item in items if item]
 
 
-def _evidence_refs_from_item(item: str) -> list[DeepResearchEvidenceRef]:
+def _evidence_refs_from_item(item: str, *, source_label: str) -> list[DeepResearchEvidenceRef]:
     publication = _publication_number(item)
     url = _url(item)
     if not publication and not url:
         return []
     return [
         DeepResearchEvidenceRef(
-            source="DeepResearch Markdown",
+            source=source_label or "DeepResearch Markdown",
             title=_title_from_item(item),
             publication_number=publication,
             url=url,
@@ -241,6 +241,7 @@ def _ledger_entry(ref: DeepResearchEvidenceRef, index: int) -> dict[str, Any]:
         "evidence_id": f"DR{index:03d}",
         "provider": "deep_research_markdown",
         "source": ref.source or "DeepResearch Markdown",
+        "source_label": ref.source or "",
         "title": ref.title,
         "url": ref.url,
         "publication_number": ref.publication_number,
@@ -253,3 +254,9 @@ def _ledger_entry(ref: DeepResearchEvidenceRef, index: int) -> dict[str, Any]:
 
 def _clean(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
+
+
+def _stable_id(prefix: str, *parts: object) -> str:
+    basis = "\u241f".join("" if part is None else str(part) for part in parts)
+    digest = hashlib.sha1(basis.encode("utf-8")).hexdigest()[:16]
+    return f"{prefix}-{digest}"

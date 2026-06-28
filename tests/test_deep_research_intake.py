@@ -44,6 +44,7 @@ def test_parse_deep_research_markdown_builds_internal_packet() -> None:
     assert packet.evidence_ledger
     assert packet.evidence_ledger[0]["publication_number"] == "CN123456789A"
     assert packet.evidence_ledger[0]["url"] == "https://patents.google.com/patent/CN123456789A"
+    assert packet.evidence_ledger[0]["source_label"] == "deepresearch.md"
     assert "实时回写" in packet.differentiators[0]
     assert "闭环反馈的数据流" in packet.claim_drafting_constraints[0]
     assert "工程样例" in packet.suggested_completion_tasks[0]
@@ -66,6 +67,15 @@ def test_packet_prior_art_hits_converts_ledger_entries() -> None:
     assert hits[0].source == "DeepResearch Markdown"
     assert hits[0].publication_number == "CN123456789A"
     assert hits[0].abstract and "实时闭环反馈" in hits[0].abstract
+
+
+def test_parse_deep_research_markdown_is_stable_across_repeated_runs() -> None:
+    packet_one = parse_deep_research_markdown("project-1", DEEP_RESEARCH_MD, source_label="deepresearch.md")
+    packet_two = parse_deep_research_markdown("project-1", DEEP_RESEARCH_MD, source_label="deepresearch.md")
+
+    assert [finding.id for finding in packet_one.findings] == [finding.id for finding in packet_two.findings]
+    assert packet_one.evidence_ledger == packet_two.evidence_ledger
+    assert [hit.id for hit in packet_prior_art_hits(packet_one)] == [hit.id for hit in packet_prior_art_hits(packet_two)]
 
 
 def test_parse_deep_research_markdown_handles_unrecognized_markdown() -> None:
