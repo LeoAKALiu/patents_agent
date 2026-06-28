@@ -94,3 +94,30 @@ tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_m
 
 6 passed in 0.13s
 ```
+
+## Blocking fix follow-up
+
+- Kept `DeepResearchEvidenceRef.source` on the stable public value `DeepResearch Markdown` so downstream code does not leak per-file labels into public `PriorArtHit.source`.
+- Preserved the file provenance separately in `evidence_ledger[...]["source_label"]`.
+- Updated the regression test to assert both the public evidence source and the ledger provenance label.
+
+## Blocking fix test output
+
+Command:
+
+```bash
+pytest tests/test_deep_research_intake.py -v
+```
+
+Result:
+
+```text
+tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 16%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 33%]
+tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 50%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 66%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 83%]
+tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
+
+6 passed in 0.15s
+```

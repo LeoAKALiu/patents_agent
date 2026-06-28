@@ -91,7 +91,10 @@ def parse_deep_research_markdown(project_id: str, text: str, *, source_label: st
             elif category == "warning":
                 warnings.append(item)
 
-    ledger = [_ledger_entry(ref, index) for index, ref in enumerate(_dedupe_refs(evidence_refs), start=1)]
+    ledger = [
+        _ledger_entry(ref, index, source_label=source_label)
+        for index, ref in enumerate(_dedupe_refs(evidence_refs), start=1)
+    ]
     if not findings and not ledger:
         return DeepResearchPacket(
             status="partial",
@@ -186,7 +189,7 @@ def _evidence_refs_from_item(item: str, *, source_label: str) -> list[DeepResear
         return []
     return [
         DeepResearchEvidenceRef(
-            source=source_label or "DeepResearch Markdown",
+            source="DeepResearch Markdown",
             title=_title_from_item(item),
             publication_number=publication,
             url=url,
@@ -236,12 +239,12 @@ def _dedupe_refs(refs: list[DeepResearchEvidenceRef]) -> list[DeepResearchEviden
     return out
 
 
-def _ledger_entry(ref: DeepResearchEvidenceRef, index: int) -> dict[str, Any]:
+def _ledger_entry(ref: DeepResearchEvidenceRef, index: int, *, source_label: str = "") -> dict[str, Any]:
     return {
         "evidence_id": f"DR{index:03d}",
         "provider": "deep_research_markdown",
         "source": ref.source or "DeepResearch Markdown",
-        "source_label": ref.source or "",
+        "source_label": source_label,
         "title": ref.title,
         "url": ref.url,
         "publication_number": ref.publication_number,

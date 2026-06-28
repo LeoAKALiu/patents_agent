@@ -45,6 +45,7 @@ def test_parse_deep_research_markdown_builds_internal_packet() -> None:
     assert packet.evidence_ledger[0]["publication_number"] == "CN123456789A"
     assert packet.evidence_ledger[0]["url"] == "https://patents.google.com/patent/CN123456789A"
     assert packet.evidence_ledger[0]["source_label"] == "deepresearch.md"
+    assert packet.findings[0].evidence[0].source == "DeepResearch Markdown"
     assert "实时回写" in packet.differentiators[0]
     assert "闭环反馈的数据流" in packet.claim_drafting_constraints[0]
     assert "工程样例" in packet.suggested_completion_tasks[0]
