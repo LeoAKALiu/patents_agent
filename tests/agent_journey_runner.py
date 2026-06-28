@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import sys
 import json
 import subprocess
 import tempfile
@@ -9,6 +11,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from fastapi.testclient import TestClient
 
 from backend.app.llm import FakeLLMClient
@@ -16,7 +22,6 @@ from backend.app.main import STRICT_DELIBERATION_PROVIDERS, create_app
 from backend.app.schemas import DeliberationRun, DeliberationStageResult, PatentStrategyBrief
 from flow_driver import FlowDriver
 
-ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = ROOT / "output" / "agent-journeys"
 JOURNEY_IDS = ("invention_from_idea", "utility_model_from_structure", "polish_existing_draft")
 
@@ -403,3 +408,29 @@ def _external_draft_text() -> str:
 附图说明
 图1为输入数据处理方法流程图。
 """.strip()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run deterministic PatentAgent API journeys.")
+    parser.add_argument(
+        "--journey",
+        choices=[*JOURNEY_IDS, "all"],
+        default="all",
+        help="Journey to run. Use all to run every Phase 1 journey.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help="Directory for JSON journey reports.",
+    )
+    args = parser.parse_args(argv)
+    selected = list(JOURNEY_IDS) if args.journey == "all" else [args.journey]
+    paths = run_journeys(selected, args.output_dir)
+    for path in paths:
+        print(path)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

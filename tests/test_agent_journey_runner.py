@@ -122,3 +122,13 @@ def test_run_journeys_prevalidates_all_ids_before_writing_reports(tmp_path: Path
         run_journeys(["invention_from_idea", "unknown"], tmp_path)
 
     assert list(tmp_path.iterdir()) == []
+
+
+def test_main_runs_selected_journey_and_returns_zero(tmp_path: Path) -> None:
+    from agent_journey_runner import main
+
+    exit_code = main(["--journey", "utility_model_from_structure", "--output-dir", str(tmp_path)])
+
+    assert exit_code == 0
+    reports = list(tmp_path.glob("*-utility_model_from_structure.json"))
+    assert len(reports) == 1
