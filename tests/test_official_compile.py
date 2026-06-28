@@ -288,6 +288,26 @@ def test_compiler_blocks_html_data_value_evidence_leakage():
     assert any(item["pattern"] == "html_data_value_citation" for item in run.blocked_items)
 
 
+def test_compiler_blocks_html_event_handler_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中"
+            '<button onclick="track(\'evidence: EV-CITY-001\')">控制器</button>生成任务包。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<span onmouseover="console.log(\'证据：EV-CITY-002\')">采集日志</span>执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<a href="#fig1" onfocus="note=\'source: lab-note-002\'">图1</a>',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_event_handler_citation" for item in run.blocked_items)
+
+
 def test_compiler_blocks_html_meta_evidence_leakage():
     package = _draft_package(
         claims=(
@@ -750,6 +770,26 @@ def test_compiler_blocks_html_visible_text_evidence_leakage():
     assert run.status == "blocked"
     assert run.official_package is None
     assert any(item["pattern"] == "html_visible_text_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_hidden_text_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器"
+            "<template>evidence: EV-CITY-001</template>生成任务包。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            "<noscript>证据：EV-CITY-002</noscript>采集日志执行复核。"
+        ),
+        drawing_description="图1为任务包生成流程图。<template>source: lab-note-002</template>",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_hidden_text_citation" for item in run.blocked_items)
 
 
 def test_compiler_blocks_html_caption_evidence_leakage():

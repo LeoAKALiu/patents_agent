@@ -106,6 +106,10 @@ HTML_DATA_VALUE_EVIDENCE_CITATION_RE = re.compile(
     r"""<\s*[a-z][\w:-]*\b(?=[^>]*\bdata-[\w:-]+\s*=\s*(?:"[^"]*(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+)[^"]*"|'[^']*(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+)[^']*'))[^>]*>""",
     re.IGNORECASE,
 )
+HTML_EVENT_HANDLER_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*[a-z][\w:-]*\b(?=[^>]*\bon[a-z][\w:-]*\s*=\s*(?:"[^"]*(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+)[^"]*"|'[^']*(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+)[^']*'))[^>]*>""",
+    re.IGNORECASE,
+)
 HTML_IMAGE_ATTRIBUTE_EVIDENCE_CITATION_RE = re.compile(
     r"""<\s*img\b(?=[^>]*\b(?:alt|title|aria-label)\s*=\s*["'][^"']*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^"']*["'])[^>]*>""",
     re.IGNORECASE,
@@ -157,6 +161,10 @@ MARKDOWN_LINK_TITLE_EVIDENCE_CITATION_RE = re.compile(
 HTML_VISIBLE_TEXT_EVIDENCE_CITATION_RE = re.compile(
     r"""<\s*(?P<html_visible_text_tag>span|sup|sub|small|em|i|b|strong|mark|p|div)\b[^>]*>[^<]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^<]+<\s*/\s*(?P=html_visible_text_tag)\s*>""",
     re.IGNORECASE,
+)
+HTML_HIDDEN_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_hidden_text_tag>template|noscript)\b[^>]*>.*?(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=].*?<\s*/\s*(?P=html_hidden_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
 )
 HTML_CAPTION_TEXT_EVIDENCE_CITATION_RE = re.compile(
     r"""<\s*(?P<html_caption_text_tag>figcaption|caption)\b[^>]*>[^<]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^<]+<\s*/\s*(?P=html_caption_text_tag)\s*>""",
@@ -403,6 +411,15 @@ class OfficialDraftCompiler:
                         "message": "Draft text contains HTML data attribute evidence metadata that must not appear in official text.",
                     }
                 )
+            if HTML_EVENT_HANDLER_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_event_handler_citation",
+                        "message": "Draft text contains HTML event handler evidence metadata that must not appear in official text.",
+                    }
+                )
             if HTML_IMAGE_ATTRIBUTE_EVIDENCE_CITATION_RE.search(source_section_text):
                 blocked_items.append(
                     {
@@ -428,6 +445,15 @@ class OfficialDraftCompiler:
                         "section": section,
                         "pattern": "html_visible_text_citation",
                         "message": "Draft text contains HTML visible evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_HIDDEN_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_hidden_text_citation",
+                        "message": "Draft text contains HTML hidden evidence metadata that must not appear in official text.",
                     }
                 )
             if HTML_CAPTION_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
@@ -627,6 +653,15 @@ class OfficialDraftCompiler:
                         "message": "Cleaned official text still contains internal drafting text.",
                     }
                 )
+            if HTML_EVENT_HANDLER_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_event_handler_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
             if HTML_IMAGE_ATTRIBUTE_EVIDENCE_CITATION_RE.search(text):
                 blocked_items.append(
                     {
@@ -741,6 +776,15 @@ class OfficialDraftCompiler:
                         "category": "residual_internal_text",
                         "section": section,
                         "pattern": "html_visible_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_HIDDEN_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_hidden_text_citation",
                         "message": "Cleaned official text still contains internal drafting text.",
                     }
                 )

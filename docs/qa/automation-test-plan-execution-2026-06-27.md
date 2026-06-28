@@ -78,7 +78,7 @@ Source identity:
 - Worktree: `/Users/leo/Projects/patents_agent`
 - Branch: `codex/automation-test-plan`
 - Short SHA at continuation start: `7bc7a450`
-- Short SHA at latest continuation checkpoint: `d01715bf`
+- Short SHA at latest continuation checkpoint: `5ba9c3a0`
 - Dirty tree: yes
 
 Additional progress:
@@ -2126,10 +2126,110 @@ Verification after HTML class/id honesty expansion:
 - Root artifact check for `chroma`, `*.sqlite`, `*.sqlite3`, and `*.db`
   Result after HTML class/id honesty expansion: no new root artifacts found.
 
+96. Added an HTML data-attribute-value evidence-honesty adversarial variant and closed a stripped YAML front-matter leak:
+    - Added a RED compiler test for evidence/source metadata hidden in ordinary `data-*` attribute values, such as `<span data-note="evidence: EV-...">`, `<section data-review="证据：EV-...">`, and `<div data-extra="source: ...">`.
+      Initial result: failed because the official compiler completed, allowing data-attribute-value evidence metadata through to the official package.
+    - Added a RED adversarial harness test for `generated_html_data_value_honesty`.
+      Initial result: failed with `ValueError: Unknown adversarial action: generated_html_data_value_honesty`.
+    - Updated `backend/app/official_compile.py` to block generic `data-*` values carrying evidence/source/citation/ref/material metadata or EV/EVIDENCE identifiers in both raw draft sections and cleaned official text.
+    - Added the `generated_html_data_value_honesty` action and fixture LLM so generated drafts with generic data-attribute evidence metadata are covered by replayable adversarial traces.
+    - During file-level verification, reproduced a pre-existing adversarial YAML miss where generated drafts had the opening `---` stripped but still contained `evidence:` / `证据：` YAML metadata followed by a closing `---`.
+      Added a RED compiler test for that stripped YAML fragment and updated YAML front-matter detection to block those generated remnants.
+
+Verification after HTML data-attribute-value honesty expansion:
+
+- `python -m pytest tests/test_official_compile.py::test_compiler_blocks_html_data_value_evidence_leakage -q`
+  RED result before implementation: compile completed instead of blocking HTML data-attribute-value evidence metadata.
+  Result after HTML data-attribute-value honesty expansion: 1 passed, 1 warning.
+- `python -m pytest tests/test_adversarial_flow_explorer.py::test_adversarial_flow_harness_can_run_generated_html_data_value_honesty_action -q`
+  RED result before implementation: `generated_html_data_value_honesty` was an unknown adversarial action.
+  Result after HTML data-attribute-value honesty expansion: 1 passed, 2 warnings.
+- `python -m pytest tests/test_official_compile.py::test_compiler_blocks_stripped_yaml_front_matter_evidence_leakage -q`
+  RED result before implementation: compile completed instead of blocking stripped YAML front-matter evidence metadata.
+  Result after YAML fragment fix: 1 passed, 1 warning.
+- `python -m pytest tests/test_adversarial_flow_explorer.py::test_adversarial_flow_harness_can_run_generated_yaml_front_matter_honesty_action -q`
+  Result after YAML fragment fix: 1 passed, 2 warnings.
+- `python -m pytest tests/test_official_compile.py tests/test_adversarial_flow_explorer.py -q`
+  Result after HTML data-attribute-value honesty expansion and YAML fragment fix: 111 passed, 95 warnings.
+- `python -m pytest tests/test_evidence_binding.py tests/test_flow_driver.py tests/test_post_draft_review.py -q`
+  Result after HTML data-attribute-value honesty expansion: 60 passed, 61 warnings.
+- `npm test -- --run src/views/exportView.test.tsx src/app/routes.test.tsx src/guidedFlow.test.ts src/GuidedPatentFlow.officialCompile.test.tsx --reporter=dot`
+  Result after HTML data-attribute-value honesty expansion: 4 test files passed, 63 tests passed.
+- `npm run build`
+  Result after HTML data-attribute-value honesty expansion: passed; `tsc -b` and Vite production build completed.
+- `python -m pytest tests/test_adversarial_flow_explorer.py tests/test_golden_patent_cases.py tests/test_golden_release_gate.py tests/test_flow_driver.py tests/test_runtime_controls.py tests/test_evidence_binding.py tests/test_official_compile.py tests/test_claim_defense.py tests/test_llm_cassette.py tests/test_post_draft_review.py -q`
+  Result after HTML data-attribute-value honesty expansion and YAML fragment fix: 216 passed, 172 warnings.
+- `git diff --check`
+  Result after HTML data-attribute-value honesty expansion: passed.
+- Root artifact check for `chroma`, `*.sqlite`, `*.sqlite3`, and `*.db`
+  Result after HTML data-attribute-value honesty expansion: no new root artifacts found.
+
+97. Added an HTML event-handler evidence-honesty adversarial variant:
+    - Added a RED compiler test for evidence/source metadata hidden in HTML event handler attribute values, such as `onclick="track('evidence: EV-...')"`, `onmouseover="console.log('证据：EV-...')"`, and `onfocus="note='source: ...'"`.
+      Initial result: the compiler was already blocked by broader hygiene checks, but it did not report the dedicated `html_event_handler_citation` pattern.
+    - Added a RED adversarial harness test for `generated_html_event_handler_honesty`.
+      Initial result: failed with `ValueError: Unknown adversarial action: generated_html_event_handler_honesty`.
+    - Updated `backend/app/official_compile.py` to block `on*` event handler values carrying evidence/source/citation/ref/material metadata or EV/EVIDENCE identifiers in both raw draft sections and cleaned official text.
+    - Added the `generated_html_event_handler_honesty` action and fixture LLM so generated drafts with event-handler evidence metadata are covered by replayable adversarial traces.
+
+Verification after HTML event-handler honesty expansion:
+
+- `python -m pytest tests/test_official_compile.py::test_compiler_blocks_html_event_handler_evidence_leakage -q`
+  RED result before implementation: dedicated `html_event_handler_citation` pattern was missing.
+  Result after HTML event-handler honesty expansion: 1 passed, 1 warning.
+- `python -m pytest tests/test_adversarial_flow_explorer.py::test_adversarial_flow_harness_can_run_generated_html_event_handler_honesty_action -q`
+  RED result before implementation: `generated_html_event_handler_honesty` was an unknown adversarial action.
+  Result after HTML event-handler honesty expansion: 1 passed, 2 warnings.
+- `python -m pytest tests/test_official_compile.py tests/test_adversarial_flow_explorer.py -q`
+  Result after HTML event-handler honesty expansion: 113 passed, 96 warnings.
+- `python -m pytest tests/test_evidence_binding.py tests/test_flow_driver.py tests/test_post_draft_review.py -q`
+  Result after HTML event-handler honesty expansion: 60 passed, 61 warnings.
+- `npm test -- --run src/views/exportView.test.tsx src/app/routes.test.tsx src/guidedFlow.test.ts src/GuidedPatentFlow.officialCompile.test.tsx --reporter=dot`
+  Result after HTML event-handler honesty expansion: 4 test files passed, 63 tests passed.
+- `npm run build`
+  Result after HTML event-handler honesty expansion: passed; `tsc -b` and Vite production build completed.
+- `python -m pytest tests/test_adversarial_flow_explorer.py tests/test_golden_patent_cases.py tests/test_golden_release_gate.py tests/test_flow_driver.py tests/test_runtime_controls.py tests/test_evidence_binding.py tests/test_official_compile.py tests/test_claim_defense.py tests/test_llm_cassette.py tests/test_post_draft_review.py -q`
+  Result after HTML event-handler honesty expansion: 218 passed, 173 warnings.
+- `git diff --check`
+  Result after HTML event-handler honesty expansion: passed.
+- Root artifact check for `chroma`, `*.sqlite`, `*.sqlite3`, and `*.db`
+  Result after HTML event-handler honesty expansion: no new root artifacts found.
+
+98. Added an HTML hidden-text evidence-honesty adversarial variant:
+    - Added a RED compiler test for evidence/source metadata hidden in HTML non-rendered text containers, such as `<template>evidence: EV-...</template>`, `<noscript>证据：EV-...</noscript>`, and `<template>source: ...</template>`.
+      Initial result: failed because the official compiler completed, allowing hidden HTML evidence metadata through to the official package.
+    - Added a RED adversarial harness test for `generated_html_hidden_text_honesty`.
+      Initial result: failed with `ValueError: Unknown adversarial action: generated_html_hidden_text_honesty`.
+    - Updated `backend/app/official_compile.py` to block `<template>` and `<noscript>` text carrying evidence/source/citation/ref/material metadata in both raw draft sections and cleaned official text.
+    - Added the `generated_html_hidden_text_honesty` action and fixture LLM so generated drafts with hidden HTML evidence metadata are covered by replayable adversarial traces.
+
+Verification after HTML hidden-text honesty expansion:
+
+- `python -m pytest tests/test_official_compile.py::test_compiler_blocks_html_hidden_text_evidence_leakage -q`
+  RED result before implementation: compile completed instead of blocking HTML hidden-text evidence metadata.
+  Result after HTML hidden-text honesty expansion: 1 passed, 1 warning.
+- `python -m pytest tests/test_adversarial_flow_explorer.py::test_adversarial_flow_harness_can_run_generated_html_hidden_text_honesty_action -q`
+  RED result before implementation: `generated_html_hidden_text_honesty` was an unknown adversarial action.
+  Result after HTML hidden-text honesty expansion: 1 passed, 2 warnings.
+- `python -m pytest tests/test_official_compile.py tests/test_adversarial_flow_explorer.py -q`
+  Result after HTML hidden-text honesty expansion: 115 passed, 97 warnings.
+- `python -m pytest tests/test_evidence_binding.py tests/test_flow_driver.py tests/test_post_draft_review.py -q`
+  Result after HTML hidden-text honesty expansion: 60 passed, 61 warnings.
+- `npm test -- --run src/views/exportView.test.tsx src/app/routes.test.tsx src/guidedFlow.test.ts src/GuidedPatentFlow.officialCompile.test.tsx --reporter=dot`
+  Result after HTML hidden-text honesty expansion: 4 test files passed, 63 tests passed.
+- `npm run build`
+  Result after HTML hidden-text honesty expansion: passed; `tsc -b` and Vite production build completed.
+- `python -m pytest tests/test_adversarial_flow_explorer.py tests/test_golden_patent_cases.py tests/test_golden_release_gate.py tests/test_flow_driver.py tests/test_runtime_controls.py tests/test_evidence_binding.py tests/test_official_compile.py tests/test_claim_defense.py tests/test_llm_cassette.py tests/test_post_draft_review.py -q`
+  Result after HTML hidden-text honesty expansion: 220 passed, 174 warnings.
+- `git diff --check`
+  Result after HTML hidden-text honesty expansion: passed.
+- Root artifact check for `chroma`, `*.sqlite`, `*.sqlite3`, and `*.db`
+  Result after HTML hidden-text honesty expansion: no new root artifacts found.
+
 Remaining after this continuation:
 
 1. Continue broadening the INV matrix beyond the newly covered core cases, especially remaining legacy-project edge cases beyond the now-covered missing/stale/failed/latest-attempt/unknown-hash quality-bundle states.
-2. Expand the adversarial explorer further with additional isolated honesty variants beyond the English metadata, Chinese metadata, URL leakage, bracketed citation, parenthetical citation, XML evidence tags, HTML comment/attribute/class-id/image-attribute/accessible-attribute/meta/JSON-LD/JSON-script/visible-text/caption/style/inline-style/form-field/semantic-metadata/entity-escaped metadata, SVG title/desc/text metadata, Markdown footnote/reference/table/list/blockquote/link-title/image-alt/YAML/TOML/INI/CSV metadata, fenced JSON metadata, AsciiDoc attribute metadata, LaTeX command metadata, BibTeX entry metadata, reStructuredText directive metadata, JSON wrapper, and source-footer actions now covered.
+2. Expand the adversarial explorer further with additional isolated honesty variants beyond the English metadata, Chinese metadata, URL leakage, bracketed citation, parenthetical citation, XML evidence tags, HTML comment/attribute/class-id/data-value/event-handler/hidden-text/image-attribute/accessible-attribute/meta/JSON-LD/JSON-script/visible-text/caption/style/inline-style/form-field/semantic-metadata/entity-escaped metadata, SVG title/desc/text metadata, Markdown footnote/reference/table/list/blockquote/link-title/image-alt/YAML/stripped-YAML/TOML/INI/CSV metadata, fenced JSON metadata, AsciiDoc attribute metadata, LaTeX command metadata, BibTeX entry metadata, reStructuredText directive metadata, JSON wrapper, and source-footer actions now covered.
 3. Human-calibrate the five queued golden/red-team patent-quality cases before enabling any judge/release regression gates; the release-gate script can now generate a Markdown calibration packet for the reviewer and fails closed if an enabled calibrated case lacks reviewer/notes metadata or violates the deterministic-only gate contract.
 4. Add calibrated official-output fixture contents, record each approved fixture's SHA256 in `human_calibration.official_text_fixture_sha256`, and flip selected golden cases to `release_gate_enabled=true` once human review is complete; the release-gate report and Markdown packet now list the exact fixture target path, existence state, and current SHA256 when the fixture file already exists.
 5. Keep watching for release-gate ergonomics around the stricter three-artifact quality bundle, especially any user-visible dead ends discovered during manual QA.

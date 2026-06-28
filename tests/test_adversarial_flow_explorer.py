@@ -391,6 +391,29 @@ def test_adversarial_flow_harness_can_run_generated_html_data_value_honesty_acti
     assert trace.final_state.export_allowed is True
 
 
+def test_adversarial_flow_harness_can_run_generated_html_event_handler_honesty_action(tmp_path) -> None:
+    trace = run_adversarial_trace(
+        seed=139,
+        data_dir=tmp_path / "generated-html-event-handler-honesty",
+        action_count=0,
+        action_names=("generated_html_event_handler_honesty",),
+        force_ready=True,
+    )
+
+    payload = trace.actions[0].payload
+
+    assert payload["generate_status"] == "completed"
+    assert payload["compile_status"] == "blocked"
+    assert "html_event_handler_citation" in payload["blocked_patterns"]
+    assert payload["export_status_code"] == 409
+    assert trace.final_state.gates == {
+        "quality": "current",
+        "official_compile": "current",
+        "post_draft_review": "current",
+    }
+    assert trace.final_state.export_allowed is True
+
+
 def test_adversarial_flow_harness_can_run_generated_html_meta_honesty_action(tmp_path) -> None:
     trace = run_adversarial_trace(
         seed=70,
@@ -888,6 +911,29 @@ def test_adversarial_flow_harness_can_run_generated_html_visible_text_honesty_ac
     assert payload["generate_status"] == "completed"
     assert payload["compile_status"] == "blocked"
     assert "html_visible_text_citation" in payload["blocked_patterns"]
+    assert payload["export_status_code"] == 409
+    assert trace.final_state.gates == {
+        "quality": "current",
+        "official_compile": "current",
+        "post_draft_review": "current",
+    }
+    assert trace.final_state.export_allowed is True
+
+
+def test_adversarial_flow_harness_can_run_generated_html_hidden_text_honesty_action(tmp_path) -> None:
+    trace = run_adversarial_trace(
+        seed=140,
+        data_dir=tmp_path / "generated-html-hidden-text-honesty",
+        action_count=0,
+        action_names=("generated_html_hidden_text_honesty",),
+        force_ready=True,
+    )
+
+    payload = trace.actions[0].payload
+
+    assert payload["generate_status"] == "completed"
+    assert payload["compile_status"] == "blocked"
+    assert "html_hidden_text_citation" in payload["blocked_patterns"]
     assert payload["export_status_code"] == 409
     assert trace.final_state.gates == {
         "quality": "current",
