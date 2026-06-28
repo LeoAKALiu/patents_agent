@@ -4,7 +4,7 @@ import json
 import uuid
 from typing import Any
 
-from backend.app.disclosure.prior_art import PriorArtProvider, _dedupe_hits
+from backend.app.disclosure.prior_art import PriorArtProvider, dedupe_prior_art_hits
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
 from backend.app.project_metadata import format_project_metadata_block
@@ -131,7 +131,7 @@ class DisclosureGenerator:
             prior_art_hits = []
             provider_warnings = [f"prior_art search failed: {exc}"]
 
-        prior_art_hits = _dedupe_hits([*prior_art_hits, *markdown_hits])
+        prior_art_hits = dedupe_prior_art_hits([*prior_art_hits, *markdown_hits])
 
         stage_results.append(
             {
@@ -492,6 +492,7 @@ def _relevance_prompt(
 ) -> str:
     selected = _selected_candidate(candidates, selected_id)
     return f"""请基于公开现有技术结果，概括每篇文献与推荐专利点的相关性和差异。
+凡公开结果含 abstract，必须基于 abstract 概括方案要点、局限和区别，禁止仅凭标题判断。
 严格输出 JSON object：
 {{
   "prior_art_differences": "总体区别段落",

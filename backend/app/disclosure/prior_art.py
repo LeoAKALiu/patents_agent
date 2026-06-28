@@ -38,6 +38,7 @@ class PublicPriorArtProvider:
     def _search(
         self, terms: list[str], limit: int, *, ledger: SourceLedger | None
     ) -> tuple[list[PriorArtHit], list[str]]:
+        terms = normalize_search_terms(terms, fallback_text=" ".join(terms))
         warnings: list[str] = []
         hits: list[PriorArtHit] = []
         if limit <= 0:
@@ -55,7 +56,8 @@ class PublicPriorArtProvider:
             warnings.extend(cnipa_warnings)
             hits.extend(cnipa_hits)
             if len(hits) >= limit:
-                return _dedupe_hits(hits)[:limit], warnings
+                deduped = dedupe_prior_art_hits(hits)[:limit]
+                return deduped, [*warnings, *prior_art_url_warnings(deduped)]
         if len(hits) < limit:
             for term in terms[:4]:
                 google_hits, google_warnings = self._search_google_patents(term, max(1, limit - len(hits)))
@@ -71,7 +73,8 @@ class PublicPriorArtProvider:
                 hits.extend(google_hits)
                 if len(hits) >= limit:
                     break
-        return _dedupe_hits(hits)[:limit], warnings
+        deduped = dedupe_prior_art_hits(hits)[:limit]
+        return deduped, [*warnings, *prior_art_url_warnings(deduped)]
 
     def _search_cnipa(self, term: str, limit: int) -> tuple[list[PriorArtHit], list[str]]:
         if not self.cnipa_script or not self.cnipa_script.exists():
@@ -183,7 +186,7 @@ def parse_cnipa_epub_html(html: str, query: str) -> list[PriorArtHit]:
                 abstract=_plain(abstract) if abstract else None,
             )
         )
-    return _dedupe_hits(hits)
+    return dedupe_prior_art_hits(hits)
 
 
 def parse_google_patents_html(html: str, query: str) -> list[PriorArtHit]:
@@ -205,7 +208,84 @@ def parse_google_patents_html(html: str, query: str) -> list[PriorArtHit]:
                 url=url,
             )
         )
-    return _dedupe_hits(hits)
+    return dedupe_prior_art_hits(hits)
+
+
+def normalize_search_terms(terms: list[str], *, fallback_text: str = "", max_terms: int = 8) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    fallback_terms = _candidate_chunks_from_text(fallback_text)
+
+    def add(term: str) -> None:
+        cleaned = _clean_term(term)
+        if not cleaned or not _is_useful_term(cleaned):
+            return
+        if len(cleaned) > 24:
+            return
+        key = cleaned.casefold()
+        if key in seen:
+            return
+        seen.add(key)
+        normalized.append(cleaned)
+
+    for raw in terms:
+        cleaned = _clean_term(raw)
+        if not cleaned:
+            continue
+        if len(cleaned) <= 24 and _is_useful_term(cleaned):
+            add(cleaned)
+        else:
+            for chunk in _candidate_chunks_from_text(cleaned):
+                add(chunk)
+        if len(normalized) >= max_terms:
+            return normalized[:max_terms]
+
+    if len(normalized) <= 1:
+        for chunk in fallback_terms:
+            add(chunk)
+            if len(normalized) >= max_terms:
+                break
+
+    if normalized:
+        return normalized[:max_terms]
+
+    for raw in terms:
+        cleaned = _clean_term(raw)
+        if cleaned:
+            return [cleaned[:24].strip()]
+    return []
+
+
+def dedupe_prior_art_hits(hits: list[PriorArtHit]) -> list[PriorArtHit]:
+    seen: set[str] = set()
+    out: list[PriorArtHit] = []
+    for hit in hits:
+        publication = (hit.publication_number or "").strip()
+        url = (hit.url or "").strip()
+        title = (hit.title or "").strip()
+        key = publication or url or title
+        if not key:
+            continue
+        normalized_key = key.upper()
+        if normalized_key in seen:
+            continue
+        seen.add(normalized_key)
+        out.append(hit)
+    return out
+
+
+def prior_art_url_warnings(hits: list[PriorArtHit]) -> list[str]:
+    warnings: list[str] = []
+    for hit in hits:
+        if (hit.url or "").strip():
+            continue
+        label = (hit.publication_number or hit.title or hit.id).strip()
+        title = (hit.title or "").strip()
+        if title and title != label:
+            warnings.append(f"prior_art missing public URL: {label} {title}")
+        else:
+            warnings.append(f"prior_art missing public URL: {label}")
+    return warnings
 
 
 def _split_cnipa_items(html: str) -> list[str]:
@@ -250,16 +330,55 @@ def _hit_from_mapping(raw: dict, source: str, query: str) -> PriorArtHit:
     )
 
 
-def _dedupe_hits(hits: list[PriorArtHit]) -> list[PriorArtHit]:
-    seen: set[str] = set()
-    out: list[PriorArtHit] = []
-    for hit in hits:
-        key = (hit.publication_number or hit.url or hit.title).upper()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(hit)
-    return out
+def _candidate_chunks_from_text(text: str) -> list[str]:
+    cleaned = _clean_term(text)
+    if not cleaned:
+        return []
+    tokens = [_clean_term(token) for token in re.split(r"[\s,，;；/]+", cleaned)]
+    tokens = [token for token in tokens if token and _is_useful_term(token)]
+    if len(tokens) >= 2:
+        chunks: list[str] = []
+        for start in range(len(tokens)):
+            for width in (3, 2, 4):
+                window = tokens[start : start + width]
+                if len(window) < 2:
+                    continue
+                chunk = " ".join(window).strip()
+                if len(chunk) <= 24:
+                    chunks.append(chunk)
+        return chunks
+    if _contains_cjk(cleaned):
+        compact = re.sub(r"\s+", "", cleaned)
+        core = re.sub(r"^(一种|一个|基于|关于)", "", compact)
+        core = re.sub(r"(方法及系统|方法|系统|装置|设备)$", "", core)
+        spans = []
+        for pattern in (r".{4,8}?缺陷.{0,4}", r".{2,8}?神经网络.{0,4}", r".{2,8}?实时反馈.{0,4}"):
+            match = re.search(pattern, core)
+            if match:
+                spans.append(match.group(0))
+        if spans:
+            return [span[:24] for span in spans if _is_useful_term(span)]
+        if len(core) > 24:
+            midpoint = max(2, min(len(core) - 2, len(core) // 2))
+            return [core[:midpoint][:24], core[midpoint:][:24]]
+    return [cleaned[:24]] if len(cleaned) <= 24 else []
+
+
+def _clean_term(term: str) -> str:
+    term = re.sub(r"\s+", " ", term or "").strip()
+    return term.strip(" ,，;；")
+
+
+def _is_useful_term(term: str) -> bool:
+    cjk_count = len(re.findall(r"[\u3400-\u9fff]", term))
+    if cjk_count >= 2:
+        return True
+    ascii_count = len(re.findall(r"[A-Za-z0-9]", term))
+    return ascii_count >= 3
+
+
+def _contains_cjk(text: str) -> bool:
+    return bool(re.search(r"[\u3400-\u9fff]", text))
 
 
 def _record_ledger_attempt(
