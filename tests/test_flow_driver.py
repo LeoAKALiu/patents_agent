@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
+from backend.app.schemas import CompletionScoreCard, DraftCompletionRun
 from flow_driver import FlowDriver
 
 
@@ -50,10 +51,14 @@ def test_flow_driver_export_gate_blocks_until_compile_and_review(tmp_path) -> No
     assert "Generate a draft" in no_draft["detail"]
 
     driver = _driver_with_working_draft(client)
+    no_quality = driver.export_official()
+    assert no_quality["blocked"] is True
+    assert "Quality checks are required" in no_quality["detail"]
+
+    driver.run_quality()
     no_compile = driver.export_official()
     assert no_compile["blocked"] is True
     assert "Official draft compile is required" in no_compile["detail"]
-
     compile_run = driver.compile_official()
     assert compile_run["status"] == "completed"
     no_review = driver.export_official()
@@ -62,7 +67,6 @@ def test_flow_driver_export_gate_blocks_until_compile_and_review(tmp_path) -> No
 
     review_run = driver.run_post_draft_review()
     assert review_run["export_allowed"] is True
-    driver.run_quality()
     assert driver.export_official()["ok"] is True
 
 
@@ -87,7 +91,11 @@ def test_flow_driver_cannot_skip_required_steps_matrix(tmp_path) -> None:
     missing_quality = driver.raw_get(f"/api/projects/{driver.project_id}/export-readiness")
     assert missing_quality["next_action"] == "run_quality_checks"
     assert missing_quality["quality_required"] is True
-    assert missing_quality["missing_quality_checks"] == ["filing_readiness", "draft_completion"]
+    assert missing_quality["missing_quality_checks"] == [
+        "filing_readiness",
+        "claim_defense_worksheet",
+        "draft_completion",
+    ]
     review_without_compile = driver.client.post(f"/api/projects/{driver.project_id}/post-draft-reviews", json={})
     assert review_without_compile.status_code == 409
     assert "Official draft compile is required" in review_without_compile.json()["detail"]
@@ -136,6 +144,93 @@ def test_flow_driver_export_gate_requires_current_quality_checks(tmp_path) -> No
     assert driver.export_official()["ok"] is True
 
 
+def test_official_export_reports_missing_quality_before_missing_compile_for_legacy_drafts(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+
+    readiness = driver.export_readiness()
+    blocked_export = driver.export_official()
+
+    assert readiness["next_action"] == "run_quality_checks"
+    assert readiness["missing_quality_checks"] == [
+        "filing_readiness",
+        "claim_defense_worksheet",
+        "draft_completion",
+    ]
+    assert blocked_export["blocked"] is True
+    assert "Quality checks are required" in blocked_export["detail"]
+    assert "missing quality checks: filing_readiness, claim_defense_worksheet, draft_completion" in blocked_export["detail"]
+
+
+def test_export_readiness_distinguishes_stale_quality_bundle_from_missing_checks(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    driver.compile_official()
+    review_run = driver.run_post_draft_review()
+    assert review_run["export_allowed"] is True
+    assert driver.export_official()["ok"] is True
+
+    driver.edit_source_draft("本发明涉及数据处理技术领域。修改后质量检查应全部过期。")
+
+    readiness = driver.export_readiness()
+    assert readiness["next_action"] == "run_quality_checks"
+    assert readiness["quality_required"] is True
+    assert readiness["missing_quality_checks"] == []
+    assert readiness["stale_quality_checks"] == [
+        "filing_readiness",
+        "claim_defense_worksheet",
+        "draft_completion",
+    ]
+    assert readiness["quality_check_states"] == {
+        "filing_readiness": "stale",
+        "claim_defense_worksheet": "stale",
+        "draft_completion": "stale",
+    }
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "stale quality checks" in blocked["detail"]
+    assert "filing_readiness" in blocked["detail"]
+    assert "claim_defense_worksheet" in blocked["detail"]
+    assert "draft_completion" in blocked["detail"]
+
+
+def test_export_readiness_reports_mixed_stale_and_missing_quality_checks(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    filing = client.post(f"/api/projects/{driver.project_id}/filing-readiness").json()
+    worksheet = client.post(f"/api/projects/{driver.project_id}/claim-defense-worksheets").json()
+    old_hash = filing["draft_package_hash"]
+    assert worksheet["draft_package_hash"] == old_hash
+    client.app.state.store.create_draft_completion_run(
+        DraftCompletionRun(
+            id="failed-old-completion",
+            project_id=driver.project_id,
+            draft_package_hash=old_hash,
+            status="failed",
+            scorecard=_scorecard(),
+            notes=["provider failed before a usable completion report was produced"],
+        )
+    )
+
+    driver.edit_source_draft("本发明涉及数据处理技术领域。修改后仅旧质量检查部分可视为过期。")
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_quality_checks"
+    assert readiness["missing_quality_checks"] == ["draft_completion"]
+    assert readiness["stale_quality_checks"] == ["filing_readiness", "claim_defense_worksheet"]
+    assert readiness["quality_check_states"] == {
+        "filing_readiness": "stale",
+        "claim_defense_worksheet": "stale",
+        "draft_completion": "missing",
+    }
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "missing quality checks: draft_completion" in blocked["detail"]
+    assert "stale quality checks: filing_readiness, claim_defense_worksheet" in blocked["detail"]
+
+
 def test_flow_driver_export_gate_requires_complete_quality_bundle(tmp_path) -> None:
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
     driver = _driver_with_working_draft(client)
@@ -156,6 +251,8 @@ def test_flow_driver_export_gate_requires_complete_quality_bundle(tmp_path) -> N
     assert readiness_without_completion["missing_quality_checks"] == ["draft_completion"]
 
     driver = _driver_with_working_draft(client)
+    worksheet = client.post(f"/api/projects/{driver.project_id}/claim-defense-worksheets")
+    assert worksheet.status_code == 200
     completion = client.post(f"/api/projects/{driver.project_id}/completion-runs")
     assert completion.status_code == 200
     compile_run = driver.compile_official()
@@ -168,6 +265,22 @@ def test_flow_driver_export_gate_requires_complete_quality_bundle(tmp_path) -> N
     assert "filing_readiness" in blocked_without_filing["detail"]
     readiness_without_filing = driver.raw_get(f"/api/projects/{driver.project_id}/export-readiness")
     assert readiness_without_filing["missing_quality_checks"] == ["filing_readiness"]
+
+    driver = _driver_with_working_draft(client)
+    filing = client.post(f"/api/projects/{driver.project_id}/filing-readiness")
+    assert filing.status_code == 200
+    completion = client.post(f"/api/projects/{driver.project_id}/completion-runs")
+    assert completion.status_code == 200
+    compile_run = driver.compile_official()
+    assert compile_run["status"] == "completed"
+    review_run = driver.run_post_draft_review()
+    assert review_run["export_allowed"] is True
+
+    blocked_without_worksheet = driver.export_official()
+    assert blocked_without_worksheet["blocked"] is True
+    assert "claim_defense_worksheet" in blocked_without_worksheet["detail"]
+    readiness_without_worksheet = driver.raw_get(f"/api/projects/{driver.project_id}/export-readiness")
+    assert readiness_without_worksheet["missing_quality_checks"] == ["claim_defense_worksheet"]
 
 
 def test_flow_driver_later_blocking_review_invalidates_prior_pass(tmp_path) -> None:
@@ -206,7 +319,7 @@ def test_flow_driver_generates_utility_model_draft_and_reports_readiness(tmp_pat
 
     readiness = driver.export_readiness()
     assert readiness["export_allowed"] is False
-    assert "official_compile" in readiness or "official_compile_required" in readiness
+    assert "official_compile_required" in readiness
 
 
 def test_flow_driver_runs_formula_for_formula_required_invention(tmp_path) -> None:
@@ -264,6 +377,18 @@ def _driver_with_working_draft(client: TestClient) -> FlowDriver:
         filename="draft.txt",
     )
     return driver
+
+
+def _scorecard() -> CompletionScoreCard:
+    return CompletionScoreCard(
+        authorization_stability=0,
+        protection_scope=0,
+        support_strength=0,
+        prior_art_distinction=0,
+        filing_maturity=0,
+        official_hygiene=0,
+        overall=0,
+    )
 
 
 def _post_status(client: TestClient, project_id: str, endpoint: str) -> tuple[int, str]:

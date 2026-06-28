@@ -73,7 +73,7 @@ def test_flow_driver_generates_utility_model_draft_and_reports_readiness(tmp_pat
 
     readiness = driver.export_readiness()
     assert readiness["export_allowed"] is False
-    assert "official_compile" in readiness
+    assert "official_compile_required" in readiness
 
 
 def test_flow_driver_runs_formula_for_formula_required_invention(tmp_path) -> None:
