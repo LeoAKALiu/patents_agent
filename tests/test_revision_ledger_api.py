@@ -195,6 +195,55 @@ def test_revision_ledger_records_single_issue_repair_patch(tmp_path) -> None:
     assert records[0]["baseline_artifact_hash"] == draft_hash
     assert records[0]["new_artifact_hash"] == apply_response.json()["current_draft_hash"]
     assert records[0]["affected_sections"] == ["title"]
+    assert records[0]["protection_scope_changed"] is False
+
+
+def test_revision_ledger_records_single_issue_claims_repair_as_scope_change(tmp_path) -> None:
+    _repair_patch_store().clear()
+    app = create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False)
+    client = TestClient(app)
+    project = client.post("/api/projects", json={"name": "测试", "draft_text": "一种方法。"}).json()
+    project_id = project["id"]
+    package = _package()
+    app.state.store.update_project_package(project_id, package)
+    draft_hash = source_draft_hash(package)
+    run = PostDraftReviewRun(
+        id="review-1",
+        project_id=project_id,
+        status="completed",
+        providers=["fake"],
+        prompt_pack_version="test",
+        draft_package_hash=draft_hash,
+        export_allowed=False,
+        blocking_issues=["权利要求表述需修正"],
+        contamination_hits=[],
+        logs=[],
+    )
+    app.state.store.create_post_draft_review_run(run)
+    patch = DraftRepairPatch(
+        id="patch-claims",
+        issue_id="issue-1",
+        project_id=project_id,
+        review_run_id=run.id,
+        status="proposed",
+        target_section="claims",
+        original="旧特征",
+        patched="新特征",
+        diff_summary="修正权利要求保护特征",
+        risk_notes=[],
+        draft_package_hash=draft_hash,
+    )
+    _repair_patch_store()[patch.id] = patch
+
+    apply_response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{run.id}/repair-patches/{patch.id}/apply"
+    )
+    assert apply_response.status_code == 200
+
+    records = client.get(f"/api/projects/{project_id}/revision-ledger").json()
+    assert len(records) == 1
+    assert records[0]["affected_sections"] == ["claims"]
+    assert records[0]["protection_scope_changed"] is True
 
 
 def test_revision_ledger_records_accept_all_completion_patches_sequentially(tmp_path) -> None:
@@ -335,6 +384,7 @@ def test_revision_ledger_records_post_draft_safe_patch_apply(tmp_path) -> None:
     assert records[0]["baseline_artifact_hash"] == review["draft_package_hash"]
     assert records[0]["new_artifact_hash"] == apply_response.json()["current_draft_hash"]
     assert set(records[0]["affected_sections"]) == {"title", "claims", "description", "drawing_description"}
+    assert records[0]["protection_scope_changed"] is True
 
 
 def test_revision_ledger_records_official_cleanup_apply(tmp_path) -> None:
@@ -369,3 +419,4 @@ def test_revision_ledger_records_official_cleanup_apply(tmp_path) -> None:
     assert records[0]["baseline_artifact_hash"] == blocked["source_draft_hash"]
     assert records[0]["new_artifact_hash"] == cleanup_response.json()["current_draft_hash"]
     assert set(records[0]["affected_sections"]) == {"claims", "description"}
+    assert records[0]["protection_scope_changed"] is True

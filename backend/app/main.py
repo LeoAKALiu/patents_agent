@@ -1615,6 +1615,7 @@ def create_app(
             revision_kind="post_draft_repair",
             user_intent_summary=patch.diff_summary,
             affected_sections=[patch.target_section],
+            protection_scope_changed=patch.target_section == "claims",
             artifact_refs=[f"post-draft-review:{run_id}", f"repair-patch:{patch_id}"],
         )
 
@@ -1636,6 +1637,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         result = _apply_post_draft_safe_patches(project_id=project_id, package=package, run=run)
         store.update_project_package(project_id, result.package)
+        changed_sections = _changed_draft_sections(package, result.package)
         _record_revision_ledger_event(
             store,
             project_id=project_id,
@@ -1643,7 +1645,8 @@ def create_app(
             after_package=result.package,
             revision_kind="post_draft_repair",
             user_intent_summary=f"Applied post-draft safe patches from run {run.id}",
-            affected_sections=_changed_draft_sections(package, result.package),
+            affected_sections=changed_sections,
+            protection_scope_changed="claims" in changed_sections,
             artifact_refs=[f"post-draft-review:{run_id}"],
         )
         return result.model_dump(mode="json")
@@ -1748,6 +1751,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="Official compile run not found.")
         result = _apply_official_compile_cleanup(project_id=project_id, package=package, run=run)
         store.update_project_package(project_id, result.package)
+        changed_sections = _changed_draft_sections(package, result.package)
         _record_revision_ledger_event(
             store,
             project_id=project_id,
@@ -1755,7 +1759,8 @@ def create_app(
             after_package=result.package,
             revision_kind="official_cleanup",
             user_intent_summary=f"Applied official compile cleanup from run {run.id}",
-            affected_sections=_changed_draft_sections(package, result.package),
+            affected_sections=changed_sections,
+            protection_scope_changed="claims" in changed_sections,
             artifact_refs=[f"official-compile:{run_id}"],
         )
         return result.model_dump(mode="json")

@@ -4,7 +4,7 @@ import json
 import uuid
 from typing import Any
 
-from backend.app.disclosure.prior_art import PriorArtProvider, dedupe_prior_art_hits
+from backend.app.disclosure.prior_art import PriorArtProvider, dedupe_prior_art_hits, prior_art_url_warnings
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
 from backend.app.project_metadata import format_project_metadata_block
@@ -136,6 +136,7 @@ class DisclosureGenerator:
             provider_warnings = [f"prior_art search failed: {exc}"]
 
         prior_art_hits = dedupe_prior_art_hits([*prior_art_hits, *markdown_hits])
+        provider_warnings = _append_missing_prior_art_url_warnings(provider_warnings, prior_art_hits)
 
         stage_results.append(
             {
@@ -823,9 +824,19 @@ def _parse_terms(raw: str, project: ProjectRecord) -> list[str]:
     if isinstance(parsed, dict):
         parsed = parsed.get("terms", [])
     terms = [str(item).strip() for item in parsed if str(item).strip()] if isinstance(parsed, list) else []
-    if len(terms) < 2:
+    if not terms:
         terms = _fallback_keywords(f"{project.name} {project.draft_text}")
     return terms[:8]
+
+
+def _append_missing_prior_art_url_warnings(warnings: list[str], hits: list[PriorArtHit]) -> list[str]:
+    merged = list(warnings)
+    seen = set(merged)
+    for warning in prior_art_url_warnings(hits):
+        if warning not in seen:
+            merged.append(warning)
+            seen.add(warning)
+    return merged
 
 
 def _parse_self_check(raw: str) -> list[DisclosureSelfCheckFinding]:

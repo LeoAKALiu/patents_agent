@@ -12,10 +12,40 @@ from backend.app.schemas import DisclosurePackage
 
 
 URL_PATTERN = re.compile(r"https?://\S+")
+INTERNAL_METADATA_LINE_RE = re.compile(
+    r"^\s*(?:[-*+]\s*)?(?:[\"']?)"
+    r"(?:evidence_id|evidence_refs|research_ledger|generation_logs|provider_diagnostics|"
+    r"revision_ledger|source_ledger|sidecar_notes|internal_only|official_safe_patches|"
+    r"attorney_memo|system_trace|material_id|source_id|source_label)"
+    r"(?:[\"']?)\s*[:：=]",
+    re.IGNORECASE,
+)
+MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$")
+INTERNAL_SECTION_HEADINGS = {
+    "claim chart",
+    "provider diagnostics",
+    "diagnostics",
+    "mermaid 图",
+    "mermaid",
+    "绘图提示词",
+    "自检结果",
+    "生成日志",
+    "检索来源台账",
+    "引用快照",
+    "候选专利点",
+    "材料覆盖",
+    "前置材料摘要",
+    "research ledger",
+    "source ledger",
+    "revision ledger",
+    "generation logs",
+    "self check",
+    "sidecar",
+}
 
 
 def clean_disclosure_to_markdown(package: DisclosurePackage) -> str:
-    body = package.body_markdown.strip()
+    body = _clean_export_body_markdown(package.body_markdown)
     appendix = _format_public_prior_art_appendix(package, existing_urls=_extract_normalized_urls(body))
     if not appendix:
         return body
@@ -117,9 +147,10 @@ def export_disclosure_docx(package: DisclosurePackage, output_path: Path, run_di
 
     doc = Document()
     doc.add_heading(package.title, level=0)
-    for line in package.body_markdown.splitlines() or [""]:
+    clean_body = _clean_export_body_markdown(package.body_markdown)
+    for line in clean_body.splitlines() or [""]:
         doc.add_paragraph(line)
-    appendix = _format_public_prior_art_appendix(package, existing_urls=_extract_normalized_urls(package.body_markdown))
+    appendix = _format_public_prior_art_appendix(package, existing_urls=_extract_normalized_urls(clean_body))
     if appendix:
         for line in appendix.splitlines():
             doc.add_paragraph(line)
@@ -170,6 +201,32 @@ def _add_section(doc: Document, heading: str, text: str) -> None:
     doc.add_heading(heading, level=1)
     for line in text.splitlines() or [""]:
         doc.add_paragraph(line)
+
+
+def _clean_export_body_markdown(body_markdown: str) -> str:
+    lines: list[str] = []
+    skipping_section_level: int | None = None
+    for line in body_markdown.strip().splitlines():
+        heading = MARKDOWN_HEADING_RE.match(line)
+        if heading:
+            level = len(heading.group(1))
+            title = _normalize_internal_heading(heading.group(2))
+            if skipping_section_level is not None and level <= skipping_section_level:
+                skipping_section_level = None
+            if title in INTERNAL_SECTION_HEADINGS:
+                skipping_section_level = level
+                continue
+        if skipping_section_level is not None:
+            continue
+        if INTERNAL_METADATA_LINE_RE.match(line):
+            continue
+        lines.append(line.rstrip())
+    return "\n".join(lines).strip()
+
+
+def _normalize_internal_heading(heading: str) -> str:
+    normalized = re.sub(r"\s+", " ", heading.strip()).strip("：:").casefold()
+    return normalized
 
 
 def _format_public_prior_art_appendix(package: DisclosurePackage, *, existing_urls: set[str] | None = None) -> str:

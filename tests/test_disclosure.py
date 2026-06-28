@@ -8,7 +8,7 @@ from docx import Document
 from fastapi.testclient import TestClient
 
 from backend.app.disclosure.exporter import export_disclosure_docx
-from backend.app.disclosure.generator import DisclosureGenerator
+from backend.app.disclosure.generator import DisclosureGenerator, _parse_terms
 from backend.app.disclosure.material_parser import read_project_material_text
 from backend.app.disclosure.prior_art import StaticPriorArtProvider, parse_cnipa_epub_html
 from backend.app.llm import FakeLLMClient
@@ -129,6 +129,16 @@ def test_disclosure_research_prompts_include_structured_project_metadata():
     assert "计算机视觉、市政工程检测" in prompts["disclosure_scan"]
     assert "跨模态特征对齐" in prompts["prior_art_terms"]
     assert "夜间检测准确率提升" in prompts["prior_art_terms"]
+
+
+def test_disclosure_generator_parse_terms_keeps_single_valid_llm_term() -> None:
+    project = ProjectRecord(
+        id="p1",
+        name="图像缺陷识别",
+        draft_text="神经网络 实时反馈 闭环控制 采集调度 质量评估",
+    )
+
+    assert _parse_terms('["图像缺陷"]', project) == ["图像缺陷"]
 
 
 def test_disclosure_generator_runs_pipeline_and_records_prior_art():
@@ -285,11 +295,17 @@ def test_disclosure_api_lifecycle_and_generation_injection(tmp_path: Path):
     export_response = client.get(f"/api/projects/{project_id}/disclosures/{run['id']}/export.md")
     assert export_response.status_code == 200
     assert "公开现有技术" in export_response.text
-    assert "检索来源台账" in export_response.text
-    assert "检索前" in export_response.text
-    assert "检索后" in export_response.text
-    assert "候选专利点" in export_response.text
-    assert "证据状态" in export_response.text
+    assert "检索来源台账" not in export_response.text
+    assert "候选专利点" not in export_response.text
+    assert "证据状态" not in export_response.text
+
+    sidecar_response = client.get(f"/api/projects/{project_id}/disclosures/{run['id']}/sidecar.md")
+    assert sidecar_response.status_code == 200
+    assert "检索来源台账" in sidecar_response.text
+    assert "检索前" in sidecar_response.text
+    assert "检索后" in sidecar_response.text
+    assert "候选专利点" in sidecar_response.text
+    assert "证据状态" in sidecar_response.text
 
 
 def test_project_material_upload_rejects_empty_text_and_invalid_docx_without_persisting(tmp_path: Path):
@@ -422,11 +438,13 @@ def test_repeated_disclosure_docx_export_does_not_mutate_export_warnings(tmp_pat
     assert package.export_warnings == ["preexisting warning"]
     doc = Document(second_path)
     text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
-    assert text.count("Mermaid renderer unavailable or failed; DOCX keeps Mermaid code as text.") == 1
-    assert "护城河与证据状态" in text
-    assert "Claim Chart" in text
-    assert "遮挡洞口语义补全" in text
-    assert "写入从属权利要求。" in text
+    assert "技术方案正文" in text
+    assert "https://patents.google.com/patent/CN123456789A" in text
+    assert "Mermaid renderer unavailable or failed; DOCX keeps Mermaid code as text." not in text
+    assert "护城河与证据状态" not in text
+    assert "Claim Chart" not in text
+    assert "遮挡洞口语义补全" not in text
+    assert "写入从属权利要求。" not in text
 
 
 def test_disclosure_generation_fails_closed_without_llm(tmp_path: Path, monkeypatch):

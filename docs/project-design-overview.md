@@ -152,7 +152,7 @@ graph TD
 - `backend/app/storage.py` 管理 SQLite 表和对象序列化。
 - `backend/app/repositories/` 与 `backend/app/services/` 承载项目、语料库和桌面配置服务。
 - `backend/app/disclosure/` 处理材料解析、交底包和候选发明点。
-- `backend/app/deep_research.py`、`backend/app/deep_research_intake.py` 将 Markdown 研究材料归并为内部证据、prior-art hits 和检索短语。
+- `backend/app/research/deep_researcher.py`、`backend/app/research/deep_research_intake.py` 将 Markdown 研究材料归并为内部证据、prior-art hits 和检索短语。
 - `backend/app/deliberation/` 处理多智能体会审。
 - `backend/app/core_formula.py` 处理公式需求评估和公式包。
 - `backend/app/generator.py` 生成初稿。

@@ -1,7 +1,9 @@
 from backend.app.disclosure.exporter import (
     clean_disclosure_to_markdown,
     disclosure_sidecar_to_markdown,
+    export_disclosure_docx,
 )
+from docx import Document
 from backend.app.schemas import DisclosurePackage, DisclosureSelfCheckFinding, PatentPointCandidate, PriorArtHit
 
 
@@ -58,6 +60,68 @@ def test_clean_disclosure_excludes_internal_sections() -> None:
     assert "生成日志" not in markdown
     assert "provider_diagnostics" not in markdown
     assert "evidence_id" not in markdown
+
+
+def test_clean_disclosure_scrubs_internal_metadata_from_llm_body() -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "# 技术交底书正文\n\n"
+                "## 一、技术领域\n"
+                "本发明涉及图像缺陷识别。\n\n"
+                "evidence_id: E-001\n"
+                "research_ledger: internal provider trace\n"
+                "- source_ledger: CN123456789A\n\n"
+                "## Claim Chart\n"
+                "| prior_art | overlap |\n"
+                "| --- | --- |\n"
+                "| CN123456789A | 内部对比 |\n\n"
+                "## 二、发明内容\n"
+                "系统根据检测结果实时回写采集策略。\n\n"
+                "## 生成日志\n"
+                "- disclosure_body: internal trace\n\n"
+                "## 三、具体实施方式\n"
+                "在一个实施例中，采集模块将反馈信号写入任务队列。"
+            )
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+
+    assert "本发明涉及图像缺陷识别" in markdown
+    assert "系统根据检测结果实时回写采集策略" in markdown
+    assert "采集模块将反馈信号写入任务队列" in markdown
+    assert "evidence_id" not in markdown
+    assert "research_ledger" not in markdown
+    assert "source_ledger" not in markdown
+    assert "Claim Chart" not in markdown
+    assert "生成日志" not in markdown
+
+
+def test_clean_disclosure_docx_scrubs_internal_metadata_from_llm_body(tmp_path) -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "# 技术交底书正文\n\n"
+                "正文保留的技术方案。\n"
+                "generation_logs: disclosure_body internal trace\n\n"
+                "## 检索来源台账\n"
+                "| provider | query |\n"
+                "| --- | --- |\n"
+                "| internal | secret |\n\n"
+                "## 具体实施方式\n"
+                "实施例保留。"
+            )
+        }
+    )
+    docx_path = export_disclosure_docx(package, tmp_path / "disclosure.docx", tmp_path)
+    text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+
+    assert "正文保留的技术方案" in text
+    assert "实施例保留" in text
+    assert "generation_logs" not in text
+    assert "检索来源台账" not in text
+    assert "internal | secret" not in text
 
 
 def test_sidecar_contains_internal_sections() -> None:
