@@ -73,3 +73,64 @@ Summary:
 ## Concerns
 
 - `accept-all` completion patch application now attempts sequential package mutation for each accepted proposed patch and records ledger events only for patches that actually change the draft. The requested test suite passed, but there is not yet dedicated completion-ledger coverage in this task.
+
+## Review Fix Follow-up
+
+### Findings addressed
+
+- Critical: restored a stale-run guard in `accept_all_completion_patches` before any patch statuses or package mutations occur.
+- Important: added regression coverage for:
+  - sequential `completion_patch` ledger recording on fresh `accept-all`
+  - stale `accept-all` conflict with no ledger writes
+  - post-draft safe patch ledger recording
+  - official cleanup ledger recording
+
+### Follow-up TDD evidence
+
+#### RED
+
+Command:
+
+```bash
+pytest tests/test_revision_ledger_api.py -v
+```
+
+Summary:
+
+- 6 tests collected
+- 5 passed, 1 failed
+- failing case: `test_revision_ledger_accept_all_completion_patches_rejects_stale_run`
+- failure detail: stale `accept-all` returned `200 OK` instead of `409 Conflict`
+
+#### GREEN
+
+Command:
+
+```bash
+pytest tests/test_revision_ledger_api.py -v
+```
+
+Summary:
+
+- 6 tests collected
+- 6 passed
+
+### Additional test results
+
+1. `pytest tests/test_revision_ledger.py tests/test_revision_ledger_api.py tests/test_post_draft_review.py -v`
+   - PASS (`31 passed`)
+2. `npm --prefix frontend run build`
+   - Not rerun; frontend source was unchanged in this fix pass.
+
+### Follow-up self-review
+
+- Confirmed stale `accept-all` now exits before mutating completion patch statuses, the draft package, or ledger rows.
+- Confirmed fresh `accept-all` still applies proposed patches sequentially against the evolving package and records one ledger row per actual mutation.
+- Confirmed completion patch ledger rows preserve section mapping:
+  - `claim` -> `claims` with `protection_scope_changed=True`
+  - `description` -> `description`
+- Confirmed the new safe-patch and official-cleanup tests use real route flows and ledger API reads rather than direct store inspection alone.
+
+### Updated concerns
+
+- The original concern about missing completion-ledger coverage is now resolved.

@@ -1258,6 +1258,9 @@ def create_app(
         run = store.get_draft_completion_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        current_hash = source_draft_hash(package)
+        if run.draft_package_hash and run.draft_package_hash != current_hash:
+            raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
         current = run
         current_package = package
         for patch in [patch for patch in run.patches if patch.status == "proposed"]:
