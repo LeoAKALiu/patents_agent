@@ -75,6 +75,7 @@ from backend.app.post_draft_review import (
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
+from backend.app.revision_ledger import create_revision_record
 from backend.app.post_draft_repair import (
     apply_section_patch,
     create_repair_patch_payload,
@@ -1006,6 +1007,11 @@ def create_app(
         store.update_project_package(project_id, updated)
         return updated.model_dump(mode="json")
 
+    @app.get("/api/projects/{project_id}/revision-ledger")
+    def list_revision_ledger(project_id: str) -> list[dict]:
+        _require_project(store, project_id)
+        return [record.model_dump(mode="json") for record in store.list_revision_ledger_records(project_id)]
+
     @app.post("/api/projects/{project_id}/filing-readiness")
     def create_filing_readiness_report(project_id: str) -> dict:
         project = _require_project(store, project_id)
@@ -1208,13 +1214,30 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/{patch_id}/accept")
     def accept_completion_patch(project_id: str, run_id: str, patch_id: str) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
+        package = _require_package(project)
         run = store.update_completion_patch_status(project_id, run_id, patch_id, "accepted")
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion patch not found.")
         adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(run))
         if not adjusted:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        patch = next((candidate for candidate in adjusted.patches if candidate.id == patch_id), None)
+        if patch:
+            updated_package = _apply_completion_patch(package, patch, run_draft_package_hash=adjusted.draft_package_hash)
+            if updated_package != package:
+                store.update_project_package(project_id, updated_package)
+                _record_revision_ledger_event(
+                    store,
+                    project_id=project_id,
+                    before_package=package,
+                    after_package=updated_package,
+                    revision_kind="completion_patch",
+                    user_intent_summary=patch.rationale,
+                    affected_sections=_completion_patch_affected_sections(patch),
+                    protection_scope_changed=patch.target_section == "claim",
+                    artifact_refs=[f"completion-run:{run_id}", f"completion-patch:{patch_id}"],
+                )
         return adjusted.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/{patch_id}/reject")
@@ -1230,16 +1253,33 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/accept-all")
     def accept_all_completion_patches(project_id: str, run_id: str) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
+        package = _require_package(project)
         run = store.get_draft_completion_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
         current = run
+        current_package = package
         for patch in [patch for patch in run.patches if patch.status == "proposed"]:
             updated = store.update_completion_patch_status(project_id, run_id, patch.id, "accepted")
             if not updated:
                 raise HTTPException(status_code=404, detail="Draft completion patch not found.")
             current = updated
+            patched_package = _apply_completion_patch(current_package, patch)
+            if patched_package != current_package:
+                store.update_project_package(project_id, patched_package)
+                _record_revision_ledger_event(
+                    store,
+                    project_id=project_id,
+                    before_package=current_package,
+                    after_package=patched_package,
+                    revision_kind="completion_patch",
+                    user_intent_summary=patch.rationale,
+                    affected_sections=_completion_patch_affected_sections(patch),
+                    protection_scope_changed=patch.target_section == "claim",
+                    artifact_refs=[f"completion-run:{run_id}", f"completion-patch:{patch.id}"],
+                )
+                current_package = patched_package
         adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(current))
         if not adjusted:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
@@ -1509,6 +1549,16 @@ def create_app(
             }
         )
         store.update_project_package(project_id, updated_package)
+        _record_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=updated_package,
+            revision_kind="post_draft_repair",
+            user_intent_summary=patch.diff_summary,
+            affected_sections=[patch.target_section],
+            artifact_refs=[f"post-draft-review:{run_id}", f"repair-patch:{patch_id}"],
+        )
 
         # Mark the patch as applied so it can't be re-applied
         applied_patch = patch.model_copy(update={"status": "applied"})
@@ -1528,6 +1578,16 @@ def create_app(
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         result = _apply_post_draft_safe_patches(project_id=project_id, package=package, run=run)
         store.update_project_package(project_id, result.package)
+        _record_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=result.package,
+            revision_kind="post_draft_repair",
+            user_intent_summary=f"Applied post-draft safe patches from run {run.id}",
+            affected_sections=_changed_draft_sections(package, result.package),
+            artifact_refs=[f"post-draft-review:{run_id}"],
+        )
         return result.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/cancel")
@@ -1630,6 +1690,16 @@ def create_app(
             raise HTTPException(status_code=404, detail="Official compile run not found.")
         result = _apply_official_compile_cleanup(project_id=project_id, package=package, run=run)
         store.update_project_package(project_id, result.package)
+        _record_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=result.package,
+            revision_kind="official_cleanup",
+            user_intent_summary=f"Applied official compile cleanup from run {run.id}",
+            affected_sections=_changed_draft_sections(package, result.package),
+            artifact_refs=[f"official-compile:{run_id}"],
+        )
         return result.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/official-compile-runs/{run_id}/kimi-language-polish")
@@ -3121,6 +3191,54 @@ def _apply_official_compile_cleanup(
         current_draft_hash=source_draft_hash(cleaned_package),
         package=cleaned_package,
     )
+
+
+def _record_revision_ledger_event(
+    store: SQLiteStore,
+    *,
+    project_id: str,
+    before_package: DraftPackage,
+    after_package: DraftPackage,
+    revision_kind: str,
+    user_intent_summary: str,
+    affected_sections: list[str],
+    prior_art_changed: bool = False,
+    protection_scope_changed: bool = False,
+    artifact_refs: list[str] | None = None,
+) -> None:
+    if before_package == after_package:
+        return
+    store.create_revision_ledger_record(
+        create_revision_record(
+            project_id=project_id,
+            baseline_package=before_package,
+            updated_package=after_package,
+            revision_kind=revision_kind,
+            user_intent_summary=user_intent_summary,
+            affected_sections=affected_sections,
+            prior_art_changed=prior_art_changed,
+            protection_scope_changed=protection_scope_changed,
+            artifact_refs=artifact_refs,
+        )
+    )
+
+
+def _changed_draft_sections(before: DraftPackage, after: DraftPackage) -> list[str]:
+    return [
+        section
+        for section in ("title", "abstract", "claims", "description", "drawing_description")
+        if getattr(before, section) != getattr(after, section)
+    ]
+
+
+def _completion_patch_affected_sections(patch: ProposedPatch) -> list[str]:
+    if patch.target_section in {"description", "embodiment", "term"}:
+        return ["description"]
+    if patch.target_section == "claim":
+        return ["claims"]
+    if patch.target_section == "drawing":
+        return ["drawing_description"]
+    return []
 
 
 def _official_compile_cleanup_action_label(item: dict[str, str]) -> str:
