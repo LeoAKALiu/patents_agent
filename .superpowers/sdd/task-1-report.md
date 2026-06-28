@@ -151,3 +151,35 @@ tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_m
 
 8 passed in 0.13s
 ```
+
+## Final deterministic ID fix
+
+- Removed ordinal inputs from `DeepResearchFinding.id`; the ID now derives from stable content facts only: category, heading, title, summary, suggested action, and evidence identity.
+- Changed evidence dedupe to use exact evidence identity, including relevance/snippet content, so distinct excerpts from the same publication no longer collapse.
+- Kept `PriorArtHit.id` bound to the stable evidence ID, with content-derived fallback only.
+- Added regressions for inserted-earlier-content stability and for distinct snippets from the same patent staying separate.
+
+## Final deterministic ID fix test output
+
+Command:
+
+```bash
+pytest tests/test_deep_research_intake.py -v
+```
+
+Result:
+
+```text
+tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 10%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 20%]
+tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 30%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 40%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_finding_id_when_earlier_content_is_inserted PASSED [ 50%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_ids_stable_across_project_and_file_changes PASSED [ 60%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_does_not_collide_on_distinct_evidence PASSED [ 70%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_distinct_snippets_separate PASSED [ 80%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 90%]
+tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
+
+10 passed in 0.12s
+```

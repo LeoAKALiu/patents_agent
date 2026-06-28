@@ -27,6 +27,39 @@ DEEP_RESEARCH_MD = """
 - 现有技术可能组合通用神经网络检测和反馈控制。
 """
 
+SHIFTED_DEEP_RESEARCH_MD = """
+# DeepResearch: 图像缺陷识别
+
+## 背景补充
+- 无关的前置说明，不应影响后续发现的稳定 ID。
+
+## 现有技术
+- CN123456789A 一种图像缺陷检测方法 https://patents.google.com/patent/CN123456789A
+  摘要：公开了基于神经网络的图像缺陷检测，但未涉及实时闭环反馈。
+
+## 差异点
+- 本方案将检测结果实时回写至采集策略，形成闭环反馈。
+
+## 权利要求约束
+- 独立权利要求需要限定闭环反馈的数据流，避免纯功能性概括。
+
+## 证据缺口
+- 需要补充闭环反馈降低误检率的工程样例。
+
+## 风险
+- 现有技术可能组合通用神经网络检测和反馈控制。
+"""
+
+DISTINCT_EVIDENCE_MD = """
+# DeepResearch: 图像缺陷识别
+
+## 现有技术
+- CN123456789A 一种图像缺陷检测方法 https://patents.google.com/patent/CN123456789A
+  摘要：公开了基于神经网络的图像缺陷检测，但未涉及实时闭环反馈。
+- CN123456789A 一种图像缺陷检测方法 https://patents.google.com/patent/CN123456789A
+  摘要：另一段不同的摘录，强调不同的实施环境与误检抑制策略。
+"""
+
 
 def test_is_deep_research_markdown_material_detects_markdown_report() -> None:
     assert is_deep_research_markdown_material("deepresearch.md", DEEP_RESEARCH_MD)
@@ -79,6 +112,17 @@ def test_parse_deep_research_markdown_is_stable_across_repeated_runs() -> None:
     assert [hit.id for hit in packet_prior_art_hits(packet_one)] == [hit.id for hit in packet_prior_art_hits(packet_two)]
 
 
+def test_parse_deep_research_markdown_keeps_finding_id_when_earlier_content_is_inserted() -> None:
+    target_summary = "本方案将检测结果实时回写至采集策略，形成闭环反馈。"
+    packet_one = parse_deep_research_markdown("project-1", DEEP_RESEARCH_MD, source_label="deepresearch.md")
+    packet_two = parse_deep_research_markdown("project-1", SHIFTED_DEEP_RESEARCH_MD, source_label="shifted.md")
+
+    base_id = next(finding.id for finding in packet_one.findings if finding.summary == target_summary)
+    shifted_id = next(finding.id for finding in packet_two.findings if finding.summary == target_summary)
+
+    assert base_id == shifted_id
+
+
 def test_parse_deep_research_markdown_keeps_ids_stable_across_project_and_file_changes() -> None:
     packet_one = parse_deep_research_markdown("project-a", DEEP_RESEARCH_MD, source_label="alpha.md")
     packet_two = parse_deep_research_markdown("project-b", DEEP_RESEARCH_MD, source_label="beta.md")
@@ -117,6 +161,18 @@ def test_parse_deep_research_markdown_does_not_collide_on_distinct_evidence() ->
 
     assert ids_one.isdisjoint(ids_two)
     assert hit_ids_one.isdisjoint(hit_ids_two)
+
+
+def test_parse_deep_research_markdown_keeps_distinct_snippets_separate() -> None:
+    packet = parse_deep_research_markdown("project-1", DISTINCT_EVIDENCE_MD, source_label="deepresearch.md")
+
+    assert len(packet.evidence_ledger) == 2
+    assert packet.evidence_ledger[0]["evidence_id"] != packet.evidence_ledger[1]["evidence_id"]
+
+    hits = packet_prior_art_hits(packet)
+    assert len(hits) == 2
+    assert hits[0].id != hits[1].id
+    assert hits[0].abstract != hits[1].abstract
 
 
 def test_parse_deep_research_markdown_handles_unrecognized_markdown() -> None:

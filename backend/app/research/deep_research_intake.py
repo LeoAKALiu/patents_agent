@@ -62,18 +62,18 @@ def parse_deep_research_markdown(project_id: str, text: str, *, source_label: st
     tasks: list[str] = []
     warnings: list[str] = []
 
-    for section_index, (heading, body) in enumerate(sections, start=1):
+    for heading, body in sections:
         category = _category_for_heading(heading)
         if category is None:
             continue
         bullets = _bullet_items(body)
         if not bullets and body.strip():
             bullets = [_clean(body)]
-        for item_index, item in enumerate(bullets, start=1):
+        for item in bullets:
             refs = _evidence_refs_from_item(item)
             evidence_refs.extend(refs)
             finding = DeepResearchFinding(
-                id=_stable_id("dr", section_index, item_index, category, heading, item),
+                id=_finding_id(category, heading, item, refs),
                 category=category,
                 title=_title_from_item(item),
                 summary=item,
@@ -238,7 +238,15 @@ def _dedupe_refs(refs: list[DeepResearchEvidenceRef]) -> list[DeepResearchEviden
     seen: set[str] = set()
     out: list[DeepResearchEvidenceRef] = []
     for ref in refs:
-        key = (ref.publication_number or ref.url or ref.title).upper()
+        key = _stable_id(
+            "dr-ref",
+            ref.source,
+            ref.publication_number,
+            ref.url,
+            ref.title,
+            ref.relevance,
+            ref.query,
+        )
         if key in seen:
             continue
         seen.add(key)
@@ -272,6 +280,32 @@ def _ledger_entry(ref: DeepResearchEvidenceRef, *, source_label: str = "") -> di
 
 def _clean(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
+
+
+def _finding_id(category: str, heading: str, item: str, refs: list[DeepResearchEvidenceRef]) -> str:
+    evidence_identity = "|".join(
+        sorted(
+            _stable_id(
+                "dr-ref",
+                ref.source,
+                ref.publication_number,
+                ref.url,
+                ref.title,
+                ref.relevance,
+                ref.query,
+            )
+            for ref in refs
+        )
+    )
+    return _stable_id(
+        "dr",
+        category,
+        heading,
+        _title_from_item(item),
+        item,
+        _suggested_action(category, item),
+        evidence_identity,
+    )
 
 
 def _stable_id(prefix: str, *parts: object) -> str:
