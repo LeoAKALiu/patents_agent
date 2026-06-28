@@ -1681,13 +1681,7 @@ def create_app(
             }
         latest_compile_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
         compile_run = latest_compile_attempt
-        compile_current = (
-            compile_run
-            and compile_run.status == "completed"
-            and compile_run.official_package
-            and compile_run.official_package_hash
-            and compile_run.source_draft_hash == current_source_hash
-        )
+        compile_current = _official_compile_export_ready(compile_run, current_source_hash)
         if not compile_current:
             compile_for_state = latest_compile_attempt
             return {
@@ -1715,11 +1709,7 @@ def create_app(
         latest_matching_review = _latest_completed_matching_post_draft_review(
             store, project_id, current_source_hash, compile_run
         )
-        review_ready = (
-            matching_review_attempt
-            and matching_review_attempt.status == "completed"
-            and matching_review_attempt.export_allowed
-        )
+        review_ready = _post_draft_review_export_ready(matching_review_attempt)
         if not review_ready:
             review_for_state = matching_review_attempt or latest_matching_review
             return {
@@ -1734,7 +1724,7 @@ def create_app(
                 "official_package_hash": compile_run.official_package_hash,
                 "current_source_draft_hash": current_source_hash,
                 "has_review_run": matching_review_attempt is not None,
-                "review_export_allowed": review_for_state.export_allowed if review_for_state else False,
+                "review_export_allowed": _post_draft_review_export_ready(review_for_state),
                 "review_run_id": review_for_state.id if review_for_state else None,
                 "review_status": review_for_state.status if review_for_state else "missing",
                 "review_gate_status": _post_draft_review_gate_status(review_for_state),
@@ -3235,10 +3225,40 @@ def _apply_post_draft_safe_patch(
     package: DraftPackage,
     payload: dict[str, object],
 ) -> tuple[DraftPackage, str]:
-    action = str(payload.get("action") or "").strip()
-    target = str(payload.get("target") or "").strip()
-    section = target.split()[0].strip().lower()
+    action = str(payload.get("action") or payload.get("operation") or "").strip().lower()
+    section = _post_draft_safe_patch_section(payload)
+    if not section:
+        return package, ""
     data = package.model_dump()
+
+    match_text = str(payload.get("match") or payload.get("original_clause") or "").strip()
+    replacement_text = str(
+        payload.get("replacement")
+        or payload.get("proposed_clause")
+        or payload.get("patched")
+        or ""
+    ).strip()
+    if match_text and action in {"delete", "remove"}:
+        current = str(data.get(section, "") or "")
+        updated, changed = _replace_post_draft_patch_text(current, match_text, "")
+        if changed:
+            data[section] = _squash_patch_blank_lines(updated)
+            return DraftPackage(**data), f"{section}: delete matched passage"
+    if match_text and (replacement_text or action == "replace"):
+        current = str(data.get(section, "") or "")
+        replacement = replacement_text or _patch_content(payload)
+        updated, changed = _replace_post_draft_patch_text(current, match_text, replacement)
+        if changed:
+            data[section] = updated
+            return DraftPackage(**data), f"{section}: replace matched passage"
+
+    instruction = str(payload.get("patch") or "").strip()
+    if instruction:
+        current = str(data.get(section, "") or "")
+        updated, action_label = _apply_post_draft_patch_instruction(current, instruction, section)
+        if action_label:
+            data[section] = updated
+            return DraftPackage(**data), action_label
 
     if section == "title":
         replacement = _patch_content(payload)
@@ -3271,6 +3291,166 @@ def _apply_post_draft_safe_patch(
                 return DraftPackage(**data), "description: replace"
 
     return package, ""
+
+
+def _post_draft_safe_patch_section(payload: dict[str, object]) -> str:
+    raw_target = str(payload.get("target") or payload.get("apply_to") or "").strip()
+    if not raw_target:
+        return ""
+    target = raw_target.lower().replace("-", "_")
+    first_token = re.split(r"[\s.:：,，/]+", target, maxsplit=1)[0]
+    if first_token in {"title", "abstract", "claims", "description", "drawing_description"}:
+        return first_token
+    if first_token in {"claim", "claims"} or "权利要求" in raw_target:
+        return "claims"
+    if "说明书" in raw_target or "description" in target:
+        return "description"
+    if "摘要" in raw_target or "abstract" in target:
+        return "abstract"
+    if "附图" in raw_target or "drawing" in target:
+        return "drawing_description"
+    if "标题" in raw_target or "title" in target:
+        return "title"
+    return ""
+
+
+def _replace_post_draft_patch_text(text: str, match_text: str, replacement: str) -> tuple[str, bool]:
+    if not match_text:
+        return text, False
+    if match_text in text:
+        return text.replace(match_text, replacement, 1), True
+    if ".*" not in match_text:
+        return text, False
+    try:
+        updated, count = re.subn(match_text, lambda _: replacement, text, count=1, flags=re.DOTALL)
+    except re.error:
+        return text, False
+    return updated, count > 0
+
+
+def _apply_post_draft_patch_instruction(text: str, instruction: str, section: str) -> tuple[str, str]:
+    if section == "description" and "删除" in instruction and (
+        "内部提示" in instruction or "补充材料" in instruction or "需补强" in instruction
+    ):
+        updated = _remove_post_draft_internal_blocks(
+            text,
+            ["为增强本申请的可授权性", "提交前", "需补强", "补充材料", "待实验验证"],
+        )
+        if updated != text:
+            return updated, "description: remove internal markers"
+
+    replacement = _patch_instruction_replacement(instruction)
+    if replacement:
+        original, patched = replacement
+        updated, changed = _replace_patch_instruction_original(text, original, patched)
+        if changed:
+            return updated, f"{section}: replace instructed passage"
+
+    supplement = _patch_instruction_supplement(instruction)
+    if supplement:
+        anchor, addition = supplement
+        updated = _insert_post_draft_patch_addition(text, anchor, addition)
+        if updated != text:
+            return updated, f"{section}: add instructed passage"
+
+    if section == "description" and "首次" in instruction and "改为" in instruction and "首次" in text:
+        return text.replace("首次", "", 1), "description: remove absolute wording"
+
+    return text, ""
+
+
+def _patch_instruction_replacement(instruction: str) -> tuple[str, str] | None:
+    quoted = re.search(
+        r"将[“\"'](?P<old>.+?)[”\"'](?:修改为|替换为|改为)[“\"'](?P<new>.+?)[”\"']",
+        instruction,
+    )
+    if not quoted:
+        quoted = re.search(r"将‘(?P<old>.+?)’(?:修改为|替换为|改为)‘(?P<new>.+?)’", instruction)
+    if quoted:
+        return quoted.group("old").strip(), quoted.group("new").strip()
+
+    plain = re.search(r"^将(?P<old>.+?)(?:修改为|替换为|改为)(?P<new>.+?)(?:，并(?P<tail>.+))?$", instruction)
+    if not plain:
+        return None
+    return plain.group("old").strip(), plain.group("new").strip().rstrip("。")
+
+
+def _patch_instruction_supplement(instruction: str) -> tuple[str, str] | None:
+    supplement = re.search(r"在(?P<anchor>.+?)后补充[‘“\"'](?P<addition>.+?)[’”\"']", instruction)
+    if not supplement:
+        return None
+    return supplement.group("anchor").strip(), supplement.group("addition").strip()
+
+
+def _replace_patch_instruction_original(text: str, original: str, patched: str) -> tuple[str, bool]:
+    if not original or not patched:
+        return text, False
+    if "…" in original:
+        prefix = original.split("…", 1)[0]
+        if prefix and prefix in text:
+            return text.replace(prefix, patched, 1), True
+        if "首次" in original and "首次" in text:
+            return text.replace("首次", "", 1), True
+        return text, False
+    if original in text:
+        return text.replace(original, patched, 1), True
+    formula_updated, formula_changed = _replace_patch_formula_alias(text, original, patched)
+    if formula_changed:
+        return formula_updated, True
+    return text, False
+
+
+def _replace_patch_formula_alias(text: str, original: str, patched: str) -> tuple[str, bool]:
+    normalized = re.sub(r"\s+", "", original)
+    if normalized != "C_det=P_class×IoU":
+        return text, False
+    patterns = (
+        r"!\[[^\]\n]*(?:C_\{\\text\{det\}\}|C_det)[^\]\n]*(?:\\text\{IoU\}|IoU)[^\]\n]*\]\([^\)\n]*\)",
+        r"C_\{\\text\{det\}\}\s*=\s*P_\{\\text\{class\}\}\s*\\times\s*\\text\{IoU\}",
+        r"C_\{det\}\s*=\s*P_\{class\}\s*\\times\s*IoU",
+        r"C_det\s*=\s*P_class\s*[×x]\s*IoU",
+    )
+    for pattern in patterns:
+        updated, count = re.subn(pattern, lambda _: patched, text, count=1)
+        if count:
+            return _replace_cdet_iou_definition(updated), True
+    return text, False
+
+
+def _replace_cdet_iou_definition(text: str) -> str:
+    replacement = (
+        "P_class为病害分类器输出的最大类别概率，"
+        "U_seg为病害分割掩膜的空间不确定性度量，"
+        "所述空间不确定性度量基于分割掩膜预测的熵或边界置信度获得；"
+    )
+    patterns = (
+        r"P_class为病害分类器输出的最大类别概率，IoU为病害分割掩膜的交并比；?",
+        r"P_class\s*为病害分类器输出的最大类别概率，\s*IoU\s*为病害分割掩膜的交并比；?",
+    )
+    updated = text
+    for pattern in patterns:
+        updated, count = re.subn(pattern, replacement, updated, count=1)
+        if count:
+            return updated
+    return updated
+
+
+def _insert_post_draft_patch_addition(text: str, anchor: str, addition: str) -> str:
+    if not addition or addition in text:
+        return text
+    if anchor and anchor in text:
+        return text.replace(anchor, f"{anchor}{addition}", 1)
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if ("CCI" in anchor or "CCI" in addition) and "CCI" in line:
+            separator = "" if line.rstrip().endswith(("；", ";", "。", ".")) else "；"
+            lines[index] = f"{line.rstrip()}{separator}{addition}"
+            return "\n".join(lines)
+    return f"{text.rstrip()}\n{addition}"
+
+
+def _squash_patch_blank_lines(text: str) -> str:
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 def _patch_content(payload: dict[str, object]) -> str:
@@ -3398,7 +3578,10 @@ def _require_latest_completed_official_compile(
 ) -> OfficialCompileRun:
     current_source_hash = source_draft_hash(package)
     latest_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
-    if latest_attempt and latest_attempt.status in {"queued", "running", "blocked", "failed"}:
+    if latest_attempt and (
+        latest_attempt.status in {"queued", "running", "blocked", "failed"}
+        or (latest_attempt.status == "completed" and latest_attempt.blocked_items)
+    ):
         raise HTTPException(
             status_code=409,
             detail=_official_compile_gate_error_detail(latest_attempt).replace(
@@ -3436,7 +3619,7 @@ def _current_quality_artifacts(
         (
             worksheet
             for worksheet in store.list_claim_defense_worksheets(project_id)
-            if worksheet.draft_package_hash == current_source_hash
+            if worksheet.draft_package_hash == current_source_hash and worksheet.status != "superseded"
         ),
         None,
     )
@@ -3447,7 +3630,10 @@ def _current_quality_gate_state(store: SQLiteStore, project_id: str, current_sou
     filing_report, worksheet = _current_quality_artifacts(store, project_id, current_source_hash)
     completion_runs = store.list_draft_completion_runs(project_id)
     latest_filing = next(iter(store.list_filing_readiness_reports(project_id)), None)
-    latest_worksheet = next(iter(store.list_claim_defense_worksheets(project_id)), None)
+    latest_worksheet = next(
+        (worksheet for worksheet in store.list_claim_defense_worksheets(project_id) if worksheet.status != "superseded"),
+        None,
+    )
     latest_completion = next(
         (run for run in completion_runs if run.status == "completed"),
         None,
@@ -3564,11 +3750,24 @@ def _official_compile_gate_error_detail(run: OfficialCompileRun | None) -> str:
         return "Current draft has a blocked official compile. Resolve the blocked compile items and re-run official compile before official export."
     if run and run.status == "failed":
         return "Current draft has a failed official compile. Re-run official compile before official export."
+    if run and run.status == "completed" and run.blocked_items:
+        return "Current draft has a blocked official compile. Resolve the blocked compile items and re-run official compile before official export."
     if run and run.status == "completed" and not run.official_package:
         return "Current draft has an incomplete official compile: missing official package. Re-run official compile before official export."
     if run and run.status == "completed" and not run.official_package_hash:
         return "Current draft has an incomplete official compile: missing official package hash. Re-run official compile before official export."
     return "Official draft compile is required for the current draft before official export."
+
+
+def _official_compile_export_ready(run: OfficialCompileRun | None, current_source_hash: str) -> bool:
+    return bool(
+        run
+        and run.status == "completed"
+        and run.official_package
+        and run.official_package_hash
+        and run.source_draft_hash == current_source_hash
+        and not run.blocked_items
+    )
 
 
 def _official_compile_artifact_state(run: OfficialCompileRun | None, current_source_hash: str) -> str:
@@ -3580,6 +3779,8 @@ def _official_compile_artifact_state(run: OfficialCompileRun | None, current_sou
         return run.status
     if run.status in {"blocked", "failed"}:
         return run.status
+    if run.status == "completed" and run.blocked_items:
+        return "blocked"
     if run.status == "completed" and not run.official_package:
         return "missing_official_package"
     if run.status == "completed" and not run.official_package_hash:
@@ -3633,9 +3834,18 @@ def _post_draft_review_gate_error_detail(review: PostDraftReviewRun | None) -> s
         return "Current official draft has a failed post-draft review. Re-run the post-draft multi-agent review before official export."
     if review and review.status == "interrupted":
         return "Current official draft has an interrupted post-draft review. Re-run the post-draft multi-agent review before official export."
-    if review and review.status == "completed" and not review.export_allowed:
+    if review and review.status == "completed" and not _post_draft_review_export_ready(review):
         return "Current official draft has a blocked post-draft review. Resolve the review blocking issues and re-run post-draft review before official export."
     return "Post-draft multi-agent review is required for the current official draft before official export."
+
+
+def _post_draft_review_export_ready(review: PostDraftReviewRun | None) -> bool:
+    return bool(
+        review
+        and review.status == "completed"
+        and review.export_allowed
+        and not review.blocking_issues
+    )
 
 
 def _post_draft_review_gate_status(review: PostDraftReviewRun | None) -> str:
@@ -3643,7 +3853,7 @@ def _post_draft_review_gate_status(review: PostDraftReviewRun | None) -> str:
         return "missing"
     if review.status != "completed":
         return review.status
-    if review.export_allowed:
+    if _post_draft_review_export_ready(review):
         return "passed"
     if review.chair_result and review.chair_result.status:
         return review.chair_result.status
@@ -3660,13 +3870,7 @@ def _require_official_export_gate(store: SQLiteStore, project_id: str, package: 
         )
     latest_compile_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
     compile_run = latest_compile_attempt
-    if (
-        not compile_run
-        or compile_run.status != "completed"
-        or not compile_run.official_package
-        or not compile_run.official_package_hash
-        or compile_run.source_draft_hash != current_source_hash
-    ):
+    if not _official_compile_export_ready(compile_run, current_source_hash):
         raise HTTPException(
             status_code=409,
             detail=_official_compile_gate_error_detail(latest_compile_attempt),
@@ -3677,11 +3881,7 @@ def _require_official_export_gate(store: SQLiteStore, project_id: str, package: 
     latest_matching_review = _latest_completed_matching_post_draft_review(
         store, project_id, current_source_hash, compile_run
     )
-    review_ready = (
-        matching_review_attempt
-        and matching_review_attempt.status == "completed"
-        and matching_review_attempt.export_allowed
-    )
+    review_ready = _post_draft_review_export_ready(matching_review_attempt)
     if not review_ready:
         raise HTTPException(
             status_code=409,
