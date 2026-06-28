@@ -21,6 +21,12 @@ const DRAFT_SECTION_KEYS = [
   "drawing_description",
 ] as const;
 
+type PatchActivity = {
+  issueId: string;
+  section: DraftRepairPatch["target_section"];
+  status: "applying" | "applied";
+};
+
 export interface PostDraftRepairEditorProps {
   open: boolean;
   session: PostDraftRepairSession | null;
@@ -50,6 +56,10 @@ export function PostDraftRepairEditor({
   const [generating, setGenerating] = useState(false);
   const [applying, setApplying] = useState(false);
   const [patchError, setPatchError] = useState<string | null>(null);
+  const [resolvedIssueIds, setResolvedIssueIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [patchActivity, setPatchActivity] = useState<PatchActivity | null>(null);
 
   // Reset local state when session changes
   useEffect(() => {
@@ -60,13 +70,36 @@ export function PostDraftRepairEditor({
       setGenerating(false);
       setApplying(false);
       setPatchError(null);
+      setResolvedIssueIds(new Set());
+      setPatchActivity(null);
     }
   }, [session]);
+
+  const visibleIssues = useMemo(
+    () =>
+      (session?.issues ?? []).filter(
+        (issue) =>
+          !resolvedIssueIds.has(issue.id) &&
+          !isIssueResolvedInCurrentDraft(issue, sectionValues),
+      ),
+    [session, resolvedIssueIds, sectionValues],
+  );
+
+  useEffect(() => {
+    if (!session) return;
+    if (selectedIssue && visibleIssues.some((issue) => issue.id === selectedIssue.id)) {
+      return;
+    }
+    setSelectedIssue(visibleIssues[0] ?? null);
+    setPatch(null);
+    setPatchError(null);
+  }, [session, selectedIssue, visibleIssues]);
 
   const handleSelectIssue = useCallback((issue: DraftReviewIssue) => {
     setSelectedIssue(issue);
     setPatch(null);
     setPatchError(null);
+    setPatchActivity(null);
   }, []);
 
   const handleUpdateSection = useCallback(
@@ -81,12 +114,12 @@ export function PostDraftRepairEditor({
       if (selectedIssue && selectedIssue.target_section === sectionKey)
         return selectedIssue;
       // Fallback: find first issue anchored to this section
-      const anchored = session?.issues.find(
+      const anchored = visibleIssues.find(
         (i) => i.target_section === sectionKey && i.anchor.type !== "missing",
       );
       return anchored ?? null;
     },
-    [selectedIssue, session],
+    [selectedIssue, visibleIssues],
   );
 
   const handleSave = useCallback(async () => {
@@ -111,6 +144,7 @@ export function PostDraftRepairEditor({
     try {
       const sectionText =
         sectionValues[selectedIssue.target_section] ?? "";
+      const selectedText = selectedTextForIssue(selectedIssue, sectionText);
       const result = await createDraftRepairPatch(
         session.project_id,
         session.review_run_id,
@@ -118,7 +152,7 @@ export function PostDraftRepairEditor({
           issue_id: selectedIssue.id,
           draft_package_hash: session.current_draft_hash ?? "",
           target_section: selectedIssue.target_section,
-          selected_text: selectedIssue.snippet ?? null,
+          selected_text: selectedText,
           nearby_context: sectionText.length > 0 ? sectionText : null,
         },
       );
@@ -135,6 +169,11 @@ export function PostDraftRepairEditor({
     if (!session || !patch) return;
     setApplying(true);
     setPatchError(null);
+    setPatchActivity({
+      issueId: patch.issue_id,
+      section: patch.target_section,
+      status: "applying",
+    });
     try {
       const result = await applyDraftRepairPatch(
         session.project_id,
@@ -151,11 +190,21 @@ export function PostDraftRepairEditor({
         }));
       }
       await onPatchApplied?.(editableFieldsFromPackage(result.package));
-      // Mark patch as applied locally
-      setPatch({ ...patch, status: "applied" });
+      setResolvedIssueIds((prev) => {
+        const next = new Set(prev);
+        next.add(patch.issue_id);
+        return next;
+      });
+      setPatchActivity({
+        issueId: patch.issue_id,
+        section: patch.target_section,
+        status: "applied",
+      });
+      setPatch(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setPatchError(message);
+      setPatchActivity(null);
     } finally {
       setApplying(false);
     }
@@ -197,7 +246,7 @@ export function PostDraftRepairEditor({
 
         <div className="repair-editor-grid">
           <PostDraftIssueRail
-            issues={session.issues}
+            issues={visibleIssues}
             selectedIssueId={selectedIssue?.id ?? null}
             onSelectIssue={handleSelectIssue}
           />
@@ -211,6 +260,9 @@ export function PostDraftRepairEditor({
                 value={sectionValues[sectionKey] ?? ""}
                 selected={selectedIssue?.target_section === sectionKey}
                 anchorIssue={findAnchorIssue(sectionKey)}
+                patchActivity={
+                  patchActivity?.section === sectionKey ? patchActivity.status : null
+                }
                 onChange={(value) => handleUpdateSection(sectionKey, value)}
               />
             ))}
@@ -228,6 +280,7 @@ export function PostDraftRepairEditor({
             generating={generating}
             applying={applying}
             patchError={patchError}
+            patchActivity={patchActivity}
             onGeneratePatch={handleGeneratePatch}
             onApplyPatch={handleApplyPatch}
             onDismissPatch={handleDismissPatch}
@@ -263,4 +316,44 @@ function editableFieldsFromPackage(packageValue: DraftPackageManualUpdate): Draf
     description: packageValue.description,
     drawing_description: packageValue.drawing_description,
   };
+}
+
+function selectedTextForIssue(issue: DraftReviewIssue, sectionText: string): string | null {
+  const anchorSnippet = issue.anchor.snippet?.trim();
+  if (anchorSnippet && sectionText.includes(anchorSnippet)) {
+    return anchorSnippet;
+  }
+
+  const issueSnippet = issue.snippet?.trim();
+  if (issueSnippet && sectionText.includes(issueSnippet)) {
+    return issueSnippet;
+  }
+
+  const { start, end } = issue.anchor;
+  if (
+    issue.anchor.type === "text" &&
+    typeof start === "number" &&
+    typeof end === "number" &&
+    start >= 0 &&
+    end > start &&
+    end <= sectionText.length
+  ) {
+    const anchoredText = sectionText.slice(start, end).trim();
+    return anchoredText || null;
+  }
+
+  return null;
+}
+
+function isIssueResolvedInCurrentDraft(
+  issue: DraftReviewIssue,
+  sectionValues: Record<string, string>,
+): boolean {
+  if (issue.status === "fixed" || issue.status === "skipped") return true;
+  if (issue.anchor.type !== "text") return false;
+  if (!(issue.target_section in sectionValues)) return false;
+
+  const sectionText = sectionValues[issue.target_section] ?? "";
+  const snippet = issue.anchor.snippet?.trim() || issue.snippet?.trim();
+  return Boolean(snippet && !sectionText.includes(snippet));
 }
