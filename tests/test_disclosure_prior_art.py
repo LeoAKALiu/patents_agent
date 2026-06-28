@@ -39,6 +39,14 @@ def test_normalize_search_terms_keeps_single_valid_term_without_fallback_expansi
     assert terms == ["图像缺陷"]
 
 
+def test_normalize_search_terms_drops_too_short_ascii_term() -> None:
+    assert normalize_search_terms(["a"], fallback_text="") == []
+
+
+def test_normalize_search_terms_drops_single_cjk_character() -> None:
+    assert normalize_search_terms(["图"], fallback_text="") == []
+
+
 def test_dedupe_prior_art_hits_prefers_publication_number_then_url() -> None:
     hits = [
         _hit("h1", "CN123456789A", "https://patents.google.com/patent/CN123456789A", "标题A"),

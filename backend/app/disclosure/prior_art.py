@@ -251,11 +251,6 @@ def normalize_search_terms(terms: list[str], *, fallback_text: str = "", max_ter
 
     if normalized:
         return normalized[:max_terms]
-
-    for raw in terms:
-        cleaned = _clean_term(raw)
-        if cleaned:
-            return [cleaned[:24].strip()]
     return []
 
 
