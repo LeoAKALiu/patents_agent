@@ -345,6 +345,52 @@ def test_adversarial_flow_harness_can_run_generated_html_attribute_honesty_actio
     assert trace.final_state.export_allowed is True
 
 
+def test_adversarial_flow_harness_can_run_generated_html_class_id_honesty_action(tmp_path) -> None:
+    trace = run_adversarial_trace(
+        seed=137,
+        data_dir=tmp_path / "generated-html-class-id-honesty",
+        action_count=0,
+        action_names=("generated_html_class_id_honesty",),
+        force_ready=True,
+    )
+
+    payload = trace.actions[0].payload
+
+    assert payload["generate_status"] == "completed"
+    assert payload["compile_status"] == "blocked"
+    assert "html_class_id_citation" in payload["blocked_patterns"]
+    assert payload["export_status_code"] == 409
+    assert trace.final_state.gates == {
+        "quality": "current",
+        "official_compile": "current",
+        "post_draft_review": "current",
+    }
+    assert trace.final_state.export_allowed is True
+
+
+def test_adversarial_flow_harness_can_run_generated_html_data_value_honesty_action(tmp_path) -> None:
+    trace = run_adversarial_trace(
+        seed=138,
+        data_dir=tmp_path / "generated-html-data-value-honesty",
+        action_count=0,
+        action_names=("generated_html_data_value_honesty",),
+        force_ready=True,
+    )
+
+    payload = trace.actions[0].payload
+
+    assert payload["generate_status"] == "completed"
+    assert payload["compile_status"] == "blocked"
+    assert "html_data_value_citation" in payload["blocked_patterns"]
+    assert payload["export_status_code"] == 409
+    assert trace.final_state.gates == {
+        "quality": "current",
+        "official_compile": "current",
+        "post_draft_review": "current",
+    }
+    assert trace.final_state.export_allowed is True
+
+
 def test_adversarial_flow_harness_can_run_generated_html_meta_honesty_action(tmp_path) -> None:
     trace = run_adversarial_trace(
         seed=70,
@@ -543,6 +589,29 @@ def test_adversarial_flow_harness_can_run_generated_html_json_ld_honesty_action(
     assert payload["generate_status"] == "completed"
     assert payload["compile_status"] == "blocked"
     assert "html_json_ld_citation" in payload["blocked_patterns"]
+    assert payload["export_status_code"] == 409
+    assert trace.final_state.gates == {
+        "quality": "current",
+        "official_compile": "current",
+        "post_draft_review": "current",
+    }
+    assert trace.final_state.export_allowed is True
+
+
+def test_adversarial_flow_harness_can_run_generated_html_json_script_honesty_action(tmp_path) -> None:
+    trace = run_adversarial_trace(
+        seed=136,
+        data_dir=tmp_path / "generated-html-json-script-honesty",
+        action_count=0,
+        action_names=("generated_html_json_script_honesty",),
+        force_ready=True,
+    )
+
+    payload = trace.actions[0].payload
+
+    assert payload["generate_status"] == "completed"
+    assert payload["compile_status"] == "blocked"
+    assert "html_json_script_citation" in payload["blocked_patterns"]
     assert payload["export_status_code"] == 409
     assert trace.final_state.gates == {
         "quality": "current",
@@ -934,6 +1003,52 @@ def test_adversarial_flow_harness_can_run_generated_html_inline_style_honesty_ac
     assert payload["generate_status"] == "completed"
     assert payload["compile_status"] == "blocked"
     assert "html_inline_style_citation" in payload["blocked_patterns"]
+    assert payload["export_status_code"] == 409
+    assert trace.final_state.gates == {
+        "quality": "current",
+        "official_compile": "current",
+        "post_draft_review": "current",
+    }
+    assert trace.final_state.export_allowed is True
+
+
+def test_adversarial_flow_harness_can_run_generated_html_form_field_honesty_action(tmp_path) -> None:
+    trace = run_adversarial_trace(
+        seed=134,
+        data_dir=tmp_path / "generated-html-form-field-honesty",
+        action_count=0,
+        action_names=("generated_html_form_field_honesty",),
+        force_ready=True,
+    )
+
+    payload = trace.actions[0].payload
+
+    assert payload["generate_status"] == "completed"
+    assert payload["compile_status"] == "blocked"
+    assert "html_form_field_citation" in payload["blocked_patterns"]
+    assert payload["export_status_code"] == 409
+    assert trace.final_state.gates == {
+        "quality": "current",
+        "official_compile": "current",
+        "post_draft_review": "current",
+    }
+    assert trace.final_state.export_allowed is True
+
+
+def test_adversarial_flow_harness_can_run_generated_html_semantic_metadata_honesty_action(tmp_path) -> None:
+    trace = run_adversarial_trace(
+        seed=135,
+        data_dir=tmp_path / "generated-html-semantic-metadata-honesty",
+        action_count=0,
+        action_names=("generated_html_semantic_metadata_honesty",),
+        force_ready=True,
+    )
+
+    payload = trace.actions[0].payload
+
+    assert payload["generate_status"] == "completed"
+    assert payload["compile_status"] == "blocked"
+    assert "html_semantic_metadata_citation" in payload["blocked_patterns"]
     assert payload["export_status_code"] == 409
     assert trace.final_state.gates == {
         "quality": "current",
