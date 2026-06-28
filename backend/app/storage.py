@@ -30,6 +30,7 @@ from backend.app.schemas import (
     PostDraftReviewRun,
     ProjectMaterial,
     ProjectRecord,
+    RevisionLedgerRecord,
     SectionType,
 )
 
@@ -331,6 +332,7 @@ class SQLiteStore:
             for table in [
                 "project_materials",
                 "project_patent_points",
+                "revision_ledger_records",
                 "disclosure_runs",
                 "deliberation_runs",
                 "formula_runs",
@@ -606,6 +608,34 @@ class SQLiteStore:
                 ),
             )
         return run
+
+    def create_revision_ledger_record(self, record: RevisionLedgerRecord) -> RevisionLedgerRecord:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into revision_ledger_records(
+                    id, project_id, record_json, created_at
+                ) values (?, ?, ?, ?)
+                """,
+                (
+                    record.id,
+                    record.project_id,
+                    json.dumps(record.model_dump(mode="json"), ensure_ascii=False),
+                    record.created_at,
+                ),
+            )
+        return record
+
+    def list_revision_ledger_records(self, project_id: str) -> list[RevisionLedgerRecord]:
+        rows = self.connection.execute(
+            """
+            select record_json from revision_ledger_records
+            where project_id = ?
+            order by created_at desc, rowid desc
+            """,
+            (project_id,),
+        ).fetchall()
+        return [RevisionLedgerRecord.model_validate(json.loads(row["record_json"])) for row in rows]
 
     def list_draft_completion_runs(self, project_id: str) -> list[DraftCompletionRun]:
         rows = self.connection.execute(
@@ -1371,6 +1401,14 @@ class SQLiteStore:
                     id text primary key,
                     project_id text not null,
                     run_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists revision_ledger_records (
+                    id text primary key,
+                    project_id text not null,
+                    record_json text not null,
                     created_at text not null default current_timestamp,
                     foreign key(project_id) references projects(id)
                 );
