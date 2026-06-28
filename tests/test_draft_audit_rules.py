@@ -61,6 +61,42 @@ def test_audit_flags_publication_without_matching_url_when_multiple_publications
     assert any(issue.category == "prior_art_distinction_gap" and "公开 URL" in issue.message for issue in issues)
 
 
+def test_audit_scans_title_and_abstract_for_prior_art_url_gaps() -> None:
+    package = _package("说明书正文没有现有技术公开号。").model_copy(
+        update={
+            "title": "针对 CN123456789A 的改进方法",
+            "abstract": "摘要引用 US20240123456A1 但未给出公开链接。",
+        }
+    )
+
+    issues = audit_draft_package(package)
+
+    assert any(issue.category == "prior_art_distinction_gap" and "公开 URL" in issue.message for issue in issues)
+
+
+def test_audit_accepts_prior_art_url_when_publication_number_is_in_url() -> None:
+    package = _package("说明书正文没有现有技术公开号。").model_copy(
+        update={
+            "abstract": "现有技术 CN123456789A 公开于 https://patents.google.com/patent/CN123456789A 。",
+        }
+    )
+
+    issues = audit_draft_package(package)
+
+    assert not any(issue.category == "prior_art_distinction_gap" for issue in issues)
+
+
+def test_audit_rejects_wrong_nearby_patent_link_for_publication() -> None:
+    description = (
+        "现有技术 CN123456789A 和 US20240123456A1 均涉及任务调度，"
+        "其中 US20240123456A1 参见 https://patents.google.com/patent/US20240123456A1 。"
+    )
+
+    issues = audit_draft_package(_package(description))
+
+    assert any(issue.category == "prior_art_distinction_gap" and "公开 URL" in issue.message for issue in issues)
+
+
 def test_audit_flags_missing_mermaid_when_prompt_mentions_diagram() -> None:
     package = _package("说明书引用系统框图。", mermaid="")
 

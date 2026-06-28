@@ -15,7 +15,7 @@ URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
 PATENT_URL_RE = re.compile(r"(patent|patents|cnipa|wipo|espacenet|google)", re.IGNORECASE)
 INTERNAL_METADATA_RE = re.compile(
     r"(evidence_id|evidence_refs|research_ledger|generation_logs|provider_diagnostics|self_check|"
-    r"review_findings|internal_only|自检结果|检索来源台账)",
+    r"revision_ledger|source_ledger|review_findings|internal_only|自检结果|检索来源台账|修订记录)",
     re.IGNORECASE,
 )
 
@@ -47,7 +47,7 @@ def audit_draft_package(
                 blocks_submission=False,
             )
         )
-    if _has_publication_without_url(package.description):
+    if _has_publication_without_url(combined_text):
         issues.append(
             _issue(
                 category="prior_art_distinction_gap",
@@ -98,9 +98,13 @@ def _has_publication_without_url(text: str) -> bool:
             continue
         window_start, window_end = _publication_clause_bounds(text, publication.start(), publication.end())
         if any(
-            match.start() < window_end
-            and match.end() > window_start
-            and PATENT_URL_RE.search(_normalize_url(match.group(0)))
+            _is_strictly_bound_patent_url(
+                text=text,
+                publication=publication,
+                url_match=match,
+                window_start=window_start,
+                window_end=window_end,
+            )
             for match in url_matches
         ):
             continue
@@ -124,6 +128,45 @@ def _publication_clause_bounds(text: str, start: int, end: int) -> tuple[int, in
     right_candidates = [position for marker in ("\n", "。", "；", ";") if (position := text.find(marker, end)) != -1]
     right = min(right_candidates) if right_candidates else len(text)
     return (left + 1 if left >= 0 else 0, right)
+
+
+def _is_strictly_bound_patent_url(
+    *,
+    text: str,
+    publication: re.Match[str],
+    url_match: re.Match[str],
+    window_start: int,
+    window_end: int,
+) -> bool:
+    if url_match.start() < window_start or url_match.end() > window_end:
+        return False
+    url = _normalize_url(url_match.group(0))
+    if not PATENT_URL_RE.search(url):
+        return False
+    normalized_publication = _normalize_publication(publication.group(0))
+    if normalized_publication in url.upper():
+        return True
+
+    if publication.end() <= url_match.start() and _is_immediate_publication_url_binding(
+        text[publication.end() : url_match.start()]
+    ):
+        return True
+
+    return url_match.end() <= publication.start() and _is_immediate_publication_url_binding(
+        text[url_match.end() : publication.start()]
+    )
+
+
+def _is_immediate_publication_url_binding(text: str) -> bool:
+    if len(text) > 24 or PUBLICATION_RE.search(text):
+        return False
+    return bool(
+        re.fullmatch(
+            r"\s*(?:[（(【\[]?\s*)?(?:公开链接|公开URL|链接|URL|url|参见|见|载于|位于)?\s*[:：\-—,，；;、]?\s*(?:[）)】\]]?\s*)?",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 def _diagram_expected(package: DraftPackage) -> bool:

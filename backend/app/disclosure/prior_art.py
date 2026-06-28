@@ -279,10 +279,16 @@ def dedupe_prior_art_hits(hits: list[PriorArtHit]) -> list[PriorArtHit]:
                 identifier_to_index[identifier] = index
             continue
         index = min(matched_indexes)
-        merged = _merge_prior_art_hit(out[index], hit)
+        merged = out[index]
+        for matched_index in sorted(matched_indexes):
+            if matched_index == index:
+                continue
+            merged = _merge_prior_art_hit(merged, out[matched_index])
+        merged = _merge_prior_art_hit(merged, hit)
         out[index] = merged
-        for identifier in _prior_art_identifiers(merged):
-            identifier_to_index[identifier] = index
+        for matched_index in sorted(matched_indexes - {index}, reverse=True):
+            del out[matched_index]
+        identifier_to_index = _prior_art_identifier_index(out)
     return out
 
 
@@ -349,19 +355,70 @@ def _prior_art_identifiers(hit: PriorArtHit) -> list[str]:
     return [identifier for identifier in (publication, url, title) if identifier]
 
 
+def _prior_art_identifier_index(hits: list[PriorArtHit]) -> dict[str, int]:
+    identifier_to_index: dict[str, int] = {}
+    for index, hit in enumerate(hits):
+        for identifier in _prior_art_identifiers(hit):
+            identifier_to_index[identifier] = index
+    return identifier_to_index
+
+
 def _merge_prior_art_hit(existing: PriorArtHit, candidate: PriorArtHit) -> PriorArtHit:
     return existing.model_copy(
         update={
             "source": existing.source or candidate.source,
             "query": existing.query or candidate.query,
-            "title": existing.title or candidate.title,
+            "title": _richer_text(existing.title, candidate.title),
             "publication_number": existing.publication_number or candidate.publication_number,
-            "url": existing.url or candidate.url,
-            "abstract": existing.abstract or candidate.abstract,
-            "relevance_summary": existing.relevance_summary or candidate.relevance_summary,
-            "differentiators": existing.differentiators or candidate.differentiators,
+            "url": _richer_url(existing.url, candidate.url),
+            "abstract": _richer_text(existing.abstract, candidate.abstract),
+            "relevance_summary": _richer_text(existing.relevance_summary, candidate.relevance_summary),
+            "differentiators": _union_differentiators(existing.differentiators, candidate.differentiators),
         }
     )
+
+
+def _richer_text(existing: str | None, candidate: str | None) -> str | None:
+    existing_text = (existing or "").strip()
+    candidate_text = (candidate or "").strip()
+    if not existing_text:
+        return candidate
+    if not candidate_text:
+        return existing
+    return candidate if len(candidate_text) > len(existing_text) else existing
+
+
+def _richer_url(existing: str, candidate: str) -> str:
+    existing_url = (existing or "").strip()
+    candidate_url = (candidate or "").strip()
+    if not existing_url:
+        return candidate
+    if not candidate_url:
+        return existing
+    existing_public = _looks_like_public_patent_url(existing_url)
+    candidate_public = _looks_like_public_patent_url(candidate_url)
+    if candidate_public and not existing_public:
+        return candidate
+    if existing_public and not candidate_public:
+        return existing
+    return candidate if len(candidate_url) > len(existing_url) else existing
+
+
+def _looks_like_public_patent_url(url: str) -> bool:
+    lowered = url.lower()
+    return any(marker in lowered for marker in ("patents.google.com", "patent", "cnipa", "wipo", "espacenet"))
+
+
+def _union_differentiators(existing: list[str], candidate: list[str]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for differentiator in [*existing, *candidate]:
+        key = differentiator.strip().casefold()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        merged.append(differentiator)
+    return merged
 
 
 def _candidate_chunks_from_text(text: str) -> list[str]:

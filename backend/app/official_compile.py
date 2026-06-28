@@ -27,6 +27,8 @@ RESIDUAL_INTERNAL_PATTERNS = (
     "evidence_id",
     "evidence_refs",
     "research_ledger",
+    "revision_ledger",
+    "source_ledger",
     "publication_number",
     "patent_url",
     "source_url",
@@ -42,6 +44,7 @@ RESIDUAL_INTERNAL_PATTERNS = (
     "evidence_status",
     "verification_status",
     "internal_only",
+    "修订记录",
     "patents.google.com",
     "generation_logs",
     "image_prompt",
@@ -61,8 +64,8 @@ RESIDUAL_INTERNAL_PATTERNS = (
 )
 AUTO_CLEANED_TEXT_CATEGORY = "auto_cleaned_text"
 INTERNAL_FIELD_RE = re.compile(
-    r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs|attorney_memo|system_trace|official_safe_patches)["']?\s*[:：=]""",
-    re.IGNORECASE,
+    r"""^\s*["']?(image_prompt|prompt|diagram|generation_logs|attorney_memo|system_trace|official_safe_patches|revision_ledger|source_ledger|修订记录)["']?\s*[:：=]""",
+    re.IGNORECASE | re.MULTILINE,
 )
 EVIDENCE_METADATA_FIELD_RE = re.compile(
     r"""^\s*["']?(evidence_id|evidence_refs|research_ledger|publication_number|patent_url|source_url|url|material_id|source_id|source_label|sources?|references?|citations?|materials?|patent_point|证据编号|材料编号|来源标签|引用来源|引用链接|证据来源|参考资料|参考文献|资料来源|依据材料|支撑材料)["']?\s*[:：=]""",
@@ -315,6 +318,16 @@ class OfficialDraftCompiler:
 
         for section in HARD_GATED_SECTIONS:
             source_section_text = getattr(package, section)
+            internal_field = INTERNAL_FIELD_RE.search(source_section_text)
+            if internal_field:
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": internal_field.group(1).lower(),
+                        "message": "Draft text contains internal field metadata that must not appear in official text.",
+                    }
+                )
             if _contains_fenced_json_evidence_metadata(source_section_text):
                 blocked_items.append(
                     {

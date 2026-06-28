@@ -102,6 +102,59 @@ def test_dedupe_prior_art_hits_merges_richer_duplicate_in_place() -> None:
     assert deduped[0].abstract == "更完整摘要"
 
 
+def test_dedupe_prior_art_hits_collapses_transitive_duplicates() -> None:
+    hits = [
+        _hit("h1", "CN123456789A", "https://example.com/cn123", "标题A"),
+        _hit("h2", None, "https://patents.google.com/patent/US20240123456A1", "标题B"),
+        _hit("h3", "CN123456789A", "https://patents.google.com/patent/US20240123456A1", "桥接标题"),
+    ]
+
+    deduped = dedupe_prior_art_hits(hits)
+
+    assert len(deduped) == 1
+    assert deduped[0].id == "h1"
+    assert deduped[0].publication_number == "CN123456789A"
+    assert deduped[0].url == "https://patents.google.com/patent/US20240123456A1"
+
+
+def test_dedupe_prior_art_hits_prefers_richer_fields_and_unions_differentiators() -> None:
+    hits = [
+        PriorArtHit(
+            id="h1",
+            source="CNIPA EPUB",
+            query="图像 缺陷",
+            title="短标题",
+            publication_number="CN123456789A",
+            url="https://example.com/generic",
+            abstract="短摘要",
+            relevance_summary="相关",
+            differentiators=["低延迟"],
+        ),
+        PriorArtHit(
+            id="h2",
+            source="Google Patents",
+            query="图像 缺陷",
+            title="更完整的图像缺陷识别公开标题",
+            publication_number="CN123456789A",
+            url="https://patents.google.com/patent/CN123456789A",
+            abstract="这是一个明显更完整的摘要，用于描述技术方案的输入、处理和输出。",
+            relevance_summary="该文献更具体地涉及图像缺陷识别和任务调度。",
+            differentiators=["动态阈值", "低延迟"],
+        ),
+    ]
+
+    deduped = dedupe_prior_art_hits(hits)
+
+    assert len(deduped) == 1
+    assert deduped[0].id == "h1"
+    assert deduped[0].title == "更完整的图像缺陷识别公开标题"
+    assert deduped[0].publication_number == "CN123456789A"
+    assert deduped[0].url == "https://patents.google.com/patent/CN123456789A"
+    assert deduped[0].abstract == "这是一个明显更完整的摘要，用于描述技术方案的输入、处理和输出。"
+    assert deduped[0].relevance_summary == "该文献更具体地涉及图像缺陷识别和任务调度。"
+    assert deduped[0].differentiators == ["低延迟", "动态阈值"]
+
+
 def test_prior_art_url_warnings_flags_missing_public_urls() -> None:
     warnings = prior_art_url_warnings([
         _hit("h1", "CN123456789A", "", "无 URL"),
