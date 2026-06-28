@@ -1,0 +1,62 @@
+from backend.app.draft_completion import run_draft_completion
+from backend.app.draft_audit_rules import audit_draft_package
+from backend.app.schemas import DraftPackage
+
+
+def _package(description: str, mermaid: str = "flowchart TD\nA-->B") -> DraftPackage:
+    return DraftPackage(
+        title="一种方法",
+        abstract="摘要",
+        claims="1. 一种方法，其特征在于，根据 b^{cpu} 计算权重。",
+        description=description,
+        drawing_description="图1。",
+        mermaid=mermaid,
+        image_prompt="黑白线稿",
+    )
+
+
+def test_audit_flags_superscript_resource_dimension() -> None:
+    issues = audit_draft_package(_package("公式为 $b^{cpu}=1$。"))
+
+    assert any(issue.category == "format_pollution" and "维度上标" in issue.message for issue in issues)
+
+
+def test_audit_flags_missing_prior_art_url_in_description() -> None:
+    description = "现有技术 CN123456789A 公开了相关方案，但未给出公开 URL。"
+
+    issues = audit_draft_package(_package(description))
+
+    assert any(issue.category == "prior_art_distinction_gap" and "公开 URL" in issue.message for issue in issues)
+
+
+def test_audit_flags_internal_metadata_in_description() -> None:
+    description = "本段包含 evidence_id: E001 和 generation_logs: project_scan。"
+
+    issues = audit_draft_package(_package(description))
+
+    assert any(issue.category == "format_pollution" and "内部元信息" in issue.message for issue in issues)
+
+
+def test_audit_flags_missing_mermaid_when_prompt_mentions_diagram() -> None:
+    package = _package("说明书引用系统框图。", mermaid="")
+
+    issues = audit_draft_package(package)
+
+    assert any(issue.target == "drawing" and "Mermaid" in issue.message for issue in issues)
+
+
+def test_draft_completion_includes_audit_rule_issues() -> None:
+    package = _package("说明书包含 evidence_id: E001。")
+
+    run = run_draft_completion(
+        project_id="p1",
+        package=package,
+        filing_reports=[],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[],
+        materials=[],
+        evidence_bindings=[],
+    )
+
+    assert any(issue.source_refs == ["draft_audit_rules"] for issue in run.issues)
