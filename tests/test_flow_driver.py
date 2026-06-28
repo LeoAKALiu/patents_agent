@@ -281,6 +281,37 @@ def test_export_readiness_reports_failed_current_quality_checks(tmp_path) -> Non
     assert "failed quality checks: draft_completion" in blocked["detail"]
 
 
+def test_export_readiness_uses_latest_current_draft_completion_attempt(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    quality = driver.run_quality()
+    current_hash = quality["draft_completion"]["draft_package_hash"]
+    client.app.state.store.create_draft_completion_run(
+        DraftCompletionRun(
+            id="failed-latest-current-completion",
+            project_id=driver.project_id,
+            draft_package_hash=current_hash,
+            status="failed",
+            scorecard=_scorecard(),
+            notes=["latest completion attempt failed after an earlier completed report"],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_quality_checks"
+    assert readiness["quality_required"] is True
+    assert readiness["failed_quality_checks"] == ["draft_completion"]
+    assert readiness["quality_check_states"] == {
+        "filing_readiness": "current",
+        "claim_defense_worksheet": "current",
+        "draft_completion": "failed",
+    }
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "failed quality checks: draft_completion" in blocked["detail"]
+
+
 def test_export_readiness_reports_failed_current_post_draft_review(tmp_path) -> None:
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
     driver = _driver_with_working_draft(client)
@@ -343,6 +374,64 @@ def test_export_readiness_reports_interrupted_current_post_draft_review(tmp_path
     assert "interrupted post-draft review" in blocked["detail"]
 
 
+def test_export_readiness_reports_queued_current_post_draft_review(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    compile_run = driver.compile_official()
+    assert compile_run["status"] == "completed"
+    client.app.state.store.create_post_draft_review_run(
+        PostDraftReviewRun(
+            id="queued-current-review",
+            project_id=driver.project_id,
+            status="queued",
+            draft_package_hash=compile_run["source_draft_hash"],
+            official_compile_run_id=compile_run["id"],
+            official_package_hash=compile_run["official_package_hash"],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_post_draft_review"
+    assert readiness["has_review_run"] is True
+    assert readiness["review_run_id"] == "queued-current-review"
+    assert readiness["review_status"] == "queued"
+    assert readiness["review_gate_status"] == "queued"
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "queued post-draft review" in blocked["detail"]
+
+
+def test_export_readiness_reports_running_current_post_draft_review(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    compile_run = driver.compile_official()
+    assert compile_run["status"] == "completed"
+    client.app.state.store.create_post_draft_review_run(
+        PostDraftReviewRun(
+            id="running-current-review",
+            project_id=driver.project_id,
+            status="running",
+            draft_package_hash=compile_run["source_draft_hash"],
+            official_compile_run_id=compile_run["id"],
+            official_package_hash=compile_run["official_package_hash"],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_post_draft_review"
+    assert readiness["has_review_run"] is True
+    assert readiness["review_run_id"] == "running-current-review"
+    assert readiness["review_status"] == "running"
+    assert readiness["review_gate_status"] == "running"
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "running post-draft review" in blocked["detail"]
+
+
 def test_export_readiness_reports_blocked_current_official_compile_attempt(tmp_path) -> None:
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
     driver = _driver_with_working_draft(client)
@@ -391,6 +480,69 @@ def test_export_readiness_reports_failed_current_official_compile_attempt(tmp_pa
     blocked = driver.export_official()
     assert blocked["blocked"] is True
     assert "failed official compile" in blocked["detail"]
+
+
+def test_export_readiness_uses_latest_failed_official_compile_attempt(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    completed_compile = driver.compile_official()
+    assert completed_compile["status"] == "completed"
+    client.app.state.store.create_official_compile_run(
+        OfficialCompileRun(
+            id="failed-latest-current-compile",
+            project_id=driver.project_id,
+            status="failed",
+            source_draft_hash=completed_compile["source_draft_hash"],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_official_compile"
+    assert readiness["official_compile_required"] is True
+    assert readiness["has_compile_run"] is True
+    assert readiness["compile_run_id"] == "failed-latest-current-compile"
+    assert readiness["compile_status"] == "failed"
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "failed official compile" in blocked["detail"]
+
+
+def test_export_readiness_uses_latest_blocked_official_compile_attempt(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    completed_compile = driver.compile_official()
+    assert completed_compile["status"] == "completed"
+    client.app.state.store.create_official_compile_run(
+        OfficialCompileRun(
+            id="blocked-latest-current-compile",
+            project_id=driver.project_id,
+            status="blocked",
+            source_draft_hash=completed_compile["source_draft_hash"],
+            blocked_items=[
+                {
+                    "category": "residual_internal_text",
+                    "section": "claims",
+                    "pattern": "support_gap",
+                    "message": "latest compile attempt blocked after an earlier completed official package",
+                }
+            ],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_official_compile"
+    assert readiness["official_compile_required"] is True
+    assert readiness["has_compile_run"] is True
+    assert readiness["compile_run_id"] == "blocked-latest-current-compile"
+    assert readiness["compile_status"] == "blocked"
+    assert readiness["compile_blocked_items"]
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "blocked official compile" in blocked["detail"]
 
 
 def test_flow_driver_export_gate_requires_complete_quality_bundle(tmp_path) -> None:
@@ -468,6 +620,73 @@ def test_flow_driver_later_blocking_review_invalidates_prior_pass(tmp_path) -> N
     blocked_export = driver.export_official()
     assert blocked_export["blocked"] is True
     assert "blocked post-draft review" in blocked_export["detail"]
+
+
+def test_export_readiness_uses_latest_failed_post_draft_review_attempt(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    compile_run = driver.compile_official()
+    passed_review = driver.run_post_draft_review()
+    assert passed_review["export_allowed"] is True
+    assert driver.export_official()["ok"] is True
+    client.app.state.store.create_post_draft_review_run(
+        PostDraftReviewRun(
+            id="failed-latest-current-review",
+            project_id=driver.project_id,
+            status="failed",
+            draft_package_hash=compile_run["source_draft_hash"],
+            official_compile_run_id=compile_run["id"],
+            official_package_hash=compile_run["official_package_hash"],
+            export_allowed=False,
+            blocking_issues=["latest review attempt failed after an earlier passed review"],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_post_draft_review"
+    assert readiness["post_draft_review_required"] is True
+    assert readiness["has_review_run"] is True
+    assert readiness["review_run_id"] == "failed-latest-current-review"
+    assert readiness["review_status"] == "failed"
+    assert readiness["review_export_allowed"] is False
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "failed post-draft review" in blocked["detail"]
+
+
+def test_export_readiness_uses_latest_queued_post_draft_review_attempt(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    compile_run = driver.compile_official()
+    passed_review = driver.run_post_draft_review()
+    assert passed_review["export_allowed"] is True
+    assert driver.export_official()["ok"] is True
+    client.app.state.store.create_post_draft_review_run(
+        PostDraftReviewRun(
+            id="queued-latest-current-review",
+            project_id=driver.project_id,
+            status="queued",
+            draft_package_hash=compile_run["source_draft_hash"],
+            official_compile_run_id=compile_run["id"],
+            official_package_hash=compile_run["official_package_hash"],
+            export_allowed=False,
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_post_draft_review"
+    assert readiness["post_draft_review_required"] is True
+    assert readiness["has_review_run"] is True
+    assert readiness["review_run_id"] == "queued-latest-current-review"
+    assert readiness["review_status"] == "queued"
+    assert readiness["review_gate_status"] == "queued"
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "queued post-draft review" in blocked["detail"]
 
 
 def test_flow_driver_generates_utility_model_draft_and_reports_readiness(tmp_path) -> None:
