@@ -10,7 +10,7 @@
 | --- | --- |
 | Worktree | `/Users/leo/Projects/patents_agent` |
 | Branch | `codex/automation-test-plan` |
-| Short SHA | `d7640545` |
+| Docs update implementation base | `d7640545` |
 | Worktree 状态 | 写入本文档前已有预存未提交变更；写入后另增 `docs/project-design-overview.md` 更新 |
 
 ## 项目定位
