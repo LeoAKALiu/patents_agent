@@ -79,6 +79,46 @@ def test_parse_deep_research_markdown_is_stable_across_repeated_runs() -> None:
     assert [hit.id for hit in packet_prior_art_hits(packet_one)] == [hit.id for hit in packet_prior_art_hits(packet_two)]
 
 
+def test_parse_deep_research_markdown_keeps_ids_stable_across_project_and_file_changes() -> None:
+    packet_one = parse_deep_research_markdown("project-a", DEEP_RESEARCH_MD, source_label="alpha.md")
+    packet_two = parse_deep_research_markdown("project-b", DEEP_RESEARCH_MD, source_label="beta.md")
+
+    assert [finding.id for finding in packet_one.findings] == [finding.id for finding in packet_two.findings]
+    assert [entry["evidence_id"] for entry in packet_one.evidence_ledger] == [
+        entry["evidence_id"] for entry in packet_two.evidence_ledger
+    ]
+    assert [hit.id for hit in packet_prior_art_hits(packet_one)] == [hit.id for hit in packet_prior_art_hits(packet_two)]
+    assert packet_one.evidence_ledger[0]["source_label"] == "alpha.md"
+    assert packet_two.evidence_ledger[0]["source_label"] == "beta.md"
+
+
+def test_parse_deep_research_markdown_does_not_collide_on_distinct_evidence() -> None:
+    packet_one = parse_deep_research_markdown(
+        "project-1",
+        DEEP_RESEARCH_MD,
+        source_label="deepresearch-a.md",
+    )
+    packet_two = parse_deep_research_markdown(
+        "project-1",
+        """
+        # DeepResearch: 图像缺陷识别
+
+        ## 现有技术
+        - CN987654321A 另一种图像缺陷检测方法 https://patents.google.com/patent/CN987654321A
+          摘要：公开了不同的图像缺陷检测方案。
+        """,
+        source_label="deepresearch-b.md",
+    )
+
+    ids_one = {entry["evidence_id"] for entry in packet_one.evidence_ledger}
+    ids_two = {entry["evidence_id"] for entry in packet_two.evidence_ledger}
+    hit_ids_one = {hit.id for hit in packet_prior_art_hits(packet_one)}
+    hit_ids_two = {hit.id for hit in packet_prior_art_hits(packet_two)}
+
+    assert ids_one.isdisjoint(ids_two)
+    assert hit_ids_one.isdisjoint(hit_ids_two)
+
+
 def test_parse_deep_research_markdown_handles_unrecognized_markdown() -> None:
     packet = parse_deep_research_markdown("project-1", "# 普通文档\n\n没有研究结构。", source_label="plain.md")
 

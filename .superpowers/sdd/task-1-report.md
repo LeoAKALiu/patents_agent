@@ -121,3 +121,33 @@ tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_m
 
 6 passed in 0.15s
 ```
+
+## Deterministic ID fix follow-up
+
+- Removed `project_id` and `source_label` from the stable finding ID inputs so the same Markdown content hashes to the same finding IDs across projects and renamed files.
+- Switched evidence ledger IDs to content-derived hashes based on evidence identity/content instead of packet-local ordinals.
+- Made `PriorArtHit.id` reuse the stable evidence ID, with a content-derived fallback that still ignores provenance labels.
+- Added regression coverage for cross-project/file stability and for non-collision between distinct prior-art evidence.
+
+## Deterministic ID fix test output
+
+Command:
+
+```bash
+pytest tests/test_deep_research_intake.py -v
+```
+
+Result:
+
+```text
+tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 12%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 25%]
+tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 37%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 50%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_ids_stable_across_project_and_file_changes PASSED [ 62%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_does_not_collide_on_distinct_evidence PASSED [ 75%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 87%]
+tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
+
+8 passed in 0.13s
+```

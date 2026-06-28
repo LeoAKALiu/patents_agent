@@ -70,10 +70,10 @@ def parse_deep_research_markdown(project_id: str, text: str, *, source_label: st
         if not bullets and body.strip():
             bullets = [_clean(body)]
         for item_index, item in enumerate(bullets, start=1):
-            refs = _evidence_refs_from_item(item, source_label=source_label)
+            refs = _evidence_refs_from_item(item)
             evidence_refs.extend(refs)
             finding = DeepResearchFinding(
-                id=_stable_id("dr", project_id, source_label, section_index, item_index, category, heading, item),
+                id=_stable_id("dr", section_index, item_index, category, heading, item),
                 category=category,
                 title=_title_from_item(item),
                 summary=item,
@@ -91,10 +91,7 @@ def parse_deep_research_markdown(project_id: str, text: str, *, source_label: st
             elif category == "warning":
                 warnings.append(item)
 
-    ledger = [
-        _ledger_entry(ref, index, source_label=source_label)
-        for index, ref in enumerate(_dedupe_refs(evidence_refs), start=1)
-    ]
+    ledger = [_ledger_entry(ref, source_label=source_label) for ref in _dedupe_refs(evidence_refs)]
     if not findings and not ledger:
         return DeepResearchPacket(
             status="partial",
@@ -128,7 +125,17 @@ def packet_prior_art_hits(packet: DeepResearchPacket) -> list[PriorArtHit]:
             continue
         hits.append(
             PriorArtHit(
-                id=str(entry.get("evidence_id") or _stable_id("hit", entry.get("source_label", ""), entry.get("publication_number"), url, title)),
+                id=str(
+                    entry.get("evidence_id")
+                    or _stable_id(
+                        "hit",
+                        entry.get("publication_number"),
+                        url,
+                        title,
+                        entry.get("snippet"),
+                        entry.get("matched_query"),
+                    )
+                ),
                 source="DeepResearch Markdown",
                 query=str(entry.get("matched_query") or ""),
                 title=title,
@@ -182,7 +189,7 @@ def _bullet_items(body: str) -> list[str]:
     return [item for item in items if item]
 
 
-def _evidence_refs_from_item(item: str, *, source_label: str) -> list[DeepResearchEvidenceRef]:
+def _evidence_refs_from_item(item: str) -> list[DeepResearchEvidenceRef]:
     publication = _publication_number(item)
     url = _url(item)
     if not publication and not url:
@@ -239,9 +246,17 @@ def _dedupe_refs(refs: list[DeepResearchEvidenceRef]) -> list[DeepResearchEviden
     return out
 
 
-def _ledger_entry(ref: DeepResearchEvidenceRef, index: int, *, source_label: str = "") -> dict[str, Any]:
+def _ledger_entry(ref: DeepResearchEvidenceRef, *, source_label: str = "") -> dict[str, Any]:
     return {
-        "evidence_id": f"DR{index:03d}",
+        "evidence_id": _stable_id(
+            "dr-evidence",
+            ref.source or "DeepResearch Markdown",
+            ref.publication_number,
+            ref.url,
+            ref.title,
+            ref.relevance,
+            ref.query,
+        ),
         "provider": "deep_research_markdown",
         "source": ref.source or "DeepResearch Markdown",
         "source_label": source_label,
