@@ -1969,6 +1969,43 @@ input:focus, select:focus, textarea:focus {
   line-height: 1.65;
 }
 
+.annotated-draft-section textarea.patch-applying {
+  border-color: color-mix(in oklch, var(--info), var(--border-subtle) 20%);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--info), transparent 78%);
+  animation: repairPatchApplying 900ms ease-in-out infinite alternate;
+}
+
+.annotated-draft-section textarea.patch-applied {
+  border-color: color-mix(in oklch, var(--success), var(--border-subtle) 20%);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--success), transparent 80%);
+  animation: repairPatchApplied 1200ms ease-out 1;
+}
+
+.annotated-draft-patch-status {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+@keyframes repairPatchApplying {
+  from {
+    background: var(--surface-base);
+  }
+  to {
+    background: color-mix(in oklch, var(--info), transparent 94%);
+  }
+}
+
+@keyframes repairPatchApplied {
+  0% {
+    background: color-mix(in oklch, var(--success), transparent 88%);
+  }
+  100% {
+    background: var(--surface-base);
+  }
+}
+
 .annotated-draft-section-label {
   display: flex;
   align-items: center;

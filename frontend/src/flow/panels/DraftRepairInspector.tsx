@@ -39,6 +39,11 @@ export interface DraftRepairInspectorProps {
   generating: boolean;
   applying: boolean;
   patchError: string | null;
+  patchActivity: {
+    issueId: string;
+    section: DraftRepairPatch["target_section"];
+    status: "applying" | "applied";
+  } | null;
   onGeneratePatch: () => void;
   onApplyPatch: () => void;
   onDismissPatch: () => void;
@@ -52,6 +57,7 @@ export function DraftRepairInspector({
   generating,
   applying,
   patchError,
+  patchActivity,
   onGeneratePatch,
   onApplyPatch,
   onDismissPatch,
@@ -62,9 +68,12 @@ export function DraftRepairInspector({
         <div className="repair-inspector-header">
           <h4>修复面板</h4>
         </div>
-        <div className="empty-panel compact">
-          <strong>未选择问题</strong>
-          <p>从左侧问题列表中选择一个，查看详情和操作。</p>
+        <div className="repair-inspector-body">
+          <ActivityCallout patchActivity={patchActivity} />
+          <div className="empty-panel compact">
+            <strong>未选择问题</strong>
+            <p>从左侧问题列表中选择一个，查看详情和操作。</p>
+          </div>
         </div>
       </aside>
     );
@@ -168,6 +177,8 @@ export function DraftRepairInspector({
           </div>
         )}
 
+        <ActivityCallout patchActivity={patchActivity} />
+
         {patchError && (
           <div className="callout callout-error">
             <div>
@@ -242,6 +253,36 @@ export function DraftRepairInspector({
         )}
       </div>
     </aside>
+  );
+}
+
+function ActivityCallout({
+  patchActivity,
+}: {
+  patchActivity: DraftRepairInspectorProps["patchActivity"];
+}) {
+  if (!patchActivity) return null;
+
+  return (
+    <div
+      className={`callout ${
+        patchActivity.status === "applying" ? "callout-info" : "callout-success"
+      }`}
+      aria-live="polite"
+    >
+      <div>
+        <strong>
+          {patchActivity.status === "applying"
+            ? `正在应用 AI 修正到${SECTION_LABELS[patchActivity.section]}`
+            : `AI 修正已写回${SECTION_LABELS[patchActivity.section]}`}
+        </strong>
+        <p>
+          {patchActivity.status === "applying"
+            ? "正在写回当前初稿，完成后左侧问题列表会自动更新。"
+            : "已从左侧问题列表移除该项，可继续处理下一条问题。"}
+        </p>
+      </div>
+    </div>
   );
 }
 
