@@ -21,7 +21,13 @@ from backend.app.core_formula import assess_formula_need, formula_package_to_mar
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
 from backend.app.deliberation.providers import AgentProviderRunner, repair_suggestion_for_failure
-from backend.app.disclosure.exporter import disclosure_to_markdown, export_disclosure_docx, write_disclosure_artifacts
+from backend.app.disclosure.exporter import (
+    clean_disclosure_to_markdown,
+    disclosure_sidecar_to_markdown,
+    disclosure_to_markdown,
+    export_disclosure_docx,
+    write_disclosure_artifacts,
+)
 from backend.app.disclosure.generator import DisclosureGenerator
 from backend.app.disclosure.material_parser import read_project_material_text
 from backend.app.disclosure.prior_art import PublicPriorArtProvider
@@ -1841,9 +1847,20 @@ def create_app(
         run = _require_disclosure_run(store, project_id, run_id)
         package = _require_disclosure_package(run)
         return PlainTextResponse(
-            disclosure_to_markdown(package),
+            clean_disclosure_to_markdown(package),
             media_type="text/markdown; charset=utf-8",
             headers=_content_disposition_header(f"{project.name}-技术交底书.md"),
+        )
+
+    @app.get("/api/projects/{project_id}/disclosures/{run_id}/sidecar.md")
+    def export_disclosure_run_sidecar(project_id: str, run_id: str) -> PlainTextResponse:
+        project = _require_project(store, project_id)
+        run = _require_disclosure_run(store, project_id, run_id)
+        package = _require_disclosure_package(run)
+        return PlainTextResponse(
+            disclosure_sidecar_to_markdown(package),
+            media_type="text/markdown; charset=utf-8",
+            headers=_content_disposition_header(f"{project.name}-交底书内部侧车.md"),
         )
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/diagram.mmd")

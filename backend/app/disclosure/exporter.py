@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -10,7 +11,18 @@ from docx import Document
 from backend.app.schemas import DisclosurePackage
 
 
-def disclosure_to_markdown(package: DisclosurePackage) -> str:
+URL_PATTERN = re.compile(r"https?://\S+")
+
+
+def clean_disclosure_to_markdown(package: DisclosurePackage) -> str:
+    body = package.body_markdown.strip()
+    appendix = _format_public_prior_art_appendix(package)
+    if not appendix or URL_PATTERN.search(body):
+        return body
+    return f"{body}\n\n{appendix}"
+
+
+def disclosure_sidecar_to_markdown(package: DisclosurePackage) -> str:
     candidates = "\n".join(
         "\n".join(
             [
@@ -95,78 +107,23 @@ def disclosure_to_markdown(package: DisclosurePackage) -> str:
 """
 
 
+def disclosure_to_markdown(package: DisclosurePackage) -> str:
+    return disclosure_sidecar_to_markdown(package)
+
+
 def export_disclosure_docx(package: DisclosurePackage, output_path: Path, run_dir: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=True, exist_ok=True)
-    warnings = list(package.export_warnings)
-    image_path = _render_mermaid(package.mermaid, run_dir)
-    if not image_path:
-        warnings.append("Mermaid renderer unavailable or failed; DOCX keeps Mermaid code as text.")
 
     doc = Document()
     doc.add_heading(package.title, level=0)
-
-    # ---- V1.1: Research confidence badge ----
-    confidence_badges = {"low": "🔴 低（0 references）", "medium": "🟡 中", "high": "🟢 高"}
-    confidence_label = confidence_badges.get(package.research_confidence, "⚪ 未知")
-    _add_section(doc, "检索置信度", f"{confidence_label}\n\n低置信度表示未检索到可引用的公开现有技术文献；交底书不隐含高专利性判断。")
-
-    _add_section(doc, "前置材料摘要", package.summary)
-    _add_section(doc, "材料覆盖", package.materials_summary)
-    _add_section(
-        doc,
-        "候选专利点",
-        "\n".join(f"{item.id}. {item.title}：{item.innovation}" for item in package.candidates) or "暂无。",
-    )
-    _add_section(
-        doc,
-        "护城河与证据状态",
-        "\n".join(
-            f"{item.id}. {item.title}\n证据状态：{item.evidence_status}\n来源：{item.source_type}\n支撑缺口：{'；'.join(item.support_gaps) or '无显式缺口'}"
-            for item in package.candidates
-        )
-        or "暂无。",
-    )
-    _add_section(
-        doc,
-        "Claim Chart",
-        "\n".join(
-            f"{candidate.title}｜{chart.prior_art_title}｜差异特征：{'；'.join(chart.differentiating_features) or '暂无'}｜撰写建议：{chart.claim_drafting_advice or '暂无'}"
-            for candidate in package.candidates
-            for chart in candidate.claim_chart
-        )
-        or "暂无。",
-    )
-    _add_section(
-        doc,
-        "公开现有技术",
-        "\n".join(
-            f"{hit.source}｜{hit.title}｜{hit.publication_number or ''}\n{hit.url}\n摘要：{hit.abstract or '无'}\n差异：{'；'.join(hit.differentiators) or hit.relevance_summary or '待人工复核'}"
-            for hit in package.prior_art_hits
-        )
-        or "暂无可用公开检索结果。",
-    )
-    _add_section(doc, "现有技术差异", package.prior_art_differences)
-    _add_section(doc, "检索来源台账", _format_ledger_section(package).replace("# ", "").replace("## ", ""))
-    _add_section(doc, "检索链路诊断", _format_diagnostics_section(package).replace("# ", "").replace("## ", ""))
-    _add_section(doc, "技术交底书", package.body_markdown)
-    doc.add_heading("Mermaid 图", level=1)
-    if image_path:
-        doc.add_picture(str(image_path))
-    else:
-        for line in package.mermaid.splitlines() or [""]:
-            doc.add_paragraph(line)
-    _add_section(doc, "绘图提示词", package.image_prompt)
-    _add_section(
-        doc,
-        "自检结果",
-        "\n".join(
-            f"[{finding.severity}] {finding.category}: {finding.message} 建议：{finding.suggestion}"
-            for finding in package.self_check_findings
-        )
-        or "暂无。",
-    )
-    _add_section(doc, "生成日志", "\n".join(package.generation_logs + warnings))
+    for line in package.body_markdown.splitlines() or [""]:
+        doc.add_paragraph(line)
+    if not URL_PATTERN.search(package.body_markdown):
+        appendix = _format_public_prior_art_appendix(package)
+        if appendix:
+            for line in appendix.splitlines():
+                doc.add_paragraph(line)
     doc.save(output_path)
     return output_path
 
@@ -174,14 +131,16 @@ def export_disclosure_docx(package: DisclosurePackage, output_path: Path, run_di
 def write_disclosure_artifacts(package: DisclosurePackage, run_dir: Path) -> dict[str, Path]:
     run_dir.mkdir(parents=True, exist_ok=True)
     md_path = run_dir / "disclosure.md"
+    sidecar_path = run_dir / "disclosure-sidecar.md"
     mmd_path = run_dir / "diagram.mmd"
     prompt_path = run_dir / "image-prompt.md"
     docx_path = run_dir / "disclosure.docx"
-    md_path.write_text(disclosure_to_markdown(package), encoding="utf-8")
+    md_path.write_text(clean_disclosure_to_markdown(package), encoding="utf-8")
+    sidecar_path.write_text(disclosure_sidecar_to_markdown(package), encoding="utf-8")
     mmd_path.write_text(package.mermaid, encoding="utf-8")
     prompt_path.write_text(package.image_prompt, encoding="utf-8")
     export_disclosure_docx(package, docx_path, run_dir)
-    return {"md": md_path, "mmd": mmd_path, "prompt": prompt_path, "docx": docx_path}
+    return {"md": md_path, "sidecar": sidecar_path, "mmd": mmd_path, "prompt": prompt_path, "docx": docx_path}
 
 
 def _render_mermaid(mermaid: str, run_dir: Path) -> Path | None:
@@ -212,6 +171,19 @@ def _add_section(doc: Document, heading: str, text: str) -> None:
     doc.add_heading(heading, level=1)
     for line in text.splitlines() or [""]:
         doc.add_paragraph(line)
+
+
+def _format_public_prior_art_appendix(package: DisclosurePackage) -> str:
+    if not package.prior_art_hits:
+        return ""
+
+    lines = ["## 公开现有技术链接", ""]
+    for hit in package.prior_art_hits:
+        label = hit.title
+        if hit.publication_number:
+            label = f"{label}（{hit.publication_number}）"
+        lines.append(f"- {label}: {hit.url}")
+    return "\n".join(lines)
 
 
 def _format_ledger_section(package: "DisclosurePackage") -> str:

@@ -1601,10 +1601,11 @@ export function officialExportUrl(projectId: string, kind: "docx" | "md"): strin
 export function disclosureExportUrl(
   projectId: string,
   runId: string,
-  kind: "docx" | "md" | "mmd" | "prompt",
+  kind: "docx" | "md" | "mmd" | "prompt" | "sidecar",
 ): string {
   if (kind === "docx") return `/api/projects/${projectId}/disclosures/${runId}/export.docx`;
   if (kind === "md") return `/api/projects/${projectId}/disclosures/${runId}/export.md`;
+  if (kind === "sidecar") return `/api/projects/${projectId}/disclosures/${runId}/sidecar.md`;
   if (kind === "mmd") return `/api/projects/${projectId}/disclosures/${runId}/diagram.mmd`;
   return `/api/projects/${projectId}/disclosures/${runId}/image-prompt.md`;
 }
