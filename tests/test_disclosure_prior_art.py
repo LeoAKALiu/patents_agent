@@ -30,6 +30,15 @@ def test_normalize_search_terms_splits_long_sentence_and_caps_to_eight() -> None
     assert "图像缺陷" in terms[0]
 
 
+def test_normalize_search_terms_keeps_single_valid_term_without_fallback_expansion() -> None:
+    terms = normalize_search_terms(
+        ["图像缺陷"],
+        fallback_text="图像缺陷 神经网络 实时反馈 闭环控制",
+    )
+
+    assert terms == ["图像缺陷"]
+
+
 def test_dedupe_prior_art_hits_prefers_publication_number_then_url() -> None:
     hits = [
         _hit("h1", "CN123456789A", "https://patents.google.com/patent/CN123456789A", "标题A"),

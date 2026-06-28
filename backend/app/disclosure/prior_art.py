@@ -232,7 +232,10 @@ def normalize_search_terms(terms: list[str], *, fallback_text: str = "", max_ter
         cleaned = _clean_term(raw)
         if not cleaned:
             continue
-        if len(cleaned) <= 24 and _is_useful_term(cleaned):
+        if _should_chunk_term(cleaned):
+            for chunk in _candidate_chunks_from_text(cleaned):
+                add(chunk)
+        elif len(cleaned) <= 24 and _is_useful_term(cleaned):
             add(cleaned)
         else:
             for chunk in _candidate_chunks_from_text(cleaned):
@@ -240,7 +243,7 @@ def normalize_search_terms(terms: list[str], *, fallback_text: str = "", max_ter
         if len(normalized) >= max_terms:
             return normalized[:max_terms]
 
-    if len(normalized) <= 1:
+    if not normalized:
         for chunk in fallback_terms:
             add(chunk)
             if len(normalized) >= max_terms:
@@ -362,6 +365,18 @@ def _candidate_chunks_from_text(text: str) -> list[str]:
             midpoint = max(2, min(len(core) - 2, len(core) // 2))
             return [core[:midpoint][:24], core[midpoint:][:24]]
     return [cleaned[:24]] if len(cleaned) <= 24 else []
+
+
+def _should_chunk_term(term: str) -> bool:
+    tokens = [_clean_term(token) for token in re.split(r"[\s,，;；/]+", term)]
+    useful_tokens = [token for token in tokens if token and _is_useful_term(token)]
+    if len(useful_tokens) >= 2:
+        return True
+    if _contains_cjk(term):
+        compact = re.sub(r"\s+", "", term)
+        if len(compact) >= 12:
+            return True
+    return False
 
 
 def _clean_term(term: str) -> str:
