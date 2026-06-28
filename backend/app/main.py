@@ -3360,20 +3360,12 @@ def _require_latest_completed_official_compile(
 
 def _current_quality_artifacts(
     store: SQLiteStore, project_id: str, current_source_hash: str
-) -> tuple[FilingReadinessReport | None, ClaimDefenseWorksheet | None, DraftCompletionRun | None]:
+) -> tuple[FilingReadinessReport | None, ClaimDefenseWorksheet | None]:
     filing_report = next(
         (
             report
             for report in store.list_filing_readiness_reports(project_id)
             if report.draft_package_hash == current_source_hash
-        ),
-        None,
-    )
-    completion_run = next(
-        (
-            run
-            for run in store.list_draft_completion_runs(project_id)
-            if run.status == "completed" and run.draft_package_hash == current_source_hash
         ),
         None,
     )
@@ -3385,11 +3377,11 @@ def _current_quality_artifacts(
         ),
         None,
     )
-    return filing_report, worksheet, completion_run
+    return filing_report, worksheet
 
 
 def _current_quality_gate_state(store: SQLiteStore, project_id: str, current_source_hash: str) -> dict:
-    filing_report, worksheet, _completion_run = _current_quality_artifacts(store, project_id, current_source_hash)
+    filing_report, worksheet = _current_quality_artifacts(store, project_id, current_source_hash)
     completion_runs = store.list_draft_completion_runs(project_id)
     latest_filing = next(iter(store.list_filing_readiness_reports(project_id)), None)
     latest_worksheet = next(iter(store.list_claim_defense_worksheets(project_id)), None)
@@ -3591,7 +3583,6 @@ def _require_official_export_gate(store: SQLiteStore, project_id: str, package: 
             status_code=409,
             detail=_post_draft_review_gate_error_detail(matching_review_attempt or latest_matching_review),
         )
-    _require_current_quality_gate(store, project_id, current_source_hash)
     return compile_run
 
 

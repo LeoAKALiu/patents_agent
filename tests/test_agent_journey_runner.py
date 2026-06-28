@@ -142,6 +142,31 @@ def test_run_journey_writes_passing_api_report(tmp_path: Path, journey_id: str) 
         assert "底座" in draft_step["actual"]
 
 
+def test_run_journey_records_hash_drift_export_block_evidence(tmp_path: Path) -> None:
+    path = run_journey(
+        "utility_model_from_structure",
+        tmp_path,
+        source_identity=SourceIdentity(
+            worktree_path="/repo",
+            git_top_level="/repo",
+            branch="test-branch",
+            short_sha="abc1234",
+            dirty_status="clean",
+            dirty_files_summary=[],
+        ),
+    )
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    drift_step = next(step for step in payload["steps"] if step["id"] == "hash_drift_export_gate")
+
+    assert drift_step["status"] == "passed"
+    assert "export_blocked=True" in drift_step["actual"]
+    assert "quality=stale" in drift_step["actual"]
+    assert any(evidence.startswith("api:GET /api/projects/") for evidence in drift_step["evidence"])
+    assert any(evidence.startswith("current_source_draft_hash:") for evidence in drift_step["evidence"])
+    assert payload["artifacts"]["api_payloads"]
+
+
 def test_run_journeys_rejects_unknown_journey_id(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="unknown journey_id"):
         run_journeys(["unknown"], tmp_path)

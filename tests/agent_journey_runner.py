@@ -261,6 +261,7 @@ def run_journey(
                 _run_polish_existing_draft(driver, steps)
             state = driver.state()
             _assert_ready_for_official_export(driver, steps)
+            _assert_hash_drift_blocks_official_export(driver.client, steps)
             finished_at = datetime.now(timezone.utc).isoformat()
             report = _build_report(
                 identity=identity,
@@ -317,6 +318,7 @@ def _build_report(
     hashes: dict[str, str],
     failures: list[dict[str, str]],
 ) -> JourneyReport:
+    artifacts = _artifacts_from_steps(steps)
     return JourneyReport(
         source_identity=identity,
         journey_id=journey_id,
@@ -331,8 +333,17 @@ def _build_report(
         gates=gates,
         hashes=hashes,
         failures=failures,
-        artifacts={"api_payloads": [], "logs": [], "screenshots": []},
+        artifacts=artifacts,
     )
+
+
+def _artifacts_from_steps(steps: list[JourneyStepResult]) -> dict[str, list[str]]:
+    api_payloads: list[str] = []
+    for step in steps:
+        for evidence in step.evidence:
+            if evidence.startswith("api:"):
+                api_payloads.append(evidence.removeprefix("api:"))
+    return {"api_payloads": sorted(set(api_payloads)), "logs": [], "screenshots": []}
 
 
 def _safe_state(driver: FlowDriver | None) -> Any | None:
@@ -489,14 +500,75 @@ def _assert_ready_for_official_export(driver: FlowDriver, steps: list[JourneySte
     steps.append(_step("official_export", "passed", "export official markdown", "ok true", str(export["ok"])))
 
 
-def _step(step_id: str, status: str, input_summary: str, expected: str, actual: str) -> JourneyStepResult:
+def _assert_hash_drift_blocks_official_export(client: TestClient, steps: list[JourneyStepResult]) -> None:
+    drift_driver = FlowDriver(client)
+    drift_driver.create_project(
+        "hash drift guard",
+        "一种用于验证正式导出锁定的确定性结构方案。",
+        patent_type="utility_model",
+    )
+    drift_driver.generate_draft()
+    drift_driver.run_quality()
+    drift_driver.compile_official()
+    drift_driver.run_post_draft_review()
+    drift_driver.edit_source_draft("具体实施方式\n当前 draft 在正式导出前发生了人工修改，应使既有质量检查、正式稿和成稿会审失效。")
+
+    state = drift_driver.state()
+    readiness = drift_driver.export_readiness()
+    export = drift_driver.export_official()
+    if readiness["export_allowed"] is True or export["ok"] is True:
+        raise AssertionError(f"hash drift should block official export: readiness={readiness}, export={export}")
+    expected_gates = {
+        "quality": "stale",
+        "official_compile": "stale",
+        "post_draft_review": "stale",
+    }
+    if state.gates != expected_gates:
+        raise AssertionError(f"hash drift should stale all export gates: {state.gates}")
+
+    actual = (
+        f"export_allowed={readiness['export_allowed']} "
+        f"next_action={readiness['next_action']} "
+        f"quality={state.gates['quality']} "
+        f"official_compile={state.gates['official_compile']} "
+        f"post_draft_review={state.gates['post_draft_review']} "
+        f"export_blocked={export['blocked']}"
+    )
+    project_id = drift_driver.project_id
+    steps.append(
+        _step(
+            "hash_drift_export_gate",
+            "passed",
+            "edit source draft after quality, official compile, and post-draft review pass",
+            "official export remains blocked and prior gates become stale",
+            actual,
+            evidence=[
+                f"api:GET /api/projects/{project_id}/export-readiness",
+                f"api:GET /api/projects/{project_id}/official-export.md",
+                f"current_source_draft_hash:{state.hashes['current_source_draft_hash']}",
+                f"latest_official_source_hash:{state.hashes['latest_official_source_hash']}",
+                f"latest_review_draft_hash:{state.hashes['latest_review_draft_hash']}",
+            ],
+        )
+    )
+
+
+def _step(
+    step_id: str,
+    status: str,
+    input_summary: str,
+    expected: str,
+    actual: str,
+    *,
+    evidence: list[str] | None = None,
+) -> JourneyStepResult:
     return JourneyStepResult(
         id=step_id,
         status=status,
         input_summary=input_summary,
         expected=expected,
         actual=actual,
-        evidence=[],
+        evidence=evidence or [],
     )
 
 
