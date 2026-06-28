@@ -1,0 +1,17 @@
+{
+  "run_dir": "output/playwright/export-gate-ui-20260628-180212",
+  "data_dir": "output/playwright/export-gate-ui-20260628-180212/data",
+  "projects": [
+    {
+      "id": "ui-compile-blocked",
+      "name": "UI证据-正式稿编译阻断",
+      "draft_hash": "797abf18a493bbd3ee93d69b3f2469d8a00b178f54a4c8ba59a464b9a2425e62"
+    },
+    {
+      "id": "ui-review-blocked",
+      "name": "UI证据-成稿会审阻断",
+      "draft_hash": "4021968d85f0e41b31252d7e0d33255db60c2619269119becc8cf4771324d982",
+      "official_hash": "c5c4ecf207b1a0e1ef87109fd317a57337c2a5ffdd0c2966736af1f4e116043b"
+    }
+  ]
+}

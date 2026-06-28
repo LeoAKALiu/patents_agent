@@ -181,7 +181,14 @@ def test_utility_model_lite_skips_deliberation_and_formula_gate(tmp_path):
 
     blocked_export = client.get(f"/api/projects/{project_id}/official-export.md")
     assert blocked_export.status_code == 409
-    assert "Official draft compile is required" in blocked_export.json()["detail"]
+    assert "Quality checks are required" in blocked_export.json()["detail"]
+    assert client.post(f"/api/projects/{project_id}/filing-readiness").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/claim-defense-worksheets").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/completion-runs").status_code == 200
+
+    blocked_without_compile = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert blocked_without_compile.status_code == 409
+    assert "Official draft compile is required" in blocked_without_compile.json()["detail"]
 
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200

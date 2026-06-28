@@ -172,6 +172,14 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
+Phase 1 agent journey runner:
+
+```bash
+python3 tests/agent_journey_runner.py --journey all --output-dir output/agent-journeys
+```
+
+This runner uses FastAPI `TestClient`, fake LLM, temporary data directories, and JSON reports. It proves the three primary API journeys reach a current quality gate, current official compile, current post-draft review, and allowed official export before any broader browser or Tauri smoke is treated as user-facing evidence.
+
 发布前确定性门禁：
 
 ```bash

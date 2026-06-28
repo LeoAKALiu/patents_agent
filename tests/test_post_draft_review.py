@@ -14,6 +14,7 @@ def test_post_draft_review_pass_unlocks_official_export(tmp_path):
         client,
         _package(drawing_description="图1为系统流程图。", image_prompt="黑白线稿。"),
     )
+    _run_quality_cycle(client, project_id)
 
     blocked = client.get(f"/api/projects/{project_id}/official-export.md")
     assert blocked.status_code == 409
@@ -124,21 +125,22 @@ def test_official_export_blocks_inline_prompt_after_passing_review(tmp_path):
         client,
         _package(drawing_description="图1为方法流程图。prompt: 黑白线稿"),
     )
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.json()["status"] == "blocked"
 
     review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     assert review_response.status_code == 409
-    assert "Official draft compile is required" in review_response.json()["detail"]
+    assert "blocked official compile" in review_response.json()["detail"]
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Official draft compile is required" in export_response.json()["detail"]
+    assert "blocked official compile" in export_response.json()["detail"]
 
     docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert docx_response.status_code == 409
-    assert "Official draft compile is required" in docx_response.json()["detail"]
+    assert "blocked official compile" in docx_response.json()["detail"]
 
 
 def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path):
@@ -147,21 +149,22 @@ def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path
         client,
         _package(drawing_description='{\n  "drawing_description": ""\n}'),
     )
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.json()["status"] == "blocked"
 
     review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     assert review_response.status_code == 409
-    assert "Official draft compile is required" in review_response.json()["detail"]
+    assert "blocked official compile" in review_response.json()["detail"]
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Official draft compile is required" in export_response.json()["detail"]
+    assert "blocked official compile" in export_response.json()["detail"]
 
     docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert docx_response.status_code == 409
-    assert "Official draft compile is required" in docx_response.json()["detail"]
+    assert "blocked official compile" in docx_response.json()["detail"]
 
 
 def test_official_export_blocks_case_insensitive_internal_labels_before_review(tmp_path):
@@ -177,6 +180,7 @@ def test_official_export_blocks_case_insensitive_internal_labels_before_review(t
             drawing_description="图1为系统流程图。\nPrompt: 黑白线稿。",
         ),
     )
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
     assert compile_response.json()["status"] == "blocked"
@@ -184,16 +188,17 @@ def test_official_export_blocks_case_insensitive_internal_labels_before_review(t
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Official draft compile is required" in export_response.json()["detail"]
+    assert "blocked official compile" in export_response.json()["detail"]
 
     docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert docx_response.status_code == 409
-    assert "Official draft compile is required" in docx_response.json()["detail"]
+    assert "blocked official compile" in docx_response.json()["detail"]
 
 
 def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
 
@@ -207,7 +212,7 @@ def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_pat
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert export_response.status_code == 409
-    assert "Post-draft multi-agent review is required" in export_response.json()["detail"]
+    assert "blocked post-draft review" in export_response.json()["detail"]
 
     report_response = client.get(f"/api/projects/{project_id}/post-draft-reviews/{run['id']}/report.md")
     assert report_response.status_code == 200
@@ -281,6 +286,7 @@ def test_apply_post_draft_safe_patches_rejects_unsafe_replacement_text(tmp_path)
 def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compile(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
 
@@ -297,7 +303,7 @@ def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compil
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Post-draft multi-agent review is required" in export_response.json()["detail"]
+    assert "blocked post-draft review" in export_response.json()["detail"]
 
 
 def test_post_draft_review_hash_mismatch_invalidates_export_gate(tmp_path):
@@ -481,6 +487,12 @@ def _create_project_with_package(client: TestClient, package: DraftPackage) -> s
     ).json()["id"]
     client.app.state.store.update_project_package(project_id, package)
     return project_id
+
+
+def _run_quality_cycle(client: TestClient, project_id: str) -> None:
+    assert client.post(f"/api/projects/{project_id}/filing-readiness").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/claim-defense-worksheets").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/completion-runs").status_code == 200
 
 
 def _package(**overrides) -> DraftPackage:

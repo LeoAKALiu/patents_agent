@@ -56,6 +56,7 @@ const filingReport: FilingReadinessReport = {
 const worksheet: ClaimDefenseWorksheet = {
   id: "worksheet-1",
   project_id: project.id,
+  draft_package_hash: "draft-hash",
   status: "reviewed",
   source: "draft",
   feature_records: [],

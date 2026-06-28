@@ -534,13 +534,15 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
 
 /**
  * Returns true when all three quality gates have been completed against
- * the current source draft.  When currentSourceDraftHash is provided, the
- * latest filing readiness report and the latest completion run must both
- * carry the same package hash — this prevents a stale quality gate from
- * unlocking official-compile after a chair revision changes the draft.
+ * the current source draft.  The current source hash must be known, and the
+ * latest filing readiness report, claim-defense worksheet, and completion
+ * run must all carry the same package hash — this prevents a stale or
+ * unverifiable quality gate from unlocking official-compile after a chair
+ * revision changes the draft.
  *
- * All three hashes (`filingReport.draft_package_hash`,
- * `completionRun.draft_package_hash`, and `currentSourceDraftHash`) are
+ * Artifact hashes (`filingReport.draft_package_hash`,
+ * `worksheet.draft_package_hash`, `completionRun.draft_package_hash`, and
+ * `currentSourceDraftHash`) are
  * `sha256(DraftPackage)` on the backend and are directly comparable.
  * `completionRun.snapshot_hash` is intentionally NOT compared — it is
  * `sha256(DraftPackage + points + materials)` and is used only for
@@ -566,16 +568,20 @@ function isQualityChecked(
       .sort((a, b) => createdAtTime(b.item) - createdAtTime(a.item) || a.index - b.index)
       .map((entry) => entry.item);
   const latestReport = byNewest(filingReports)[0];
+  const latestWorksheet = byNewest(worksheets)[0];
   const latestCompleted = byNewest(completionRuns).find((run) => run.status === "completed");
   if (!latestCompleted) {
     return false;
   }
   if (!currentSourceDraftHash) {
-    return true;
+    return false;
   }
   // draft_package_hash is sha256(package), the same formula as
   // currentSourceDraftHash — so both are authoritative freshness signals.
   if (latestReport.draft_package_hash !== currentSourceDraftHash) {
+    return false;
+  }
+  if (latestWorksheet.draft_package_hash !== currentSourceDraftHash) {
     return false;
   }
   if (latestCompleted.draft_package_hash !== currentSourceDraftHash) {

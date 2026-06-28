@@ -412,6 +412,9 @@ def test_score_improvement_invalidates_previous_official_export_gate(tmp_path):
             status="processed",
         )
     )
+    assert client.post(f"/api/projects/{project['id']}/filing-readiness").status_code == 200
+    assert client.post(f"/api/projects/{project['id']}/claim-defense-worksheets").status_code == 200
+    assert client.post(f"/api/projects/{project['id']}/completion-runs").status_code == 200
     assert client.post(f"/api/projects/{project['id']}/official-compile-runs", json={}).json()["status"] == "completed"
     assert client.post(f"/api/projects/{project['id']}/post-draft-reviews", json={}).json()["export_allowed"] is True
     assert client.get(f"/api/projects/{project['id']}/official-export.md").status_code == 200

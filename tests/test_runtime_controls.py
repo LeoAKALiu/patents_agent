@@ -5,7 +5,16 @@ from fastapi.testclient import TestClient
 from backend.app.disclosure.prior_art import StaticPriorArtProvider
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
-from backend.app.schemas import AgentDoctorReport, AgentProviderStatus, DeliberationRun, FormulaNeedAssessment, FormulaRun
+from backend.app.official_compile import source_draft_hash
+from backend.app.schemas import (
+    AgentDoctorReport,
+    AgentProviderStatus,
+    DeliberationRun,
+    DraftPackage,
+    FormulaNeedAssessment,
+    FormulaRun,
+    PostDraftReviewRun,
+)
 
 
 def test_disclosure_run_records_runtime_state_and_retry_link(tmp_path):
@@ -169,6 +178,33 @@ def test_deliberation_list_reconciles_cancelled_active_run(tmp_path):
     assert stored.status == "interrupted"
 
 
+def test_deliberation_cancel_request_wins_provider_exception_race(tmp_path, monkeypatch):
+    monkeypatch.setattr("backend.app.main.inspect_agent_environment", _retry_ready_doctor)
+    runner = _CancelThenFailDeliberationProviderRunner()
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=FakeLLMClient({}),
+            provider_runner=runner,
+            load_env_file=False,
+        )
+    )
+    project_id = _create_project(client)
+    runner.store = client.app.state.store
+    runner.project_id = project_id
+
+    run = client.post(f"/api/projects/{project_id}/deliberations", json={}).json()
+
+    assert run["status"] == "interrupted"
+    assert run["cancel_requested"] is True
+    assert run["failure_details"][0]["reason"] == "cancelled"
+    assert "run cancelled" in run["events"]
+    assert not any("Connection error" in event for event in run["events"])
+    assert not any("object has no attribute" in event for event in run["events"])
+    assert not any("Connection error" in failure["message"] for failure in run["failure_details"])
+    assert not any("object has no attribute" in failure["message"] for failure in run["failure_details"])
+
+
 def test_formula_run_records_runtime_state_and_retry_link(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_formula_llm(), load_env_file=False))
     project_id = _create_project(
@@ -204,6 +240,84 @@ def test_formula_cancel_marks_queued_run(tmp_path):
     assert cancelled["failure_details"][0]["flow"] == "formula"
 
 
+def test_formula_cancel_request_wins_provider_exception_race(tmp_path):
+    llm = _CancelThenFailFormulaLLM(_formula_llm().responses)
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm, load_env_file=False))
+    project_id = _create_project(
+        client,
+        draft_text="根据置信度增益、贡献矩阵和后验概率生成补采任务包。",
+    )
+    llm.store = client.app.state.store
+    llm.project_id = project_id
+
+    run = client.post(f"/api/projects/{project_id}/formula-runs", json={"run_timeout_ms": 30_000}).json()
+
+    assert run["status"] == "interrupted"
+    assert run["cancel_requested"] is True
+    assert run["failure_details"][0]["reason"] == "cancelled"
+    assert "run cancelled" in run["events"]
+    assert not any("Connection error" in event for event in run["events"])
+    assert not any("Connection error" in failure["message"] for failure in run["failure_details"])
+
+
+def test_post_draft_review_cancel_is_idempotent_and_retry_links_previous(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_post_draft_review_llm(), load_env_file=False))
+    project_id = _create_project(client)
+    package = _draft_package()
+    client.app.state.store.update_project_package(project_id, package)
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert compile_run["status"] == "completed"
+    queued = PostDraftReviewRun(
+        id="queued-post-review",
+        project_id=project_id,
+        status="queued",
+        providers=["codex", "deepseek", "claude"],
+        draft_package_hash=source_draft_hash(package),
+        official_compile_run_id=compile_run["id"],
+        official_package_hash=compile_run["official_package_hash"],
+    )
+    client.app.state.store.create_post_draft_review_run(queued)
+
+    cancelled = client.post(f"/api/projects/{project_id}/post-draft-reviews/{queued.id}/cancel").json()
+    assert cancelled["status"] == "interrupted"
+    assert cancelled["cancel_requested"] is True
+    assert cancelled["failure_details"][0]["flow"] == "post_draft_review"
+    assert cancelled["failure_details"][0]["reason"] == "cancelled"
+
+    cancelled_again = client.post(f"/api/projects/{project_id}/post-draft-reviews/{queued.id}/cancel").json()
+    assert cancelled_again["status"] == "interrupted"
+    assert cancelled_again["cancel_requested"] is True
+    assert cancelled_again["failure_details"] == cancelled["failure_details"]
+
+    retry = client.post(f"/api/projects/{project_id}/post-draft-reviews/{queued.id}/retry").json()
+    assert retry["status"] == "completed"
+    assert retry["retry_of"] == queued.id
+    assert retry["official_compile_run_id"] == compile_run["id"]
+    assert retry["export_allowed"] is True
+
+
+def test_post_draft_review_cancel_preserves_partial_role_result_and_wins_provider_exception(tmp_path):
+    llm = _CancelThenFailPostDraftReviewLLM(_post_draft_review_responses())
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm, load_env_file=False))
+    project_id = _create_project(client)
+    package = _draft_package()
+    client.app.state.store.update_project_package(project_id, package)
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert compile_run["status"] == "completed"
+    llm.store = client.app.state.store
+    llm.project_id = project_id
+
+    run = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+
+    assert run["status"] == "interrupted"
+    assert run["cancel_requested"] is True
+    assert run["failure_details"][0]["reason"] == "cancelled"
+    assert len(run["role_results"]) == 1
+    assert run["role_results"][0]["role"] == "claims_reviewer"
+    assert run["role_results"][0]["status"] == "passed"
+    assert not any("Connection error" in failure["message"] for failure in run["failure_details"])
+
+
 class _SlowDisclosureLLM(FakeLLMClient):
     def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
         time.sleep(0.005)
@@ -227,6 +341,77 @@ class _CancelThenFailDisclosureLLM(FakeLLMClient):
             )
             raise RuntimeError("Connection error.")
         return super().complete_stage(stage, system_prompt, user_prompt)
+
+
+class _CancelThenFailPostDraftReviewLLM(FakeLLMClient):
+    store = None
+    project_id = None
+
+    def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
+        if stage == "post_draft_spec_cleaner" and self.store is not None and self.project_id is not None:
+            run = self.store.list_post_draft_review_runs(self.project_id)[0]
+            self.store.update_post_draft_review_run(
+                run.model_copy(
+                    update={
+                        "cancel_requested": True,
+                    }
+                )
+            )
+            raise RuntimeError("Connection error.")
+        return super().complete_stage(stage, system_prompt, user_prompt)
+
+
+class _CancelThenFailFormulaLLM(FakeLLMClient):
+    store = None
+    project_id = None
+
+    def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
+        if stage == "core_formula" and self.store is not None and self.project_id is not None:
+            run = self.store.list_formula_runs(self.project_id)[0]
+            self.store.update_formula_run(
+                run.model_copy(
+                    update={
+                        "cancel_requested": True,
+                        "events": [*run.events, "cancel requested"],
+                    }
+                )
+            )
+            raise RuntimeError("Connection error.")
+        return super().complete_stage(stage, system_prompt, user_prompt)
+
+
+class _CancelThenFailDeliberationProviderRunner:
+    store = None
+    project_id = None
+    cancelled_once = False
+
+    async def run_json_task(self, provider_id, prompt, workdir, label, trace, task_timeout_ms, log_callback=None):
+        if (
+            label.startswith("opening codex")
+            and not self.cancelled_once
+            and self.store is not None
+            and self.project_id is not None
+        ):
+            self.cancelled_once = True
+            run = self.store.list_deliberation_runs(self.project_id)[0]
+            self.store.update_deliberation_run(
+                run.model_copy(
+                    update={
+                        "cancel_requested": True,
+                        "events": [*run.events, "cancel requested"],
+                    }
+                )
+            )
+            raise RuntimeError("Connection error.")
+        return await _FastDeliberationProviderRunner().run_json_task(
+            provider_id,
+            prompt,
+            workdir,
+            label,
+            trace,
+            task_timeout_ms,
+            log_callback,
+        )
 
 
 class _FastDeliberationProviderRunner:
@@ -294,6 +479,21 @@ def _create_project(client: TestClient, draft_text: str | None = None) -> str:
     return response.json()["id"]
 
 
+def _draft_package() -> DraftPackage:
+    return DraftPackage(
+        title="一种运行态控制方法",
+        abstract="本发明公开一种运行态控制方法。",
+        claims="1. 一种运行态控制方法，其特征在于，包括记录运行状态并在中断后重试。",
+        description="本发明涉及任务运行态控制技术领域。系统记录运行状态并支持重试。",
+        drawing_description="图1为运行态控制流程图。",
+        mermaid="",
+        image_prompt="",
+        review_findings=[],
+        citations=[],
+        generation_logs=[],
+    )
+
+
 def _disclosure_llm() -> FakeLLMClient:
     return FakeLLMClient(_disclosure_responses())
 
@@ -327,3 +527,60 @@ def _formula_llm() -> FakeLLMClient:
 """
         }
     )
+
+
+def _post_draft_review_llm() -> FakeLLMClient:
+    return FakeLLMClient(_post_draft_review_responses())
+
+
+def _post_draft_review_responses() -> dict[str, str]:
+    return {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "passed",
+  "export_allowed": true,
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [],
+  "attorney_memo": [],
+  "next_actions": []
+}
+""",
+    }

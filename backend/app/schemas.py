@@ -312,7 +312,7 @@ class OfficialCompileRunCreate(BaseModel):
 class OfficialCompileRun(BaseModel):
     id: str
     project_id: str
-    status: str = Field(pattern="^(completed|blocked|failed)$")
+    status: str = Field(pattern="^(queued|running|completed|blocked|failed)$")
     source_draft_hash: str = ""
     official_package_hash: str = ""
     official_package: OfficialDraftPackage | None = None
@@ -432,6 +432,7 @@ class FeatureRecord(BaseModel):
 class ClaimDefenseWorksheet(BaseModel):
     id: str
     project_id: str
+    draft_package_hash: str = ""
     status: str = Field(default="draft", pattern="^(draft|reviewed|superseded)$")
     source: str = Field(default="draft", pattern="^(draft|disclosure|generated_package|manual)$")
     feature_records: list[FeatureRecord] = Field(default_factory=list)

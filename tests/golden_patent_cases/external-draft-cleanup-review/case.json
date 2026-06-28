@@ -1,0 +1,48 @@
+{
+  "case_id": "external-draft-cleanup-review",
+  "category": "existing_draft",
+  "application_type": "invention",
+  "input_kind": "existing_draft",
+  "technical_idea": "一种已有专利初稿的清污、补强和正式导出流程。",
+  "existing_draft": "权利要求书\n1. 一种数据处理方法，包括根据内部会审策略生成处理结果。\n说明书\n本发明涉及数据处理，需实验后补充效果。",
+  "key_innovations": [
+    "外部稿解析",
+    "内部痕迹清理",
+    "正式稿会审"
+  ],
+  "prior_art_summary": "现有专利辅助系统通常仅重排外部稿内容，缺少正式稿清污与成稿后会审门禁。",
+  "required_distinguishing_features": [
+    "外部稿解析",
+    "正式稿会审"
+  ],
+  "forbidden_official_content": [
+    "内部会审策略",
+    "需实验",
+    "external_draft_intake",
+    "attorney_memo"
+  ],
+  "expected_quality_thresholds": {
+    "claim_feature_coverage": 0.86,
+    "spec_support_coverage": 0.82,
+    "official_cleanliness": 1.0,
+    "evidence_honesty": 1.0
+  },
+  "deterministic_checks": {
+    "release_blocker": true,
+    "checks": [
+      "external_draft_intake_completed",
+      "official_compile_removes_internal_traces",
+      "post_draft_review_required_before_export"
+    ]
+  },
+  "llm_judge": {
+    "release_blocker": false,
+    "purpose": "诊断外部稿清理后是否仍保持技术范围。"
+  },
+  "human_calibration": {
+    "status": "pending_human_review",
+    "reviewer": "",
+    "notes": "需人工确认清污不改变原始技术方案边界。"
+  },
+  "release_gate_enabled": false
+}

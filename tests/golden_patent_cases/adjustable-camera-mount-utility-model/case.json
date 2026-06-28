@@ -1,0 +1,48 @@
+{
+  "case_id": "adjustable-camera-mount-utility-model",
+  "category": "utility_model",
+  "application_type": "utility_model",
+  "input_kind": "idea",
+  "technical_idea": "一种可调节边缘AI摄像机防护安装支架，包括底座、转动支撑臂、限位件和防护罩。",
+  "existing_draft": "",
+  "key_innovations": [
+    "转动支撑臂",
+    "限位件",
+    "防护罩连接关系"
+  ],
+  "prior_art_summary": "现有安装支架通常只公开固定安装结构，缺少面向边缘AI摄像机的角度限位和防护罩协同结构。",
+  "required_distinguishing_features": [
+    "转动支撑臂",
+    "限位件"
+  ],
+  "forbidden_official_content": [
+    "方法步骤",
+    "算法模型训练",
+    "内部绘图提示词",
+    "会审日志"
+  ],
+  "expected_quality_thresholds": {
+    "claim_feature_coverage": 0.88,
+    "spec_support_coverage": 0.86,
+    "official_cleanliness": 1.0,
+    "evidence_honesty": 1.0
+  },
+  "deterministic_checks": {
+    "release_blocker": true,
+    "checks": [
+      "utility_model_claims_are_structural",
+      "required_distinguishing_features_in_claims",
+      "forbidden_official_content_absent"
+    ]
+  },
+  "llm_judge": {
+    "release_blocker": false,
+    "purpose": "检查权利要求层级和结构语言自然度。"
+  },
+  "human_calibration": {
+    "status": "pending_human_review",
+    "reviewer": "",
+    "notes": "需人工确认结构限定不过窄且符合实用新型客体。"
+  },
+  "release_gate_enabled": false
+}

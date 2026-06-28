@@ -96,6 +96,883 @@ def test_compiler_blocks_json_style_prompt_internal_field():
     assert any(item["pattern"] == "prompt" for item in run.contamination_removed)
 
 
+def test_compiler_blocks_non_empty_official_json_field_wrappers():
+    package = _draft_package(
+        claims='{"claims": "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"}',
+        description='{"description": {"technical_field": "本发明涉及无人机任务规划技术领域。"}}',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    removed_patterns = {item["pattern"] for item in run.contamination_removed}
+    assert {"claims", "description"} <= removed_patterns
+    assert any(item["category"] == "official_hygiene_contamination" for item in run.blocked_items)
+
+
+def test_compiler_blocks_chinese_evidence_metadata_aliases_and_markdown_links():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。\n"
+            "证据编号：EV-001\n"
+            "材料编号：material-1"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。\n"
+            "来源标签：实验记录.md\n"
+            "引用来源：[CN111111A](https://example.test/patent/CN111111A)"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    removed_patterns = {item["pattern"] for item in run.contamination_removed}
+    assert {"证据编号", "材料编号", "来源标签", "引用来源"} <= removed_patterns
+    assert any(item["category"] == "official_hygiene_contamination" for item in run.blocked_items)
+
+
+def test_compiler_blocks_inline_url_and_markdown_link_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，"
+            "其中参数来自[内部实验报告](https://internal.example/reports/exp-1.pdf)。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。"
+            "补充材料参见 https://internal.example/materials/source.docx。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "url" for item in run.blocked_items)
+
+
+def test_compiler_blocks_bracketed_evidence_citation_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，"
+            "其中校准参数依据[evidence:EV-CITY-001]确定。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。"
+            "控制器按照采集指标生成任务节点【来源：实验记录.md】。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "bracketed_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_parenthetical_evidence_citation_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，"
+            "其中采集阈值由控制器动态确定（来源：实验记录.md）。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。"
+            "任务包包含复核节点 (source: lab-note-001) 和状态记录节点。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "parenthetical_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_xml_evidence_tag_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，"
+            "<source id=\"CN111111A\">内部对比文件</source>。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。"
+            "<evidence ref=\"EV-CITY-001\">实验记录</evidence>用于确定采集阈值。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "xml_evidence_tag" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_comment_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+            "<!-- source: lab-note-001 -->"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。"
+            "<!-- 证据：EV-CITY-001 -->控制器根据采集阈值生成任务。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_comment_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_attribute_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，"
+            "<span data-source=\"lab-note-001\">采集阈值</span>由控制器动态确定。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。"
+            "<section evidence-ref=\"EV-CITY-001\">任务包包含复核节点。</section>"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_attribute_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_class_id_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中"
+            '<span class="evidence EV-CITY-001">控制器</span>生成任务包。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<section id="source-lab-note-001">采集日志</section>执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<div class="来源 实验记录">图1</div>',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_class_id_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_data_value_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中"
+            '<span data-note="evidence: EV-CITY-001">控制器</span>生成任务包。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<section data-review="证据：EV-CITY-002">采集日志</section>执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<div data-extra="source: lab-note-002">图1</div>',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_data_value_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_event_handler_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中"
+            '<button onclick="track(\'evidence: EV-CITY-001\')">控制器</button>生成任务包。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<span onmouseover="console.log(\'证据：EV-CITY-002\')">采集日志</span>执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<a href="#fig1" onfocus="note=\'source: lab-note-002\'">图1</a>',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_event_handler_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_meta_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，"
+            "<meta name=\"source\" content=\"lab-note-001\">采集阈值由控制器动态确定。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。"
+            "<meta property=\"evidence-ref\" content=\"EV-CITY-001\">任务包包含复核节点。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_meta_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_markdown_footnote_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，"
+            "其中采集阈值由控制器动态确定。[^source]\n\n"
+            "[^source]: 来源：实验记录.md"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。"
+            "任务包包含复核节点。[^1]\n\n"
+            "[^1]: source: lab-note-001"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "markdown_footnote_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_markdown_reference_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，其中采集阈值由控制器动态确定。\n\n"
+            "[source]: internal-experiment-record.md"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包包含复核节点。\n\n"
+            "[证据]: EV-CITY-001"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "markdown_reference_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_markdown_table_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，其中采集阈值由控制器动态确定。\n\n"
+            "| 字段 | 值 |\n"
+            "| source | lab-note-001 |\n"
+            "| evidence | EV-CITY-001 |"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包包含复核节点。\n\n"
+            "| 字段 | 值 |\n"
+            "| 证据 | 实验记录.md |"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "markdown_table_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_yaml_front_matter_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "---\n"
+            "evidence:\n"
+            "  - EV-CITY-001\n"
+            "---\n"
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+        ),
+        description=(
+            "---\n"
+            "证据：\n"
+            "  - 实验记录.md\n"
+            "---\n"
+            "本发明涉及无人机任务规划技术领域。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "yaml_front_matter_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_stripped_yaml_front_matter_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "evidence:\n"
+            "  - EV-CITY-001\n"
+            "---\n"
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+        ),
+        description=(
+            "证据：\n"
+            "  - 实验记录.md\n"
+            "---\n"
+            "本发明涉及无人机任务规划技术领域。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "yaml_front_matter_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_toml_front_matter_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "+++\n"
+            'evidence = ["EV-CITY-001"]\n'
+            "+++\n"
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+        ),
+        description=(
+            "+++\n"
+            '证据 = ["实验记录.md"]\n'
+            "+++\n"
+            "本发明涉及无人机任务规划技术领域。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "toml_front_matter_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_ini_section_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "[evidence]\n"
+            "id = EV-CITY-001\n"
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+        ),
+        description=(
+            "[证据]\n"
+            "编号 = EV-CITY-002\n"
+            "本发明涉及无人机任务规划技术领域。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "ini_section_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_json_ld_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            '<script type="application/ld+json">\n'
+            '{"evidence": "EV-CITY-001", "material": "lab-note-001"}\n'
+            "</script>\n"
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+        ),
+        description=(
+            '<script type="application/ld+json">\n'
+            '{"证据": "EV-CITY-002", "来源": "实验记录.md"}\n'
+            "</script>\n"
+            "本发明涉及无人机任务规划技术领域。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_json_ld_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_json_script_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            '<script type="application/json" id="draft-evidence">\n'
+            '{"evidence": "EV-CITY-001", "material": "lab-note-001"}\n'
+            "</script>\n"
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+        ),
+        description=(
+            '<script type="application/json" data-kind="source-map">\n'
+            '{"证据": "EV-CITY-002", "来源": "实验记录.md"}\n'
+            "</script>\n"
+            "本发明涉及无人机任务规划技术领域。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_json_script_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_csv_evidence_metadata_leakage():
+    package = _draft_package(
+        claims=(
+            "evidence_id,source_label\n"
+            "EV-CITY-001,lab-note-001\n"
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+        ),
+        description=(
+            "证据编号,来源标签\n"
+            "EV-CITY-002,实验记录.md\n"
+            "本发明涉及无人机任务规划技术领域。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "csv_metadata_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_asciidoc_attribute_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            ":evidence: EV-CITY-001\n"
+            ":source-label: lab-note-001\n"
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+        ),
+        description=(
+            ":证据: EV-CITY-002\n"
+            ":来源标签: 实验记录.md\n"
+            "本发明涉及无人机任务规划技术领域。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "asciidoc_attribute_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_latex_command_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包，"
+            r"其中采集阈值由控制器动态确定\cite{source=lab-note-001}。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。"
+            r"任务包包含复核节点\footnote{证据: EV-CITY-002}。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "latex_command_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_bibtex_entry_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。\n"
+            "@misc{city-source,\n"
+            "  note = {source: lab-note-001}\n"
+            "}"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。\n"
+            "@article{city-evidence,\n"
+            "  evidence = {EV-CITY-002}\n"
+            "}"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "bibtex_entry_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_rst_directive_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。\n"
+            ".. source:: lab-note-001"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。\n"
+            ".. evidence:: EV-CITY-002"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "rst_directive_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_markdown_list_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。\n"
+            "- evidence: EV-CITY-001\n"
+            "- source: lab-note-001"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。\n"
+            "* 证据：EV-CITY-002\n"
+            "* 来源：实验记录.md"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "markdown_list_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_markdown_blockquote_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。\n"
+            "> evidence: EV-CITY-001\n"
+            "> source: lab-note-001"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。\n"
+            "> 证据：EV-CITY-002\n"
+            "> 来源：实验记录.md"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "markdown_blockquote_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_markdown_link_title_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中校准阈值依据"
+            '[实验记录](lab-note-001 "evidence: EV-CITY-001")确定。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包依据"
+            '[采集日志](material-log "证据：EV-CITY-002")生成。'
+        ),
+        drawing_description='图1为任务包生成流程图。![流程图](figure-1.png "source: lab-note-002")',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "markdown_link_title_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_markdown_image_alt_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中采集路径由控制器生成，"
+            "并输出![evidence: EV-CITY-001](path-plan.png)。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            "![证据：EV-CITY-002](collection-log.png)执行复核。"
+        ),
+        drawing_description="图1为任务包生成流程图。![source: lab-note-002](figure-1.png)",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "markdown_image_alt_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_image_attribute_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中采集路径由控制器生成，"
+            '<img src="path-plan.png" alt="evidence: EV-CITY-001" />。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<img src="collection-log.png" title="证据：EV-CITY-002" />执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<img src="figure-1.png" alt="source: lab-note-002" />',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_image_attribute_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_accessible_attribute_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中采集路径由"
+            '<abbr title="evidence: EV-CITY-001">控制器</abbr>生成。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<span aria-label="证据：EV-CITY-002">采集日志</span>执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<a href="#fig1" title="source: lab-note-002">图1</a>',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_accessible_attribute_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_visible_text_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中校准阈值由控制器确定"
+            "<sup>evidence: EV-CITY-001</sup>。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            "<span>证据：EV-CITY-002</span>生成。"
+        ),
+        drawing_description="图1为任务包生成流程图。<small>source: lab-note-002</small>",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_visible_text_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_hidden_text_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器"
+            "<template>evidence: EV-CITY-001</template>生成任务包。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            "<noscript>证据：EV-CITY-002</noscript>采集日志执行复核。"
+        ),
+        drawing_description="图1为任务包生成流程图。<template>source: lab-note-002</template>",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_hidden_text_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_caption_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中采集路径由控制器生成"
+            "<figcaption>evidence: EV-CITY-001</figcaption>。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            "<caption>证据：EV-CITY-002</caption>执行复核。"
+        ),
+        drawing_description="图1为任务包生成流程图。<figcaption>source: lab-note-002</figcaption>",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_caption_text_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_svg_title_desc_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器输出"
+            "<svg><title>evidence: EV-CITY-001</title></svg>。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            "<svg><desc>证据：EV-CITY-002</desc></svg>执行复核。"
+        ),
+        drawing_description="图1为任务包生成流程图。<svg><title>source: lab-note-002</title></svg>",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "svg_title_desc_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_svg_text_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器输出"
+            "<svg><text>evidence: EV-CITY-001</text></svg>。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            "<svg><tspan>证据：EV-CITY-002</tspan></svg>执行复核。"
+        ),
+        drawing_description="图1为任务包生成流程图。<svg><text>source: lab-note-002</text></svg>",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "svg_text_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_style_tag_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器生成任务包"
+            "<style>/* evidence: EV-CITY-001 */ .route { color: #111; }</style>。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            "<style>.review::after { content: '证据：EV-CITY-002'; }</style>执行复核。"
+        ),
+        drawing_description="图1为任务包生成流程图。<style>/* source: lab-note-002 */</style>",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_style_tag_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_inline_style_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器"
+            '<span style="--evidence: EV-CITY-001;">生成任务包</span>。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<span style="content: \'证据：EV-CITY-002\';">采集日志</span>执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<span style="--source: lab-note-002;">图1</span>',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_inline_style_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_form_field_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器生成任务包"
+            '<input type="hidden" name="evidence" value="EV-CITY-001" />。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<input type="hidden" name="证据" value="EV-CITY-002" />执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<input type="hidden" value="source: lab-note-002" />',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_form_field_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_semantic_metadata_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器"
+            '<span itemprop="evidence" content="EV-CITY-001"></span>生成任务包。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<span property="证据" content="EV-CITY-002"></span>采集日志执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<span itemprop="source" content="lab-note-002"></span>',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_semantic_metadata_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_entity_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中校准阈值由控制器确定"
+            "&lt;evidence ref=&quot;EV-CITY-001&quot;&gt;实验记录&lt;/evidence&gt;。"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包依据"
+            "&lt;source&gt;lab-note-001&lt;/source&gt;生成。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_entity_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_source_footer_metadata_lines():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。\n"
+            "Sources: internal-experiment-record.md"
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。\n"
+            "参考资料：实验记录.md\n"
+            "依据材料：采集日志-001"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    removed_patterns = {item["pattern"] for item in run.contamination_removed}
+    assert {"sources", "参考资料", "依据材料"} <= removed_patterns
+    assert any(item["category"] == "official_hygiene_contamination" for item in run.blocked_items)
+
+
 def test_compiler_blocks_case_insensitive_internal_labels_and_memos():
     package = _draft_package(
         description=(
@@ -367,7 +1244,10 @@ def test_blocked_compile_cleanup_rechecks_quality_and_unlocks_export_loop(tmp_pa
 
     stale_export = client.get(f"/api/projects/{project_id}/official-export.md")
     assert stale_export.status_code == 409
-    assert "Official draft compile is required" in stale_export.json()["detail"]
+    assert "stale quality checks" in stale_export.json()["detail"]
+    assert "filing_readiness" in stale_export.json()["detail"]
+    assert "claim_defense_worksheet" in stale_export.json()["detail"]
+    assert "draft_completion" in stale_export.json()["detail"]
 
     refreshed_quality = _run_quality_cycle(client, project_id)
     assert refreshed_quality["filing"]["draft_package_hash"] == current_hash
@@ -419,6 +1299,7 @@ def test_post_draft_review_requires_completed_official_compile_for_current_draft
 def test_post_draft_review_records_official_package_hash_and_unlocks_export(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _draft_package(claims="1. 一种方法。"))
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
     compile_run = compile_response.json()
@@ -449,6 +1330,7 @@ def test_official_export_uses_compiled_package_not_raw_draft(tmp_path):
             generation_logs=["generation_logs: internal"],
         ),
     )
+    _run_quality_cycle(client, project_id)
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
 
@@ -463,6 +1345,7 @@ def test_official_export_uses_compiled_package_not_raw_draft(tmp_path):
 def test_review_for_previous_compile_run_cannot_unlock_latest_compile(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _draft_package())
+    _run_quality_cycle(client, project_id)
     first_compile = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
     review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
     assert review["export_allowed"] is True
@@ -500,6 +1383,7 @@ def test_kimi_language_polish_creates_new_official_compile_version_and_requires_
         )
     )
     project_id = _create_project_with_package(client, _draft_package())
+    _run_quality_cycle(client, project_id)
     original_compile = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
     passed_review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
     assert passed_review["export_allowed"] is True
@@ -539,9 +1423,11 @@ def test_kimi_language_polish_creates_new_official_compile_version_and_requires_
 def test_official_export_requires_recompile_when_draft_changes(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _draft_package())
+    _run_quality_cycle(client, project_id)
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     client.app.state.store.update_project_package(project_id, _draft_package(abstract="修改后的摘要。"))
+    _run_quality_cycle(client, project_id)
 
     response = client.get(f"/api/projects/{project_id}/official-export.md")
 

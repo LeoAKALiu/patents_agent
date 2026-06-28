@@ -240,7 +240,10 @@ def test_filing_readiness_api_no_longer_unlocks_official_export_without_post_dra
 
     official_md = client.get(f"/api/projects/{project_id}/official-export.md")
     assert official_md.status_code == 409
-    assert "Official draft compile is required" in official_md.json()["detail"]
+    detail = official_md.json()["detail"]
+    assert "Quality checks are required" in detail
+    assert "claim_defense_worksheet" in detail
+    assert "draft_completion" in detail
 
 
 def test_filing_readiness_api_warning_allows_official_markdown_and_docx_export(tmp_path):
@@ -255,6 +258,10 @@ def test_filing_readiness_api_warning_allows_official_markdown_and_docx_export(t
     report_response = client.post(f"/api/projects/{project_id}/filing-readiness")
     assert report_response.status_code == 200
     assert report_response.json()["status"] == "warning"
+    worksheet_response = client.post(f"/api/projects/{project_id}/claim-defense-worksheets")
+    assert worksheet_response.status_code == 200
+    completion_response = client.post(f"/api/projects/{project_id}/completion-runs")
+    assert completion_response.status_code == 200
 
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200

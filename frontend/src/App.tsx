@@ -47,6 +47,7 @@ import {
   GrantabilityReport,
   Health,
   OfficialCompileRun,
+  type ExportReadiness,
   type OfficialDraftPackage,
   PatentPointCandidate,
   PatentPointCreatePayload,
@@ -63,6 +64,7 @@ import {
   type DraftCompletionRun,
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
+  type QualityCheckStates,
   acceptAllCompletionPatches,
   acceptCompletionPatch,
   applyOfficialCompileCleanup,
@@ -91,6 +93,7 @@ import {
   getFormulaRequirement,
   getAgentDoctor,
   getCorpusStats,
+  getExportReadiness,
   getHealth,
   improveProjectScore,
   importPatent,
@@ -554,6 +557,17 @@ function fileFromNativeDraft(
   });
 }
 
+function qualityCheckStateForDraftHash(
+  artifacts: Array<{ draft_package_hash?: string }>,
+  currentSourceDraftHash: string,
+): "missing" | "stale" | "current" {
+  if (!artifacts.length) return "missing";
+  if (!currentSourceDraftHash) return "stale";
+  return artifacts.some((artifact) => artifact.draft_package_hash === currentSourceDraftHash)
+    ? "current"
+    : "stale";
+}
+
 function App() {
   const initialAppState = useMemo(() => loadPersistedAppState(), []);
   const [activeSection, setActiveSection] = useState<MainSectionId>(initialAppState.activeSection);
@@ -584,6 +598,7 @@ function App() {
   const [officialCompileRuns, setOfficialCompileRuns] = useState<OfficialCompileRun[]>([]);
   const [currentSourceDraftHash, setCurrentSourceDraftHash] = useState("");
   const [postDraftReviews, setPostDraftReviews] = useState<PostDraftReviewRun[]>([]);
+  const [exportReadiness, setExportReadiness] = useState<ExportReadiness | null>(null);
   const [currentDraftHash, setCurrentDraftHash] = useState("");
   const [selectedDeliberationProviders, setSelectedDeliberationProviders] = useState<string[]>(requiredAgentProviderIds);
   const [selectedDeliberationParticipantProviders, setSelectedDeliberationParticipantProviders] = useState<string[]>([]);
@@ -650,6 +665,15 @@ function App() {
   const latestCompletionRun = completionRuns[0] ?? null;
   const latestOfficialCompileRun = selectCurrentOfficialCompileRun(officialCompileRuns, currentSourceDraftHash);
   const latestPostDraftReview = selectLatestMatchingPostDraftReview(postDraftReviews, latestOfficialCompileRun);
+  const currentQualityCheckStates = useMemo<QualityCheckStates>(() => ({
+    filing_readiness: qualityCheckStateForDraftHash(filingReports, currentSourceDraftHash),
+    claim_defense_worksheet: qualityCheckStateForDraftHash(worksheets, currentSourceDraftHash),
+    draft_completion: qualityCheckStateForDraftHash(
+      completionRuns.filter((run) => run.status === "completed"),
+      currentSourceDraftHash,
+    ),
+  }), [completionRuns, currentSourceDraftHash, filingReports, worksheets]);
+  const currentQualityChecked = Object.values(currentQualityCheckStates).every((state) => state === "current");
   const selectedProjectIdForRefresh = selectedProject?.id ?? "";
   const latestOfficialCompileRunId = latestOfficialCompileRun?.id ?? "";
   const latestPostDraftReviewId = latestPostDraftReview?.id ?? "";
@@ -664,6 +688,9 @@ function App() {
   selectedProjectIdRef.current = selectedProjectId;
 
   useEffect(() => {
+    if (selectedProjectIdForRefresh) {
+      void loadExportReadiness(selectedProjectIdForRefresh);
+    }
     void refreshAll();
   }, [
     selectedProjectIdForRefresh,
@@ -671,6 +698,7 @@ function App() {
     latestPostDraftReviewId,
     currentDraftHash,
     currentSourceDraftHash,
+    currentQualityChecked,
     lastExportRefreshKey,
   ]);
 
@@ -753,6 +781,7 @@ function App() {
     setOfficialCompileRuns([]);
     setCurrentSourceDraftHash("");
     setPostDraftReviews([]);
+    setExportReadiness(null);
     setCurrentDraftHash("");
     setExternalDraftSources([]);
     setExternalDraftIntakeRuns([]);
@@ -763,6 +792,7 @@ function App() {
       void loadFormulaState(selectedProject.id);
       void loadOfficialCompileRuns(selectedProject.id);
       void loadPostDraftReviews(selectedProject.id);
+      void loadExportReadiness(selectedProject.id);
       void refreshExternalDrafts(selectedProject.id);
       setPatentPoints([]);
       setPatentPointsProjectId("");
@@ -781,6 +811,7 @@ function App() {
       setDisclosureRuns([]);
       setFormulaRequirement(null);
       setFormulaRuns([]);
+      setExportReadiness(null);
       setPatentPoints([]);
       setFilingReports([]);
       setGrantabilityReports([]);
@@ -815,6 +846,7 @@ function App() {
       void loadFormulaState(projectId);
       void loadOfficialCompileRuns(projectId);
       void loadPostDraftReviews(projectId);
+      void loadExportReadiness(projectId);
     }, 1000);
     return () => window.clearInterval(timer);
     // loadX functions are stable closures over setState only; they are not
@@ -887,6 +919,22 @@ function App() {
 
   async function loadOfficialCompileRuns(projectId: string): Promise<boolean> {
     return projectDataLoadOfficialCompileRuns(projectId, projectDataDeps);
+  }
+
+  async function loadExportReadiness(projectId: string): Promise<boolean> {
+    try {
+      const readiness = await getExportReadiness(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setExportReadiness(readiness);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setExportReadiness(null);
+      }
+      return false;
+    }
   }
 
   async function loadPatentPoints(projectId: string): Promise<boolean> {
@@ -1094,6 +1142,7 @@ function App() {
         latestOfficialCompileRun.status === "completed" &&
         latestOfficialCompileRun.official_package &&
         latestOfficialCompileRun.source_draft_hash === currentSourceDraftHash &&
+        currentQualityChecked &&
         latestPostDraftReview?.status === "completed" &&
         latestPostDraftReview.export_allowed &&
         latestPostDraftReview.draft_package_hash === latestOfficialCompileRun.source_draft_hash &&
@@ -1102,7 +1151,7 @@ function App() {
       );
       if (!allowed) {
         setError(
-          "正式稿导出已锁定：需先通过针对当前正式稿的成稿会审。",
+          "正式稿导出已锁定：需先完成当前初稿质量检查，并通过针对当前正式稿的成稿会审。",
         );
         return;
       }
@@ -2028,8 +2077,11 @@ function App() {
         currentPackage,
         latestOfficialCompileRun,
         latestPostDraftReview,
+        exportReadiness,
         currentDraftHash,
         currentSourceDraftHash,
+        currentQualityChecked,
+        qualityCheckStates: currentQualityCheckStates,
         selectedDeliberationProviders,
         lastExport,
         busy,
