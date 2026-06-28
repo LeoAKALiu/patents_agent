@@ -299,6 +299,16 @@ def test_score_improvement_applies_safe_patches_and_re_scores_project(tmp_path):
     assert "生成处理结果" in updated_project["package"]["description"]
     assert "伪代码" in updated_project["package"]["description"]
 
+    ledger_response = client.get(f"/api/projects/{project['id']}/revision-ledger")
+    assert ledger_response.status_code == 200
+    records = ledger_response.json()
+    assert any(record["revision_kind"] == "completion_patch" for record in records)
+    completion_patch_record = next(record for record in records if record["revision_kind"] == "completion_patch")
+    assert completion_patch_record["artifact_refs"] == [
+        f"completion-run:{payload['before_run']['id']}",
+        f"completion-patch:{payload['accepted_patch_ids'][0]}",
+    ]
+
 
 def test_apply_completion_patch_rejects_stale_run_hash():
     from backend.app.schemas import DraftPackage

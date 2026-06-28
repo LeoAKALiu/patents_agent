@@ -255,19 +255,29 @@ def normalize_search_terms(terms: list[str], *, fallback_text: str = "", max_ter
 
 
 def dedupe_prior_art_hits(hits: list[PriorArtHit]) -> list[PriorArtHit]:
-    seen: set[str] = set()
+    seen_publications: set[str] = set()
+    seen_urls: set[str] = set()
+    seen_titles: set[str] = set()
     out: list[PriorArtHit] = []
     for hit in hits:
-        publication = (hit.publication_number or "").strip()
-        url = (hit.url or "").strip()
-        title = (hit.title or "").strip()
-        key = publication or url or title
-        if not key:
+        publication = re.sub(r"\s+", "", (hit.publication_number or "")).upper()
+        url = (hit.url or "").strip().lower()
+        title = re.sub(r"\s+", " ", (hit.title or "").strip()).casefold()
+        identifiers = [identifier for identifier in (publication, url, title) if identifier]
+        if not identifiers:
             continue
-        normalized_key = key.upper()
-        if normalized_key in seen:
+        if publication and publication in seen_publications:
             continue
-        seen.add(normalized_key)
+        if url and url in seen_urls:
+            continue
+        if title and title in seen_titles:
+            continue
+        if publication:
+            seen_publications.add(publication)
+        if url:
+            seen_urls.add(url)
+        if title:
+            seen_titles.add(title)
         out.append(hit)
     return out
 

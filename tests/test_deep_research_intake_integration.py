@@ -66,8 +66,12 @@ def test_deepresearch_material_adds_disclosure_stage_context() -> None:
     body_call = next(call for call in llm.calls if call.stage == "disclosure_body")
     assert "CN123456789A" in body_call.user_prompt
     assert "实时闭环反馈" in body_call.user_prompt
-    assert "权利要求约束" in body_call.user_prompt
-    assert "补充实时回写策略的时序实施例" in body_call.user_prompt
+    assert "关键差异点" in body_call.user_prompt
+    assert "技术补充待办" in body_call.user_prompt
+    assert "\n# DeepResearch\n" not in body_call.user_prompt
+    assert "## 现有技术" not in body_call.user_prompt
+    assert "## 差异点" not in body_call.user_prompt
+    assert "## 任务" not in body_call.user_prompt
     assert "generation_logs" not in body_call.user_prompt
     assert "provider_chain" not in body_call.user_prompt
     assert "internal_only" not in body_call.user_prompt

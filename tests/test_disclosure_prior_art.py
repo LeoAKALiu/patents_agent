@@ -60,6 +60,18 @@ def test_dedupe_prior_art_hits_prefers_publication_number_then_url() -> None:
     assert [hit.id for hit in deduped] == ["h1", "h3"]
 
 
+def test_dedupe_prior_art_hits_removes_overlap_when_later_hit_only_has_url() -> None:
+    hits = [
+        _hit("h1", "CN123456789A", "https://patents.google.com/patent/CN123456789A", "标题A"),
+        _hit("h2", None, "https://patents.google.com/patent/CN123456789A", "标题A备用网址"),
+        _hit("h3", None, "https://patents.google.com/patent/CN999999999A", "标题B"),
+    ]
+
+    deduped = dedupe_prior_art_hits(hits)
+
+    assert [hit.id for hit in deduped] == ["h1", "h3"]
+
+
 def test_prior_art_url_warnings_flags_missing_public_urls() -> None:
     warnings = prior_art_url_warnings([
         _hit("h1", "CN123456789A", "", "无 URL"),

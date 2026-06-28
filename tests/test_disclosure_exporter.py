@@ -68,3 +68,40 @@ def test_sidecar_contains_internal_sections() -> None:
     assert "自检结果" in markdown
     assert "生成日志" in markdown
     assert "Google Patents" in markdown
+
+
+def test_clean_disclosure_appends_only_missing_public_prior_art_urls() -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "# 技术交底书正文\n\n"
+                "正文已引用 https://patents.google.com/patent/CN123456789A 。"
+            ),
+            "prior_art_hits": [
+                *_package().prior_art_hits,
+                PriorArtHit(
+                    id="h2",
+                    source="Google Patents",
+                    query="图像 缺陷",
+                    title="另一篇现有技术",
+                    publication_number="US20240123456A1",
+                    url="https://patents.google.com/patent/US20240123456A1",
+                    abstract="公开了另一种处理方式。",
+                ),
+                PriorArtHit(
+                    id="h3",
+                    source="Google Patents",
+                    query="图像 缺陷",
+                    title="无公开链接条目",
+                    publication_number="CN000000001A",
+                    url="",
+                ),
+            ],
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+
+    assert markdown.count("https://patents.google.com/patent/CN123456789A") == 1
+    assert "https://patents.google.com/patent/US20240123456A1" in markdown
+    assert "无公开链接条目" not in markdown

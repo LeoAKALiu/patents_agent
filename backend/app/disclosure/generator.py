@@ -9,6 +9,7 @@ from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
 from backend.app.project_metadata import format_project_metadata_block
 from backend.app.research.deep_research_intake import (
+    is_deep_research_markdown_material,
     packet_prior_art_hits,
     parse_deep_research_materials,
 )
@@ -48,8 +49,11 @@ class DisclosureGenerator:
         logs: list[str] = []
         user_candidates = user_candidates or []
         strategic_context = _format_user_candidates(user_candidates)
-        material_context = _format_materials(project, materials)
         deep_research_packets = parse_deep_research_materials(materials)
+        material_context = _format_materials(
+            project,
+            [material for material in materials if not _is_processed_deep_research_material(material)],
+        )
         deep_research_context = _format_deep_research_prompt_context(deep_research_packets)
         strategic_context = _merge_context_blocks(strategic_context, deep_research_context)
         material_context = _merge_context_blocks(material_context, deep_research_context)
@@ -644,6 +648,10 @@ def _format_materials(project: ProjectRecord, materials: list[ProjectMaterial]) 
             continue
         blocks.append(f"## {material.file_name}\n{material.text[:6000]}")
     return "\n\n".join(blocks)
+
+
+def _is_processed_deep_research_material(material: ProjectMaterial) -> bool:
+    return material.status == "processed" and is_deep_research_markdown_material(material.file_name, material.text)
 
 
 def _format_deep_research_prompt_context(packets: list[Any]) -> str:

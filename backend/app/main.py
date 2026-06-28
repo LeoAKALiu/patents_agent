@@ -1316,16 +1316,28 @@ def create_app(
                 break
             round_accepted = False
             for patch in safe_patches:
+                before_package = current_package
                 patched_package = _apply_completion_patch(
-                    current_package,
+                    before_package,
                     patch,
                     run_draft_package_hash=current_run.draft_package_hash,
                 )
-                if patched_package == current_package:
+                if patched_package == before_package:
                     logs.append(f"score-improvement: 补丁 {patch.id} 未通过安全检查，未应用")
                     continue
                 current_package = patched_package
                 store.update_completion_patch_status(project_id, current_run.id, patch.id, "accepted")
+                _record_revision_ledger_event(
+                    store,
+                    project_id=project_id,
+                    before_package=before_package,
+                    after_package=patched_package,
+                    revision_kind="completion_patch",
+                    user_intent_summary=patch.rationale,
+                    affected_sections=_completion_patch_affected_sections(patch),
+                    protection_scope_changed=patch.target_section == "claim",
+                    artifact_refs=[f"completion-run:{current_run.id}", f"completion-patch:{patch.id}"],
+                )
                 accepted_patch_ids.append(patch.id)
                 round_accepted = True
                 logs.append(f"score-improvement: 已应用补丁 {patch.id} -> {patch.target_section}")
