@@ -230,6 +230,36 @@ def test_revision_ledger_records_accept_all_completion_patches_sequentially(tmp_
     assert description_record["artifact_refs"] == [f"completion-run:{run.id}", "completion-patch:patch-description"]
 
 
+def test_revision_ledger_records_manual_draft_package_update(tmp_path) -> None:
+    app = create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False)
+    client = TestClient(app)
+    project = client.post("/api/projects", json={"name": "手工修改", "draft_text": "一种方法。"}).json()
+    project_id = project["id"]
+    package = _package()
+    app.state.store.update_project_package(project_id, package)
+
+    response = client.put(
+        f"/api/projects/{project_id}/draft-package",
+        json={
+            "title": package.title,
+            "abstract": "更新后的摘要",
+            "claims": "1. 一种方法，其特征在于，包括新特征。",
+            "description": package.description,
+            "drawing_description": package.drawing_description,
+        },
+    )
+
+    assert response.status_code == 200
+    ledger_response = client.get(f"/api/projects/{project_id}/revision-ledger")
+    assert ledger_response.status_code == 200
+    records = ledger_response.json()
+    assert len(records) == 1
+    assert records[0]["revision_kind"] == "correction"
+    assert records[0]["affected_sections"] == ["abstract", "claims"]
+    assert records[0]["protection_scope_changed"] is True
+    assert records[0]["artifact_refs"] == ["manual-draft-package"]
+
+
 def test_revision_ledger_accept_all_completion_patches_rejects_stale_run(tmp_path) -> None:
     app = create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False)
     client = TestClient(app)

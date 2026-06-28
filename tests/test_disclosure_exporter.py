@@ -105,3 +105,15 @@ def test_clean_disclosure_appends_only_missing_public_prior_art_urls() -> None:
     assert markdown.count("https://patents.google.com/patent/CN123456789A") == 1
     assert "https://patents.google.com/patent/US20240123456A1" in markdown
     assert "无公开链接条目" not in markdown
+
+
+def test_clean_disclosure_normalizes_trailing_punctuation_when_comparing_urls() -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": "# 技术交底书正文\n\n正文已引用 https://patents.google.com/patent/CN123456789A 。",
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+
+    assert markdown.count("https://patents.google.com/patent/CN123456789A") == 1

@@ -11,9 +11,11 @@ RESOURCE_SUPERSCRIPT_RE = re.compile(
     re.IGNORECASE,
 )
 PUBLICATION_RE = re.compile(r"\b(?:CN|WO|US|EP|JP|KR)\s?\d{5,}[A-Z]\d?\b", re.IGNORECASE)
-URL_RE = re.compile(r"https?://")
+URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+PATENT_URL_RE = re.compile(r"(patent|patents|cnipa|wipo|espacenet|google)", re.IGNORECASE)
 INTERNAL_METADATA_RE = re.compile(
-    r"(evidence_id|evidence_refs|research_ledger|generation_logs|provider_diagnostics|self_check|自检结果|检索来源台账)",
+    r"(evidence_id|evidence_refs|research_ledger|generation_logs|provider_diagnostics|self_check|"
+    r"review_findings|internal_only|自检结果|检索来源台账)",
     re.IGNORECASE,
 )
 
@@ -25,7 +27,15 @@ def audit_draft_package(
     del disclosures
 
     issues: list[CompletionIssue] = []
-    combined_text = "\n".join([package.claims, package.description, package.drawing_description])
+    combined_text = "\n".join(
+        [
+            package.title,
+            package.abstract,
+            package.claims,
+            package.description,
+            package.drawing_description,
+        ]
+    )
     if RESOURCE_SUPERSCRIPT_RE.search(combined_text):
         issues.append(
             _issue(
@@ -74,7 +84,46 @@ def audit_draft_package(
 
 
 def _has_publication_without_url(text: str) -> bool:
-    return bool(PUBLICATION_RE.search(text)) and not URL_RE.search(text)
+    publication_matches = list(PUBLICATION_RE.finditer(text))
+    if not publication_matches:
+        return False
+
+    url_matches = list(URL_RE.finditer(text))
+    normalized_urls = [_normalize_url(match.group(0)) for match in url_matches]
+    for publication in publication_matches:
+        normalized_publication = _normalize_publication(publication.group(0))
+        if not normalized_publication:
+            continue
+        if any(normalized_publication in url.upper() for url in normalized_urls):
+            continue
+        window_start, window_end = _publication_clause_bounds(text, publication.start(), publication.end())
+        if any(
+            match.start() < window_end
+            and match.end() > window_start
+            and PATENT_URL_RE.search(_normalize_url(match.group(0)))
+            for match in url_matches
+        ):
+            continue
+        return True
+    return False
+
+
+def _normalize_publication(value: str) -> str:
+    return re.sub(r"\s+", "", value).upper()
+
+
+def _normalize_url(value: str) -> str:
+    return value.rstrip(".,;:)]}>。！？）】").strip()
+
+
+def _publication_clause_bounds(text: str, start: int, end: int) -> tuple[int, int]:
+    left = max(
+        text.rfind(marker, 0, start)
+        for marker in ("\n", "。", "；", ";")
+    )
+    right_candidates = [position for marker in ("\n", "。", "；", ";") if (position := text.find(marker, end)) != -1]
+    right = min(right_candidates) if right_candidates else len(text)
+    return (left + 1 if left >= 0 else 0, right)
 
 
 def _diagram_expected(package: DraftPackage) -> bool:

@@ -44,7 +44,11 @@ class PublicPriorArtProvider:
         if limit <= 0:
             return [], warnings
         for term in terms[:8]:
-            cnipa_hits, cnipa_warnings = self._search_cnipa(term, max(1, limit - len(hits)))
+            unique_hits = dedupe_prior_art_hits(hits)
+            remaining = limit - len(unique_hits)
+            if remaining <= 0:
+                return unique_hits[:limit], [*warnings, *prior_art_url_warnings(unique_hits[:limit])]
+            cnipa_hits, cnipa_warnings = self._search_cnipa(term, max(1, remaining))
             _record_ledger_attempt(
                 ledger,
                 provider="cnipa",
@@ -55,12 +59,17 @@ class PublicPriorArtProvider:
             )
             warnings.extend(cnipa_warnings)
             hits.extend(cnipa_hits)
-            if len(hits) >= limit:
-                deduped = dedupe_prior_art_hits(hits)[:limit]
+            deduped = dedupe_prior_art_hits(hits)
+            if len(deduped) >= limit:
+                deduped = deduped[:limit]
                 return deduped, [*warnings, *prior_art_url_warnings(deduped)]
-        if len(hits) < limit:
+        deduped = dedupe_prior_art_hits(hits)
+        if len(deduped) < limit:
             for term in terms[:4]:
-                google_hits, google_warnings = self._search_google_patents(term, max(1, limit - len(hits)))
+                remaining = limit - len(deduped)
+                if remaining <= 0:
+                    break
+                google_hits, google_warnings = self._search_google_patents(term, max(1, remaining))
                 _record_ledger_attempt(
                     ledger,
                     provider="google_patents",
@@ -71,7 +80,8 @@ class PublicPriorArtProvider:
                 )
                 warnings.extend(google_warnings)
                 hits.extend(google_hits)
-                if len(hits) >= limit:
+                deduped = dedupe_prior_art_hits(hits)
+                if len(deduped) >= limit:
                     break
         deduped = dedupe_prior_art_hits(hits)[:limit]
         return deduped, [*warnings, *prior_art_url_warnings(deduped)]
@@ -255,30 +265,24 @@ def normalize_search_terms(terms: list[str], *, fallback_text: str = "", max_ter
 
 
 def dedupe_prior_art_hits(hits: list[PriorArtHit]) -> list[PriorArtHit]:
-    seen_publications: set[str] = set()
-    seen_urls: set[str] = set()
-    seen_titles: set[str] = set()
+    identifier_to_index: dict[str, int] = {}
     out: list[PriorArtHit] = []
     for hit in hits:
-        publication = re.sub(r"\s+", "", (hit.publication_number or "")).upper()
-        url = (hit.url or "").strip().lower()
-        title = re.sub(r"\s+", " ", (hit.title or "").strip()).casefold()
-        identifiers = [identifier for identifier in (publication, url, title) if identifier]
+        identifiers = _prior_art_identifiers(hit)
         if not identifiers:
             continue
-        if publication and publication in seen_publications:
+        matched_indexes = {identifier_to_index[identifier] for identifier in identifiers if identifier in identifier_to_index}
+        if not matched_indexes:
+            out.append(hit)
+            index = len(out) - 1
+            for identifier in identifiers:
+                identifier_to_index[identifier] = index
             continue
-        if url and url in seen_urls:
-            continue
-        if title and title in seen_titles:
-            continue
-        if publication:
-            seen_publications.add(publication)
-        if url:
-            seen_urls.add(url)
-        if title:
-            seen_titles.add(title)
-        out.append(hit)
+        index = min(matched_indexes)
+        merged = _merge_prior_art_hit(out[index], hit)
+        out[index] = merged
+        for identifier in _prior_art_identifiers(merged):
+            identifier_to_index[identifier] = index
     return out
 
 
@@ -335,6 +339,28 @@ def _hit_from_mapping(raw: dict, source: str, query: str) -> PriorArtHit:
         publication_number=raw.get("pub_number") or raw.get("publication_number"),
         url=url,
         abstract=raw.get("abstract"),
+    )
+
+
+def _prior_art_identifiers(hit: PriorArtHit) -> list[str]:
+    publication = re.sub(r"\s+", "", (hit.publication_number or "")).upper()
+    url = (hit.url or "").strip().lower()
+    title = re.sub(r"\s+", " ", (hit.title or "").strip()).casefold()
+    return [identifier for identifier in (publication, url, title) if identifier]
+
+
+def _merge_prior_art_hit(existing: PriorArtHit, candidate: PriorArtHit) -> PriorArtHit:
+    return existing.model_copy(
+        update={
+            "source": existing.source or candidate.source,
+            "query": existing.query or candidate.query,
+            "title": existing.title or candidate.title,
+            "publication_number": existing.publication_number or candidate.publication_number,
+            "url": existing.url or candidate.url,
+            "abstract": existing.abstract or candidate.abstract,
+            "relevance_summary": existing.relevance_summary or candidate.relevance_summary,
+            "differentiators": existing.differentiators or candidate.differentiators,
+        }
     )
 
 

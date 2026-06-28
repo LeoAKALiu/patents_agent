@@ -82,6 +82,18 @@ def test_external_draft_api_creates_source_runs_intake_and_confirms_package(tmp_
         "/api/projects",
         json={"name": "外部稿项目", "draft_text": "外部初稿导入项目。"},
     ).json()
+    client.app.state.store.update_project_package(
+        project["id"],
+        DraftPackage(
+            title="原始工作稿",
+            abstract="原始摘要",
+            claims="1. 一种原始方法，其特征在于，包括旧步骤。",
+            description="原始说明书。",
+            drawing_description="图1。",
+            mermaid="flowchart TD\nA-->B",
+            image_prompt="黑白线稿",
+        ),
+    )
 
     source_response = client.post(
         f"/api/projects/{project['id']}/external-drafts",
@@ -144,6 +156,14 @@ def test_external_draft_api_creates_source_runs_intake_and_confirms_package(tmp_
     get_run_response = client.get(f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}")
     assert get_run_response.status_code == 200
     assert get_run_response.json()["id"] == intake["id"]
+
+    ledger_response = client.get(f"/api/projects/{project['id']}/revision-ledger")
+    assert ledger_response.status_code == 200
+    records = ledger_response.json()
+    assert len(records) == 1
+    assert records[0]["revision_kind"] == "material_merge"
+    assert records[0]["protection_scope_changed"] is True
+    assert records[0]["artifact_refs"] == [f"external-draft-intake:{intake['id']}"]
 
 
 def test_external_draft_docx_upload_creates_source(tmp_path):

@@ -72,6 +72,36 @@ def test_dedupe_prior_art_hits_removes_overlap_when_later_hit_only_has_url() -> 
     assert [hit.id for hit in deduped] == ["h1", "h3"]
 
 
+def test_dedupe_prior_art_hits_merges_richer_duplicate_in_place() -> None:
+    hits = [
+        PriorArtHit(
+            id="h1",
+            source="CNIPA EPUB",
+            query="图像 缺陷",
+            title="标题A",
+            publication_number="CN123456789A",
+            url="",
+            abstract=None,
+        ),
+        PriorArtHit(
+            id="h2",
+            source="Google Patents",
+            query="图像 缺陷",
+            title="标题A",
+            publication_number=None,
+            url="https://patents.google.com/patent/CN123456789A",
+            abstract="更完整摘要",
+        ),
+    ]
+
+    deduped = dedupe_prior_art_hits(hits)
+
+    assert len(deduped) == 1
+    assert deduped[0].id == "h1"
+    assert deduped[0].url == "https://patents.google.com/patent/CN123456789A"
+    assert deduped[0].abstract == "更完整摘要"
+
+
 def test_prior_art_url_warnings_flags_missing_public_urls() -> None:
     warnings = prior_art_url_warnings([
         _hit("h1", "CN123456789A", "", "无 URL"),
@@ -102,3 +132,34 @@ def test_public_provider_calls_cnipa_once_per_normalized_term() -> None:
 
     assert len(provider.cnipa_terms) >= 2
     assert all(" " not in term.strip(" ") or len(term) <= 24 for term in provider.cnipa_terms)
+
+
+def test_public_provider_uses_deduped_quota_before_stopping() -> None:
+    class RecordingProvider(PublicPriorArtProvider):
+        def __init__(self) -> None:
+            super().__init__(cnipa_script=None)
+            self.cnipa_terms: list[str] = []
+
+        def _search_cnipa(self, term: str, limit: int):
+            self.cnipa_terms.append(term)
+            if len(self.cnipa_terms) == 1:
+                return [
+                    _hit("h1", "CN123456789A", "https://patents.google.com/patent/CN123456789A", "标题A"),
+                    _hit("h2", "CN123456789A", "https://patents.google.com/patent/CN123456789A", "标题A重复"),
+                ], []
+            if len(self.cnipa_terms) == 2:
+                return [
+                    _hit("h3", "CN999999999A", "https://patents.google.com/patent/CN999999999A", "标题B"),
+                ], []
+            return [], []
+
+        def _search_google_patents(self, term: str, limit: int):
+            raise AssertionError("google fallback should not run before deduped quota is filled")
+
+    provider = RecordingProvider()
+
+    hits, warnings = provider.search(["图像缺陷 神经网络 实时反馈 闭环控制"], limit=2)
+
+    assert warnings == []
+    assert len(provider.cnipa_terms) >= 2
+    assert [hit.publication_number for hit in hits] == ["CN123456789A", "CN999999999A"]

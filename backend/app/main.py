@@ -317,14 +317,27 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
     def create_external_draft_intake_run(project_id: str, source_id: str) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         source = store.get_external_draft_source(project_id, source_id)
         if not source:
             raise HTTPException(status_code=404, detail="External draft source not found.")
         run = parse_external_draft_source(project_id=project_id, source=source)
         stored = store.create_external_draft_intake_run(run)
         if stored.status == "completed" and stored.parsed_package:
+            before_package = project.package
             store.update_project_package(project_id, stored.parsed_package)
+            if before_package:
+                _record_revision_ledger_event(
+                    store,
+                    project_id=project_id,
+                    before_package=before_package,
+                    after_package=stored.parsed_package,
+                    revision_kind="material_merge",
+                    user_intent_summary="Imported parsed external draft package into the working draft.",
+                    affected_sections=_changed_draft_sections(before_package, stored.parsed_package),
+                    protection_scope_changed=before_package.claims != stored.parsed_package.claims,
+                    artifact_refs=[f"external-draft-intake:{stored.id}"],
+                )
         return stored.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
@@ -354,7 +367,7 @@ def create_app(
         run_id: str,
         payload: ExternalDraftIntakeConfirmRequest,
     ) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         run = store.get_external_draft_intake_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="External draft intake run not found.")
@@ -384,7 +397,20 @@ def create_app(
         persisted = store.update_external_draft_intake_run(updated)
         if not persisted:
             raise HTTPException(status_code=409, detail="External draft intake run update conflicted.")
+        before_package = project.package
         store.update_project_package(project_id, package)
+        if before_package:
+            _record_revision_ledger_event(
+                store,
+                project_id=project_id,
+                before_package=before_package,
+                after_package=package,
+                revision_kind="material_merge",
+                user_intent_summary="Confirmed external draft intake package and replaced the working draft.",
+                affected_sections=_changed_draft_sections(before_package, package),
+                protection_scope_changed=before_package.claims != package.claims,
+                artifact_refs=[f"external-draft-intake:{run.id}"],
+            )
         return persisted.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-draft-review-bundle/report.md")
@@ -1005,6 +1031,17 @@ def create_app(
         package = _require_package(project)
         updated = package.model_copy(update=payload.model_dump())
         store.update_project_package(project_id, updated)
+        _record_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=updated,
+            revision_kind="correction",
+            user_intent_summary="Manually updated the draft package.",
+            affected_sections=_changed_draft_sections(package, updated),
+            protection_scope_changed=package.claims != updated.claims,
+            artifact_refs=["manual-draft-package"],
+        )
         return updated.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/revision-ledger")

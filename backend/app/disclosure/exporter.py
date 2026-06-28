@@ -16,7 +16,7 @@ URL_PATTERN = re.compile(r"https?://\S+")
 
 def clean_disclosure_to_markdown(package: DisclosurePackage) -> str:
     body = package.body_markdown.strip()
-    appendix = _format_public_prior_art_appendix(package, existing_urls=set(URL_PATTERN.findall(body)))
+    appendix = _format_public_prior_art_appendix(package, existing_urls=_extract_normalized_urls(body))
     if not appendix:
         return body
     return f"{body}\n\n{appendix}"
@@ -119,7 +119,7 @@ def export_disclosure_docx(package: DisclosurePackage, output_path: Path, run_di
     doc.add_heading(package.title, level=0)
     for line in package.body_markdown.splitlines() or [""]:
         doc.add_paragraph(line)
-    appendix = _format_public_prior_art_appendix(package, existing_urls=set(URL_PATTERN.findall(package.body_markdown)))
+    appendix = _format_public_prior_art_appendix(package, existing_urls=_extract_normalized_urls(package.body_markdown))
     if appendix:
         for line in appendix.splitlines():
             doc.add_paragraph(line)
@@ -179,7 +179,7 @@ def _format_public_prior_art_appendix(package: DisclosurePackage, *, existing_ur
     existing_urls = existing_urls or set()
     lines = ["## 公开现有技术链接", ""]
     for hit in package.prior_art_hits:
-        url = (hit.url or "").strip()
+        url = _normalize_url(hit.url or "")
         if not url or url in existing_urls:
             continue
         label = hit.title
@@ -187,6 +187,14 @@ def _format_public_prior_art_appendix(package: DisclosurePackage, *, existing_ur
             label = f"{label}（{hit.publication_number}）"
         lines.append(f"- {label}: {url}")
     return "\n".join(lines) if len(lines) > 2 else ""
+
+
+def _extract_normalized_urls(text: str) -> set[str]:
+    return {_normalize_url(match.group(0)) for match in URL_PATTERN.finditer(text) if _normalize_url(match.group(0))}
+
+
+def _normalize_url(url: str) -> str:
+    return url.strip().rstrip(".,;:)]}>。！？）】")
 
 
 def _format_ledger_section(package: "DisclosurePackage") -> str:

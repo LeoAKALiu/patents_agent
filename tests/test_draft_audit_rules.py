@@ -37,6 +37,30 @@ def test_audit_flags_internal_metadata_in_description() -> None:
     assert any(issue.category == "format_pollution" and "内部元信息" in issue.message for issue in issues)
 
 
+def test_audit_flags_internal_metadata_in_title_and_abstract() -> None:
+    package = _package("说明书正文干净。").model_copy(
+        update={
+            "title": "一种方法 evidence_id:E-01",
+            "abstract": "摘要包含 generation_logs: internal",
+        }
+    )
+
+    issues = audit_draft_package(package)
+
+    assert any(issue.category == "format_pollution" and "内部元信息" in issue.message for issue in issues)
+
+
+def test_audit_flags_publication_without_matching_url_when_multiple_publications_present() -> None:
+    description = (
+        "现有技术 CN123456789A 可见于 https://patents.google.com/patent/CN123456789A 。"
+        "另一篇 CN999999999A 公开了相似方案，但此处只有 https://example.com/other 。"
+    )
+
+    issues = audit_draft_package(_package(description))
+
+    assert any(issue.category == "prior_art_distinction_gap" and "公开 URL" in issue.message for issue in issues)
+
+
 def test_audit_flags_missing_mermaid_when_prompt_mentions_diagram() -> None:
     package = _package("说明书引用系统框图。", mermaid="")
 
