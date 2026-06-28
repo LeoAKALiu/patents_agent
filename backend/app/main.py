@@ -1216,6 +1216,12 @@ def create_app(
     def accept_completion_patch(project_id: str, run_id: str, patch_id: str) -> dict:
         project = _require_project(store, project_id)
         package = _require_package(project)
+        existing_run = store.get_draft_completion_run(project_id, run_id)
+        if not existing_run:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        current_hash = source_draft_hash(package)
+        if existing_run.draft_package_hash and existing_run.draft_package_hash != current_hash:
+            raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
         run = store.update_completion_patch_status(project_id, run_id, patch_id, "accepted")
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion patch not found.")

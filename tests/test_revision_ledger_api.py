@@ -250,6 +250,31 @@ def test_revision_ledger_accept_all_completion_patches_rejects_stale_run(tmp_pat
     assert ledger_response.json() == []
 
 
+def test_revision_ledger_single_completion_patch_accept_rejects_stale_run(tmp_path) -> None:
+    app = create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False)
+    client = TestClient(app)
+    project = client.post("/api/projects", json={"name": "单补丁测试", "draft_text": "一种方法。"}).json()
+    project_id = project["id"]
+    package = _package()
+    app.state.store.update_project_package(project_id, package)
+    run = app.state.store.create_draft_completion_run(_completion_run(project_id, source_draft_hash(package)))
+    patch_id = "patch-claim"
+    stale_package = package.model_copy(update={"abstract": "这是变更后的摘要。"})
+    app.state.store.update_project_package(project_id, stale_package)
+
+    response = client.post(f"/api/projects/{project_id}/completion-runs/{run.id}/patches/{patch_id}/accept")
+
+    assert response.status_code == 409
+    assert "stale" in response.json()["detail"].lower()
+    ledger_response = client.get(f"/api/projects/{project_id}/revision-ledger")
+    assert ledger_response.status_code == 200
+    assert ledger_response.json() == []
+    stored_run = client.app.state.store.get_draft_completion_run(project_id, run.id)
+    assert stored_run is not None
+    patch = next(candidate for candidate in stored_run.patches if candidate.id == patch_id)
+    assert patch.status == "proposed"
+
+
 def test_revision_ledger_records_post_draft_safe_patch_apply(tmp_path) -> None:
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_safe_patch_review_llm(), load_env_file=False))
     project = client.post("/api/projects", json={"name": "安全补丁", "draft_text": "一种方法。"}).json()

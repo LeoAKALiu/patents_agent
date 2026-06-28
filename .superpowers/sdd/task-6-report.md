@@ -134,3 +134,37 @@ Summary:
 ### Updated concerns
 
 - The original concern about missing completion-ledger coverage is now resolved.
+
+## Re-review Fix Follow-up
+
+### Finding addressed
+
+- Restored the stale-run guard in single `accept_completion_patch` before any patch status update, package mutation, or ledger write.
+
+### Follow-up TDD evidence
+
+#### GREEN
+
+Commands:
+
+```bash
+pytest tests/test_revision_ledger_api.py -v
+pytest tests/test_revision_ledger.py tests/test_revision_ledger_api.py tests/test_post_draft_review.py -v
+```
+
+Summary:
+
+- `tests/test_revision_ledger_api.py`: PASS (`7 passed`)
+- covering suite: PASS (`32 passed`)
+
+### Added regression coverage
+
+- `test_revision_ledger_single_completion_patch_accept_rejects_stale_run`
+  - verifies stale single-patch accept returns `409`
+  - verifies no revision-ledger rows are created
+  - verifies the patch status remains `proposed`
+
+### Follow-up self-review
+
+- Confirmed single-patch accept now uses the same stale condition as accept-all and `_apply_completion_patch`.
+- Confirmed stale single-patch accept exits before mutating run state, package state, or ledger state.
