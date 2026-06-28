@@ -4,10 +4,14 @@ import json
 import uuid
 from typing import Any
 
-from backend.app.disclosure.prior_art import PriorArtProvider
+from backend.app.disclosure.prior_art import PriorArtProvider, _dedupe_hits
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
 from backend.app.project_metadata import format_project_metadata_block
+from backend.app.research.deep_research_intake import (
+    packet_prior_art_hits,
+    parse_deep_research_materials,
+)
 from backend.app.research.ledger import SourceLedger, citation_snapshot
 from backend.app.runtime import RuntimeContext
 from backend.app.schemas import (
@@ -45,9 +49,27 @@ class DisclosureGenerator:
         user_candidates = user_candidates or []
         strategic_context = _format_user_candidates(user_candidates)
         material_context = _format_materials(project, materials)
+        deep_research_packets = parse_deep_research_materials(materials)
+        deep_research_context = _format_deep_research_packets(deep_research_packets)
+        strategic_context = _merge_context_blocks(strategic_context, deep_research_context)
+        material_context = _merge_context_blocks(material_context, deep_research_context)
+        markdown_hits = [hit for packet in deep_research_packets for hit in packet_prior_art_hits(packet)]
         rag_context = _format_context(context_chunks)
         system_prompt = _system_prompt(project)
         ledger = ledger or SourceLedger()
+
+        stage_results.append(
+            {
+                "phase": "deep_research_material_intake",
+                "payload": {
+                    "packets": [packet.model_dump(mode="json") for packet in deep_research_packets],
+                    "prior_art_hit_count": len(markdown_hits),
+                    "warnings": [warning for packet in deep_research_packets for warning in packet.warnings],
+                },
+            }
+        )
+        _checkpoint_stage(stage_results, runtime, on_stage_result)
+        logs.extend(log for packet in deep_research_packets for log in packet.generation_logs)
 
         if runtime:
             runtime.begin_stage("disclosure_scan", provider="llm", subtask="project/material scan")
@@ -109,6 +131,8 @@ class DisclosureGenerator:
             prior_art_hits = []
             provider_warnings = [f"prior_art search failed: {exc}"]
 
+        prior_art_hits = _dedupe_hits([*prior_art_hits, *markdown_hits])
+
         stage_results.append(
             {
                 "phase": "prior_art_search",
@@ -124,7 +148,13 @@ class DisclosureGenerator:
 
         if runtime:
             runtime.begin_stage("prior_art_relevance", provider="llm", subtask="claim chart enrichment")
-        prior_art_hits, prior_art_differences, charts_by_candidate = self._enrich_prior_art(project, candidates, selected_id, prior_art_hits)
+        prior_art_hits, prior_art_differences, charts_by_candidate = self._enrich_prior_art(
+            project,
+            candidates,
+            selected_id,
+            prior_art_hits,
+            deep_research_context,
+        )
         candidates = [
             candidate.model_copy(update={"claim_chart": charts_by_candidate.get(candidate.id, candidate.claim_chart)})
             for candidate in candidates
@@ -231,13 +261,14 @@ class DisclosureGenerator:
         candidates: list[PatentPointCandidate],
         selected_id: str | None,
         hits: list[PriorArtHit],
+        deep_research_context: str,
     ) -> tuple[list[PriorArtHit], str, dict[str, list[ClaimChartItem]]]:
         if not hits:
             return hits, "未获得可用公开现有技术结果；交底书仅基于本地材料和授权专利语料生成。", {}
         raw = self.llm.complete_stage(
             "prior_art_relevance",
             _system_prompt(project),
-            _relevance_prompt(project, candidates, selected_id, hits),
+            _relevance_prompt(project, candidates, selected_id, hits, deep_research_context),
         )
         data = _json_object(raw, {})
         charts_by_candidate: dict[str, list[ClaimChartItem]] = {}
@@ -457,6 +488,7 @@ def _relevance_prompt(
     candidates: list[PatentPointCandidate],
     selected_id: str | None,
     hits: list[PriorArtHit],
+    deep_research_context: str,
 ) -> str:
     selected = _selected_candidate(candidates, selected_id)
     return f"""请基于公开现有技术结果，概括每篇文献与推荐专利点的相关性和差异。
@@ -480,6 +512,8 @@ def _relevance_prompt(
 
 项目：{project.name}
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
+DeepResearch 内部材料：
+{deep_research_context or "无"}
 公开结果：
 {json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False, indent=2)}
 """
@@ -609,6 +643,33 @@ def _format_materials(project: ProjectRecord, materials: list[ProjectMaterial]) 
             continue
         blocks.append(f"## {material.file_name}\n{material.text[:6000]}")
     return "\n\n".join(blocks)
+
+
+def _format_deep_research_packets(packets: list[dict[str, Any]] | list[Any]) -> str:
+    if not packets:
+        return ""
+    packet_blocks: list[str] = []
+    for index, packet in enumerate(packets, start=1):
+        packet_dict = packet.model_dump(mode="json") if hasattr(packet, "model_dump") else packet
+        if not isinstance(packet_dict, dict):
+            continue
+        packet_blocks.append(
+            "\n".join(
+                [
+                    f"## DeepResearch Packet {index}",
+                    json.dumps(packet_dict, ensure_ascii=False, indent=2),
+                ]
+            )
+        )
+    return "\n\n".join(packet_blocks)
+
+
+def _merge_context_blocks(base: str, extra: str) -> str:
+    if not extra.strip():
+        return base
+    if not base.strip():
+        return extra
+    return f"{base}\n\n{extra}"
 
 
 def _format_context(chunks: list[PatentChunk]) -> str:
