@@ -1,7 +1,9 @@
 import type {
   DraftPackage,
+  DraftPackageManualUpdate,
   ExportReadiness,
   FilingReadinessReport,
+  FilingReadinessIssue,
   OfficialCompileRun,
   PostDraftReviewRun,
 } from "@/api";
@@ -23,6 +25,16 @@ export const APPROVED_GATE_STATES = [
 
 export type GateState = (typeof APPROVED_GATE_STATES)[number];
 export type DocumentRepairTabId = "overview" | "edit" | "issues" | "annotated" | "versions";
+export type DocumentDraftFields = DraftPackageManualUpdate;
+export type DocumentIssueKind = "阻断" | "风险" | "建议";
+export type DocumentIssueSeverity = "严重" | "高" | "中" | "低";
+export type DocumentIssueState =
+  | "open"
+  | "applied"
+  | "pending_revalidation"
+  | "resolved_by_new_review"
+  | "dismissed";
+export type DocumentVersionState = "当前有效" | "已失效" | "等待生成";
 
 export interface GateNode {
   id: "internalDraft" | "quality" | "officialCompile" | "postDraftReview" | "export";
@@ -62,14 +74,47 @@ export interface IssueSummaryState {
   explanation: string;
 }
 
+export interface DocumentIssueInboxRow {
+  id: string;
+  kind: DocumentIssueKind;
+  severity: DocumentIssueSeverity;
+  source: string;
+  section: string;
+  message: string;
+  state: DocumentIssueState;
+}
+
+export interface DocumentIssueInboxState {
+  rows: DocumentIssueInboxRow[];
+  blockingCount: number;
+  riskCount: number;
+  suggestionCount: number;
+}
+
 export interface RecentRecordState {
   label: string;
   value: string;
   detail: string;
 }
 
+export interface DocumentVersionNode {
+  id: GateNode["id"];
+  label: string;
+  state: DocumentVersionState;
+  detail: string;
+  timeLabel: string;
+  shortHash?: string;
+  fullHashes: Array<{ label: string; value: string }>;
+}
+
+export interface DocumentVersionChainState {
+  conclusion: string;
+  nodes: DocumentVersionNode[];
+}
+
 export interface DocumentRepairState {
   activeTab: DocumentRepairTabId;
+  editableDraft: DocumentDraftFields | null;
   topConclusion: string;
   primaryAction: {
     label: string;
@@ -86,6 +131,8 @@ export interface DocumentRepairState {
   internalDraft: DraftStatusCardState;
   officialDraft: DraftStatusCardState;
   issueSummary: IssueSummaryState;
+  issueInbox: DocumentIssueInboxState;
+  versionChain: DocumentVersionChainState;
   recentRecords: RecentRecordState[];
 }
 
@@ -117,14 +164,18 @@ export function deriveDocumentRepairState(input: DocumentRepairStateInput): Docu
   const activeTab = input.activeTab ?? "overview";
   const facts = deriveFacts(input.projectState, input.exportReadiness);
   const gates = deriveGates(input.projectState, input.exportReadiness, facts);
+  const issueInbox = deriveIssueInbox(input.exportReadiness, facts);
   return {
     activeTab,
+    editableDraft: facts.draftPackage ? editableDraftFields(facts.draftPackage) : null,
     topConclusion: deriveTopConclusion(input.exportReadiness, facts, gates),
     primaryAction: derivePrimaryAction(input.exportReadiness, facts, gates),
     gates,
     internalDraft: deriveInternalDraftCard(input.projectState, facts),
     officialDraft: deriveOfficialDraftCard(facts, gates.officialCompile),
-    issueSummary: deriveIssueSummary(facts),
+    issueSummary: deriveIssueSummary(facts, issueInbox),
+    issueInbox,
+    versionChain: deriveVersionChain(input.exportReadiness, facts, gates),
     recentRecords: deriveRecentRecords(input.exportReadiness, facts, gates),
   };
 }
@@ -161,8 +212,8 @@ function deriveFacts(
   ]);
   const contaminationIssues = uniqueStrings(collectReviewContaminationHits(latestPostDraftReview));
   const compileBlockedItems = uniqueStrings([
-    ...(exportReadiness?.compile_blocked_items ?? []).map((item) => Object.values(item).join(" ")),
-    ...(latestOfficialCompile?.blocked_items ?? []).map((item) => Object.values(item).join(" ")),
+    ...(exportReadiness?.compile_blocked_items ?? []).map(recordIssueText),
+    ...(latestOfficialCompile?.blocked_items ?? []).map(recordIssueText),
   ]);
   const suggestions = uniqueStrings([
     ...(exportReadiness?.missing_quality_checks ?? []).map((item) => `${item} 待检查`),
@@ -209,6 +260,16 @@ function deriveFacts(
     compileBlockedItems,
     suggestions,
     resolvedCount,
+  };
+}
+
+function editableDraftFields(packageValue: DraftPackage): DocumentDraftFields {
+  return {
+    title: packageValue.title,
+    abstract: packageValue.abstract,
+    claims: packageValue.claims,
+    description: packageValue.description,
+    drawing_description: packageValue.drawing_description,
   };
 }
 
@@ -426,22 +487,264 @@ function deriveOfficialDraftCard(
   };
 }
 
-function deriveIssueSummary(facts: DocumentRepairFacts): IssueSummaryState {
-  const rows: IssueSummaryRow[] = [
-    ...facts.blockingIssues.map((issue, index) => issueRow("阻断", issue, index)),
-    ...facts.compileBlockedItems.map((issue, index) => issueRow("阻断", issue, index + facts.blockingIssues.length)),
-    ...facts.contaminationIssues.map((issue, index) => issueRow("风险", issue, index)),
-    ...facts.suggestions.map((issue, index) => issueRow("建议", issue, index)),
-  ];
+function deriveIssueSummary(
+  facts: DocumentRepairFacts,
+  issueInbox: DocumentIssueInboxState,
+): IssueSummaryState {
+  const rows: IssueSummaryRow[] = issueInbox.rows.map((row) => ({
+    id: row.id,
+    level: row.kind,
+    section: row.section,
+    title: truncate(row.message, 88),
+  }));
   return {
-    blocking: facts.blockingIssues.length + facts.compileBlockedItems.length,
-    risk: facts.contaminationIssues.length,
-    suggestion: facts.suggestions.length,
+    blocking: issueInbox.blockingCount,
+    risk: issueInbox.riskCount,
+    suggestion: issueInbox.suggestionCount,
     resolved: facts.resolvedCount,
     topIssues: rows.slice(0, 5),
     explanation: facts.exportLocked
       ? "先处理阻断项。保存初稿后，当前正式稿和旧成稿会审会失效，需要重新编译正式稿并重新成稿会审。"
       : "保持内部初稿、正式稿和成稿会审在同一版本链路上，再进入导出。",
+  };
+}
+
+function deriveIssueInbox(
+  exportReadiness: ExportReadiness | null | undefined,
+  facts: DocumentRepairFacts,
+): DocumentIssueInboxState {
+  const rows: DocumentIssueInboxRow[] = [];
+  const seen = new Set<string>();
+  const reviewState: DocumentIssueState = facts.reviewStale ? "pending_revalidation" : "open";
+  const qualityState: DocumentIssueState = isFilingReportCurrent(facts.latestFilingReport, facts.currentDraftHash)
+    ? "open"
+    : "pending_revalidation";
+
+  function addIssue(issue: Omit<DocumentIssueInboxRow, "id">): void {
+    const message = truncate(sanitizeInlineText(issue.message), 118);
+    if (!message) return;
+    const key = `${issue.kind}:${message}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push({
+      ...issue,
+      id: `issue-${rows.length + 1}`,
+      message,
+    });
+  }
+
+  for (const issue of exportReadiness?.review_blocking_issues ?? []) {
+    addIssue({
+      kind: "阻断",
+      severity: "严重",
+      source: "导出门禁",
+      section: inferSectionLabel(issue),
+      message: issue,
+      state: "open",
+    });
+  }
+
+  for (const issue of facts.latestPostDraftReview?.blocking_issues ?? []) {
+    addIssue({
+      kind: "阻断",
+      severity: "严重",
+      source: "成稿会审",
+      section: inferSectionLabel(issue),
+      message: issue,
+      state: reviewState,
+    });
+  }
+
+  for (const issue of facts.latestPostDraftReview?.chair_result?.blocking_issues ?? []) {
+    addIssue({
+      kind: "阻断",
+      severity: "严重",
+      source: "主席结论",
+      section: inferSectionLabel(issue),
+      message: issue,
+      state: reviewState,
+    });
+  }
+
+  for (const result of facts.latestPostDraftReview?.role_results ?? []) {
+    for (const issue of result.blocking_issues) {
+      addIssue({
+        kind: "阻断",
+        severity: "严重",
+        source: roleSourceLabel(result.role),
+        section: inferSectionLabel(issue),
+        message: issue,
+        state: reviewState,
+      });
+    }
+    for (const hit of result.contamination_hits) {
+      addIssue({
+        kind: "风险",
+        severity: "高",
+        source: roleSourceLabel(result.role),
+        section: inferSectionLabel(hit),
+        message: hit,
+        state: reviewState,
+      });
+    }
+    for (const suggestion of result.rewrite_suggestions) {
+      addIssue({
+        kind: "建议",
+        severity: "中",
+        source: roleSourceLabel(result.role),
+        section: inferSectionLabel(suggestion),
+        message: suggestion,
+        state: reviewState,
+      });
+    }
+  }
+
+  for (const hit of facts.latestPostDraftReview?.contamination_hits ?? []) {
+    addIssue({
+      kind: "风险",
+      severity: "高",
+      source: "污染扫描",
+      section: inferSectionLabel(hit),
+      message: hit,
+      state: reviewState,
+    });
+  }
+
+  for (const hit of facts.latestPostDraftReview?.chair_result?.contamination_hits ?? []) {
+    addIssue({
+      kind: "风险",
+      severity: "高",
+      source: "主席结论",
+      section: inferSectionLabel(hit),
+      message: hit,
+      state: reviewState,
+    });
+  }
+
+  for (const task of facts.latestPostDraftReview?.chair_result?.description_rewrite_tasks ?? []) {
+    addIssue({
+      kind: "建议",
+      severity: "中",
+      source: "主席说明书任务",
+      section: "说明书",
+      message: task,
+      state: reviewState,
+    });
+  }
+
+  for (const action of facts.latestPostDraftReview?.chair_result?.next_actions ?? []) {
+    addIssue({
+      kind: "建议",
+      severity: "中",
+      source: "主席下一步",
+      section: inferSectionLabel(action),
+      message: action,
+      state: reviewState,
+    });
+  }
+
+  for (const item of exportReadiness?.compile_blocked_items ?? []) {
+    addIssue({
+      kind: "阻断",
+      severity: "严重",
+      source: "正式稿编译",
+      section: inferSectionLabel(recordIssueText(item)),
+      message: recordIssueText(item) || "正式稿编译存在阻断项",
+      state: "open",
+    });
+  }
+
+  for (const item of facts.latestOfficialCompile?.blocked_items ?? []) {
+    addIssue({
+      kind: "阻断",
+      severity: "严重",
+      source: "正式稿编译",
+      section: inferSectionLabel(recordIssueText(item)),
+      message: recordIssueText(item) || "正式稿编译存在阻断项",
+      state: facts.officialStale ? "pending_revalidation" : "open",
+    });
+  }
+
+  for (const issue of facts.latestFilingReport?.issues ?? []) {
+    addIssue({
+      kind: filingIssueKind(issue),
+      severity: filingIssueSeverity(issue),
+      source: "质量检查",
+      section: filingIssueSection(issue),
+      message: issue.message || issue.suggestion || issue.category,
+      state: qualityState,
+    });
+  }
+
+  addQualityTaskRows(addIssue, exportReadiness);
+
+  const blockingCount = rows.filter((row) => row.kind === "阻断").length;
+  const riskCount = rows.filter((row) => row.kind === "风险").length;
+  const suggestionCount = rows.filter((row) => row.kind === "建议").length;
+  return { rows, blockingCount, riskCount, suggestionCount };
+}
+
+function deriveVersionChain(
+  exportReadiness: ExportReadiness | null | undefined,
+  facts: DocumentRepairFacts,
+  gates: DocumentRepairState["gates"],
+): DocumentVersionChainState {
+  const nodes: DocumentVersionNode[] = [
+    {
+      id: "internalDraft",
+      label: "内部初稿",
+      state: facts.hasInternalDraft ? "当前有效" : "等待生成",
+      detail: facts.hasInternalDraft ? "当前可编辑工作稿。" : "需要先生成内部初稿。",
+      timeLabel: facts.draftPackage ? "当前工作稿" : "暂无记录",
+      shortHash: shortHash(facts.currentDraftHash),
+      fullHashes: hashDetails([{ label: "内部初稿哈希", value: facts.currentDraftHash }]),
+    },
+    {
+      id: "quality",
+      label: "质量检查",
+      state: qualityVersionState(gates.quality.state),
+      detail: qualityVersionDetail(gates.quality.state),
+      timeLabel: facts.latestFilingReport ? formatRecordTime(facts.latestFilingReport.created_at) : "暂无记录",
+      shortHash: shortHash(facts.latestFilingReport?.draft_package_hash),
+      fullHashes: hashDetails([{ label: "检查初稿哈希", value: facts.latestFilingReport?.draft_package_hash ?? "" }]),
+    },
+    {
+      id: "officialCompile",
+      label: "正式稿",
+      state: artifactVersionState(gates.officialCompile.state),
+      detail: facts.officialStale ? "正式稿来源不是当前内部初稿。" : gates.officialCompile.detail,
+      timeLabel: facts.latestOfficialCompile ? formatRecordTime(facts.latestOfficialCompile.updated_at) : "暂无记录",
+      shortHash: shortHash(facts.latestOfficialCompile?.official_package_hash),
+      fullHashes: hashDetails([
+        { label: "来源初稿哈希", value: facts.latestOfficialCompile?.source_draft_hash ?? "" },
+        { label: "正式稿哈希", value: facts.latestOfficialCompile?.official_package_hash ?? "" },
+      ]),
+    },
+    {
+      id: "postDraftReview",
+      label: "成稿会审",
+      state: artifactVersionState(gates.postDraftReview.state),
+      detail: facts.reviewStale ? "成稿会审不再匹配当前正式稿。" : gates.postDraftReview.detail,
+      timeLabel: facts.latestPostDraftReview ? formatRecordTime(facts.latestPostDraftReview.updated_at) : "暂无记录",
+      shortHash: shortHash(facts.latestPostDraftReview?.official_package_hash),
+      fullHashes: hashDetails([
+        { label: "会审初稿哈希", value: facts.latestPostDraftReview?.draft_package_hash ?? "" },
+        { label: "会审正式稿哈希", value: facts.latestPostDraftReview?.official_package_hash ?? "" },
+      ]),
+    },
+    {
+      id: "export",
+      label: "导出",
+      state: exportVersionState(gates.export.state),
+      detail: gates.export.detail,
+      timeLabel: exportReadiness?.export_allowed ? "导出门禁已放行" : "等待导出门禁",
+      shortHash: shortHash(exportReadiness?.official_package_hash),
+      fullHashes: hashDetails([{ label: "导出正式稿哈希", value: exportReadiness?.official_package_hash ?? "" }]),
+    },
+  ];
+  return {
+    conclusion: versionConclusion(facts, gates),
+    nodes,
   };
 }
 
@@ -479,13 +782,167 @@ function deriveRecentRecords(
   ];
 }
 
-function issueRow(level: IssueSummaryRow["level"], issue: string, index: number): IssueSummaryRow {
-  return {
-    id: `${level}-${index}`,
-    level,
-    section: inferSectionLabel(issue),
-    title: truncate(issue, 88),
-  };
+function addQualityTaskRows(
+  addIssue: (issue: Omit<DocumentIssueInboxRow, "id">) => void,
+  exportReadiness: ExportReadiness | null | undefined,
+): void {
+  for (const name of exportReadiness?.failed_quality_checks ?? []) {
+    addIssue({
+      kind: "阻断",
+      severity: "严重",
+      source: "质量检查",
+      section: "全文",
+      message: `${name} 失败，需要处理后重新检查`,
+      state: "open",
+    });
+  }
+  for (const name of exportReadiness?.stale_quality_checks ?? []) {
+    addIssue({
+      kind: "风险",
+      severity: "中",
+      source: "质量检查",
+      section: "全文",
+      message: `${name} 已失效，需要重新验证`,
+      state: "pending_revalidation",
+    });
+  }
+  for (const name of exportReadiness?.missing_quality_checks ?? []) {
+    addIssue({
+      kind: "风险",
+      severity: "中",
+      source: "质量检查",
+      section: "全文",
+      message: `${name} 尚未完成`,
+      state: "open",
+    });
+  }
+  for (const name of exportReadiness?.unknown_quality_checks ?? []) {
+    addIssue({
+      kind: "风险",
+      severity: "低",
+      source: "质量检查",
+      section: "全文",
+      message: `${name} 状态未知`,
+      state: "open",
+    });
+  }
+  for (const [name, state] of Object.entries(exportReadiness?.quality_check_states ?? {})) {
+    if (state === "current") continue;
+    addIssue({
+      kind: state === "failed" ? "阻断" : "风险",
+      severity: state === "failed" ? "严重" : "中",
+      source: "质量检查",
+      section: "全文",
+      message: `${name} ${qualityTaskStateLabel(state)}`,
+      state: state === "stale" ? "pending_revalidation" : "open",
+    });
+  }
+}
+
+function roleSourceLabel(role: PostDraftReviewRun["role_results"][number]["role"]): string {
+  if (role === "claims_reviewer") return "成稿会审/权利要求";
+  if (role === "spec_cleaner") return "成稿会审/说明书";
+  return "成稿会审/技术稳健性";
+}
+
+function filingIssueKind(issue: FilingReadinessIssue): DocumentIssueKind {
+  if (issue.severity === "high") return "阻断";
+  if (issue.severity === "medium") return "风险";
+  return "建议";
+}
+
+function filingIssueSeverity(issue: FilingReadinessIssue): DocumentIssueSeverity {
+  if (issue.severity === "high") return "高";
+  if (issue.severity === "medium") return "中";
+  return "低";
+}
+
+function filingIssueSection(issue: FilingReadinessIssue): string {
+  if (issue.target === "claims") return "权利要求书";
+  if (issue.target === "abstract") return "摘要";
+  if (issue.target === "drawings") return "附图说明";
+  if (issue.target === "description") return "说明书";
+  return "全文";
+}
+
+function isFilingReportCurrent(report: FilingReadinessReport | null, currentDraftHash: string): boolean {
+  if (!report || !report.draft_package_hash || !currentDraftHash) return true;
+  return report.draft_package_hash === currentDraftHash;
+}
+
+function qualityTaskStateLabel(state: string): string {
+  if (state === "missing") return "尚未完成";
+  if (state === "stale") return "已失效，需要重新验证";
+  if (state === "failed") return "失败，需要处理";
+  return "状态未知";
+}
+
+function qualityVersionState(state: GateState): DocumentVersionState {
+  if (state === "当前有效") return "当前有效";
+  if (state === "等待生成" || state === "运行中") return "等待生成";
+  return "已失效";
+}
+
+function artifactVersionState(state: GateState): DocumentVersionState {
+  if (state === "当前有效" || state === "可导出" || state === "可编辑") return "当前有效";
+  if (state === "等待生成" || state === "运行中") return "等待生成";
+  return "已失效";
+}
+
+function exportVersionState(state: GateState): DocumentVersionState {
+  if (state === "可导出") return "当前有效";
+  if (state === "等待生成" || state === "运行中") return "等待生成";
+  return "已失效";
+}
+
+function qualityVersionDetail(state: GateState): string {
+  if (state === "当前有效") return "质量检查匹配当前内部初稿。";
+  if (state === "等待生成") return "等待内部初稿生成后检查。";
+  if (state === "运行中") return "质量检查正在运行。";
+  return "质量检查需要重新验证。";
+}
+
+function versionConclusion(
+  facts: DocumentRepairFacts,
+  gates: DocumentRepairState["gates"],
+): string {
+  if (!facts.hasInternalDraft) return "尚未生成内部初稿，版本链路等待开始。";
+  if (
+    facts.officialStale
+    || facts.reviewStale
+    || gates.officialCompile.state === "已失效"
+    || gates.postDraftReview.state === "已失效"
+  ) {
+    return "当前内部初稿已修改，正式稿和成稿会审已失效，需重新编译正式稿。";
+  }
+  if (facts.exportReady) return "当前版本链路有效，可以导出正式稿。";
+  if (gates.postDraftReview.state === "需要修复") return "成稿会审存在阻断项，导出仍被锁定。";
+  return "保持内部初稿、质量检查、正式稿和成稿会审在同一版本链路上。";
+}
+
+function shortHash(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return value.length > 12 ? `${value.slice(0, 8)}...` : value;
+}
+
+function hashDetails(values: Array<{ label: string; value: string }>): Array<{ label: string; value: string }> {
+  return values.filter((item) => item.value.trim().length > 0);
+}
+
+function recordIssueText(record: Record<string, string>): string {
+  const visibleValues = Object.entries(record)
+    .filter(([key]) => !/(^|_)(id|run_id)$|hash|log|patch/i.test(key))
+    .map(([, value]) => value)
+    .filter(Boolean);
+  return sanitizeInlineText(visibleValues.join(" "));
+}
+
+function sanitizeInlineText(value: string): string {
+  return value
+    .replace(/\b[a-f0-9]{16,}\b/gi, "哈希已隐藏")
+    .replace(/\b(?:run|compile|review)-[A-Za-z0-9-]{8,}\b/g, "记录已隐藏")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function collectReviewBlockingIssues(review: PostDraftReviewRun | null): string[] {

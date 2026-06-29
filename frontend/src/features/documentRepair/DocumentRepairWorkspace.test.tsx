@@ -289,4 +289,104 @@ describe("DocumentRepairWorkspace", () => {
     expect(container).not.toHaveTextContent("draft-current-1234567890abcdef");
     expect(container).not.toHaveTextContent("official-current-1234567890abcdef");
   });
+
+  it("saves section-level internal draft edits", async () => {
+    const onSaveDraftPackage = vi.fn();
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers({ onSaveDraftPackage })}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "编辑" }));
+    expect(screen.getByLabelText("标题")).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText("标题"));
+    await userEvent.type(screen.getByLabelText("标题"), "新标题");
+    await userEvent.click(screen.getByRole("button", { name: "保存当前初稿" }));
+
+    expect(onSaveDraftPackage).toHaveBeenCalledWith(expect.objectContaining({ title: "新标题" }));
+  });
+
+  it("keeps unsaved draft edits through equivalent parent rerenders", async () => {
+    const handlers = makeHandlers();
+    const onNavigate = vi.fn();
+    const { rerender } = render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={handlers}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "编辑" }));
+    await userEvent.clear(screen.getByLabelText("标题"));
+    await userEvent.type(screen.getByLabelText("标题"), "暂存标题");
+
+    rerender(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({ busyElapsedSeconds: 1 })}
+        exportReadiness={makeExportReadiness()}
+        handlers={handlers}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    expect(screen.getByLabelText("标题")).toHaveValue("暂存标题");
+  });
+
+  it("filters the issue inbox down to blocking rows", async () => {
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({
+          postDraftReviews: [
+            makePostDraftReview({
+              role_results: [
+                {
+                  role: "claims_reviewer",
+                  status: "blocked",
+                  blocking_issues: ["权利要求1仍含内部评审说明"],
+                  contamination_hits: [],
+                  rewrite_suggestions: ["建议补充系统边界说明"],
+                  official_safe_patches: ["official_safe_patches should stay hidden"],
+                  attorney_memo: [],
+                },
+              ],
+            }),
+          ],
+        })}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "问题" }));
+    expect(screen.getByText("阻断")).toBeInTheDocument();
+    expect(screen.getByText("建议")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "只看阻断" }));
+
+    expect(screen.queryByText("建议")).toBeNull();
+  });
+
+  it("shows the document version chain", async () => {
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "版本" }));
+
+    expect(screen.getByText("内部初稿")).toBeInTheDocument();
+    expect(screen.getByText("正式稿")).toBeInTheDocument();
+    expect(screen.getByText("成稿会审")).toBeInTheDocument();
+    expect(screen.getAllByText(/当前有效|已失效|等待生成/).length).toBeGreaterThan(0);
+  });
 });

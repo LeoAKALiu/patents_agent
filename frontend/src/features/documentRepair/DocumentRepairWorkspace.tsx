@@ -7,7 +7,10 @@ import type {
 } from "@/features/projects/ProjectWorkspace";
 import type { MainSectionId } from "@/guidedFlow";
 
+import { DocumentEditTab } from "./DocumentEditTab";
+import { DocumentIssuesTab } from "./DocumentIssuesTab";
 import { DocumentOverviewTab } from "./DocumentOverviewTab";
+import { DocumentVersionsTab } from "./DocumentVersionsTab";
 import {
   deriveDocumentRepairState,
   type DocumentRepairTabId,
@@ -22,14 +25,15 @@ export interface DocumentRepairWorkspaceProps {
 
 const tabs: Array<{ id: DocumentRepairTabId; label: string; description: string }> = [
   { id: "overview", label: "总览", description: "门禁、文稿和问题摘要" },
-  { id: "edit", label: "编辑", description: "内部初稿编辑将在下一任务补齐" },
-  { id: "issues", label: "问题", description: "问题队列将在下一任务补齐" },
+  { id: "edit", label: "编辑", description: "内部初稿编辑" },
+  { id: "issues", label: "问题", description: "问题队列" },
   { id: "annotated", label: "标注修复", description: "标注式修复将在后续任务嵌入" },
-  { id: "versions", label: "版本", description: "版本链路将在下一任务补齐" },
+  { id: "versions", label: "版本", description: "版本链路" },
 ];
 
 export function DocumentRepairWorkspace({
   projectState,
+  handlers,
   exportReadiness = null,
   onNavigate,
 }: DocumentRepairWorkspaceProps) {
@@ -88,6 +92,19 @@ export function DocumentRepairWorkspace({
             onPrimaryAction={runPrimaryAction}
             onOpenTab={setActiveTab}
           />
+        ) : activeTab === "edit" ? (
+          <DocumentEditTab
+            draft={state.editableDraft}
+            draftLabel={state.versionChain.nodes.find((node) => node.id === "internalDraft")?.shortHash}
+            onSaveDraftPackage={handlers.onSaveDraftPackage}
+          />
+        ) : activeTab === "issues" ? (
+          <DocumentIssuesTab
+            inbox={state.issueInbox}
+            onOpenAnnotated={() => setActiveTab("annotated")}
+          />
+        ) : activeTab === "versions" ? (
+          <DocumentVersionsTab chain={state.versionChain} />
         ) : (
           <PlaceholderPanel
             tab={tabs.find((tab) => tab.id === activeTab) ?? tabs[0]}

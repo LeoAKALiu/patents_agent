@@ -1316,6 +1316,271 @@ button.nav-link span {
   white-space: nowrap;
 }
 
+.document-edit {
+  display: grid;
+  gap: 12px;
+}
+
+.document-edit-status {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.document-invalidation-note {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklch, var(--warn), var(--border-subtle) 60%);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--warn), var(--surface-raised) 91%);
+  color: var(--warn-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.document-edit-form {
+  display: grid;
+  gap: 12px;
+}
+
+.document-edit-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.document-edit-field > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.document-edit-field small {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.document-edit-field input,
+.document-edit-field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.6;
+}
+
+.document-edit-field input {
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.document-edit-field textarea {
+  resize: vertical;
+  min-height: 132px;
+  padding: 10px;
+}
+
+.document-edit-field input:focus,
+.document-edit-field textarea:focus {
+  outline: 2px solid color-mix(in oklch, var(--action-primary), transparent 72%);
+  outline-offset: 1px;
+  border-color: color-mix(in oklch, var(--action-primary), var(--border-subtle) 35%);
+}
+
+.document-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.document-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.document-filter-actions button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.document-filter-actions button:hover,
+.document-filter-actions button.is-active {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.document-issues-table-wrap {
+  overflow-x: auto;
+}
+
+.document-issues-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.document-issues-table th,
+.document-issues-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  vertical-align: top;
+}
+
+.document-issues-table th {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.document-issues-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.document-issues-table strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.document-issues-table code {
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.document-issue-severity {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-left: 6px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.document-version-chain-label {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.document-version-chain {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.document-version-node {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.document-version-node-heading {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.document-version-node-heading strong,
+.document-version-node-heading small,
+.document-short-hash {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-version-node-heading strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.document-version-node-heading small,
+.document-short-hash {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.document-version-node p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.document-version-details summary {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.document-version-details dl {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.document-version-details div {
+  min-width: 0;
+}
+
+.document-version-details dt {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.document-version-details dd {
+  min-width: 0;
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .document-record-list {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -4820,12 +5085,14 @@ input:focus, select:focus, textarea:focus {
   .workbench-status-grid { grid-template-columns: 1fr; }
   .document-overview-hero,
   .document-panel-heading,
+  .document-edit-status,
   .document-draft-card-heading,
   .document-placeholder-panel {
     align-items: stretch;
     flex-direction: column;
   }
   .document-overview-hero button,
+  .document-edit-actions .document-secondary-action,
   .document-placeholder-panel button {
     width: 100%;
   }
@@ -4837,6 +5104,7 @@ input:focus, select:focus, textarea:focus {
     width: 100%;
   }
   .document-gate-chain,
+  .document-version-chain,
   .document-draft-metrics,
   .document-issue-metrics,
   .document-record-list {
