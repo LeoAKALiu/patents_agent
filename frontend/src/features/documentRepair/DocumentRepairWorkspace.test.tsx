@@ -391,7 +391,7 @@ describe("DocumentRepairWorkspace", () => {
   });
 
   it("does not show full hashes in the default version chain labels", async () => {
-    const shortButFullHash = "abc123def456";
+    const shortButFullHash = "abc";
     render(
       <DocumentRepairWorkspace
         projectState={makeProjectState({
@@ -426,8 +426,11 @@ describe("DocumentRepairWorkspace", () => {
 
     await userEvent.click(screen.getByRole("tab", { name: "版本" }));
 
-    expect(screen.getAllByText(/短标识 abc123/).length).toBeGreaterThan(0);
-    const visibleText = screen.getByRole("tabpanel").textContent ?? "";
-    expect(visibleText.replace(/查看哈希详情[\s\S]*/g, "")).not.toContain(shortButFullHash);
+    const versionPanel = screen.getByRole("tabpanel");
+    const shortLabels = Array.from(versionPanel.querySelectorAll(".document-short-hash")).map((node) => node.textContent ?? "");
+
+    expect(shortLabels.length).toBeGreaterThan(0);
+    expect(shortLabels.join(" ")).not.toContain(shortButFullHash);
+    expect(screen.getAllByText("查看哈希详情").length).toBeGreaterThan(0);
   });
 });

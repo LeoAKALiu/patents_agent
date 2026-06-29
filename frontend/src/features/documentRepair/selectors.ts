@@ -922,8 +922,8 @@ function versionConclusion(
 
 function shortHash(value: string | undefined): string | undefined {
   if (!value) return undefined;
-  const prefixLength = Math.min(8, Math.max(4, value.length - 2));
-  return `${value.slice(0, prefixLength)}...`;
+  const prefixLength = Math.min(8, Math.max(0, value.length - 2));
+  return prefixLength > 0 ? `${value.slice(0, prefixLength)}...` : "...";
 }
 
 function hashDetails(values: Array<{ label: string; value: string }>): Array<{ label: string; value: string }> {

@@ -50,3 +50,17 @@ Review fix tests/build commands and results:
 - `cd frontend && npm run build`: passed.
 - `cd frontend && npm test`: passed, 32 files / 224 tests.
 - `git diff --check`: passed.
+
+Review follow-up fix:
+- Source identity verified before edits:
+  - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
+  - Branch: `codex/ui-refactor-2026-06-29`
+  - Short SHA: `a15c2d17`
+  - Dirty status: clean
+- Tightened `shortHash()` so inline version labels always elide non-empty hashes, including very short values like `abc`.
+- Updated the workspace regression coverage to assert the visible `.document-short-hash` labels do not contain the full short hash before the `<details>` disclosure is opened.
+
+Review follow-up tests/build commands and results:
+- `cd frontend && npm test -- features/documentRepair/DocumentRepairWorkspace.test.tsx features/documentRepair/selectors.test.ts`: passed, 2 files / 14 tests.
+- `cd frontend && npm run build`: passed.
+- `git diff --check`: passed.
