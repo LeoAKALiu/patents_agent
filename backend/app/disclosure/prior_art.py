@@ -306,6 +306,9 @@ def prior_art_url_warnings(hits: list[PriorArtHit]) -> list[str]:
             continue
         if not is_supported_public_patent_url(url):
             warnings.append(_prior_art_url_warning("unsupported public URL", label, title))
+            continue
+        if _public_url_publication_mismatch(hit.publication_number or "", url):
+            warnings.append(_prior_art_url_warning("mismatched public URL", label, title))
     return warnings
 
 
@@ -358,12 +361,16 @@ def _hit_from_mapping(raw: dict, source: str, query: str) -> PriorArtHit:
 
 
 def _prior_art_identifiers(hit: PriorArtHit) -> list[str]:
-    publication = re.sub(r"\s+", "", (hit.publication_number or "")).upper()
+    publication = _normalize_publication(hit.publication_number or "")
     url = normalize_url(hit.url or "").lower()
     title = re.sub(r"\s+", " ", (hit.title or "").strip()).casefold()
     publication_alias = _publication_from_public_url(url)
+    url_identifier = url
+    if publication and publication_alias and publication_alias != publication:
+        publication_alias = ""
+        url_identifier = "" if _looks_like_public_patent_url(url) else url
 
-    identifiers = [identifier for identifier in (publication, publication_alias, url) if identifier]
+    identifiers = [identifier for identifier in (publication, publication_alias, url_identifier) if identifier]
     if title and not publication and not _looks_like_public_patent_url(url):
         identifiers.append(f"title:{title}")
     return identifiers
@@ -378,13 +385,14 @@ def _prior_art_identifier_index(hits: list[PriorArtHit]) -> dict[str, int]:
 
 
 def _merge_prior_art_hit(existing: PriorArtHit, candidate: PriorArtHit) -> PriorArtHit:
+    publication = existing.publication_number or candidate.publication_number
     return existing.model_copy(
         update={
             "source": existing.source or candidate.source,
             "query": existing.query or candidate.query,
             "title": _richer_text(existing.title, candidate.title),
             "publication_number": existing.publication_number or candidate.publication_number,
-            "url": _richer_url(existing.url, candidate.url),
+            "url": _richer_url(existing.url, candidate.url, publication=publication),
             "abstract": _richer_text(existing.abstract, candidate.abstract),
             "relevance_summary": _richer_text(existing.relevance_summary, candidate.relevance_summary),
             "differentiators": _union_differentiators(existing.differentiators, candidate.differentiators),
@@ -402,9 +410,22 @@ def _richer_text(existing: str | None, candidate: str | None) -> str | None:
     return candidate if len(candidate_text) > len(existing_text) else existing
 
 
-def _richer_url(existing: str, candidate: str) -> str:
+def _richer_url(existing: str, candidate: str, *, publication: str | None = None) -> str:
     existing_url = normalize_url(existing or "")
     candidate_url = normalize_url(candidate or "")
+    normalized_publication = _normalize_publication(publication or "")
+    candidate_mismatch = bool(
+        normalized_publication and _public_url_publication_mismatch(normalized_publication, candidate_url)
+    )
+    existing_mismatch = bool(
+        normalized_publication and _public_url_publication_mismatch(normalized_publication, existing_url)
+    )
+    if candidate_mismatch and existing_mismatch:
+        return ""
+    if candidate_mismatch:
+        return existing
+    if existing_mismatch:
+        return candidate
     if not existing_url:
         return candidate
     if not candidate_url:
@@ -429,7 +450,19 @@ def _publication_from_public_url(url: str) -> str:
     match = PUBLICATION_NUMBER_RE.search(decoded_url)
     if not match:
         return ""
-    return re.sub(r"\s+", "", match.group(0)).upper()
+    return _normalize_publication(match.group(0))
+
+
+def _normalize_publication(value: str) -> str:
+    return re.sub(r"\s+", "", value or "").upper()
+
+
+def _public_url_publication_mismatch(publication: str, url: str) -> bool:
+    normalized_publication = _normalize_publication(publication)
+    if not normalized_publication:
+        return False
+    alias = _publication_from_public_url(normalize_url(url or "").lower())
+    return bool(alias and alias != normalized_publication)
 
 
 def _union_differentiators(existing: list[str], candidate: list[str]) -> list[str]:

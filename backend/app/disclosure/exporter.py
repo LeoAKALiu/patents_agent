@@ -8,7 +8,11 @@ from pathlib import Path
 
 from docx import Document
 
-from backend.app.internal_metadata import INTERNAL_METADATA_KEYS, contains_internal_metadata_field
+from backend.app.internal_metadata import (
+    INTERNAL_METADATA_KEYS,
+    contains_internal_metadata_field,
+    contains_internal_metadata_marker,
+)
 from backend.app.patent_urls import (
     is_supported_public_patent_url,
     normalize_url as normalize_public_url,
@@ -17,10 +21,21 @@ from backend.app.schemas import DisclosurePackage
 
 
 URL_PATTERN = re.compile(r"https?://\S+")
+PUBLICATION_NUMBER_RE = re.compile(r"\b(?:CN|WO|US|EP|JP|KR)\s?\d{5,}[A-Z]\d?\b", re.IGNORECASE)
 MARKDOWN_TABLE_ROW_RE = re.compile(r"^\s*\|(?P<cells>.*)\|\s*$")
 MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
 FENCE_START_RE = re.compile(r"^(?P<indent>\s*)(?P<fence>`{3,}|~{3,})(?P<rest>.*)$")
 MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$")
+INTERNAL_METADATA_FIELD_IN_LABEL_RE = re.compile(
+    rf"(?:(?<=^)|(?<=[\s,，;；|（(【\[]))[\"']?"
+    rf"(?:{'|'.join(re.escape(key) for key in INTERNAL_METADATA_KEYS)})"
+    rf"[\"']?\s*[:：=]\s*.*$",
+    re.IGNORECASE,
+)
+INTERNAL_DEEP_RESEARCH_HEADING_RE = re.compile(
+    r"^(?:deep\s*research|deepresearch)\s*补充线索(?:\s*\d+)?$",
+    re.IGNORECASE,
+)
 INTERNAL_SECTION_HEADINGS = {
     "claim chart",
     "provider diagnostics",
@@ -152,7 +167,7 @@ def export_disclosure_docx(package: DisclosurePackage, output_path: Path, run_di
     run_dir.mkdir(parents=True, exist_ok=True)
 
     doc = Document()
-    doc.add_heading(package.title, level=0)
+    doc.add_heading(_clean_single_line_label(package.title) or "技术交底书", level=0)
     clean_body = _clean_export_body_markdown(package.body_markdown)
     for line in clean_body.splitlines() or [""]:
         doc.add_paragraph(line)
@@ -226,7 +241,7 @@ def _clean_export_body_markdown(body_markdown: str) -> str:
             title = _normalize_internal_heading(heading.group(2))
             if skipping_section_level is not None and level <= skipping_section_level:
                 skipping_section_level = None
-            if title in INTERNAL_SECTION_HEADINGS:
+            if _is_internal_section_heading(title):
                 skipping_section_level = level
                 index += 1
                 continue
@@ -256,6 +271,12 @@ def _clean_export_body_markdown(body_markdown: str) -> str:
 def _normalize_internal_heading(heading: str) -> str:
     normalized = re.sub(r"\s+", " ", heading.strip()).strip("：:").casefold()
     return normalized
+
+
+def _is_internal_section_heading(normalized_heading: str) -> bool:
+    return normalized_heading in INTERNAL_SECTION_HEADINGS or bool(
+        INTERNAL_DEEP_RESEARCH_HEADING_RE.fullmatch(normalized_heading)
+    )
 
 
 def _drop_internal_front_matter(lines: list[str]) -> list[str]:
@@ -360,9 +381,15 @@ def _format_public_prior_art_appendix(package: DisclosurePackage, *, existing_ur
         url = _normalize_url(hit.url or "")
         if not url or url in existing_urls or not is_supported_public_patent_url(url):
             continue
-        label = hit.title
-        if hit.publication_number:
-            label = f"{label}（{hit.publication_number}）"
+        publication = _clean_single_line_label(hit.publication_number)
+        if _public_url_publication_mismatch(publication, url):
+            continue
+        title = _clean_single_line_label(hit.title)
+        if not title and not publication:
+            continue
+        label = title or publication
+        if title and publication:
+            label = f"{title}（{publication}）"
         lines.append(f"- {label}: {url}")
     return "\n".join(lines) if len(lines) > 2 else ""
 
@@ -373,6 +400,37 @@ def _extract_normalized_urls(text: str) -> set[str]:
 
 def _normalize_url(url: str) -> str:
     return normalize_public_url(url)
+
+
+def _clean_single_line_label(value: str | None) -> str:
+    text = re.sub(r"\s+", " ", value or "").strip()
+    if not text:
+        return ""
+    text = INTERNAL_METADATA_FIELD_IN_LABEL_RE.sub("", text).strip(" -:：,，;；|")
+    if contains_internal_metadata_marker(text):
+        return ""
+    return text
+
+
+def _public_url_publication_mismatch(publication: str, url: str) -> bool:
+    normalized_publication = _normalize_publication(publication)
+    if not normalized_publication:
+        return False
+    alias = _publication_from_public_url(url)
+    return bool(alias and alias != normalized_publication)
+
+
+def _publication_from_public_url(url: str) -> str:
+    if not is_supported_public_patent_url(url):
+        return ""
+    match = PUBLICATION_NUMBER_RE.search(url)
+    if not match:
+        return ""
+    return _normalize_publication(match.group(0))
+
+
+def _normalize_publication(value: str) -> str:
+    return re.sub(r"\s+", "", value or "").upper()
 
 
 def _format_ledger_section(package: "DisclosurePackage") -> str:

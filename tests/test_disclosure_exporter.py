@@ -149,6 +149,23 @@ def test_clean_disclosure_docx_scrubs_internal_metadata_from_llm_body(tmp_path) 
     assert "internal | secret" not in text
 
 
+def test_clean_disclosure_docx_scrubs_internal_metadata_from_title(tmp_path) -> None:
+    package = _package().model_copy(
+        update={
+            "title": "一种图像缺陷识别方法 evidence_id: E-001 source_ledger: internal",
+        }
+    )
+
+    docx_path = export_disclosure_docx(package, tmp_path / "disclosure.docx", tmp_path)
+    text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+
+    assert "一种图像缺陷识别方法" in text
+    assert "evidence_id" not in text
+    assert "source_ledger" not in text
+    assert "E-001" not in text
+    assert "internal" not in text
+
+
 def test_clean_disclosure_scrubs_internal_metadata_table_rows_and_blocks() -> None:
     package = _package().model_copy(
         update={
@@ -415,3 +432,88 @@ def test_clean_disclosure_normalizes_trailing_punctuation_when_comparing_urls() 
     markdown = clean_disclosure_to_markdown(package)
 
     assert markdown.count("https://patents.google.com/patent/CN123456789A") == 1
+
+
+def test_clean_disclosure_scrubs_prior_art_appendix_labels_in_markdown_and_docx(tmp_path) -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": "# 技术交底书正文\n\n正文。",
+            "prior_art_hits": [
+                PriorArtHit(
+                    id="h1",
+                    source="Google Patents",
+                    query="图像 缺陷",
+                    title="一种图像缺陷检测方法 evidence_id: E-001",
+                    publication_number="CN123456789A source_ledger: internal",
+                    url="https://patents.google.com/patent/CN123456789A",
+                    abstract="公开了缺陷检测。",
+                )
+            ],
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+    docx_path = export_disclosure_docx(package, tmp_path / "disclosure.docx", tmp_path)
+    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+
+    for text in (markdown, docx_text):
+        assert "一种图像缺陷检测方法" in text
+        assert "CN123456789A" in text
+        assert "https://patents.google.com/patent/CN123456789A" in text
+        assert "evidence_id" not in text
+        assert "source_ledger" not in text
+        assert "E-001" not in text
+        assert "internal" not in text
+
+
+def test_clean_disclosure_skips_mismatched_prior_art_appendix_label() -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": "# 技术交底书正文\n\n正文。",
+            "prior_art_hits": [
+                PriorArtHit(
+                    id="h1",
+                    source="Google Patents",
+                    query="图像 缺陷",
+                    title="错配公开链接条目",
+                    publication_number="CN123456789A",
+                    url="https://patents.google.com/patent/US20240123456A1",
+                    abstract="公开了另一种处理方式。",
+                )
+            ],
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+
+    assert "错配公开链接条目" not in markdown
+    assert "https://patents.google.com/patent/US20240123456A1" not in markdown
+
+
+def test_clean_disclosure_scrubs_internal_deepresearch_prompt_blocks_from_markdown_and_docx(tmp_path) -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "# 技术交底书正文\n\n"
+                "本段讨论 deep research 的一般检索策略，应当保留。\n\n"
+                "## DeepResearch 补充线索 1\n"
+                "现有技术线索：\n"
+                "- CN123456789A | 内部提示块 | https://patents.google.com/patent/CN123456789A\n"
+                "关键差异点：\n"
+                "- 内部差异提示。\n\n"
+                "## 二、实施方式\n"
+                "实施方式正文保留。"
+            )
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+    docx_path = export_disclosure_docx(package, tmp_path / "disclosure.docx", tmp_path)
+    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+
+    for text in (markdown, docx_text):
+        assert "一般检索策略，应当保留" in text
+        assert "实施方式正文保留" in text
+        assert "DeepResearch 补充线索" not in text
+        assert "内部提示块" not in text
+        assert "内部差异提示" not in text

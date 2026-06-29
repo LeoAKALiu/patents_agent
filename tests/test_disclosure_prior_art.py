@@ -102,7 +102,7 @@ def test_dedupe_prior_art_hits_merges_richer_duplicate_in_place() -> None:
     assert deduped[0].abstract == "更完整摘要"
 
 
-def test_dedupe_prior_art_hits_collapses_transitive_duplicates() -> None:
+def test_dedupe_prior_art_hits_does_not_bridge_mismatched_public_url_publication() -> None:
     hits = [
         _hit("h1", "CN123456789A", "https://example.com/cn123", "标题A"),
         _hit("h2", None, "https://patents.google.com/patent/US20240123456A1", "标题B"),
@@ -111,10 +111,27 @@ def test_dedupe_prior_art_hits_collapses_transitive_duplicates() -> None:
 
     deduped = dedupe_prior_art_hits(hits)
 
+    assert len(deduped) == 2
+    assert deduped[0].id == "h1"
+    assert deduped[0].publication_number == "CN123456789A"
+    assert deduped[0].url == "https://example.com/cn123"
+    assert deduped[1].id == "h2"
+    assert deduped[1].publication_number is None
+    assert deduped[1].url == "https://patents.google.com/patent/US20240123456A1"
+
+
+def test_dedupe_prior_art_hits_still_merges_matched_publication_url_alias() -> None:
+    hits = [
+        _hit("h1", "CN123456789A", "https://example.com/cn123", "标题A"),
+        _hit("h2", None, "https://patents.google.com/patent/CN123456789A", "标题A公开链接"),
+    ]
+
+    deduped = dedupe_prior_art_hits(hits)
+
     assert len(deduped) == 1
     assert deduped[0].id == "h1"
     assert deduped[0].publication_number == "CN123456789A"
-    assert deduped[0].url == "https://patents.google.com/patent/US20240123456A1"
+    assert deduped[0].url == "https://patents.google.com/patent/CN123456789A"
 
 
 def test_dedupe_prior_art_hits_prefers_richer_fields_and_unions_differentiators() -> None:
@@ -193,6 +210,14 @@ def test_prior_art_url_warnings_flags_unsupported_public_urls() -> None:
     ])
 
     assert warnings == ["prior_art unsupported public URL: CN123456789A 非公开视频链接"]
+
+
+def test_prior_art_url_warnings_flags_mismatched_publication_public_url() -> None:
+    warnings = prior_art_url_warnings([
+        _hit("h1", "CN123456789A", "https://patents.google.com/patent/US20240123456A1", "公开视频错链"),
+    ])
+
+    assert warnings == ["prior_art mismatched public URL: CN123456789A 公开视频错链"]
 
 
 def test_public_provider_calls_cnipa_once_per_normalized_term() -> None:
