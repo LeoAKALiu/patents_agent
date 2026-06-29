@@ -3,14 +3,12 @@ import { ClipboardList, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { SettingsPanel } from "@/SettingsPanel";
-import { ExpertToolChooser } from "@/views/expertViews";
 import { BusyOperationConsole } from "@/views/runtimePanel";
 import { SystemDiagnosticsDialog, SystemStatusPanel } from "@/ui/SystemStatusPanel";
 import type { ThemeMode } from "@/ui/useTheme";
 import { ShellLayout } from "@/app/ShellLayout";
 import {
   fixedGoalModeFor,
-  classifyExpertTool,
   resolveRoute,
 } from "@/app/routes";
 import { agentRunModeLabel } from "@/domain";
@@ -23,24 +21,21 @@ import {
 import { WorkbenchWorkspace } from "@/features/workbench/WorkbenchWorkspace";
 import { deriveWorkbenchState, type WorkbenchPrimaryTarget } from "@/features/workbench/selectors";
 import {
-  CorpusWorkspace,
-  type CorpusTool,
   type CorpusWorkspaceHandlers,
   type CorpusWorkspaceState,
 } from "@/features/corpus/CorpusWorkspace";
+import { KnowledgeWorkspace } from "@/features/knowledge/KnowledgeWorkspace";
 import {
-  QualityWorkspace,
-  type QualityTool,
   type QualityWorkspaceHandlers,
   type QualityWorkspaceState,
 } from "@/features/quality/QualityWorkspace";
 import {
-  PostDraftWorkspace,
-  type PostDraftTool,
   type PostDraftWorkspaceHandlers,
   type PostDraftWorkspaceState,
 } from "@/features/postDraft/PostDraftWorkspace";
 import { DocumentRepairWorkspace } from "@/features/documentRepair/DocumentRepairWorkspace";
+import { ExportWorkspace } from "@/features/export/ExportWorkspace";
+import { ExpertToolsWorkspace } from "@/features/expert/ExpertToolsWorkspace";
 import { guidedBusyLabel, guidedOperationLog, mainSections } from "@/guidedFlow";
 import type { MainSectionId, ExpertToolId, StartChoiceId } from "@/guidedFlow";
 import type { Health, AgentDoctorReport, ProjectRecord } from "@/api";
@@ -91,12 +86,6 @@ export interface AppRootProps {
   // -- post-draft workspace ------------------------------------------------
   postDraftState: PostDraftWorkspaceState;
   postDraftHandlers: PostDraftWorkspaceHandlers;
-}
-
-function knowledgeTool(activeExpertTool: ExpertToolId): CorpusTool {
-  return activeExpertTool === "build" || activeExpertTool === "corpus"
-    ? activeExpertTool
-    : "build";
 }
 
 function topbarRecoveryAction(props: AppRootProps): React.ReactNode {
@@ -153,35 +142,6 @@ function noticeBar(props: AppRootProps): React.ReactNode {
   );
 }
 
-function expertSection(props: AppRootProps): React.ReactNode {
-  const toolGroup = classifyExpertTool(props.activeExpertTool);
-  if (toolGroup === "corpus") {
-    return (
-      <CorpusWorkspace
-        tool={props.activeExpertTool as CorpusTool}
-        state={props.corpusState}
-        handlers={props.corpusHandlers}
-      />
-    );
-  }
-  if (toolGroup === "quality") {
-    return (
-      <QualityWorkspace
-        tool={props.activeExpertTool as QualityTool}
-        state={props.qualityState}
-        handlers={props.qualityHandlers}
-      />
-    );
-  }
-  return (
-    <PostDraftWorkspace
-      tool={props.activeExpertTool as PostDraftTool}
-      state={props.postDraftState}
-      handlers={props.postDraftHandlers}
-    />
-  );
-}
-
 function exportStatus(props: AppRootProps): {
   label: string;
   variant: "idle" | "busy" | "error" | "success" | "warning";
@@ -205,9 +165,9 @@ function pageTitleForSection(activeSection: MainSectionId): { title: string; sub
   if (activeSection === "projects") return { title: "项目", subtitle: "查看历史项目和运行记录" };
   if (activeSection === "documents") return { title: "文稿与修复", subtitle: "处理当前项目的正文、问题和版本链路" };
   if (activeSection === "settings") return { title: "设置", subtitle: "本机 LLM 服务参数与 API Key" };
-  if (activeSection === "knowledge") return { title: "知识库", subtitle: "构建与检索现有语料库" };
-  if (activeSection === "expert") return { title: "专家工具", subtitle: "按工作流阶段拆分的子工具集" };
-  if (activeSection === "export") return { title: "导出", subtitle: "导出正式稿与相关交付文件" };
+  if (activeSection === "knowledge") return { title: "知识库", subtitle: "语料库建设与知识库检索" };
+  if (activeSection === "expert") return { title: "专家工具", subtitle: "高级工具中心，不作为默认修复或导出路径" };
+  if (activeSection === "export") return { title: "导出", subtitle: "正式提交稿、内部复核材料与风险追溯" };
   if (activeSection === "workbench") return { title: "工作台", subtitle: "当前项目、下一步和导出风险概览" };
   return { title: "工作台" };
 }
@@ -252,8 +212,6 @@ export function AppRoot(props: AppRootProps) {
     icon: <section.icon size={16} aria-hidden="true" />,
     description: section.description,
   }));
-  const showExpertWorkspace = route === "knowledge" || route === "export" || route === "expert";
-  const showExpertChooser = props.activeSection === "expert";
   const workbenchState = deriveWorkbenchState({
     projectState: props.projectState,
     exportReadiness: props.postDraftState.exportReadiness,
@@ -322,27 +280,32 @@ export function AppRoot(props: AppRootProps) {
               <SettingsPanel theme={props.theme} onThemeChange={props.onChangeTheme} />
             </div>
           )}
-          {showExpertWorkspace && (
-            <div className="flex flex-col gap-4">
-              {showExpertChooser && (
-                <ExpertToolChooser activeToolId={props.activeExpertTool} onSelect={props.onSelectExpertTool} />
-              )}
-              {route === "knowledge" && (
-                <CorpusWorkspace
-                  tool={knowledgeTool(props.activeExpertTool)}
-                  state={props.corpusState}
-                  handlers={props.corpusHandlers}
-                />
-              )}
-              {route === "export" && (
-                <PostDraftWorkspace
-                  tool="export"
-                  state={props.postDraftState}
-                  handlers={props.postDraftHandlers}
-                />
-              )}
-              {route === "expert" && expertSection(props)}
-            </div>
+          {route === "knowledge" && (
+            <KnowledgeWorkspace
+              activeExpertTool={props.activeExpertTool}
+              state={props.corpusState}
+              handlers={props.corpusHandlers}
+              onSelectTool={props.onSelectExpertTool}
+            />
+          )}
+          {route === "export" && (
+            <ExportWorkspace
+              postDraftState={props.postDraftState}
+              postDraftHandlers={props.postDraftHandlers}
+              onNavigateDocuments={() => props.onSelectSection("documents")}
+            />
+          )}
+          {route === "expert" && (
+            <ExpertToolsWorkspace
+              activeExpertTool={props.activeExpertTool}
+              onSelectExpertTool={props.onSelectExpertTool}
+              corpusState={props.corpusState}
+              corpusHandlers={props.corpusHandlers}
+              qualityState={props.qualityState}
+              qualityHandlers={props.qualityHandlers}
+              postDraftState={props.postDraftState}
+              postDraftHandlers={props.postDraftHandlers}
+            />
           )}
         </div>
       </ShellLayout>

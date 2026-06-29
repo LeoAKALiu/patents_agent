@@ -290,7 +290,7 @@ export function ExportView({
 
       <SettingsGroup
         title="导出边界"
-        description="正式提交稿、内部策略稿和风险说明使用不同容器，避免内部会审内容进入可提交文件。"
+        description="正式提交稿、内部复核材料和风险说明与追溯使用不同容器，避免内部会审内容进入可提交文件。"
       >
         <div className="boundary-grid">
           <BoundaryCard
@@ -300,18 +300,18 @@ export function ExportView({
           />
           <BoundaryCard
             tone="internal"
-            title="内部策略稿"
+            title="内部复核材料"
             description="保留会审结论、护城河、支撑缺口和补强建议，仅供内部复核，不作为提交稿。"
           />
           <BoundaryCard
             tone="external"
-            title="风险说明"
+            title="风险说明与追溯"
             description="解释导出阻断、清污命中和版本哈希来源，帮助人工复核，不替代专利代理师或律师意见。"
           />
         </div>
       </SettingsGroup>
 
-      <SettingsGroup title="正式稿门禁">
+      <SettingsGroup title="正式提交稿" description="正式稿导出受门禁控制，只呈现可提交给代理师或提交系统的文件形态。">
         <InfoCard
           icon={<FileText size={18} aria-hidden="true" />}
           tone={officialAllowed ? "success" : "warn"}
@@ -398,8 +398,8 @@ export function ExportView({
       </SettingsGroup>
 
       <SettingsGroup
-        title="导出文件"
-        description="正式稿导出受门禁控制；内部材料始终带有策略语境，请不要直接提交。"
+        title="内部复核材料"
+        description="内部材料始终带有策略语境，请勿直接作为正式提交稿。"
       >
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <a
@@ -440,14 +440,6 @@ export function ExportView({
               <FileText size={18} />
               <span>原生保存 Markdown…</span>
             </button>
-            <button
-              className="export-link"
-              onClick={() => onNativeExport("sidecar")}
-              type="button"
-            >
-              <FileText size={18} />
-              <span>导出风险说明…</span>
-            </button>
           </>
         )}
         {[
@@ -469,7 +461,19 @@ export function ExportView({
       </div>
       </SettingsGroup>
 
-      <SettingsGroup title="包内容预览" description="用于人工复核导出内容，正式提交前仍需专业人员确认。">
+      <SettingsGroup title="风险说明与追溯" description="用于人工复核导出内容、阻断原因和追溯信息，正式提交前仍需专业人员确认。">
+      {desktopDialogsAvailable && officialCompileRun?.status === "completed" && (
+        <div className="workspace-action-row">
+          <button
+            className="export-link"
+            onClick={() => onNativeExport("sidecar")}
+            type="button"
+          >
+            <FileText size={18} />
+            <span>导出风险说明…</span>
+          </button>
+        </div>
+      )}
       <div className="report-preview-pane">
         <PackagePreview packageValue={packageValue} compact />
       </div>

@@ -16,6 +16,18 @@ vi.mock("@/features/postDraft/PostDraftWorkspace", () => ({
   PostDraftWorkspace: ({ tool }: { tool: string }) => <div data-testid="postdraft-workspace">{tool}</div>,
 }));
 
+vi.mock("@/features/knowledge/KnowledgeWorkspace", () => ({
+  KnowledgeWorkspace: () => <div data-testid="knowledge-workspace">knowledge-wrapper</div>,
+}));
+
+vi.mock("@/features/export/ExportWorkspace", () => ({
+  ExportWorkspace: () => <div data-testid="export-workspace">export-wrapper</div>,
+}));
+
+vi.mock("@/features/expert/ExpertToolsWorkspace", () => ({
+  ExpertToolsWorkspace: () => <div data-testid="expert-tools-workspace">expert-wrapper</div>,
+}));
+
 function noop() {}
 
 function asyncNoop() {
@@ -239,13 +251,13 @@ describe("AppRoot routes", () => {
   it("renders the corpus workspace for the knowledge section", () => {
     render(<AppRoot {...makeRootProps()} activeSection="knowledge" activeExpertTool="corpus" />);
 
-    expect(screen.getByTestId("corpus-workspace")).toHaveTextContent("corpus");
+    expect(screen.getByTestId("knowledge-workspace")).toHaveTextContent("knowledge-wrapper");
   });
 
   it("defaults knowledge to the build tool when the active expert tool is outside corpus", () => {
     render(<AppRoot {...makeRootProps()} activeSection="knowledge" activeExpertTool="materials" />);
 
-    expect(screen.getByTestId("corpus-workspace")).toHaveTextContent("build");
+    expect(screen.getByTestId("knowledge-workspace")).toHaveTextContent("knowledge-wrapper");
   });
 
   it("renders the document repair workspace for the documents section", () => {
@@ -261,7 +273,13 @@ describe("AppRoot routes", () => {
   it("renders the export workspace for the export section", () => {
     render(<AppRoot {...makeRootProps()} activeSection="export" activeExpertTool="materials" />);
 
-    expect(screen.getByTestId("postdraft-workspace")).toHaveTextContent("export");
+    expect(screen.getByTestId("export-workspace")).toHaveTextContent("export-wrapper");
+  });
+
+  it("renders the expert tools workspace for the expert section", () => {
+    render(<AppRoot {...makeRootProps()} activeSection="expert" activeExpertTool="materials" />);
+
+    expect(screen.getByTestId("expert-tools-workspace")).toHaveTextContent("expert-wrapper");
   });
 
   it("renders status-only topbar chrome without global nav buttons", () => {

@@ -2444,6 +2444,87 @@ input:focus, select:focus, textarea:focus {
 /* ── Export grid ──────────────────────────────────────────────── */
 .export-grid { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 10px; }
 
+.workspace-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.workspace-band {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  padding: 16px;
+}
+
+.workspace-band-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workspace-band-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.workspace-band-header p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.workspace-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workspace-overview-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  padding: 16px;
+}
+
+.workspace-overview-card strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.workspace-overview-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.workspace-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-inline-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.export-guidance .btn {
+  min-height: 36px;
+}
+
 /* ── Project Grid ─────────────────────────────────────────────── */
 .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 
@@ -5052,6 +5133,8 @@ input:focus, select:focus, textarea:focus {
   .secondary-nav { justify-content: flex-start; width: 100%; }
   .guided-stepper { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .segmented-control { max-width: none; width: 100%; }
+  .workspace-card-grid { grid-template-columns: 1fr; }
+  .workspace-action-row { align-items: stretch; }
   .external-draft-source-row { align-items: stretch; flex-direction: column; }
   .external-draft-source-row .icon-button { width: 100%; }
   .status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }

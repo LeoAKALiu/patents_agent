@@ -41,10 +41,15 @@ describe("ExportView quality gate copy", () => {
       />,
     );
 
+    expect(screen.getAllByText("正式提交稿").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("内部复核材料").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("风险说明与追溯").length).toBeGreaterThan(0);
     expect(screen.getByText("质量检查未完成")).toBeInTheDocument();
     expect(screen.getByText("缺少：提交前质量检查")).toBeInTheDocument();
     expect(screen.getByText("已过期：权利要求防守工作表")).toBeInTheDocument();
     expect(screen.getByText("失败：成稿完整度检查")).toBeInTheDocument();
+    expect(screen.queryByText("人工修正")).toBeNull();
+    expect(screen.queryByText("一键AI修正")).toBeNull();
   });
 
   it("names unknown-hash quality checks when official export is locked", () => {
