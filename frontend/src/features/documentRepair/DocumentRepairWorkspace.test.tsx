@@ -603,8 +603,9 @@ describe("DocumentRepairWorkspace", () => {
     expect(await screen.findByText("问题队列")).toBeInTheDocument();
   });
 
-  it("marks the issue pending revalidation after patch apply without triggering draft save", async () => {
+  it("marks the issue pending revalidation and refreshes app state after patch apply without triggering draft save", async () => {
     const onSaveDraftPackage = vi.fn();
+    const onDraftRepairPatchApplied = vi.fn();
     vi.mocked(api.createDraftRepairPatch).mockResolvedValue({
       id: "patch-1",
       issue_id: "issue-1",
@@ -630,7 +631,7 @@ describe("DocumentRepairWorkspace", () => {
       <DocumentRepairWorkspace
         projectState={makeProjectState()}
         exportReadiness={makeExportReadiness()}
-        handlers={makeHandlers({ onSaveDraftPackage })}
+        handlers={makeHandlers({ onSaveDraftPackage, onDraftRepairPatchApplied })}
         onNavigate={vi.fn()}
       />,
     );
@@ -649,6 +650,7 @@ describe("DocumentRepairWorkspace", () => {
       "patch-1",
     );
     expect(onSaveDraftPackage).not.toHaveBeenCalled();
+    expect(onDraftRepairPatchApplied).toHaveBeenCalledWith("issue-1");
     expect(await screen.findAllByText("待复核")).not.toHaveLength(0);
   });
 });

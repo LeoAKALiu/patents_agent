@@ -1531,6 +1531,26 @@ function App() {
     });
   }
 
+  async function handleDraftRepairPatchApplied(issueId?: string) {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("draft-repair-patch", async () => {
+      const stillSelected = await refreshProjectsPreservingSelection(projectId);
+      if (!stillSelected) return;
+      setFilingReports([]);
+      setWorksheets([]);
+      setCompletionRuns([]);
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
+      await loadExportReadiness(projectId);
+      setMessage(
+        issueId
+          ? "AI 修正已写回当前初稿。请重新运行质量检查、正式稿编译和成稿会审。"
+          : "修复补丁已写回当前初稿。请重新运行质量检查、正式稿编译和成稿会审。",
+      );
+    });
+  }
+
   async function handleStartOfficialCompile() {
     if (!selectedProject?.package) return;
     const projectId = selectedProject.id;
@@ -2015,6 +2035,7 @@ function App() {
         onApplyOfficialCompileCleanup: (runId) => void handleApplyOfficialCompileCleanup(runId),
         onApplyPostDraftSafePatches: (runId) => void handleApplyPostDraftSafePatches(runId),
         onSaveDraftPackage: (payload) => void handleSaveDraftPackage(payload),
+        onDraftRepairPatchApplied: (issueId) => void handleDraftRepairPatchApplied(issueId),
         onCancelPostDraftReviewRun: (runId) => void handleCancelPostDraftReviewRun(runId),
         onRetryPostDraftReviewRun: (runId) => void handleRetryPostDraftReviewRun(runId),
         onToggleDeliberationProvider: handleToggleDeliberationProvider,

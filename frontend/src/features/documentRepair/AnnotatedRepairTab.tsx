@@ -18,6 +18,7 @@ export interface AnnotatedRepairTabProps {
   currentSourceDraftHash: string;
   saving: boolean;
   onSaveDraftPackage: (fields: DraftPackageManualUpdate) => Promise<void> | void;
+  onDraftRepairPatchApplied?: (issueId?: string) => Promise<void> | void;
 }
 
 export function AnnotatedRepairTab({
@@ -26,6 +27,7 @@ export function AnnotatedRepairTab({
   currentSourceDraftHash,
   saving,
   onSaveDraftPackage,
+  onDraftRepairPatchApplied,
 }: AnnotatedRepairTabProps) {
   const repairReview = useMemo(
     () => selectLatestRepairablePostDraftReview(reviews, currentSourceDraftHash),
@@ -140,12 +142,13 @@ export function AnnotatedRepairTab({
       pendingRevalidationIssueIds={pendingRevalidationIssueIds}
       onClose={() => {}}
       onSave={onSaveDraftPackage}
-      onPatchApplied={(_fields, issueId) => {
+      onPatchApplied={async (_fields, issueId) => {
         if (issueId) {
           setPendingRevalidationIssueIds((current) =>
             current.includes(issueId) ? current : [...current, issueId],
           );
         }
+        await onDraftRepairPatchApplied?.(issueId);
       }}
     />
   );

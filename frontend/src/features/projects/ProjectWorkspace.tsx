@@ -121,6 +121,7 @@ export interface ProjectWorkspaceHandlers {
     description: string;
     drawing_description: string;
   }) => void;
+  onDraftRepairPatchApplied?: (issueId?: string) => void | Promise<void>;
   onCancelPostDraftReviewRun: (runId: string) => void;
   onRetryPostDraftReviewRun: (runId: string) => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;

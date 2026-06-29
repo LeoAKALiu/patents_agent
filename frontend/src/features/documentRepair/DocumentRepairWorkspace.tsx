@@ -122,6 +122,7 @@ export function DocumentRepairWorkspace({
             currentSourceDraftHash={projectState.currentSourceDraftHash}
             saving={projectState.busy === "save-draft"}
             onSaveDraftPackage={handlers.onSaveDraftPackage}
+            onDraftRepairPatchApplied={handlers.onDraftRepairPatchApplied}
           />
         ) : activeTab === "versions" ? (
           <DocumentVersionsTab chain={state.versionChain} />
