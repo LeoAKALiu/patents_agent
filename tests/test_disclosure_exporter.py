@@ -160,6 +160,7 @@ def test_clean_disclosure_scrubs_internal_metadata_table_rows_and_blocks() -> No
                 "| --- | --- |\n"
                 "| evidence_id | E-001 |\n"
                 "| source_label | 内部样本 |\n"
+                "| 字段 | evidence_id |\n"
                 "| 技术效果 | 降低误检率 |\n\n"
                 "## 二、发明内容\n"
                 "系统根据检测结果实时回写采集策略。"
@@ -175,6 +176,7 @@ def test_clean_disclosure_scrubs_internal_metadata_table_rows_and_blocks() -> No
     assert "source_label" not in markdown
     assert "E-001" not in markdown
     assert "内部样本" not in markdown
+    assert "| 字段 | evidence_id |" not in markdown
 
 
 def test_clean_disclosure_scrubs_structured_internal_blocks_from_markdown_and_docx(tmp_path) -> None:

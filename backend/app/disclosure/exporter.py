@@ -373,8 +373,8 @@ def _table_row_contains_internal_metadata(line: str) -> bool:
     cells = [cell.strip() for cell in match.group("cells").split("|")]
     if not cells:
         return False
-    key = _normalize_internal_heading(cells[0])
-    return any(key == candidate.casefold() for candidate in INTERNAL_METADATA_KEYS)
+    normalized_keys = {_normalize_internal_heading(cell) for cell in cells if cell.strip()}
+    return any(candidate.casefold() in normalized_keys for candidate in INTERNAL_METADATA_KEYS)
 
 
 def _format_public_prior_art_appendix(package: DisclosurePackage, *, existing_urls: set[str] | None = None) -> str:
