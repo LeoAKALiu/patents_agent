@@ -218,6 +218,7 @@ import {
   guidedBusyLabel,
   guidedOperationLog,
   mainSections,
+  normalizeMainSectionId,
   projectGoalPrefix,
   selectCurrentOfficialCompileRun,
   selectLatestMatchingPostDraftReview,
@@ -311,7 +312,6 @@ const defaultPersistedAppState: PersistedAppState = {
   disclosureResearchMode: "standard",
 };
 
-const validMainSectionIds = new Set<MainSectionId>(["generate", "utility", "projects", "expert", "settings"]);
 const validExpertToolIds = new Set<ExpertToolId>(
   expertToolGroups.flatMap((group) => group.tools.map((tool) => tool.id)),
 );
@@ -367,12 +367,10 @@ export function summarizeMaterialUploadOutcome(
 export function sanitizePersistedAppState(value: unknown): PersistedAppState {
   const record = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const selectedProjectId = typeof record.selectedProjectId === "string" ? record.selectedProjectId : "";
-  const activeSection = validMainSectionIds.has(record.activeSection as MainSectionId)
-    ? record.activeSection as MainSectionId
-    : defaultMainSectionId;
   const activeExpertTool = validExpertToolIds.has(record.activeExpertTool as ExpertToolId)
     ? record.activeExpertTool as ExpertToolId
     : defaultExpertToolId;
+  const activeSection = normalizeMainSectionId(record.activeSection, activeExpertTool);
   const startChoice = validStartChoiceIds.has(record.startChoice as StartChoiceId)
     ? record.startChoice as StartChoiceId
     : null;
@@ -751,7 +749,7 @@ function App() {
         action === "export-official-md" ||
         action === "export-official-sidecar"
       ) {
-        setActiveSection("expert");
+        setActiveSection("export");
         setActiveExpertTool("export");
         if (action === "export-official-docx") {
           void triggerNativeExport("docx");
@@ -1912,12 +1910,18 @@ function App() {
 
   function openExpertTool(tool: ExpertToolId) {
     setActiveExpertTool(tool);
-    setActiveSection("expert");
+    if (tool === "build" || tool === "corpus") {
+      setActiveSection("knowledge");
+    } else if (tool === "export") {
+      setActiveSection("export");
+    } else {
+      setActiveSection("expert");
+    }
   }
 
   function handleStartChoice(choice: StartChoiceId) {
     setStartChoice(choice);
-    setActiveSection("generate");
+    setActiveSection("workbench");
     if (choice === "external") {
       setActiveExpertTool("materials");
     }
@@ -1925,7 +1929,7 @@ function App() {
 
   function returnToStartChoices() {
     setStartChoice(null);
-    setActiveSection("generate");
+    setActiveSection("workbench");
   }
 
   return (
