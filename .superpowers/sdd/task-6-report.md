@@ -47,7 +47,7 @@
 - Finding: missing regression coverage for patch apply behavior.
   Fix: added editor-level mocks for `createDraftRepairPatch` and `applyDraftRepairPatch`, asserted `onPatchApplied` receives the patched fields plus issue id, and asserted `onSave` is not called during patch apply. Added workspace coverage that the embedded tab marks `待复核` without calling `onSaveDraftPackage`.
 - Commands:
-  - `cd frontend && npm test -- PostDraftRepairEditor.test.tsx features/documentRepair/DocumentRepairWorkspace.test.tsx`
-  - `cd frontend && npm run build`
-  - `cd frontend && npm test`
-  - `git diff --check`
+  - `cd frontend && npm test -- PostDraftRepairEditor.test.tsx features/documentRepair/DocumentRepairWorkspace.test.tsx` — passed (`24` tests).
+  - `cd frontend && npm run build` — passed.
+  - `cd frontend && npm test` — passed (`232` tests).
+  - `git diff --check` — passed.
