@@ -149,6 +149,73 @@ def test_clean_disclosure_docx_scrubs_internal_metadata_from_llm_body(tmp_path) 
     assert "internal | secret" not in text
 
 
+def test_clean_disclosure_scrubs_internal_metadata_table_rows_and_blocks() -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "# 技术交底书正文\n\n"
+                "## 一、技术领域\n"
+                "本发明涉及图像缺陷识别。\n\n"
+                "| 字段 | 内容 |\n"
+                "| --- | --- |\n"
+                "| evidence_id | E-001 |\n"
+                "| source_label | 内部样本 |\n"
+                "| 技术效果 | 降低误检率 |\n\n"
+                "## 二、发明内容\n"
+                "系统根据检测结果实时回写采集策略。"
+            )
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+
+    assert "本发明涉及图像缺陷识别" in markdown
+    assert "降低误检率" in markdown
+    assert "evidence_id" not in markdown
+    assert "source_label" not in markdown
+    assert "E-001" not in markdown
+    assert "内部样本" not in markdown
+
+
+def test_clean_disclosure_scrubs_structured_internal_blocks_from_markdown_and_docx(tmp_path) -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "---\n"
+                "title: 一种图像缺陷识别方法\n"
+                "source_id: src-001\n"
+                "internal_only: true\n"
+                "---\n\n"
+                "# 技术交底书正文\n\n"
+                "```yaml\n"
+                "evidence_id: E-001\n"
+                "source_label: internal-dataset\n"
+                "```\n\n"
+                "## 一、技术领域\n"
+                "本发明涉及图像缺陷识别。\n\n"
+                "```json\n"
+                "{\"source_label\": \"internal\", \"technical_effect\": \"降低误检率\"}\n"
+                "```\n\n"
+                "## 二、发明内容\n"
+                "系统根据检测结果实时回写采集策略。"
+            )
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+    docx_path = export_disclosure_docx(package, tmp_path / "disclosure.docx", tmp_path)
+    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+
+    for text in (markdown, docx_text):
+        assert "本发明涉及图像缺陷识别" in text
+        assert "系统根据检测结果实时回写采集策略" in text
+        assert "source_id" not in text
+        assert "internal_only" not in text
+        assert "evidence_id" not in text
+        assert "source_label" not in text
+        assert "internal-dataset" not in text
+
+
 def test_sidecar_contains_internal_sections() -> None:
     markdown = disclosure_sidecar_to_markdown(_package())
 

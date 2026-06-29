@@ -166,6 +166,50 @@ def test_external_draft_api_creates_source_runs_intake_and_confirms_package(tmp_
     assert records[0]["artifact_refs"] == [f"external-draft-intake:{intake['id']}"]
 
 
+def test_external_draft_first_confirmed_intake_records_revision_ledger_for_empty_project(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    project = client.post(
+        "/api/projects",
+        json={"name": "空项目外部稿", "draft_text": ""},
+    ).json()
+
+    source = client.post(
+        f"/api/projects/{project['id']}/external-drafts",
+        json={
+            "source_type": "pasted_text",
+            "file_name": "draft.txt",
+            "text": (
+                "发明名称\n一种外部稿处理方法\n"
+                "说明书\n本发明涉及专利初稿处理。\n"
+            ),
+        },
+    ).json()
+    intake = client.post(f"/api/projects/{project['id']}/external-drafts/{source['id']}/intake-runs").json()
+
+    confirm_response = client.post(
+        f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}/confirm",
+        json={
+            "title": "一种外部稿处理方法",
+            "abstract": "本发明公开一种外部稿处理方法。",
+            "claims": "1. 一种外部稿处理方法，其特征在于，解析外部专利初稿并生成工作稿。",
+            "description": "本发明涉及专利初稿处理。系统保存原始稿并生成内部工作稿。",
+            "drawing_description": "图1为外部稿处理流程图。",
+        },
+    )
+
+    assert confirm_response.status_code == 200
+    ledger_response = client.get(f"/api/projects/{project['id']}/revision-ledger")
+    assert ledger_response.status_code == 200
+    records = ledger_response.json()
+    assert len(records) == 1
+    assert records[0]["revision_kind"] == "material_merge"
+    assert records[0]["affected_sections"] == ["title", "abstract", "claims", "description", "drawing_description"]
+    assert records[0]["artifact_refs"] == [f"external-draft-intake:{intake['id']}"]
+    assert records[0]["baseline_artifact_hash"]
+    assert records[0]["new_artifact_hash"]
+    assert records[0]["baseline_artifact_hash"] != records[0]["new_artifact_hash"]
+
+
 def test_external_draft_docx_upload_creates_source(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
     project = client.post(

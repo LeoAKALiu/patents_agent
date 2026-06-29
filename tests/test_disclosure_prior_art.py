@@ -155,6 +155,28 @@ def test_dedupe_prior_art_hits_prefers_richer_fields_and_unions_differentiators(
     assert deduped[0].differentiators == ["低延迟", "动态阈值"]
 
 
+def test_dedupe_prior_art_hits_keeps_same_title_when_publications_differ() -> None:
+    hits = [
+        _hit("h1", "CN123456789A", "", "通用任务调度方法"),
+        _hit("h2", "US20240123456A1", "", "通用任务调度方法"),
+    ]
+
+    deduped = dedupe_prior_art_hits(hits)
+
+    assert [hit.id for hit in deduped] == ["h1", "h2"]
+
+
+def test_dedupe_prior_art_hits_falls_back_to_title_when_publication_and_url_missing() -> None:
+    hits = [
+        _hit("h1", None, "", "通用任务调度方法"),
+        _hit("h2", None, "", "通用任务调度方法"),
+    ]
+
+    deduped = dedupe_prior_art_hits(hits)
+
+    assert [hit.id for hit in deduped] == ["h1"]
+
+
 def test_prior_art_url_warnings_flags_missing_public_urls() -> None:
     warnings = prior_art_url_warnings([
         _hit("h1", "CN123456789A", "", "无 URL"),

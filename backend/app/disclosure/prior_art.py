@@ -15,6 +15,8 @@ from typing import Protocol
 from backend.app.research.ledger import SourceLedger, citation_snapshot
 from backend.app.schemas import PriorArtHit
 
+PUBLICATION_NUMBER_RE = re.compile(r"\b(?:CN|WO|US|EP|JP|KR)\s?\d{5,}[A-Z]\d?\b", re.IGNORECASE)
+
 
 class PriorArtProvider(Protocol):
     def search(self, terms: list[str], limit: int) -> tuple[list[PriorArtHit], list[str]]:
@@ -352,7 +354,12 @@ def _prior_art_identifiers(hit: PriorArtHit) -> list[str]:
     publication = re.sub(r"\s+", "", (hit.publication_number or "")).upper()
     url = (hit.url or "").strip().lower()
     title = re.sub(r"\s+", " ", (hit.title or "").strip()).casefold()
-    return [identifier for identifier in (publication, url, title) if identifier]
+    publication_alias = _publication_from_public_url(url)
+
+    identifiers = [identifier for identifier in (publication, publication_alias, url) if identifier]
+    if title and not publication and not _looks_like_public_patent_url(url):
+        identifiers.append(f"title:{title}")
+    return identifiers
 
 
 def _prior_art_identifier_index(hits: list[PriorArtHit]) -> dict[str, int]:
@@ -405,8 +412,29 @@ def _richer_url(existing: str, candidate: str) -> str:
 
 
 def _looks_like_public_patent_url(url: str) -> bool:
-    lowered = url.lower()
-    return any(marker in lowered for marker in ("patents.google.com", "patent", "cnipa", "wipo", "espacenet"))
+    hostname = urllib.parse.urlparse(url).hostname or ""
+    normalized = hostname.lower()
+    allowed_hosts = (
+        "patents.google.com",
+        "cnipa.gov.cn",
+        "epub.cnipa.gov.cn",
+        "wipo.int",
+        "patentscope.wipo.int",
+        "espacenet.com",
+        "worldwide.espacenet.com",
+        "epo.org",
+    )
+    return any(normalized == allowed or normalized.endswith(f".{allowed}") for allowed in allowed_hosts)
+
+
+def _publication_from_public_url(url: str) -> str:
+    if not _looks_like_public_patent_url(url):
+        return ""
+    decoded_url = urllib.parse.unquote(url)
+    match = PUBLICATION_NUMBER_RE.search(decoded_url)
+    if not match:
+        return ""
+    return re.sub(r"\s+", "", match.group(0)).upper()
 
 
 def _union_differentiators(existing: list[str], candidate: list[str]) -> list[str]:

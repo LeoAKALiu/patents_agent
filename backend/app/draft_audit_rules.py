@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from urllib.parse import urlparse
 
 from backend.app.schemas import CompletionIssue, DisclosureRun, DraftPackage
 
@@ -12,12 +13,21 @@ RESOURCE_SUPERSCRIPT_RE = re.compile(
 )
 PUBLICATION_RE = re.compile(r"\b(?:CN|WO|US|EP|JP|KR)\s?\d{5,}[A-Z]\d?\b", re.IGNORECASE)
 URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
-PATENT_URL_RE = re.compile(r"(patent|patents|cnipa|wipo|espacenet|google)", re.IGNORECASE)
 INTERNAL_METADATA_RE = re.compile(
     r"(evidence_id|evidence_refs|research_ledger|generation_logs|provider_diagnostics|self_check|"
     r"revision_ledger|source_ledger|review_findings|internal_only|自检结果|检索来源台账|修订记录)",
     re.IGNORECASE,
 )
+PUBLIC_PATENT_HOSTS = {
+    "patents.google.com",
+    "cnipa.gov.cn",
+    "epub.cnipa.gov.cn",
+    "wipo.int",
+    "patentscope.wipo.int",
+    "espacenet.com",
+    "worldwide.espacenet.com",
+    "epo.org",
+}
 
 
 def audit_draft_package(
@@ -94,7 +104,10 @@ def _has_publication_without_url(text: str) -> bool:
         normalized_publication = _normalize_publication(publication.group(0))
         if not normalized_publication:
             continue
-        if any(normalized_publication in url.upper() for url in normalized_urls):
+        if any(
+            normalized_publication in url.upper() and _is_allowed_public_patent_url(url)
+            for url in normalized_urls
+        ):
             continue
         window_start, window_end = _publication_clause_bounds(text, publication.start(), publication.end())
         if any(
@@ -141,7 +154,7 @@ def _is_strictly_bound_patent_url(
     if url_match.start() < window_start or url_match.end() > window_end:
         return False
     url = _normalize_url(url_match.group(0))
-    if not PATENT_URL_RE.search(url):
+    if not _is_allowed_public_patent_url(url):
         return False
     normalized_publication = _normalize_publication(publication.group(0))
     if normalized_publication in url.upper():
@@ -155,6 +168,13 @@ def _is_strictly_bound_patent_url(
     return url_match.end() <= publication.start() and _is_immediate_publication_url_binding(
         text[url_match.end() : publication.start()]
     )
+
+
+def _is_allowed_public_patent_url(url: str) -> bool:
+    hostname = (urlparse(url).hostname or "").lower()
+    if not hostname:
+        return False
+    return any(hostname == allowed or hostname.endswith(f".{allowed}") for allowed in PUBLIC_PATENT_HOSTS)
 
 
 def _is_immediate_publication_url_binding(text: str) -> bool:

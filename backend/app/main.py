@@ -326,18 +326,18 @@ def create_app(
         if stored.status == "completed" and stored.parsed_package:
             before_package = project.package
             store.update_project_package(project_id, stored.parsed_package)
-            if before_package:
-                _record_revision_ledger_event(
-                    store,
-                    project_id=project_id,
-                    before_package=before_package,
-                    after_package=stored.parsed_package,
-                    revision_kind="material_merge",
-                    user_intent_summary="Imported parsed external draft package into the working draft.",
-                    affected_sections=_changed_draft_sections(before_package, stored.parsed_package),
-                    protection_scope_changed=before_package.claims != stored.parsed_package.claims,
-                    artifact_refs=[f"external-draft-intake:{stored.id}"],
-                )
+            _record_external_draft_revision_ledger_event(
+                store,
+                project_id=project_id,
+                before_package=before_package,
+                after_package=stored.parsed_package,
+                artifact_ref=f"external-draft-intake:{stored.id}",
+                user_intent_summary=(
+                    "Imported parsed external draft package into the working draft."
+                    if before_package
+                    else "Imported the first parsed external draft package into an empty working draft."
+                ),
+            )
         return stored.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
@@ -399,18 +399,18 @@ def create_app(
             raise HTTPException(status_code=409, detail="External draft intake run update conflicted.")
         before_package = project.package
         store.update_project_package(project_id, package)
-        if before_package:
-            _record_revision_ledger_event(
-                store,
-                project_id=project_id,
-                before_package=before_package,
-                after_package=package,
-                revision_kind="material_merge",
-                user_intent_summary="Confirmed external draft intake package and replaced the working draft.",
-                affected_sections=_changed_draft_sections(before_package, package),
-                protection_scope_changed=before_package.claims != package.claims,
-                artifact_refs=[f"external-draft-intake:{run.id}"],
-            )
+        _record_external_draft_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=before_package,
+            after_package=package,
+            artifact_ref=f"external-draft-intake:{run.id}",
+            user_intent_summary=(
+                "Confirmed external draft intake package and replaced the working draft."
+                if before_package
+                else "Confirmed the first external draft intake package into an empty working draft."
+            ),
+        )
         return persisted.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-draft-review-bundle/report.md")
@@ -3283,6 +3283,41 @@ def _record_revision_ledger_event(
             protection_scope_changed=protection_scope_changed,
             artifact_refs=artifact_refs,
         )
+    )
+
+
+def _record_external_draft_revision_ledger_event(
+    store: SQLiteStore,
+    *,
+    project_id: str,
+    before_package: DraftPackage | None,
+    after_package: DraftPackage,
+    artifact_ref: str,
+    user_intent_summary: str,
+) -> None:
+    baseline_package = before_package or _empty_draft_package_baseline()
+    _record_revision_ledger_event(
+        store,
+        project_id=project_id,
+        before_package=baseline_package,
+        after_package=after_package,
+        revision_kind="material_merge",
+        user_intent_summary=user_intent_summary,
+        affected_sections=_changed_draft_sections(baseline_package, after_package),
+        protection_scope_changed=baseline_package.claims != after_package.claims,
+        artifact_refs=[artifact_ref],
+    )
+
+
+def _empty_draft_package_baseline() -> DraftPackage:
+    return DraftPackage(
+        title="",
+        abstract="",
+        claims="",
+        description="",
+        drawing_description="",
+        mermaid="",
+        image_prompt="",
     )
 
 

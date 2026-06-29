@@ -12,15 +12,45 @@ from backend.app.schemas import DisclosurePackage
 
 
 URL_PATTERN = re.compile(r"https?://\S+")
+INTERNAL_METADATA_KEYS = (
+    "evidence_id",
+    "evidence_refs",
+    "research_ledger",
+    "generation_logs",
+    "provider_diagnostics",
+    "revision_ledger",
+    "source_ledger",
+    "sidecar_notes",
+    "internal_only",
+    "official_safe_patches",
+    "attorney_memo",
+    "system_trace",
+    "material_id",
+    "source_id",
+    "source_label",
+    "修订记录",
+    "检索来源台账",
+    "证据编号",
+    "材料编号",
+    "来源标签",
+    "引用来源",
+    "引用链接",
+    "证据来源",
+)
+INTERNAL_METADATA_KEY_PATTERN = "|".join(re.escape(key) for key in INTERNAL_METADATA_KEYS)
 INTERNAL_METADATA_LINE_RE = re.compile(
-    r"(?:^|\s)(?:[-*+]\s*)?(?:[\"']?)"
-    r"(?:evidence_id|evidence_refs|research_ledger|generation_logs|provider_diagnostics|"
-    r"revision_ledger|source_ledger|sidecar_notes|internal_only|official_safe_patches|"
-    r"attorney_memo|system_trace|material_id|source_id|source_label|"
-    r"修订记录|检索来源台账|证据编号|材料编号|来源标签|引用来源|引用链接|证据来源)"
-    r"(?:[\"']?)\s*[:：=]",
+    rf"(?:^|\s)(?:[-*+]\s*)?(?:[\"']?)"
+    rf"(?:{INTERNAL_METADATA_KEY_PATTERN})"
+    rf"(?:[\"']?)\s*[:：=]",
     re.IGNORECASE,
 )
+INTERNAL_METADATA_JSON_RE = re.compile(
+    rf"[\"'](?:{INTERNAL_METADATA_KEY_PATTERN})[\"']\s*[:：=]",
+    re.IGNORECASE,
+)
+MARKDOWN_TABLE_ROW_RE = re.compile(r"^\s*\|(?P<cells>.*)\|\s*$")
+MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
+FENCE_START_RE = re.compile(r"^(?P<indent>\s*)(?P<fence>`{3,}|~{3,})(?P<rest>.*)$")
 MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$")
 INTERNAL_SECTION_HEADINGS = {
     "claim chart",
@@ -211,9 +241,16 @@ def _add_section(doc: Document, heading: str, text: str) -> None:
 
 
 def _clean_export_body_markdown(body_markdown: str) -> str:
+    raw_lines = body_markdown.strip().splitlines()
+    if not raw_lines:
+        return ""
+
+    raw_lines = _drop_internal_front_matter(raw_lines)
     lines: list[str] = []
     skipping_section_level: int | None = None
-    for line in body_markdown.strip().splitlines():
+    index = 0
+    while index < len(raw_lines):
+        line = raw_lines[index]
         heading = MARKDOWN_HEADING_RE.match(line)
         if heading:
             level = len(heading.group(1))
@@ -222,18 +259,122 @@ def _clean_export_body_markdown(body_markdown: str) -> str:
                 skipping_section_level = None
             if title in INTERNAL_SECTION_HEADINGS:
                 skipping_section_level = level
+                index += 1
                 continue
         if skipping_section_level is not None:
+            index += 1
             continue
-        if INTERNAL_METADATA_LINE_RE.search(line):
+        fence_start = FENCE_START_RE.match(line)
+        if fence_start:
+            block, next_index = _collect_fenced_block(raw_lines, index, fence_start.group("fence"))
+            if not _block_contains_internal_metadata(block):
+                lines.extend(entry.rstrip() for entry in block)
+            index = next_index
+            continue
+        if MARKDOWN_TABLE_ROW_RE.match(line):
+            block, next_index = _collect_table_block(raw_lines, index)
+            lines.extend(_clean_markdown_table_block(block))
+            index = next_index
+            continue
+        if _line_contains_internal_metadata(line):
+            index += 1
             continue
         lines.append(line.rstrip())
+        index += 1
     return "\n".join(lines).strip()
 
 
 def _normalize_internal_heading(heading: str) -> str:
     normalized = re.sub(r"\s+", " ", heading.strip()).strip("：:").casefold()
     return normalized
+
+
+def _drop_internal_front_matter(lines: list[str]) -> list[str]:
+    if not lines or lines[0].strip() != "---":
+        return lines
+
+    closing_index: int | None = None
+    for index in range(1, len(lines)):
+        if lines[index].strip() in {"---", "..."}:
+            closing_index = index
+            break
+    if closing_index is None:
+        return lines
+
+    block = lines[: closing_index + 1]
+    if any(_line_contains_internal_metadata(line) for line in block[1:-1]):
+        return lines[closing_index + 1 :]
+    return lines
+
+
+def _collect_fenced_block(lines: list[str], start_index: int, opening_fence: str) -> tuple[list[str], int]:
+    block = [lines[start_index]]
+    index = start_index + 1
+    fence_char = opening_fence[0]
+    minimum_width = len(opening_fence)
+    closing_re = re.compile(rf"^\s*{re.escape(fence_char)}{{{minimum_width},}}\s*$")
+    while index < len(lines):
+        block.append(lines[index])
+        if closing_re.match(lines[index]):
+            return block, index + 1
+        index += 1
+    return block, index
+
+
+def _collect_table_block(lines: list[str], start_index: int) -> tuple[list[str], int]:
+    block: list[str] = []
+    index = start_index
+    while index < len(lines) and MARKDOWN_TABLE_ROW_RE.match(lines[index]):
+        block.append(lines[index])
+        index += 1
+    return block, index
+
+
+def _clean_markdown_table_block(block: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    data_row_count = 0
+    for line in block:
+        if MARKDOWN_TABLE_SEPARATOR_RE.match(line):
+            cleaned.append(line.rstrip())
+            continue
+        if _table_row_contains_internal_metadata(line):
+            continue
+        cleaned.append(line.rstrip())
+        if not _looks_like_table_header(line):
+            data_row_count += 1
+    if data_row_count == 0:
+        return []
+    return cleaned
+
+
+def _looks_like_table_header(line: str) -> bool:
+    if MARKDOWN_TABLE_SEPARATOR_RE.match(line):
+        return False
+    match = MARKDOWN_TABLE_ROW_RE.match(line)
+    if not match:
+        return False
+    cells = [cell.strip() for cell in match.group("cells").split("|")]
+    normalized_cells = {_normalize_internal_heading(cell) for cell in cells if cell.strip()}
+    return normalized_cells <= {"字段", "内容", "field", "value", "label", "key"} or normalized_cells == {"---"}
+
+
+def _block_contains_internal_metadata(lines: list[str]) -> bool:
+    return any(_line_contains_internal_metadata(line) or _table_row_contains_internal_metadata(line) for line in lines)
+
+
+def _line_contains_internal_metadata(line: str) -> bool:
+    return bool(INTERNAL_METADATA_LINE_RE.search(line) or INTERNAL_METADATA_JSON_RE.search(line))
+
+
+def _table_row_contains_internal_metadata(line: str) -> bool:
+    match = MARKDOWN_TABLE_ROW_RE.match(line)
+    if not match:
+        return False
+    cells = [cell.strip() for cell in match.group("cells").split("|")]
+    if not cells:
+        return False
+    key = _normalize_internal_heading(cells[0])
+    return any(key == candidate.casefold() for candidate in INTERNAL_METADATA_KEYS)
 
 
 def _format_public_prior_art_appendix(package: DisclosurePackage, *, existing_urls: set[str] | None = None) -> str:
