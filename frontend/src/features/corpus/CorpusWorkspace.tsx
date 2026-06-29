@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 
 import { CorpusBuildView, type CorpusJobForm } from "@/views/corpusBuildView";
+import { ProjectKnowledgeView } from "@/views/projectKnowledgeView";
 import { CorpusView } from "@/views/projectViews";
 
 import type {
@@ -71,16 +72,29 @@ export interface CorpusWorkspaceProps {
 export function CorpusWorkspace({ tool, state, handlers }: CorpusWorkspaceProps) {
   if (tool === "build") {
     return (
-      <CorpusBuildView
-        form={state.corpusJobForm}
-        job={state.corpusJob}
-        versions={state.corpusVersions}
-        stats={state.corpusStats}
+      <ProjectKnowledgeView
+        selectedProject={state.selectedProject ?? null}
+        knowledge={state.projectKnowledge ?? null}
         busy={state.busy}
-        onFormChange={handlers.onCorpusFormChange}
-        onCreateJob={(event) => void handlers.onCreateCorpusJob(event)}
-        onUploadFile={(event) => void handlers.onUploadCorpusJobFile(event)}
-        onRunJob={() => void handlers.onRunCorpusJob()}
+        onGenerateKnowledgePlan={() => void handlers.onGenerateKnowledgePlan()}
+        onRunKnowledgeSearch={() => void handlers.onRunKnowledgeSearch()}
+        onCandidateDecision={(candidateId, decision) =>
+          void handlers.onCandidateDecision(candidateId, decision)
+        }
+        onBuildProjectCorpus={() => void handlers.onBuildProjectCorpus()}
+        advancedFallback={
+          <CorpusBuildView
+            form={state.corpusJobForm}
+            job={state.corpusJob}
+            versions={state.corpusVersions}
+            stats={state.corpusStats}
+            busy={state.busy}
+            onFormChange={handlers.onCorpusFormChange}
+            onCreateJob={(event) => void handlers.onCreateCorpusJob(event)}
+            onUploadFile={(event) => void handlers.onUploadCorpusJobFile(event)}
+            onRunJob={() => void handlers.onRunCorpusJob()}
+          />
+        }
       />
     );
   }
