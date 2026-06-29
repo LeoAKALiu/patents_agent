@@ -2,34 +2,29 @@ Task 6 report: Writing-Flow Gates
 
 Source identity
 - Branch: `codex/automation-test-plan`
-- Short SHA at start: `a280981a`
+- Short SHA at start: `05388c1b`
 - Worktree: `/Users/leo/Projects/patents_agent`
 - Dirty at start: yes; only the pre-existing out-of-scope files listed in the task dispatch were already dirty
 
 What changed
-- Added backend grantability gating on `ProjectKnowledgeState` in `backend/app/grantability.py`.
-- Passed project knowledge state from the grantability API endpoint in `backend/app/main.py`.
-- Added backend tests for missing and not-ready project corpus states in `tests/test_grantability.py`.
-- Passed project knowledge into the quality workspace and grantability view.
-- Added pre-generation grantability gate copy in the frontend quality UI.
-- Updated `frontend/src/app/routes.test.tsx` to satisfy the expanded `QualityWorkspaceState` type used by the frontend build.
+- Corrected the grantability gate to look for the real project-corpus flag, `synthetic_evidence`, instead of the stale `synthetic_only` name.
+- Added regression coverage proving a `ready` project knowledge state with `document_count >= 2` still fail-closes when `quality_flags=["synthetic_evidence"]`.
+- Hardened the grantability API regression so it seeds a distinctive `ProjectKnowledgeState` and proves the endpoint passes that state through to grantability generation.
+- Tightened the quality view copy so “语料库已就绪” only appears when the corpus is truly analysis-ready: `status === "ready"`, at least 2 documents, and no blocking quality flags.
 
 Behavior summary
-- Missing project corpus now adds a low-evidence flag and forces fail-closed output.
-- Not-ready or stale project corpus states now prevent high-confidence authorization conclusions.
-- Corpus quality flags for synthetic-only, empty, insufficient, and document counts below 2 now add low-evidence flags and fail closed.
-- The grantability narrative now explicitly says the result is evidence-insufficient when fail-closed conditions apply.
-- The grantability UI now tells the user before generation whether the project corpus is ready enough to support authorization analysis.
+- A synthetic-only corpus now fail-closes even if the knowledge state says `ready` and has 2 or more documents.
+- The grantability report API now proves that stored project-knowledge state can drive low-evidence grantability output.
+- The grantability UI no longer treats every `ready` status as analysis-ready; blocking flags and low document counts keep the copy in an evidence-gated state.
 
 Verification
-- `python3 -m pytest tests/test_grantability.py::test_grantability_low_evidence_when_project_corpus_missing tests/test_api.py::test_grantability_report_api_generates_persists_and_exports -q`
+- `python3 -m pytest tests/test_grantability.py::test_grantability_low_evidence_when_project_corpus_missing tests/test_grantability.py tests/test_api.py::test_grantability_report_api_generates_persists_and_exports -q`
 - `npm --prefix frontend run build`
+- `npm --prefix frontend run test -- qualityViews`
 
 Files changed
 - `backend/app/grantability.py`
-- `backend/app/main.py`
 - `tests/test_grantability.py`
-- `frontend/src/features/quality/QualityWorkspace.tsx`
-- `frontend/src/App.tsx`
+- `tests/test_api.py`
 - `frontend/src/views/qualityViews.tsx`
-- `frontend/src/app/routes.test.tsx`
+- `frontend/src/views/qualityViews.test.tsx`

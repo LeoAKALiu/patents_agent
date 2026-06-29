@@ -10,6 +10,7 @@ from backend.app.schemas import (
     DisclosureRun,
     DraftPackage,
     PatentStrategyBrief,
+    ProjectKnowledgeState,
     PriorArtHit,
 )
 
@@ -741,6 +742,15 @@ def test_grantability_report_api_generates_persists_and_exports(tmp_path):
         ),
     )
     store.create_disclosure_run(disclosure)
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project_id,
+            status="ready",
+            document_count=2,
+            candidate_count=2,
+            quality_flags=["synthetic_evidence"],
+        )
+    )
 
     created = client.post(f"/api/projects/{project_id}/grantability-reports")
     assert created.status_code == 200
@@ -748,6 +758,8 @@ def test_grantability_report_api_generates_persists_and_exports(tmp_path):
     assert report["project_id"] == project_id
     assert report["closest_prior_art_summary"]
     assert report["source_ledger_citations"]
+    assert any("仅含合成或占位内容" in flag for flag in report["low_evidence_flags"])
+    assert report["fail_closed"] is True
 
     listed = client.get(f"/api/projects/{project_id}/grantability-reports")
     assert listed.status_code == 200

@@ -459,6 +459,13 @@ def test_generate_grantability_with_strategy_brief() -> None:
         disclosures=[_sample_disclosure()],
         patent_points=_sample_patent_points(),
         strategy_brief=_sample_strategy(),
+        project_knowledge_state=ProjectKnowledgeState(
+            project_id="proj-3",
+            status="ready",
+            document_count=3,
+            candidate_count=3,
+            quality_flags=[],
+        ),
     )
 
     assert "方法独权" in report.recommendation
@@ -495,6 +502,26 @@ def test_grantability_low_evidence_when_project_corpus_not_ready() -> None:
 
     assert report.status in {"medium", "uncertain", "low"}
     assert any("search_running" in flag for flag in report.low_evidence_flags)
+    assert report.fail_closed is True
+
+
+def test_grantability_low_evidence_when_project_corpus_is_synthetic_only() -> None:
+    report = generate_grantability_report(
+        project_id="project-knowledge-synthetic",
+        package=_sample_package(),
+        disclosures=[_sample_disclosure()],
+        patent_points=_sample_patent_points(),
+        project_knowledge_state=ProjectKnowledgeState(
+            project_id="project-knowledge-synthetic",
+            status="ready",
+            document_count=2,
+            candidate_count=2,
+            quality_flags=["synthetic_evidence"],
+        ),
+    )
+
+    assert report.status in {"medium", "uncertain", "low"}
+    assert any("仅含合成或占位内容" in flag for flag in report.low_evidence_flags)
     assert report.fail_closed is True
 
 

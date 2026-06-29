@@ -111,7 +111,7 @@ def generate_grantability_report(
         low_evidence_flags.append("项目语料库已过期，需要补充检索后再确认授权前景。")
         fail_closed = True
 
-    if "synthetic_only" in knowledge_flags:
+    if "synthetic_evidence" in knowledge_flags:
         low_evidence_flags.append("项目语料库仅含合成或占位内容，不能支撑授权前景结论。")
         fail_closed = True
     if "empty_corpus" in knowledge_flags:
