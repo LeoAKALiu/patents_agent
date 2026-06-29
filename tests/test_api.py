@@ -353,6 +353,61 @@ def test_project_patent_points_preserve_generated_candidate_ids_for_backup_route
     assert next(point for point in promoted if point["id"] == "route-main")["selected"] is False
 
 
+def test_project_creation_initializes_project_knowledge(tmp_path):
+    client = _test_app_without_env(tmp_path)
+
+    created = client.post(
+        "/api/projects",
+        json={
+            "name": "一种城市体检智能体任务编排方法",
+            "draft_text": "通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        },
+    )
+    assert created.status_code == 200
+    project_id = created.json()["id"]
+
+    knowledge = client.get(f"/api/projects/{project_id}/knowledge")
+    assert knowledge.status_code == 200
+    payload = knowledge.json()
+    assert payload["state"]["status"] == "search_plan_pending"
+    assert payload["latest_intent"]["keywords_zh"]
+    assert payload["latest_plan"]["strategy_groups"]
+
+
+def test_project_knowledge_run_candidates_and_build_version(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "城市体检智能体", "draft_text": "任务编排和证据链复核。"},
+    )
+    project_id = created.json()["id"]
+    plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")
+    assert run.status_code == 200
+    assert run.json()["state"]["status"] == "candidates_pending"
+
+    candidates = client.get(f"/api/projects/{project_id}/knowledge/candidates")
+    assert candidates.status_code == 200
+    candidate_ids = [candidate["id"] for candidate in candidates.json()["candidates"]]
+    assert candidate_ids
+
+    decision = client.patch(
+        f"/api/projects/{project_id}/knowledge/candidates/{candidate_ids[0]}",
+        json={"user_decision": "include"},
+    )
+    assert decision.status_code == 200
+    assert decision.json()["user_decision"] == "include"
+
+    version = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": plan_id},
+    )
+    assert version.status_code == 200
+    assert version.json()["state"]["status"] == "ready"
+    assert version.json()["latest_corpus_version"]["document_count"] >= 1
+
+
 def _create_completed_deliberation(client: TestClient, project_id: str) -> None:
     stages = [
         *[

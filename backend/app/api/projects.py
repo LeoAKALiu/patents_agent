@@ -39,6 +39,7 @@ from backend.app.services.project_service import (
     merge_patent_point_update,
     project_material_upload_error,
 )
+from backend.app.services.project_knowledge_service import ensure_project_knowledge_initialized
 
 router = APIRouter(tags=["projects"])
 
@@ -58,6 +59,7 @@ def create_project(payload: ProjectCreate, request: Request) -> dict:
     repo = get_project_repository(request)
     project = build_project_record(payload)
     stored = repo.create(project)
+    ensure_project_knowledge_initialized(request.app.state.store, stored)
     return stored.model_dump(mode="json")
 
 

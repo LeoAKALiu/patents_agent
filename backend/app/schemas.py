@@ -1318,6 +1318,10 @@ class CandidateBulkDecision(BaseModel):
     user_decision: str = Field(pattern="^(include|exclude|pending)$")
 
 
+class BuildProjectCorpusRequest(BaseModel):
+    plan_id: str
+
+
 class DesktopConfigView(BaseModel):
     """Redacted view of the desktop LLM configuration (PR6, issue #20).
 
