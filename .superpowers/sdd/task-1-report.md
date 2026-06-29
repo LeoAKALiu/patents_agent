@@ -181,3 +181,36 @@ Result summary:
    - passed: 4 files, 81 tests
 3. `cd frontend && npm test`
    - passed: 28 files, 196 tests
+
+## Fourth fix after final review
+
+- Repair worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
+- Repair branch: `codex/ui-refactor-2026-06-29`
+- Repair starting HEAD: `e9af36b3`
+- Dirty at repair start: no
+
+### Reviewer blocker addressed
+
+- Fixed the persisted-state migration edge case where stale expert-tool ids under legacy `activeSection: "expert"` were sanitized to `build` before section migration, incorrectly restoring the top-level section as `knowledge`.
+
+### Changes made
+
+- Added regression coverage in `frontend/src/AppStateRecovery.test.ts` for stale `activeExpertTool` with legacy `activeSection: "expert"`.
+- Updated `frontend/src/App.tsx` so `sanitizePersistedAppState()` stores the sanitized fallback expert tool but only uses a valid raw expert-tool id to drive legacy section migration. Invalid raw expert-tool ids now keep legacy expert state in neutral `expert`.
+- Preserved valid migrations for `expert + build/corpus -> knowledge` and `expert + export -> export`.
+
+### TDD evidence
+
+1. `cd frontend && npm test -- AppStateRecovery.test.ts`
+   - RED: failed as expected because the stale expert-tool case restored `activeSection: "knowledge"` instead of `expert`.
+2. `cd frontend && npm test -- AppStateRecovery.test.ts`
+   - GREEN: passed: 1 file, 10 tests
+
+### Verification
+
+1. `cd frontend && npm test -- AppStateRecovery.test.ts guidedFlow.test.ts app/routes.test.tsx`
+   - passed: 3 files, 72 tests
+2. `cd frontend && npm run build`
+   - passed
+3. `cd frontend && npm test`
+   - passed: 28 files, 197 tests

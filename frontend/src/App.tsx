@@ -367,10 +367,16 @@ export function summarizeMaterialUploadOutcome(
 export function sanitizePersistedAppState(value: unknown): PersistedAppState {
   const record = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const selectedProjectId = typeof record.selectedProjectId === "string" ? record.selectedProjectId : "";
-  const activeExpertTool = validExpertToolIds.has(record.activeExpertTool as ExpertToolId)
-    ? record.activeExpertTool as ExpertToolId
+  const rawActiveExpertTool = record.activeExpertTool;
+  const hasValidActiveExpertTool = validExpertToolIds.has(rawActiveExpertTool as ExpertToolId);
+  const activeExpertTool = hasValidActiveExpertTool
+    ? rawActiveExpertTool as ExpertToolId
     : defaultExpertToolId;
-  const activeSection = normalizeMainSectionId(record.activeSection, activeExpertTool);
+  // Stale tool ids should not be allowed to trigger legacy build/corpus/export section remaps.
+  const sectionMigrationExpertTool: ExpertToolId = hasValidActiveExpertTool
+    ? activeExpertTool
+    : "materials";
+  const activeSection = normalizeMainSectionId(record.activeSection, sectionMigrationExpertTool);
   const startChoice = validStartChoiceIds.has(record.startChoice as StartChoiceId)
     ? record.startChoice as StartChoiceId
     : null;

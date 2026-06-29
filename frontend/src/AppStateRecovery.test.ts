@@ -118,6 +118,24 @@ describe("app state recovery", () => {
     });
   });
 
+  it("keeps legacy expert state neutral when the persisted expert tool is stale", () => {
+    expect(
+      sanitizePersistedAppState({
+        selectedProjectId: "p-1",
+        activeSection: "expert",
+        activeExpertTool: "missing-tool",
+        startChoice: null,
+        disclosureResearchMode: "standard",
+      }),
+    ).toEqual({
+      selectedProjectId: "p-1",
+      activeSection: "expert",
+      activeExpertTool: "build",
+      startChoice: null,
+      disclosureResearchMode: "standard",
+    });
+  });
+
   it("marks same-document browser history entries so Back stays inside the app shell", () => {
     const recover = vi.fn();
     const cleanup = installAppHistoryGuard(window, recover);
