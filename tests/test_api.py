@@ -408,6 +408,118 @@ def test_project_knowledge_run_candidates_and_build_version(tmp_path):
     assert version.json()["latest_corpus_version"]["document_count"] >= 1
 
 
+def test_project_knowledge_search_intent_endpoint_returns_current_overview(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "搜索意图测试", "draft_text": "围绕任务编排生成检索意图。"},
+    )
+    project_id = created.json()["id"]
+
+    response = client.post(f"/api/projects/{project_id}/knowledge/search-intent")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["state"]["status"] == "search_plan_pending"
+    assert payload["latest_intent"]["project_id"] == project_id
+    assert payload["latest_plan"]["project_id"] == project_id
+
+
+def test_project_knowledge_bulk_decision_updates_multiple_candidates(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "批量决策测试", "draft_text": "通过批量决策确认候选文献。"},
+    )
+    project_id = created.json()["id"]
+    plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")
+    assert run.status_code == 200
+
+    candidate_ids = [
+        candidate["id"]
+        for candidate in client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"]
+    ]
+    assert len(candidate_ids) >= 2
+
+    response = client.post(
+        f"/api/projects/{project_id}/knowledge/candidates/bulk-decision",
+        json={"candidate_ids": candidate_ids[:2], "user_decision": "include"},
+    )
+
+    assert response.status_code == 200
+    updated = response.json()["candidates"]
+    assert [candidate["id"] for candidate in updated] == candidate_ids[:2]
+    assert {candidate["user_decision"] for candidate in updated} == {"include"}
+
+
+def test_project_knowledge_corpus_version_rejects_invalid_plan_without_mutation(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "非法计划测试", "draft_text": "验证错误计划不会污染状态。"},
+    )
+    project_id = created.json()["id"]
+    plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")
+    assert run.status_code == 200
+    candidate_id = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"][0]["id"]
+    include = client.patch(
+        f"/api/projects/{project_id}/knowledge/candidates/{candidate_id}",
+        json={"user_decision": "include"},
+    )
+    assert include.status_code == 200
+
+    before = client.get(f"/api/projects/{project_id}/knowledge").json()
+
+    empty_plan = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": ""},
+    )
+    assert empty_plan.status_code == 422
+    assert client.get(f"/api/projects/{project_id}/knowledge").json() == before
+
+    other_project = client.post(
+        "/api/projects",
+        json={"name": "其他项目", "draft_text": "提供一个不属于当前项目的计划 ID。"},
+    )
+    other_project_id = other_project.json()["id"]
+    foreign_plan_id = client.get(f"/api/projects/{other_project_id}/knowledge").json()["latest_plan"]["id"]
+
+    wrong_plan = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": foreign_plan_id},
+    )
+    assert wrong_plan.status_code == 404
+    assert client.get(f"/api/projects/{project_id}/knowledge").json() == before
+
+
+def test_project_knowledge_bulk_decision_rejects_unknown_candidate_without_partial_update(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "非法候选测试", "draft_text": "验证批量更新失败时不发生部分写入。"},
+    )
+    project_id = created.json()["id"]
+    plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")
+    assert run.status_code == 200
+
+    before = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"]
+    candidate_ids = [candidate["id"] for candidate in before]
+    assert candidate_ids
+
+    response = client.post(
+        f"/api/projects/{project_id}/knowledge/candidates/bulk-decision",
+        json={"candidate_ids": [candidate_ids[0], "missing-candidate-id"], "user_decision": "include"},
+    )
+
+    assert response.status_code == 404
+    assert "missing-candidate-id" in response.json()["detail"]
+    after = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"]
+    assert after == before
+
+
 def _create_completed_deliberation(client: TestClient, project_id: str) -> None:
     stages = [
         *[

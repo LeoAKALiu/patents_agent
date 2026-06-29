@@ -80,15 +80,30 @@ def update_project_candidate_decisions(
 ) -> dict:
     repo = get_project_repository(request)
     require_project(project_id, repo)
+    store = request.app.state.store
+    known_candidates = {
+        candidate.id: candidate
+        for candidate in store.list_prior_art_candidates(project_id)
+    }
+    missing_ids = [candidate_id for candidate_id in payload.candidate_ids if candidate_id not in known_candidates]
+    if missing_ids:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Prior-art candidate not found: {missing_ids[0]}",
+        )
     updated = []
     for candidate_id in payload.candidate_ids:
-        candidate = request.app.state.store.update_prior_art_candidate_decision(
+        candidate = store.update_prior_art_candidate_decision(
             project_id,
             candidate_id,
             payload.user_decision,
         )
-        if candidate:
-            updated.append(candidate.model_dump(mode="json"))
+        if candidate is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Prior-art candidate not found: {candidate_id}",
+            )
+        updated.append(candidate.model_dump(mode="json"))
     return {"candidates": updated}
 
 
@@ -100,8 +115,11 @@ def create_project_corpus_version(
 ) -> dict:
     repo = get_project_repository(request)
     require_project(project_id, repo)
+    plan = request.app.state.store.get_agent_search_plan(project_id, payload.plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Agent search plan not found.")
     return create_project_corpus_from_included_candidates(
         request.app.state.store,
         project_id,
-        payload.plan_id,
+        plan.id,
     ).model_dump(mode="json")
