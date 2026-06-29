@@ -20,6 +20,8 @@ import {
   type ProjectWorkspaceHandlers,
   type ProjectWorkspaceState,
 } from "@/features/projects/ProjectWorkspace";
+import { WorkbenchWorkspace } from "@/features/workbench/WorkbenchWorkspace";
+import { deriveWorkbenchState, type WorkbenchPrimaryTarget } from "@/features/workbench/selectors";
 import {
   CorpusWorkspace,
   type CorpusTool,
@@ -205,7 +207,7 @@ function pageTitleForSection(activeSection: MainSectionId): { title: string; sub
   if (activeSection === "knowledge") return { title: "知识库", subtitle: "构建与检索现有语料库" };
   if (activeSection === "expert") return { title: "专家工具", subtitle: "按工作流阶段拆分的子工具集" };
   if (activeSection === "export") return { title: "导出", subtitle: "导出正式稿与相关交付文件" };
-  if (activeSection === "workbench") return { title: "工作台", subtitle: "选择一种默认路径进入 v1.1.0 向导" };
+  if (activeSection === "workbench") return { title: "工作台", subtitle: "当前项目、下一步和导出风险概览" };
   return { title: "工作台" };
 }
 
@@ -228,6 +230,11 @@ function projectWorkspace(props: AppRootProps, section: "generate" | "utility" |
   );
 }
 
+function onWorkbenchNavigate(props: AppRootProps, target: WorkbenchPrimaryTarget): void {
+  if (target === "workbench-start") return;
+  props.onSelectSection(target);
+}
+
 export function AppRoot(props: AppRootProps) {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const route = resolveRoute(
@@ -246,6 +253,13 @@ export function AppRoot(props: AppRootProps) {
   }));
   const showExpertWorkspace = route === "knowledge" || route === "export" || route === "expert";
   const showExpertChooser = props.activeSection === "expert";
+  const workbenchState = deriveWorkbenchState({
+    projectState: props.projectState,
+    exportReadiness: props.postDraftState.exportReadiness,
+  });
+  const workbenchStartWorkspace = !props.selectedProject && props.startChoice
+    ? projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")
+    : undefined;
   return (
     <>
       <ShellLayout
@@ -285,7 +299,15 @@ export function AppRoot(props: AppRootProps) {
         {mobileNav(props)}
         {noticeBar(props)}
         <div className="workspace">
-          {(route === "workbench" || route === "documents") &&
+          {route === "workbench" && (
+            <WorkbenchWorkspace
+              state={workbenchState}
+              handlers={props.projectHandlers}
+              onNavigate={(target) => onWorkbenchNavigate(props, target)}
+              startWorkspace={workbenchStartWorkspace}
+            />
+          )}
+          {route === "documents" &&
             projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")}
           {route === "projects-overview" && projectWorkspace(props, "projects")}
           {route === "settings" && (

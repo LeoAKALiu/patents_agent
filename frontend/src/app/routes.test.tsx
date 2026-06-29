@@ -299,7 +299,8 @@ describe("AppRoot routes", () => {
     expect(screen.getByText("处理中")).toBeInTheDocument();
     expect(screen.getByText("后端在线")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "刷新运行状态" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "专家工具" })).toHaveLength(2);
+    const topbar = document.querySelector(".topbar") as HTMLElement;
+    expect(within(topbar).queryByRole("button", { name: "专家工具" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "返回向导" })).not.toBeInTheDocument();
   });
 
