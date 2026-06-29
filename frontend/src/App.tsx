@@ -2134,6 +2134,7 @@ function App() {
       }}
       qualityState={{
         selectedProject,
+        projectKnowledge,
         filingReports,
         latestFilingReport,
         grantabilityReports,

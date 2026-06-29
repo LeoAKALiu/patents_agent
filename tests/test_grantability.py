@@ -23,6 +23,7 @@ from backend.app.schemas import (
     MoatScores,
     NoveltyAttack,
     PatentPointCandidate,
+    ProjectKnowledgeState,
     PatentStrategyBrief,
     PriorArtHit,
 )
@@ -461,6 +462,40 @@ def test_generate_grantability_with_strategy_brief() -> None:
     )
 
     assert "方法独权" in report.recommendation
+
+
+def test_grantability_low_evidence_when_project_corpus_missing() -> None:
+    report = generate_grantability_report(
+        project_id="project-knowledge-gate",
+        package=_sample_package(),
+        disclosures=[],
+        patent_points=[],
+        strategy_brief=None,
+        project_knowledge_state=None,
+    )
+
+    assert report.status in {"low", "medium", "uncertain"}
+    assert any("项目语料库未就绪" in flag for flag in report.low_evidence_flags)
+    assert "现有技术证据不足" in report.overall_assessment
+
+
+def test_grantability_low_evidence_when_project_corpus_not_ready() -> None:
+    report = generate_grantability_report(
+        project_id="project-knowledge-pending",
+        package=_sample_package(),
+        disclosures=[_sample_disclosure()],
+        patent_points=_sample_patent_points(),
+        project_knowledge_state=ProjectKnowledgeState(
+            project_id="project-knowledge-pending",
+            status="search_running",
+            document_count=0,
+            candidate_count=2,
+        ),
+    )
+
+    assert report.status in {"medium", "uncertain", "low"}
+    assert any("search_running" in flag for flag in report.low_evidence_flags)
+    assert report.fail_closed is True
 
 
 # ---------------------------------------------------------------------------

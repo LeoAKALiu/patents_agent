@@ -17,6 +17,7 @@ import {
   grantabilityReportUrl,
   type GrantabilityReport,
   type ClaimDefenseWorksheet,
+  type ProjectKnowledgeOverview,
   type ProjectRecord,
   type ReviewFinding,
 } from "@/api";
@@ -66,12 +67,14 @@ function grantabilityTone(status: string, failClosed: boolean): "danger" | "warn
 
 export function GrantabilityView({
   project,
+  projectKnowledge,
   report,
   reports,
   busy,
   onGenerate,
 }: {
   project: ProjectRecord | null;
+  projectKnowledge: ProjectKnowledgeOverview | null;
   report: GrantabilityReport | null;
   reports: GrantabilityReport[];
   busy: string;
@@ -82,6 +85,10 @@ export function GrantabilityView({
   const inventiveStrong = report?.inventive_step_attacks.filter((attack) => attack.attack_strength === "strong").length ?? 0;
   const lowEvidenceCount = report?.low_evidence_flags.length ?? 0;
   const tone = report ? grantabilityTone(report.status, report.fail_closed) : "info";
+  const knowledgeGateCopy =
+    !projectKnowledge || projectKnowledge.state.status !== "ready"
+      ? "项目语料库未就绪：可以生成草案，但授权前景和权利要求防线只能输出证据不足结论。"
+      : `项目语料库已就绪：已入库 ${projectKnowledge.state.document_count} 件文献，可用于授权前景分析。`;
 
   return (
     <div className="grid gap-4">
@@ -110,6 +117,8 @@ export function GrantabilityView({
           </button>
         )}
       />
+
+      <p className="text-sm text-[var(--text-primary)]/65">{knowledgeGateCopy}</p>
 
       <SettingsGroup title="结论摘要" description="低证据场景默认 fail closed，不把少量或重复文献包装成高可授权性。">
         <div className="boundary-grid">

@@ -1096,6 +1096,7 @@ def create_app(
         disclosures = store.list_disclosure_runs(project_id)
         patent_points = store.list_project_patent_points(project_id)
         strategy_brief = _latest_strategy_brief(store, project_id)
+        knowledge_state = store.get_project_knowledge_state(project_id)
         report = generate_grantability_report(
             project_id=project_id,
             package=package,
@@ -1103,6 +1104,7 @@ def create_app(
             patent_points=patent_points,
             strategy_brief=strategy_brief,
             deep_research_packets=_deep_research_packets_from_disclosures(disclosures),
+            project_knowledge_state=knowledge_state,
         )
         stored = store.create_grantability_report(report)
         return stored.model_dump(mode="json")
