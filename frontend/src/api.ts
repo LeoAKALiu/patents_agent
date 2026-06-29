@@ -963,6 +963,128 @@ export interface CorpusVersion {
   quality_report: CorpusQualityReport | null;
 }
 
+export type ProjectKnowledgeStatus =
+  | "not_started"
+  | "search_plan_pending"
+  | "search_running"
+  | "candidates_pending"
+  | "corpus_building"
+  | "ready"
+  | "needs_supplemental_search"
+  | "stale"
+  | "failed";
+
+export interface ProjectKnowledgeState {
+  project_id: string;
+  status: ProjectKnowledgeStatus;
+  active_intent_id: string;
+  active_plan_id: string;
+  active_corpus_version_id: string;
+  last_search_at: string;
+  last_indexed_at: string;
+  staleness_reason: string;
+  document_count: number;
+  candidate_count: number;
+  claim_coverage: number;
+  fulltext_coverage: number;
+  quality_flags: string[];
+}
+
+export interface SearchIntent {
+  id: string;
+  project_id: string;
+  source_project_hash: string;
+  technical_object: string;
+  technical_problem: string;
+  technical_means: string;
+  technical_effect: string;
+  keywords_zh: string[];
+  keywords_en: string[];
+  synonyms: string[];
+  negative_keywords: string[];
+  ipc_candidates: string[];
+  cpc_candidates: string[];
+  jurisdictions: string[];
+  date_range: string;
+  created_by: "agent" | "user" | "system";
+  created_at: string;
+}
+
+export interface SearchPlanStrategyGroup {
+  id: string;
+  label: string;
+  purpose: string;
+  queries: string[];
+  sources: string[];
+}
+
+export interface AgentSearchPlan {
+  id: string;
+  project_id: string;
+  intent_id: string;
+  status: "draft" | "confirmed" | "running" | "completed" | "failed";
+  strategy_groups: SearchPlanStrategyGroup[];
+  target_sources: string[];
+  target_result_count: number;
+  filters: Record<string, unknown>;
+  warnings: string[];
+  created_at: string;
+  confirmed_at: string;
+  run_started_at: string;
+  run_finished_at: string;
+}
+
+export interface PriorArtCandidate {
+  id: string;
+  project_id: string;
+  plan_id: string;
+  source: string;
+  title: string;
+  publication_number?: string | null;
+  application_number?: string | null;
+  applicant: string;
+  publication_date: string;
+  grant_date: string;
+  abstract?: string | null;
+  url: string;
+  relevance_score: number;
+  matched_terms: string[];
+  ipc: string[];
+  cpc: string[];
+  family_id: string;
+  duplicate_of: string;
+  fulltext_status: "unknown" | "available" | "unavailable" | "failed";
+  recommended_action: "include" | "exclude" | "review";
+  recommendation_reason: string;
+  user_decision: "pending" | "include" | "exclude";
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ProjectCorpusVersion {
+  id: string;
+  project_id: string;
+  name: string;
+  source_plan_id: string;
+  candidate_set_id: string;
+  status: "building" | "ready" | "failed" | "superseded";
+  document_count: number;
+  chunk_count: number;
+  claim_coverage: number;
+  fulltext_coverage: number;
+  quality_report: CorpusQualityReport | null;
+  created_at: string;
+  superseded_by: string;
+}
+
+export interface ProjectKnowledgeOverview {
+  state: ProjectKnowledgeState;
+  latest_intent: SearchIntent | null;
+  latest_plan: AgentSearchPlan | null;
+  candidates: PriorArtCandidate[];
+  latest_corpus_version: ProjectCorpusVersion | null;
+}
+
 export interface CorpusStats {
   version_name: string | null;
   document_count: number;
@@ -1076,6 +1198,47 @@ export async function searchCorpus(q: string, sectionType: SectionType | "", ver
   if (version) params.set("version", version);
   const data = await request<{ results: SearchResult[] }>(`/api/corpus/search?${params.toString()}`);
   return data.results;
+}
+
+export async function getProjectKnowledge(projectId: string): Promise<ProjectKnowledgeOverview> {
+  return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge`);
+}
+
+export async function createProjectSearchIntent(projectId: string): Promise<ProjectKnowledgeOverview> {
+  return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge/search-intent`, {
+    method: "POST",
+  });
+}
+
+export async function runProjectSearchPlan(projectId: string, planId: string): Promise<ProjectKnowledgeOverview> {
+  return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge/search-plans/${planId}/run`, {
+    method: "POST",
+  });
+}
+
+export async function listProjectKnowledgeCandidates(projectId: string): Promise<PriorArtCandidate[]> {
+  const data = await request<{ candidates: PriorArtCandidate[] }>(`/api/projects/${projectId}/knowledge/candidates`);
+  return data.candidates;
+}
+
+export async function updateProjectKnowledgeCandidate(
+  projectId: string,
+  candidateId: string,
+  userDecision: PriorArtCandidate["user_decision"],
+): Promise<PriorArtCandidate> {
+  return request<PriorArtCandidate>(`/api/projects/${projectId}/knowledge/candidates/${candidateId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_decision: userDecision }),
+  });
+}
+
+export async function buildProjectCorpusVersion(projectId: string, planId: string): Promise<ProjectKnowledgeOverview> {
+  return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge/corpus-versions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan_id: planId }),
+  });
 }
 
 export async function listProjects(): Promise<ProjectRecord[]> {

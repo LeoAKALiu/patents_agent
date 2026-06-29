@@ -8,6 +8,9 @@ import type {
   CorpusStats,
   CorpusVersion,
   PatentDocument,
+  PriorArtCandidate,
+  ProjectKnowledgeOverview,
+  ProjectRecord,
   SearchResult,
   SectionType,
 } from "@/api";
@@ -18,6 +21,8 @@ import type {
  * handlers are passed in from App.tsx.
  */
 export interface CorpusWorkspaceState {
+  selectedProject?: ProjectRecord | null;
+  projectKnowledge?: ProjectKnowledgeOverview | null;
   /** Import-job form state (build tool). */
   corpusJobForm: CorpusJobForm;
   /** Active import job, if any. */
@@ -36,6 +41,13 @@ export interface CorpusWorkspaceHandlers {
   onCreateCorpusJob: (event: FormEvent) => Promise<void> | void;
   onUploadCorpusJobFile: (event: FormEvent<HTMLFormElement>) => Promise<void> | void;
   onRunCorpusJob: () => Promise<void> | void;
+  onGenerateKnowledgePlan: () => Promise<void> | void;
+  onRunKnowledgeSearch: () => Promise<void> | void;
+  onCandidateDecision: (
+    candidateId: string,
+    decision: PriorArtCandidate["user_decision"],
+  ) => Promise<void> | void;
+  onBuildProjectCorpus: () => Promise<void> | void;
   onImport: (event: FormEvent<HTMLFormElement>) => Promise<void> | void;
   onSearch: (event: FormEvent) => Promise<void> | void;
   onSearchText: (text: string) => void;

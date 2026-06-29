@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  buildProjectCorpusVersion,
   cancelFormulaRun,
   cancelPostDraftReview,
   cancelProjectDeliberation,
   cancelProjectDisclosure,
+  getProjectKnowledge,
   acceptAllCompletionPatches,
   applyOfficialCompileCleanup,
   getHealth,
@@ -13,8 +15,10 @@ import {
   retryPostDraftReview,
   retryProjectDeliberation,
   retryProjectDisclosure,
+  runProjectSearchPlan,
   startPostDraftReview,
   startKimiOfficialLanguagePolish,
+  updateProjectKnowledgeCandidate,
   uploadCorpusJobFile,
   uploadProjectMaterial,
 } from "./api";
@@ -181,5 +185,30 @@ describe("runtime control API", () => {
         }),
       }),
     );
+  });
+
+  it("calls project knowledge endpoints", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      requests.push({ url, init });
+      if (url.endsWith("/knowledge/candidates/c-1")) {
+        return new Response(JSON.stringify({ id: "c-1", user_decision: "include" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ state: { project_id: "p-1", status: "ready" } }), { status: 200 });
+    }));
+
+    await getProjectKnowledge("p-1");
+    await runProjectSearchPlan("p-1", "plan-1");
+    await updateProjectKnowledgeCandidate("p-1", "c-1", "include");
+    await buildProjectCorpusVersion("p-1", "plan-1");
+
+    expect(requests.map((request) => request.url)).toEqual([
+      "/api/projects/p-1/knowledge",
+      "/api/projects/p-1/knowledge/search-plans/plan-1/run",
+      "/api/projects/p-1/knowledge/candidates/c-1",
+      "/api/projects/p-1/knowledge/corpus-versions",
+    ]);
+    expect(requests[2].init?.method).toBe("PATCH");
+    expect(requests[3].init?.body).toBe(JSON.stringify({ plan_id: "plan-1" }));
   });
 });
