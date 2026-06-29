@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.schemas import (
+    AgentSearchPlan,
     ClaimDefenseWorksheet,
     CorpusImportJob,
     CorpusQualityReport,
@@ -27,10 +28,14 @@ from backend.app.schemas import (
     PatentPointCandidate,
     PatentDocument,
     PatentType,
+    PriorArtCandidate,
     PostDraftReviewRun,
+    ProjectCorpusVersion,
+    ProjectKnowledgeState,
     ProjectMaterial,
     ProjectRecord,
     RevisionLedgerRecord,
+    SearchIntent,
     SectionType,
 )
 
@@ -286,6 +291,162 @@ class SQLiteStore:
             "source_distribution": source_distribution,
         }
 
+    def upsert_project_knowledge_state(self, state: ProjectKnowledgeState) -> ProjectKnowledgeState:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into project_knowledge_states(project_id, state_json)
+                values (?, ?)
+                on conflict(project_id) do update set
+                    state_json = excluded.state_json,
+                    updated_at = current_timestamp
+                """,
+                (state.project_id, json.dumps(state.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return state
+
+    def get_project_knowledge_state(self, project_id: str) -> ProjectKnowledgeState | None:
+        row = self.connection.execute(
+            "select state_json from project_knowledge_states where project_id = ?",
+            (project_id,),
+        ).fetchone()
+        return ProjectKnowledgeState.model_validate(json.loads(row["state_json"])) if row else None
+
+    def create_search_intent(self, intent: SearchIntent) -> SearchIntent:
+        with self.connection:
+            self.connection.execute(
+                "insert into search_intents(id, project_id, intent_json) values (?, ?, ?)",
+                (intent.id, intent.project_id, json.dumps(intent.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return intent
+
+    def get_latest_search_intent(self, project_id: str) -> SearchIntent | None:
+        row = self.connection.execute(
+            """
+            select intent_json from search_intents
+            where project_id = ?
+            order by created_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return SearchIntent.model_validate(json.loads(row["intent_json"])) if row else None
+
+    def create_agent_search_plan(self, plan: AgentSearchPlan) -> AgentSearchPlan:
+        with self.connection:
+            self.connection.execute(
+                "insert into agent_search_plans(id, project_id, intent_id, plan_json) values (?, ?, ?, ?)",
+                (plan.id, plan.project_id, plan.intent_id, json.dumps(plan.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return plan
+
+    def update_agent_search_plan(self, plan: AgentSearchPlan) -> AgentSearchPlan:
+        with self.connection:
+            self.connection.execute(
+                """
+                update agent_search_plans
+                set plan_json = ?, updated_at = current_timestamp
+                where project_id = ? and id = ?
+                """,
+                (json.dumps(plan.model_dump(mode="json"), ensure_ascii=False), plan.project_id, plan.id),
+            )
+        return plan
+
+    def get_agent_search_plan(self, project_id: str, plan_id: str) -> AgentSearchPlan | None:
+        row = self.connection.execute(
+            "select plan_json from agent_search_plans where project_id = ? and id = ?",
+            (project_id, plan_id),
+        ).fetchone()
+        return AgentSearchPlan.model_validate(json.loads(row["plan_json"])) if row else None
+
+    def get_latest_agent_search_plan(self, project_id: str) -> AgentSearchPlan | None:
+        row = self.connection.execute(
+            """
+            select plan_json from agent_search_plans
+            where project_id = ?
+            order by updated_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return AgentSearchPlan.model_validate(json.loads(row["plan_json"])) if row else None
+
+    def upsert_prior_art_candidate(self, candidate: PriorArtCandidate) -> PriorArtCandidate:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into prior_art_candidates(id, project_id, plan_id, candidate_json)
+                values (?, ?, ?, ?)
+                on conflict(id) do update set
+                    candidate_json = excluded.candidate_json,
+                    updated_at = current_timestamp
+                """,
+                (
+                    candidate.id,
+                    candidate.project_id,
+                    candidate.plan_id,
+                    json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False),
+                ),
+            )
+        return candidate
+
+    def list_prior_art_candidates(self, project_id: str, plan_id: str | None = None) -> list[PriorArtCandidate]:
+        if plan_id:
+            rows = self.connection.execute(
+                """
+                select candidate_json from prior_art_candidates
+                where project_id = ? and plan_id = ?
+                order by created_at asc, rowid asc
+                """,
+                (project_id, plan_id),
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                """
+                select candidate_json from prior_art_candidates
+                where project_id = ?
+                order by created_at asc, rowid asc
+                """,
+                (project_id,),
+            ).fetchall()
+        return [PriorArtCandidate.model_validate(json.loads(row["candidate_json"])) for row in rows]
+
+    def update_prior_art_candidate_decision(
+        self,
+        project_id: str,
+        candidate_id: str,
+        decision: str,
+    ) -> PriorArtCandidate | None:
+        row = self.connection.execute(
+            "select candidate_json from prior_art_candidates where project_id = ? and id = ?",
+            (project_id, candidate_id),
+        ).fetchone()
+        if not row:
+            return None
+        candidate = PriorArtCandidate.model_validate(json.loads(row["candidate_json"]))
+        updated = candidate.model_copy(update={"user_decision": decision})
+        return self.upsert_prior_art_candidate(updated)
+
+    def create_project_corpus_version(self, version: ProjectCorpusVersion) -> ProjectCorpusVersion:
+        with self.connection:
+            self.connection.execute(
+                "insert into project_corpus_versions(id, project_id, version_json) values (?, ?, ?)",
+                (version.id, version.project_id, json.dumps(version.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return version
+
+    def get_latest_project_corpus_version(self, project_id: str) -> ProjectCorpusVersion | None:
+        row = self.connection.execute(
+            """
+            select version_json from project_corpus_versions
+            where project_id = ?
+            order by created_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return ProjectCorpusVersion.model_validate(json.loads(row["version_json"])) if row else None
+
     def create_project(self, project: ProjectRecord) -> ProjectRecord:
         with self.connection:
             self.connection.execute(
@@ -344,6 +505,11 @@ class SQLiteStore:
                 "claim_defense_worksheets",
                 "draft_completion_runs",
                 "grantability_reports",
+                "project_knowledge_states",
+                "search_intents",
+                "agent_search_plans",
+                "prior_art_candidates",
+                "project_corpus_versions",
             ]:
                 self.connection.execute(f"delete from {table} where project_id = ?", (project_id,))
             cursor = self.connection.execute("delete from projects where id = ?", (project_id,))
@@ -1394,6 +1560,49 @@ class SQLiteStore:
                     metadata_json text not null,
                     created_at text not null default current_timestamp,
                     foreign key(job_id) references corpus_jobs(id)
+                );
+
+                create table if not exists project_knowledge_states (
+                    project_id text primary key,
+                    state_json text not null,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists search_intents (
+                    id text primary key,
+                    project_id text not null,
+                    intent_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists agent_search_plans (
+                    id text primary key,
+                    project_id text not null,
+                    intent_id text not null,
+                    plan_json text not null,
+                    created_at text not null default current_timestamp,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists prior_art_candidates (
+                    id text primary key,
+                    project_id text not null,
+                    plan_id text not null,
+                    candidate_json text not null,
+                    created_at text not null default current_timestamp,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists project_corpus_versions (
+                    id text primary key,
+                    project_id text not null,
+                    version_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
                 );
 
                 create table if not exists project_materials (
