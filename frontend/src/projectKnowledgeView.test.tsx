@@ -23,7 +23,7 @@ const project: ProjectRecord = {
   beneficial_effects: "",
 };
 
-const overview: ProjectKnowledgeOverview = {
+const baseOverview: ProjectKnowledgeOverview = {
   state: {
     project_id: "p-1",
     status: "search_plan_pending",
@@ -34,7 +34,7 @@ const overview: ProjectKnowledgeOverview = {
     last_indexed_at: "",
     staleness_reason: "",
     document_count: 0,
-    candidate_count: 0,
+    candidate_count: 1,
     claim_coverage: 0,
     fulltext_coverage: 0,
     quality_flags: ["needs_search"],
@@ -113,14 +113,14 @@ const overview: ProjectKnowledgeOverview = {
 };
 
 describe("ProjectKnowledgeView", () => {
-  it("renders plan, candidates, and calls handlers", () => {
+  it("renders candidate recommendation and include/exclude decisions", () => {
     const onRunKnowledgeSearch = vi.fn();
     const onCandidateDecision = vi.fn();
 
     render(
       <ProjectKnowledgeView
         selectedProject={project}
-        knowledge={overview}
+        knowledge={baseOverview}
         busy=""
         onGenerateKnowledgePlan={vi.fn()}
         onRunKnowledgeSearch={onRunKnowledgeSearch}
@@ -133,11 +133,115 @@ describe("ProjectKnowledgeView", () => {
     expect(screen.getByText("检索计划待确认")).toBeInTheDocument();
     expect(screen.getByText("宽召回检索")).toBeInTheDocument();
     expect(screen.getByText("一种城市体检任务编排方法")).toBeInTheDocument();
+    expect(screen.getByText("Agent 建议纳入")).toBeInTheDocument();
+    expect(screen.getByText("待人工决策")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "开始官方源检索" }));
-    fireEvent.click(screen.getByRole("button", { name: "入库" }));
+    fireEvent.click(screen.getByRole("button", { name: "纳入建库" }));
+    fireEvent.click(screen.getByRole("button", { name: "排除" }));
 
     expect(onRunKnowledgeSearch).toHaveBeenCalled();
     expect(onCandidateDecision).toHaveBeenCalledWith("c-1", "include");
+    expect(onCandidateDecision).toHaveBeenCalledWith("c-1", "exclude");
+  });
+
+  it("renders fail-closed quality guidance and builds corpus from included candidates", () => {
+    const onBuildProjectCorpus = vi.fn();
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      state: {
+        ...baseOverview.state,
+        status: "needs_supplemental_search",
+        active_corpus_version_id: "version-1",
+        staleness_reason: "项目技术描述已变化，需要重新生成检索计划或补充检索。",
+        document_count: 1,
+        claim_coverage: 0,
+        fulltext_coverage: 0,
+        quality_flags: ["synthetic_evidence", "stale_project_snapshot", "empty_corpus"],
+      },
+      candidates: [
+        {
+          ...baseOverview.candidates[0],
+          user_decision: "include",
+        },
+      ],
+      latest_corpus_version: {
+        id: "version-1",
+        project_id: "p-1",
+        name: "p-1-prior-art-v1",
+        source_plan_id: "plan-1",
+        candidate_set_id: "",
+        status: "failed",
+        document_count: 1,
+        chunk_count: 3,
+        claim_coverage: 0,
+        fulltext_coverage: 0,
+        quality_report: {
+          total_files: 1,
+          processed_files: 1,
+          imported_documents: 1,
+          duplicate_documents: 0,
+          filtered_documents: 0,
+          failed_documents: 1,
+          indexed_chunks: 3,
+          fulltext_extractable_rate: 0,
+          section_coverage: { claims: 0, fulltext: 0 },
+          low_quality_documents: ["c-1"],
+          failures: [{ file: "synthetic_evidence", reason: "Corpus built from synthetic fake-source candidates only." }],
+        },
+        created_at: "2026-06-29T10:00:00Z",
+        superseded_by: "",
+      },
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={onBuildProjectCorpus}
+      />,
+    );
+
+    expect(screen.getAllByText(/授权判断仍然受证据门控/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/不能视为真实检索结论/)).toBeInTheDocument();
+    expect(screen.getByText(/项目技术描述已变化/)).toBeInTheDocument();
+    expect(screen.getByText("质量报告")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "确认建库" })[0]);
+    expect(onBuildProjectCorpus).toHaveBeenCalled();
+  });
+
+  it("reruns the latest plan for stale ready states instead of advertising a no-op plan generation", () => {
+    const onRunKnowledgeSearch = vi.fn();
+    const onGenerateKnowledgePlan = vi.fn();
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      state: {
+        ...baseOverview.state,
+        status: "stale",
+        quality_flags: ["stale_project_snapshot"],
+      },
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        onGenerateKnowledgePlan={onGenerateKnowledgePlan}
+        onRunKnowledgeSearch={onRunKnowledgeSearch}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "重新运行最新检索计划" }));
+
+    expect(onRunKnowledgeSearch).toHaveBeenCalled();
+    expect(onGenerateKnowledgePlan).not.toHaveBeenCalled();
   });
 });
