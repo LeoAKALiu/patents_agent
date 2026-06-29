@@ -395,12 +395,6 @@ export function ExportView({
           )}
         </InfoCard>
       )}
-      </SettingsGroup>
-
-      <SettingsGroup
-        title="内部复核材料"
-        description="内部材料始终带有策略语境，请勿直接作为正式提交稿。"
-      >
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <a
           aria-disabled={!officialAllowed}
@@ -442,6 +436,14 @@ export function ExportView({
             </button>
           </>
         )}
+      </div>
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="内部复核材料"
+        description="内部材料始终带有策略语境，请勿直接作为正式提交稿。"
+      >
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {[
           ["docx", "DOCX"],
           ["md", "Markdown"],

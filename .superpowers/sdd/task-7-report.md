@@ -51,3 +51,19 @@
   - `cd frontend && npm run build` — passed
   - `cd frontend && npm test` — passed
   - `git diff --check` — passed
+
+### Review fix-up
+- Findings addressed:
+  1. `正式提交稿` actions were grouped under `内部复核材料`.
+  2. Tests did not exercise the real `ExportWorkspace` locked-guidance wrapper.
+- Fix applied:
+  - Moved official export links (`正式提交稿 DOCX` / `正式提交稿 MD`) and native official save actions back into the `正式提交稿` section.
+  - Kept `内部复核材料` limited to internal package exports from `exportUrl` (`docx`, `md`, `mmd`, `prompt`).
+  - Kept `风险说明与追溯` responsible for sidecar/risk export and preview/trace content.
+  - Added section-aware `ExportView` tests that verify official and internal actions live in the correct groups.
+  - Added a real `ExportWorkspace` wrapper test that covers overview cards, locked guidance, absence of repair UI, and navigation callbacks.
+- Commands and results:
+  - `cd frontend && npm test -- views/exportView.test.tsx features/export/ExportWorkspace.test.tsx app/routes.test.tsx` — passed
+  - `cd frontend && npm run build` — passed
+  - `cd frontend && npm test` — passed
+  - `git diff --check` — passed
