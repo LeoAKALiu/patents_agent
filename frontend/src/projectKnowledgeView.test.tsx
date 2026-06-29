@@ -187,7 +187,12 @@ describe("ProjectKnowledgeView", () => {
           fulltext_extractable_rate: 0,
           section_coverage: { claims: 0, fulltext: 0 },
           low_quality_documents: ["c-1"],
-          failures: [{ file: "synthetic_evidence", reason: "Corpus built from synthetic fake-source candidates only." }],
+          failures: [
+            {
+              code: "synthetic_evidence",
+              message: "Corpus built from synthetic fake-source candidates only.",
+            },
+          ],
         },
         created_at: "2026-06-29T10:00:00Z",
         superseded_by: "",
@@ -210,6 +215,8 @@ describe("ProjectKnowledgeView", () => {
     expect(screen.getByText(/不能视为真实检索结论/)).toBeInTheDocument();
     expect(screen.getByText(/项目技术描述已变化/)).toBeInTheDocument();
     expect(screen.getByText("质量报告")).toBeInTheDocument();
+    expect(screen.getByText("synthetic_evidence")).toBeInTheDocument();
+    expect(screen.getByText("Corpus built from synthetic fake-source candidates only.")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "确认建库" })[0]);
     expect(onBuildProjectCorpus).toHaveBeenCalled();

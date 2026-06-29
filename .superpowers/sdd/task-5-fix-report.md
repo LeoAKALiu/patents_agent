@@ -53,3 +53,12 @@
 ## Commit
 
 - planned commit message: `fix: repair project knowledge workspace review flow`
+
+## Second fix
+
+- Updated `frontend/src/views/widgets.tsx` so quality failures render both legacy `{file, reason}` and backend `{code, message}` shapes without blank details.
+- Updated `frontend/src/api.ts` with the smallest shared quality-failure union to match the existing backend payload.
+- Tightened `frontend/src/projectKnowledgeView.test.tsx` to use the real backend failure shape and assert the readable title/detail text.
+- Verified with:
+  - `npm --prefix frontend test -- --run src/projectKnowledgeView.test.tsx src/features/corpus/CorpusWorkspace.test.tsx`
+  - `npm --prefix frontend run build`

@@ -929,8 +929,20 @@ export interface CorpusQualityReport {
   fulltext_extractable_rate: number;
   section_coverage: Record<string, number>;
   low_quality_documents: string[];
-  failures: Array<{ file: string; reason: string }>;
+  failures: Array<CorpusQualityFailure>;
 }
+
+export interface CorpusQualityFileFailure {
+  file: string;
+  reason: string;
+}
+
+export interface CorpusQualityCodeFailure {
+  code: string;
+  message: string;
+}
+
+export type CorpusQualityFailure = CorpusQualityFileFailure | CorpusQualityCodeFailure;
 
 export interface CorpusImportJob {
   id: string;
