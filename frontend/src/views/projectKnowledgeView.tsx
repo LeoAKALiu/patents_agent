@@ -26,6 +26,14 @@ const statusLabels: Record<string, string> = {
   failed: "检索失败",
 };
 
+const corpusVersionStatusLabels: Record<string, string> = {
+  building: "建库中",
+  ready: "已就绪",
+  needs_supplemental_search: "需要补充检索",
+  failed: "失败",
+  superseded: "已替代",
+};
+
 function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
@@ -376,7 +384,10 @@ export function ProjectKnowledgeView({
         {latestCorpusVersion ? (
           <div className="mt-4 flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-              <StatusPill label="版本状态" value={latestCorpusVersion.status} />
+              <StatusPill
+                label="版本状态"
+                value={corpusVersionStatusLabels[latestCorpusVersion.status] ?? latestCorpusVersion.status}
+              />
               <StatusPill label="文献数" value={String(latestCorpusVersion.document_count)} />
               <StatusPill label="片段数" value={String(latestCorpusVersion.chunk_count)} />
               <StatusPill label="权利要求覆盖" value={percent(latestCorpusVersion.claim_coverage)} />

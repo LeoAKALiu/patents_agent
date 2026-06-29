@@ -1291,7 +1291,10 @@ class ProjectCorpusVersion(BaseModel):
     name: str
     source_plan_id: str = ""
     candidate_set_id: str = ""
-    status: str = Field(default="building", pattern="^(building|ready|failed|superseded)$")
+    status: str = Field(
+        default="building",
+        pattern="^(building|ready|needs_supplemental_search|failed|superseded)$",
+    )
     document_count: int = 0
     chunk_count: int = 0
     claim_coverage: float = 0.0

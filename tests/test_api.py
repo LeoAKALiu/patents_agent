@@ -409,7 +409,31 @@ def test_project_knowledge_run_candidates_and_build_version(tmp_path):
     )
     assert version.status_code == 200
     assert version.json()["state"]["status"] == "needs_supplemental_search"
+    assert version.json()["latest_corpus_version"]["status"] == "needs_supplemental_search"
     assert version.json()["latest_corpus_version"]["document_count"] >= 1
+
+
+def test_project_knowledge_rejects_corpus_build_before_search(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "预搜索建库测试", "draft_text": "尚未运行候选检索前不应允许建库。"},
+    )
+    project_id = created.json()["id"]
+    before = client.get(f"/api/projects/{project_id}/knowledge").json()
+    plan_id = before["latest_plan"]["id"]
+
+    response = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": plan_id},
+    )
+
+    assert response.status_code == 409
+    assert "Run candidate search" in response.json()["detail"]
+    after = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert after == before
+    assert after["state"]["active_corpus_version_id"] == ""
+    assert after["latest_corpus_version"] is None
 
 
 def test_project_knowledge_search_intent_endpoint_returns_current_overview(tmp_path):

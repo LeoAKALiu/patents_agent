@@ -1079,7 +1079,7 @@ export interface ProjectCorpusVersion {
   name: string;
   source_plan_id: string;
   candidate_set_id: string;
-  status: "building" | "ready" | "failed" | "superseded";
+  status: "building" | "ready" | "needs_supplemental_search" | "failed" | "superseded";
   document_count: number;
   chunk_count: number;
   claim_coverage: number;

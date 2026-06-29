@@ -351,9 +351,18 @@ def create_project_corpus_from_included_candidates(
     plan_id: str,
 ) -> ProjectKnowledgeOverview:
     state, _plan = _get_active_plan(store, project_id, plan_id)
+    candidate_pool = store.list_prior_art_candidates(project_id, plan_id)
+    if (
+        state.status not in {"candidates_pending", "needs_supplemental_search", "ready"}
+        or not state.last_search_at
+        or not candidate_pool
+    ):
+        raise ProjectKnowledgeConflictError(
+            "Project knowledge is not ready for corpus build. Run candidate search for the active plan first."
+        )
     included = [
         candidate
-        for candidate in store.list_prior_art_candidates(project_id, plan_id)
+        for candidate in candidate_pool
         if candidate.user_decision == "include"
     ]
     all_synthetic = bool(included) and all(candidate.source == "fake" for candidate in included)
@@ -365,7 +374,7 @@ def create_project_corpus_from_included_candidates(
         project_id=project_id,
         name=f"{project_id}-prior-art-v1",
         source_plan_id=plan_id,
-        status="ready" if included else "failed",
+        status="needs_supplemental_search" if all_synthetic else ("ready" if included else "failed"),
         document_count=len(included),
         chunk_count=len(included) * 3,
         claim_coverage=claim_coverage,
@@ -401,7 +410,7 @@ def create_project_corpus_from_included_candidates(
             "active_corpus_version_id": version.id,
             "last_indexed_at": _now(),
             "document_count": version.document_count,
-            "candidate_count": len(store.list_prior_art_candidates(project_id, plan_id)),
+            "candidate_count": len(candidate_pool),
             "claim_coverage": version.claim_coverage,
             "fulltext_coverage": version.fulltext_coverage,
             "quality_flags": quality_flags,

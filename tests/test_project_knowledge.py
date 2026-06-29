@@ -223,6 +223,7 @@ def test_create_project_corpus_requires_explicit_include_decision(tmp_path):
     assert after_build.state.status == "needs_supplemental_search"
     assert after_build.latest_corpus_version is not None
     assert after_build.latest_corpus_version.document_count == 0
+    assert after_build.latest_corpus_version.status == "failed"
     assert after_build.state.document_count == 0
 
 
@@ -239,6 +240,7 @@ def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
 
     assert after_build.state.status == "needs_supplemental_search"
     assert after_build.latest_corpus_version is not None
+    assert after_build.latest_corpus_version.status == "needs_supplemental_search"
     assert after_build.latest_corpus_version.document_count == 2
     assert after_build.state.document_count == 2
     assert after_build.state.quality_flags == ["synthetic_evidence"]
@@ -248,6 +250,21 @@ def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
     assert after_build.latest_corpus_version.quality_report.failures == [
         {"code": "synthetic_evidence", "message": "Corpus built from synthetic fake-source candidates only."}
     ]
+
+
+def test_create_project_corpus_rejects_build_before_search(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="Run candidate search"):
+        create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    after = knowledge_overview(store, project.id)
+    assert after.state.status == "search_plan_pending"
+    assert after.state.active_corpus_version_id == ""
+    assert after.latest_corpus_version is None
 
 
 def test_create_project_corpus_preserves_active_intent_and_last_search_metadata(tmp_path):

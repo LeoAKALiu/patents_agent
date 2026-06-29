@@ -172,7 +172,7 @@ describe("ProjectKnowledgeView", () => {
         name: "p-1-prior-art-v1",
         source_plan_id: "plan-1",
         candidate_set_id: "",
-        status: "failed",
+        status: "needs_supplemental_search",
         document_count: 1,
         chunk_count: 3,
         claim_coverage: 0,
@@ -218,6 +218,8 @@ describe("ProjectKnowledgeView", () => {
     expect(screen.getByText("质量报告")).toBeInTheDocument();
     expect(screen.getByText("synthetic_evidence")).toBeInTheDocument();
     expect(screen.getByText("Corpus built from synthetic fake-source candidates only.")).toBeInTheDocument();
+    expect(screen.getAllByText("需要补充检索").length).toBeGreaterThan(0);
+    expect(screen.queryByText("已就绪")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "确认建库" })[0]);
     expect(onBuildProjectCorpus).toHaveBeenCalled();
