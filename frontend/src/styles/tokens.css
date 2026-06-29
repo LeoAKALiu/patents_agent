@@ -78,6 +78,9 @@
   --surface-subtle:   oklch(96.8% 0.004 250);
   --surface-inset:    oklch(94.6% 0.005 250);
   --surface-chrome:   color-mix(in oklch, var(--surface-base), white 58%);
+  --surface-solid:    oklch(99.75% 0.001 250);
+  --surface-solid-subtle: oklch(97.7% 0.003 250);
+  --surface-solid-inset:  oklch(95.9% 0.004 250);
 
   --text-primary:     oklch(21.7% 0.038 250.0); /* #0B1B2B ≈14:1 on glass */
   --text-muted:       oklch(45.3% 0.038 250.1); /* #46586B ≈6.5:1 */
@@ -147,6 +150,11 @@
   /* Brand-tinted shadows reinforce cohesion. */
   --glass-shadow:      var(--shadow-card);
   --glass-shadow-high: var(--shadow-raised);
+  --glass-chrome-bg:   oklch(99.7% 0.001 250 / 0.93);
+  --glass-chrome-border: 1px solid color-mix(in oklch, var(--border-subtle), white 18%);
+  --glass-chrome-shadow: 0 10px 30px oklch(11% 0.04 261 / 0.08);
+  --chip-glass-bg:     oklch(99.4% 0.002 250 / 0.86);
+  --chip-glass-solid-bg: color-mix(in oklch, var(--surface-solid-subtle), white 24%);
 
   /* Legacy mesh tokens retained for older rules; base.css no longer paints
      a visible mesh for the OpenDesign enterprise direction. */

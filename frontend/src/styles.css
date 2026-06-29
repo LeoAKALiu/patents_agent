@@ -98,9 +98,11 @@
   min-width: 0;
   height: 100vh;
   padding: 18px 14px;
-  background: var(--surface-raised);
-  border-right: 1px solid var(--border-subtle);
-  box-shadow: none;
+  background: var(--glass-chrome-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.3);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.3);
+  border-right: 1px solid color-mix(in oklch, var(--border-subtle), white 20%);
+  box-shadow: inset -1px 0 0 oklch(100% 0 0 / 0.42);
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -238,11 +240,12 @@ button.nav-link span {
   min-width: 0;
   gap: 6px;
   padding: 10px;
-  border: 1px solid var(--border-subtle);
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: color-mix(in oklch, var(--surface-raised), transparent 12%);
-  -webkit-backdrop-filter: blur(var(--glass-blur-md));
-  backdrop-filter: blur(var(--glass-blur-md));
+  background: var(--chip-glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  box-shadow: var(--glass-hairline);
 }
 
 .system-status-row {
@@ -342,11 +345,11 @@ button.nav-link span {
   gap: 16px;
   min-height: 72px;
   padding: 14px 24px;
-  background: color-mix(in oklch, var(--surface-base), white 52%);
-  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
-  backdrop-filter: blur(var(--glass-blur-lg));
-  border-bottom: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-card);
+  background: var(--glass-chrome-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.3);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.3);
+  border-bottom: 1px solid color-mix(in oklch, var(--border-subtle), white 20%);
+  box-shadow: var(--glass-chrome-shadow);
 }
 
 .topbar-main,
@@ -398,14 +401,17 @@ button.nav-link span {
      min-height means topbar buttons align with panel button rows.
      The subtle border is intentional: it matches .top-actions .select so
      buttons and the project picker read as one control row. */
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-subtle);
+  border: var(--glass-border);
+  background: var(--chip-glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
   color: var(--text-primary);
-  transition: background .12s, color .12s, box-shadow .12s;
+  box-shadow: var(--glass-hairline);
+  transition: background .12s, color .12s, box-shadow .12s, border-color .12s;
 }
 
 .top-actions .btn:hover {
-  background: var(--surface-raised);
+  background: var(--glass-bg);
   color: var(--text-primary);
 }
 
@@ -451,9 +457,12 @@ button.nav-link span {
   max-width: 220px;
   min-height: 40px;
   padding: 8px 10px;
-  border: 1px solid var(--border-subtle);
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  background: var(--chip-glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  box-shadow: var(--glass-hairline);
   color: var(--text-primary);
   font-size: 13px;
 }
@@ -497,12 +506,22 @@ button.nav-link span {
   gap: 6px;
   max-width: 148px;
   padding: 0 12px;
+  border: var(--glass-border);
+  background: var(--chip-glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  box-shadow: var(--glass-hairline);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .topbar-action-button {
+  border: var(--glass-border);
+  background: var(--chip-glass-solid-bg);
+  color: var(--text-primary);
+  box-shadow: var(--glass-hairline);
   padding: 0 12px;
 }
 
@@ -547,9 +566,12 @@ button.nav-link span {
   flex-wrap: wrap;
   gap: 2px;
   padding: 3px;
-  border: 1px solid var(--border-subtle);
+  border: var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  background: var(--chip-glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  box-shadow: var(--glass-hairline);
   min-width: min-content;
 }
 
@@ -606,14 +628,22 @@ button.nav-link span {
 .mobile-nav button {
   display: flex;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
+  gap: 4px;
+  flex-direction: column;
   min-height: 44px;
-  padding: 8px 10px;
+  padding: 8px 6px;
   border-radius: var(--radius-md);
   color: var(--text-muted);
   border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
+  min-width: 0;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .mobile-nav a:hover,
@@ -942,7 +972,7 @@ button.nav-link span {
   min-width: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  background: var(--surface-solid);
   box-shadow: var(--shadow-card);
 }
 
@@ -988,7 +1018,7 @@ button.nav-link span {
   padding: 8px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  background: var(--surface-solid);
 }
 
 .document-tabs button {
@@ -996,7 +1026,7 @@ button.nav-link span {
   padding: 7px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--surface-subtle);
+  background: var(--surface-solid-subtle);
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 700;
@@ -1072,7 +1102,7 @@ button.nav-link span {
   padding: 6px 10px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-subtle);
+  background: var(--surface-solid-subtle);
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 700;
@@ -1435,7 +1465,7 @@ button.nav-link span {
   border-collapse: collapse;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-raised);
+  background: var(--surface-solid);
 }
 
 .document-issues-table th,
@@ -1467,7 +1497,7 @@ button.nav-link span {
 
 .document-issues-table code {
   border-radius: var(--radius-sm);
-  background: var(--surface-subtle);
+  background: var(--surface-solid-subtle);
   color: var(--text-muted);
   font-size: 12px;
 }
@@ -1488,7 +1518,7 @@ button.nav-link span {
   padding: 9px 10px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-subtle);
+  background: var(--surface-solid-subtle);
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 750;
@@ -1511,7 +1541,7 @@ button.nav-link span {
   padding: 12px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-subtle);
+  background: var(--surface-solid-subtle);
 }
 
 .document-version-node-heading {
@@ -1605,7 +1635,7 @@ button.nav-link span {
   padding: 12px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  background: var(--surface-solid);
 }
 
 .status-tile span {
@@ -1648,7 +1678,7 @@ button.nav-link span {
 
 /* ── Panels ───────────────────────────────────────────────────── */
 .panel {
-  background: var(--surface-raised);
+  background: var(--surface-solid);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: 20px;
@@ -1917,8 +1947,9 @@ button.nav-link span {
   display: inline-flex;
   align-items: center;
   min-height: 22px;
+  border: 1px solid color-mix(in oklch, var(--success), white 44%);
   border-radius: 999px;
-  background: color-mix(in oklch, var(--success), transparent 86%);
+  background: var(--chip-glass-bg);
   color: var(--success-text);
   padding: 0 8px;
   white-space: nowrap;
@@ -1927,17 +1958,20 @@ button.nav-link span {
 }
 
 .status-badge.muted {
-  background: var(--surface-subtle);
+  border-color: var(--border-subtle);
+  background: var(--chip-glass-solid-bg);
   color: var(--text-muted);
 }
 
 .status-badge.warn {
-  background: color-mix(in oklch, var(--warn), transparent 86%);
+  border-color: color-mix(in oklch, var(--warn), white 48%);
+  background: var(--chip-glass-bg);
   color: var(--warn);
 }
 
 .status-badge.danger {
-  background: color-mix(in oklch, var(--danger), transparent 86%);
+  border-color: color-mix(in oklch, var(--danger), white 48%);
+  background: var(--chip-glass-bg);
   color: var(--danger);
 }
 
@@ -2329,8 +2363,9 @@ input:focus, select:focus, textarea:focus {
   display: inline-flex;
   align-items: center;
   min-height: 26px;
+  border: 1px solid color-mix(in oklch, var(--success), white 44%);
   border-radius: 999px;
-  background: color-mix(in oklch, var(--success), transparent 86%);
+  background: var(--chip-glass-bg);
   color: var(--success-text);
   padding: 0 10px;
   font-size: 11px;
@@ -2977,8 +3012,8 @@ input:focus, select:focus, textarea:focus {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--surface-base);
-  box-shadow: var(--shadow-lg);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-high);
 }
 
 .repair-editor-shell.is-embedded {
@@ -3005,7 +3040,7 @@ input:focus, select:focus, textarea:focus {
   min-height: 0;
   overflow: hidden;
   border-right: 1px solid var(--border-subtle);
-  background: var(--surface-subtle);
+  background: var(--surface-solid-subtle);
 }
 
 .repair-issue-rail-header {
@@ -3028,6 +3063,7 @@ input:focus, select:focus, textarea:focus {
   min-height: 0;
   overflow-y: auto;
   padding: 8px 10px;
+  overscroll-behavior: contain;
 }
 
 .repair-issue-group {
@@ -3112,6 +3148,8 @@ input:focus, select:focus, textarea:focus {
   min-height: 0;
   overflow-y: auto;
   padding: 12px 14px;
+  background: var(--surface-solid);
+  overscroll-behavior: contain;
 }
 
 .repair-pane-header {
@@ -3139,7 +3177,7 @@ input:focus, select:focus, textarea:focus {
   gap: 4px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  background: var(--surface-solid-subtle);
   padding: 10px 12px;
   transition: border-color .12s;
 }
@@ -3203,7 +3241,7 @@ input:focus, select:focus, textarea:focus {
   min-height: 0;
   overflow: hidden;
   border-left: 1px solid var(--border-subtle);
-  background: var(--surface-subtle);
+  background: var(--surface-solid-subtle);
 }
 
 .repair-inspector-header {
@@ -3229,6 +3267,7 @@ input:focus, select:focus, textarea:focus {
   min-height: 0;
   overflow-y: auto;
   padding: 12px 14px;
+  overscroll-behavior: contain;
 }
 
 .repair-inspector-summary {
@@ -3236,7 +3275,7 @@ input:focus, select:focus, textarea:focus {
   gap: 8px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-base);
+  background: var(--surface-solid);
   padding: 10px 12px;
 }
 
@@ -3252,7 +3291,7 @@ input:focus, select:focus, textarea:focus {
   min-height: 22px;
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
-  background: var(--surface-raised);
+  background: var(--chip-glass-solid-bg);
   padding: 2px 8px;
   color: var(--text-soft);
   font-size: 11px;
@@ -3284,7 +3323,7 @@ input:focus, select:focus, textarea:focus {
   gap: 8px;
   border: 1px solid color-mix(in oklch, var(--action-primary), transparent 78%);
   border-radius: var(--radius-md);
-  background: var(--surface-inset);
+  background: var(--surface-solid-inset);
   padding: 10px 12px;
 }
 
@@ -3301,7 +3340,7 @@ input:focus, select:focus, textarea:focus {
 .repair-anchor-snippet {
   margin: 0;
   border-radius: var(--radius-sm);
-  background: var(--surface-base);
+  background: var(--surface-solid);
   padding: 7px 8px;
   color: var(--text-primary);
   font-family: var(--font-mono);
@@ -3334,7 +3373,7 @@ input:focus, select:focus, textarea:focus {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.025em;
+  letter-spacing: 0;
 }
 
 .repair-inspector-value {
@@ -3354,7 +3393,7 @@ input:focus, select:focus, textarea:focus {
 
 .repair-inspector-snippet {
   border-radius: var(--radius-sm);
-  background: var(--surface-inset);
+  background: var(--surface-solid-inset);
   padding: 6px 8px;
   font-family: var(--font-mono);
   font-size: 11px;
@@ -3483,7 +3522,7 @@ input:focus, select:focus, textarea:focus {
   gap: 4px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  background: var(--surface-solid);
   padding: 12px;
 }
 
@@ -4031,13 +4070,10 @@ input:focus, select:focus, textarea:focus {
 .boundary-card {
   min-height: 136px;
   padding: 14px;
-  /* Glass surface (default frost) for export-boundary tiles. */
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(var(--glass-blur-md));
-  backdrop-filter: blur(var(--glass-blur-md));
-  border: var(--glass-border);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--glass-hairline), var(--glass-shadow);
+  box-shadow: var(--shadow-card);
 }
 
 .boundary-card strong { display: block; margin-bottom: 2px; color: var(--text-primary); }
@@ -4347,7 +4383,7 @@ input:focus, select:focus, textarea:focus {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 
 .topbar h2 { margin: 4px 0 0; font-size: 22px; letter-spacing: 0; color: var(--text-primary); }
@@ -5119,8 +5155,10 @@ input:focus, select:focus, textarea:focus {
     padding: 6px;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl);
-    background: var(--surface-raised);
-    box-shadow: var(--shadow-raised);
+    background: var(--glass-chrome-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.25);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.25);
+    box-shadow: var(--glass-chrome-shadow);
   }
   .mobile-nav button {
     justify-content: center;
@@ -5306,6 +5344,6 @@ input:focus, select:focus, textarea:focus {
 /* Tight mobile: 390px baseline */
 @media (max-width: 390px) {
   .mobile-nav { padding: 4px 8px; }
-  .mobile-nav button { padding: 6px 8px; font-size: 12px; }
+  .mobile-nav button { padding: 6px 4px; font-size: 11px; }
   .topbar { padding: 8px 10px; }
 }
