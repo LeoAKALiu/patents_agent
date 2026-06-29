@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from backend.app.schemas import (
     AgentSearchPlan,
+    CorpusQualityReport,
     PatentPointCandidate,
     PriorArtCandidate,
     ProjectCorpusVersion,
@@ -24,6 +25,11 @@ ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _stable_hex(*parts: str) -> str:
+    payload = "\n".join(parts).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def project_snapshot_hash(project: ProjectRecord, patent_points: list[PatentPointCandidate] | None = None) -> str:
@@ -165,17 +171,18 @@ def run_agent_search_plan(store: SQLiteStore, project_id: str, plan_id: str) -> 
     candidates: list[PriorArtCandidate] = []
     for index, group in enumerate(running.strategy_groups, start=1):
         query = group.queries[0] if group.queries else group.label
+        publication_number = f"CN{100000000 + index}A"
         candidate = PriorArtCandidate(
-            id=uuid.uuid4().hex,
+            id=_stable_hex(project_id, plan_id, group.id),
             project_id=project_id,
             plan_id=plan_id,
             source="fake",
             title=f"{group.label}候选文献{index}",
-            publication_number=f"CN{100000000 + index}A",
+            publication_number=publication_number,
             applicant="示例申请人",
             publication_date="2024-01-01",
             abstract=f"围绕{query}公开了相关技术方案。",
-            url=f"https://patents.google.com/patent/CN{100000000 + index}A",
+            url=f"https://patents.google.com/patent/{publication_number}",
             relevance_score=0.82,
             matched_terms=query.split(),
             fulltext_status="available",
@@ -192,7 +199,7 @@ def run_agent_search_plan(store: SQLiteStore, project_id: str, plan_id: str) -> 
         active_intent_id=completed.intent_id,
         active_plan_id=plan_id,
         last_search_at=_now(),
-        candidate_count=len(candidates),
+        candidate_count=len(store.list_prior_art_candidates(project_id, plan_id)),
         quality_flags=["candidates_need_confirmation"],
     )
     store.upsert_project_knowledge_state(state)
@@ -207,10 +214,12 @@ def create_project_corpus_from_included_candidates(
     included = [
         candidate
         for candidate in store.list_prior_art_candidates(project_id, plan_id)
-        if candidate.user_decision == "include" or (
-            candidate.user_decision == "pending" and candidate.recommended_action == "include"
-        )
+        if candidate.user_decision == "include"
     ]
+    all_synthetic = bool(included) and all(candidate.source == "fake" for candidate in included)
+    claim_coverage = 0.0 if all_synthetic else (1.0 if included else 0.0)
+    fulltext_coverage = 0.0 if all_synthetic else (1.0 if included else 0.0)
+    quality_flags = ["synthetic_evidence"] if all_synthetic else []
     version = ProjectCorpusVersion(
         id=uuid.uuid4().hex,
         project_id=project_id,
@@ -219,8 +228,22 @@ def create_project_corpus_from_included_candidates(
         status="ready" if included else "failed",
         document_count=len(included),
         chunk_count=len(included) * 3,
-        claim_coverage=1.0 if included else 0.0,
-        fulltext_coverage=1.0 if included else 0.0,
+        claim_coverage=claim_coverage,
+        fulltext_coverage=fulltext_coverage,
+        quality_report=CorpusQualityReport(
+            total_files=len(included),
+            processed_files=len(included),
+            imported_documents=len(included),
+            indexed_chunks=len(included) * 3,
+            fulltext_extractable_rate=0.0 if all_synthetic else (1.0 if included else 0.0),
+            section_coverage={"claims": claim_coverage, "fulltext": fulltext_coverage},
+            low_quality_documents=[candidate.id for candidate in included] if all_synthetic else [],
+            failures=(
+                [{"code": "synthetic_evidence", "message": "Corpus built from synthetic fake-source candidates only."}]
+                if all_synthetic
+                else []
+            ),
+        ),
         created_at=_now(),
     )
     store.create_project_corpus_version(version)
@@ -234,7 +257,7 @@ def create_project_corpus_from_included_candidates(
         candidate_count=len(store.list_prior_art_candidates(project_id, plan_id)),
         claim_coverage=version.claim_coverage,
         fulltext_coverage=version.fulltext_coverage,
-        quality_flags=[] if included else ["empty_corpus"],
+        quality_flags=quality_flags if included else ["empty_corpus"],
     )
     store.upsert_project_knowledge_state(state)
     return knowledge_overview(store, project_id)
@@ -249,7 +272,7 @@ def mark_stale_if_project_changed(
     intent = store.get_latest_search_intent(project.id)
     if not intent:
         return state
-    current_hash = project_snapshot_hash(project, patent_points)
+    current_hash = project_snapshot_hash(project)
     if current_hash == intent.source_project_hash:
         return state
     updated = state.model_copy(

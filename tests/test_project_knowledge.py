@@ -4,6 +4,7 @@ import pytest
 
 from backend.app.schemas import (
     AgentSearchPlan,
+    PatentPointCandidate,
     PatentType,
     PriorArtCandidate,
     ProjectCreate,
@@ -191,7 +192,36 @@ def test_run_plan_creates_fake_candidates_and_state(tmp_path):
     assert all(candidate.source == "fake" for candidate in after_run.candidates)
 
 
-def test_create_project_corpus_uses_included_candidates(tmp_path):
+def test_run_plan_rerun_keeps_candidate_count_stable(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    first_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    second_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+
+    assert len(first_run.candidates) == len(second_run.candidates)
+    assert second_run.state.candidate_count == len(second_run.candidates)
+    assert [candidate.id for candidate in first_run.candidates] == [candidate.id for candidate in second_run.candidates]
+
+
+def test_create_project_corpus_requires_explicit_include_decision(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    run_agent_search_plan(store, project.id, overview.latest_plan.id)
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    assert after_build.state.status == "needs_supplemental_search"
+    assert after_build.latest_corpus_version is not None
+    assert after_build.latest_corpus_version.document_count == 0
+    assert after_build.state.document_count == 0
+
+
+def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
     store.create_project(project)
@@ -206,6 +236,13 @@ def test_create_project_corpus_uses_included_candidates(tmp_path):
     assert after_build.latest_corpus_version is not None
     assert after_build.latest_corpus_version.document_count == 2
     assert after_build.state.document_count == 2
+    assert after_build.state.quality_flags == ["synthetic_evidence"]
+    assert after_build.state.claim_coverage == 0.0
+    assert after_build.state.fulltext_coverage == 0.0
+    assert after_build.latest_corpus_version.quality_report is not None
+    assert after_build.latest_corpus_version.quality_report.failures == [
+        {"code": "synthetic_evidence", "message": "Corpus built from synthetic fake-source candidates only."}
+    ]
 
 
 def test_project_change_marks_knowledge_stale(tmp_path):
@@ -219,3 +256,28 @@ def test_project_change_marks_knowledge_stale(tmp_path):
 
     assert state.status == "stale"
     assert "项目技术描述已变化" in state.staleness_reason
+
+
+def test_selected_patent_points_do_not_mark_stale_when_project_text_is_unchanged(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    initial = ensure_project_knowledge_initialized(store, project)
+
+    state = mark_stale_if_project_changed(
+        store,
+        project,
+        [
+            PatentPointCandidate(
+                id="point-1",
+                title="一种证据链复核机制",
+                technical_problem="复核过程不稳定",
+                innovation="增加多智能体共识评分",
+                technical_solution="按步骤回放审查证据",
+                selected=True,
+            )
+        ],
+    )
+
+    assert state.status == initial.state.status
+    assert state.staleness_reason == ""
