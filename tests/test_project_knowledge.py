@@ -14,9 +14,12 @@ from backend.app.schemas import (
     SearchPlanStrategyGroup,
 )
 from backend.app.services.project_knowledge_service import (
+    ProjectKnowledgeConflictError,
     create_project_corpus_from_included_candidates,
     ensure_project_knowledge_initialized,
+    knowledge_overview,
     mark_stale_if_project_changed,
+    regenerate_project_knowledge,
     run_agent_search_plan,
 )
 from backend.app.services.project_service import build_project_record
@@ -243,6 +246,56 @@ def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
     assert after_build.latest_corpus_version.quality_report.failures == [
         {"code": "synthetic_evidence", "message": "Corpus built from synthetic fake-source candidates only."}
     ]
+
+
+def test_superseded_plan_cannot_run_or_build_and_does_not_reactivate(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    initial = ensure_project_knowledge_initialized(store, project)
+    original_plan_id = initial.latest_plan.id
+
+    run_agent_search_plan(store, project.id, original_plan_id)
+    for candidate in store.list_prior_art_candidates(project.id, original_plan_id)[:1]:
+        store.update_prior_art_candidate_decision(project.id, candidate.id, "include")
+    build = create_project_corpus_from_included_candidates(store, project.id, original_plan_id)
+    assert build.state.active_corpus_version_id
+
+    regenerated = regenerate_project_knowledge(store, project, [])
+    replacement_plan_id = regenerated.latest_plan.id
+    assert replacement_plan_id != original_plan_id
+    assert regenerated.state.active_plan_id == replacement_plan_id
+    assert regenerated.state.active_corpus_version_id == ""
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="no longer active"):
+        run_agent_search_plan(store, project.id, original_plan_id)
+    with pytest.raises(ProjectKnowledgeConflictError, match="no longer active"):
+        create_project_corpus_from_included_candidates(store, project.id, original_plan_id)
+
+    after = knowledge_overview(store, project.id)
+    assert after.state.active_plan_id == replacement_plan_id
+    assert after.state.active_corpus_version_id == ""
+    assert store.get_agent_search_plan(project.id, original_plan_id).status == "completed"
+
+
+def test_regeneration_hides_inactive_corpus_version_from_overview(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+    built_version_id = after_build.latest_corpus_version.id
+    assert after_build.state.active_corpus_version_id == built_version_id
+    assert store.get_latest_project_corpus_version(project.id).id == built_version_id
+
+    regenerated = regenerate_project_knowledge(store, project, [])
+
+    assert regenerated.state.active_corpus_version_id == ""
+    assert regenerated.latest_corpus_version is None
+    assert store.get_latest_project_corpus_version(project.id).id == built_version_id
 
 
 def test_project_change_marks_knowledge_stale(tmp_path):

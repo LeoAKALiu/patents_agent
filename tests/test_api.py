@@ -499,6 +499,88 @@ def test_project_knowledge_stales_and_regenerates_after_patent_point_mutations(t
     assert stale_after_delete["state"]["status"] == "stale"
 
 
+def test_project_knowledge_rejects_superseded_plan_run_and_build_without_state_mutation(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "计划失效测试", "draft_text": "围绕证据链复核生成候选检索计划。"},
+    )
+    project_id = created.json()["id"]
+    original_plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{original_plan_id}/run")
+    assert run.status_code == 200
+    candidate_id = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"][0]["id"]
+    include = client.patch(
+        f"/api/projects/{project_id}/knowledge/candidates/{candidate_id}",
+        json={"user_decision": "include"},
+    )
+    assert include.status_code == 200
+    build = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": original_plan_id},
+    )
+    assert build.status_code == 200
+    built_version_id = build.json()["latest_corpus_version"]["id"]
+
+    regenerated = client.post(f"/api/projects/{project_id}/knowledge/search-intent")
+    assert regenerated.status_code == 200
+    replacement_plan_id = regenerated.json()["latest_plan"]["id"]
+    assert replacement_plan_id != original_plan_id
+
+    before = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert before["state"]["active_plan_id"] == replacement_plan_id
+    assert before["state"]["active_corpus_version_id"] == ""
+    assert before["latest_corpus_version"] is None
+
+    stale_run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{original_plan_id}/run")
+    assert stale_run.status_code == 409
+    assert "no longer active" in stale_run.json()["detail"]
+
+    stale_build = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": original_plan_id},
+    )
+    assert stale_build.status_code == 409
+    assert "no longer active" in stale_build.json()["detail"]
+
+    after = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert after == before
+    assert client.app.state.store.get_latest_project_corpus_version(project_id).id == built_version_id
+
+
+def test_project_knowledge_overview_hides_old_corpus_after_regeneration(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "旧语料隐藏测试", "draft_text": "围绕任务编排生成检索意图。"},
+    )
+    project_id = created.json()["id"]
+    plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")
+    assert run.status_code == 200
+    candidate_id = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"][0]["id"]
+    include = client.patch(
+        f"/api/projects/{project_id}/knowledge/candidates/{candidate_id}",
+        json={"user_decision": "include"},
+    )
+    assert include.status_code == 200
+    built = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": plan_id},
+    )
+    assert built.status_code == 200
+    assert built.json()["latest_corpus_version"]["id"]
+
+    regenerated = client.post(f"/api/projects/{project_id}/knowledge/search-intent")
+    assert regenerated.status_code == 200
+    payload = regenerated.json()
+
+    assert payload["state"]["active_corpus_version_id"] == ""
+    assert payload["latest_corpus_version"] is None
+
+
 def test_project_knowledge_bulk_decision_updates_multiple_candidates(tmp_path):
     client = _test_app_without_env(tmp_path)
     created = client.post(

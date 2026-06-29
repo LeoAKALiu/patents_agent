@@ -33,4 +33,16 @@ describe("App refresh effect dependencies", () => {
     // Reject #rgb / #rrggbb / #rrggbbaa anywhere in code.
     expect(code).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
+
+  it("refreshes project knowledge after patent-point mutations reload the selected project", () => {
+    expect(source).toMatch(
+      /async function handleCreatePatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
+    );
+    expect(source).toMatch(
+      /async function handleSelectPatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
+    );
+    expect(source).toMatch(
+      /async function handleDeletePatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
+    );
+  });
 });

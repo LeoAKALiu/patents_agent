@@ -9,6 +9,7 @@ from backend.app.schemas import (
     CandidateDecisionPatch,
 )
 from backend.app.services.project_knowledge_service import (
+    ProjectKnowledgeConflictError,
     create_project_corpus_from_included_candidates,
     knowledge_overview,
     regenerate_project_knowledge,
@@ -39,6 +40,8 @@ def run_project_search_plan(project_id: str, plan_id: str, request: Request) -> 
     require_project(project_id, repo)
     try:
         overview = run_agent_search_plan(request.app.state.store, project_id, plan_id)
+    except ProjectKnowledgeConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return overview.model_dump(mode="json")
@@ -116,11 +119,14 @@ def create_project_corpus_version(
 ) -> dict:
     repo = get_project_repository(request)
     require_project(project_id, repo)
-    plan = request.app.state.store.get_agent_search_plan(project_id, payload.plan_id)
-    if plan is None:
-        raise HTTPException(status_code=404, detail="Agent search plan not found.")
-    return create_project_corpus_from_included_candidates(
-        request.app.state.store,
-        project_id,
-        plan.id,
-    ).model_dump(mode="json")
+    try:
+        overview = create_project_corpus_from_included_candidates(
+            request.app.state.store,
+            project_id,
+            payload.plan_id,
+        )
+    except ProjectKnowledgeConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return overview.model_dump(mode="json")

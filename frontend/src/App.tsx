@@ -1926,6 +1926,7 @@ function App() {
       await createProjectPatentPoint(projectId, payload);
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
+      await loadProjectKnowledge(projectId);
       setMessage("已加入护城河专利点");
       succeeded = true;
     });
@@ -1950,6 +1951,7 @@ function App() {
       }
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
+      await loadProjectKnowledge(projectId);
       const backupCount = Math.max(0, payloads.length - 1);
       setMessage(`已选择主路线：${point.title}${backupCount ? `；已保存 ${backupCount} 条后备路线` : ""}`);
     });
@@ -1962,6 +1964,7 @@ function App() {
       await deleteProjectPatentPoint(projectId, point.id);
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
+      await loadProjectKnowledge(projectId);
       setMessage(`已删除专利点：${point.title}`);
     });
   }

@@ -23,6 +23,10 @@ from backend.app.storage import SQLiteStore
 ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通过", "以及", "进行", "生成"}
 
 
+class ProjectKnowledgeConflictError(ValueError):
+    """Raised when a knowledge mutation targets a stale or inactive artifact."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -166,16 +170,33 @@ def _build_plan(intent: SearchIntent) -> AgentSearchPlan:
     )
 
 
+def _get_active_plan(
+    store: SQLiteStore,
+    project_id: str,
+    plan_id: str,
+) -> tuple[ProjectKnowledgeState, AgentSearchPlan]:
+    state = store.get_project_knowledge_state(project_id) or ProjectKnowledgeState(project_id=project_id)
+    plan = store.get_agent_search_plan(project_id, plan_id)
+    if plan is None:
+        raise ValueError("Agent search plan not found.")
+    if not state.active_plan_id or state.active_plan_id != plan_id:
+        raise ProjectKnowledgeConflictError("Agent search plan is no longer active for this project.")
+    return state, plan
+
+
 def knowledge_overview(store: SQLiteStore, project_id: str) -> ProjectKnowledgeOverview:
     state = store.get_project_knowledge_state(project_id) or ProjectKnowledgeState(project_id=project_id)
     latest_plan = store.get_latest_agent_search_plan(project_id)
     candidates = store.list_prior_art_candidates(project_id, latest_plan.id if latest_plan else None)
+    latest_corpus_version = None
+    if state.active_corpus_version_id:
+        latest_corpus_version = store.get_project_corpus_version(project_id, state.active_corpus_version_id)
     return ProjectKnowledgeOverview(
         state=state,
         latest_intent=store.get_latest_search_intent(project_id),
         latest_plan=latest_plan,
         candidates=candidates,
-        latest_corpus_version=store.get_latest_project_corpus_version(project_id),
+        latest_corpus_version=latest_corpus_version,
     )
 
 
@@ -215,9 +236,7 @@ def ensure_project_knowledge_initialized(store: SQLiteStore, project: ProjectRec
 
 
 def run_agent_search_plan(store: SQLiteStore, project_id: str, plan_id: str) -> ProjectKnowledgeOverview:
-    plan = store.get_agent_search_plan(project_id, plan_id)
-    if plan is None:
-        raise ValueError("Agent search plan not found.")
+    _state, plan = _get_active_plan(store, project_id, plan_id)
     running = plan.model_copy(update={"status": "running", "run_started_at": _now()})
     store.update_agent_search_plan(running)
     candidates: list[PriorArtCandidate] = []
@@ -263,6 +282,7 @@ def create_project_corpus_from_included_candidates(
     project_id: str,
     plan_id: str,
 ) -> ProjectKnowledgeOverview:
+    _state, _plan = _get_active_plan(store, project_id, plan_id)
     included = [
         candidate
         for candidate in store.list_prior_art_candidates(project_id, plan_id)

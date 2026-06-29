@@ -449,6 +449,16 @@ class SQLiteStore:
         ).fetchone()
         return ProjectCorpusVersion.model_validate(json.loads(row["version_json"])) if row else None
 
+    def get_project_corpus_version(self, project_id: str, version_id: str) -> ProjectCorpusVersion | None:
+        row = self.connection.execute(
+            """
+            select version_json from project_corpus_versions
+            where project_id = ? and id = ?
+            """,
+            (project_id, version_id),
+        ).fetchone()
+        return ProjectCorpusVersion.model_validate(json.loads(row["version_json"])) if row else None
+
     def create_project(self, project: ProjectRecord) -> ProjectRecord:
         with self.connection:
             self.connection.execute(
