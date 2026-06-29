@@ -5,6 +5,7 @@ import {
   guidedBusyLabel,
   guidedNextActionDescription,
   guidedNextActionLabel,
+  guidedProgressActionBlockReason,
   type GuidedStepId,
   type GuidedStepState,
 } from "@/guidedFlow";
@@ -23,6 +24,7 @@ export interface WorkbenchState {
   stepGroups: Array<{ label: string; steps: GuidedStepState[] }>;
   nextAction: { label: string; description: string };
   primaryTarget: WorkbenchPrimaryTarget;
+  primaryActionBlockReason: string;
   riskSummary: {
     blockingCount: number;
     issueCount: number;
@@ -75,6 +77,12 @@ export function deriveWorkbenchState(input: WorkbenchStateInput): WorkbenchState
       description: nextAction.description,
     },
     primaryTarget: nextAction.target,
+    primaryActionBlockReason: nextAction.target === "workbench-start"
+      ? guidedProgressActionBlockReason({
+        currentStepId: guidedState.currentStepId,
+        selectedDeliberationProviders: input.projectState.selectedDeliberationProviders,
+      })
+      : "",
     riskSummary,
     runSummary: deriveRunSummary(input.projectState.busy),
   };

@@ -43,6 +43,7 @@ function makeState(overrides: Partial<WorkbenchState> = {}): WorkbenchState {
       description: "进入文稿与修复处理阻断项。",
     },
     primaryTarget: "documents",
+    primaryActionBlockReason: "",
     riskSummary: {
       blockingCount: 2,
       issueCount: 3,
@@ -120,6 +121,40 @@ describe("WorkbenchWorkspace", () => {
     await userEvent.click(screen.getByRole("button", { name: "进入文稿与修复" }));
 
     expect(navigate).toHaveBeenCalledWith("documents");
+  });
+
+  it("disables the guided primary action and does not start post-draft review when provider count is blocked", async () => {
+    const handlers = makeHandlers();
+    render(
+      <WorkbenchWorkspace
+        state={makeState({
+          currentStepId: "postReview",
+          nextAction: {
+            label: "启动成稿会审",
+            description: "正式提交前复核当前版本、权利要求质量并清理内部痕迹。",
+          },
+          primaryTarget: "workbench-start",
+          primaryActionBlockReason: "至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。",
+          riskSummary: {
+            blockingCount: 0,
+            issueCount: 0,
+            exportLocked: false,
+            exportReady: false,
+          },
+        })}
+        handlers={handlers}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "启动成稿会审" });
+
+    expect(button).toBeDisabled();
+    expect(screen.getByText("至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。")).toBeInTheDocument();
+
+    await userEvent.click(button);
+
+    expect(handlers.onStartPostDraftReview).not.toHaveBeenCalled();
   });
 
   it("shows compact start paths when no project is selected", async () => {

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   ArrowRight,
+  AlertTriangle,
   BookOpen,
   FileText,
   Gauge,
@@ -53,13 +54,22 @@ export function WorkbenchWorkspace({
           <Button
             type="button"
             onClick={() => runPrimaryAction(state, handlers, onNavigate)}
-            disabled={state.runSummary.busy && state.primaryTarget === "workbench-start"}
+            disabled={isPrimaryActionDisabled(state)}
           >
             {primaryButtonLabel(state)}
             <ArrowRight size={16} aria-hidden="true" />
           </Button>
         </div>
         <p>{state.nextAction.description}</p>
+        {state.primaryActionBlockReason && (
+          <div className="callout callout-warn" role="status">
+            <AlertTriangle size={17} aria-hidden="true" />
+            <div>
+              <strong>暂不能启动</strong>
+              <p>{state.primaryActionBlockReason}</p>
+            </div>
+          </div>
+        )}
         {!state.hasProject && (
           <div className="workbench-start-grid" aria-label="起步路径">
             {v1StartChoices.map((choice) => (
@@ -175,11 +185,19 @@ function exportStateLabel(state: WorkbenchState): string {
   return "等待生成";
 }
 
+function isPrimaryActionDisabled(state: WorkbenchState): boolean {
+  if (state.primaryActionBlockReason) return true;
+  return state.runSummary.busy && state.primaryTarget === "workbench-start";
+}
+
 function runPrimaryAction(
   state: WorkbenchState,
   handlers: ProjectWorkspaceHandlers,
   onNavigate: (target: WorkbenchPrimaryTarget) => void,
 ) {
+  if (isPrimaryActionDisabled(state)) {
+    return;
+  }
   if (state.primaryTarget !== "workbench-start") {
     onNavigate(state.primaryTarget);
     return;

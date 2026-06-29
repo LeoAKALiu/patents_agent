@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type {
+  ClaimDefenseWorksheet,
+  DraftCompletionRun,
   ExportReadiness,
   FilingReadinessReport,
   OfficialCompileRun,
+  PatentPointCandidate,
   PostDraftReviewRun,
   ProjectRecord,
 } from "@/api";
@@ -48,6 +51,35 @@ function makeProjectPackage(): NonNullable<ProjectRecord["package"]> {
   };
 }
 
+function makePatentPoint(): PatentPointCandidate {
+  return {
+    id: "point-1",
+    title: "城市体检智能体任务编排",
+    technical_problem: "城市体征数据难以可信复核。",
+    innovation: "任务图与证据链联动。",
+    technical_solution: "生成任务 DAG 并绑定证据包。",
+    beneficial_effects: ["提升复核效率。"],
+    protection_focus: ["任务编排"],
+    grantability_score: 0.78,
+    rationale: "主线发明点",
+    evidence_status: "feasible_unverified",
+    source_type: "model",
+    feasibility_basis: "",
+    support_gaps: [],
+    experiment_needed: [],
+    moat_scores: {
+      scope_width: 0.7,
+      designaround_difficulty: 0.7,
+      feasibility: 0.8,
+      support_strength: 0.6,
+      prior_art_distance: 0.6,
+      strategic_value: 0.7,
+    },
+    claim_chart: [],
+    selected: true,
+  };
+}
+
 function makeFilingReport(hash = "draft-hash"): FilingReadinessReport {
   return {
     id: "filing-1",
@@ -57,6 +89,46 @@ function makeFilingReport(hash = "draft-hash"): FilingReadinessReport {
     rules_version: "v1",
     issues: [],
     created_at: "2026-06-29T08:10:00Z",
+  };
+}
+
+function makeWorksheet(hash = "draft-hash"): ClaimDefenseWorksheet {
+  return {
+    id: "worksheet-1",
+    project_id: "project-1",
+    draft_package_hash: hash,
+    status: "reviewed",
+    source: "draft",
+    feature_records: [],
+    defense_recommendations: [],
+    support_gaps: [],
+    notes: [],
+    created_at: "2026-06-29T08:15:00Z",
+  };
+}
+
+function makeCompletionRun(hash = "draft-hash"): DraftCompletionRun {
+  return {
+    id: "completion-1",
+    project_id: "project-1",
+    snapshot_hash: "snapshot-hash",
+    draft_package_hash: hash,
+    status: "completed",
+    issues: [],
+    tasks: [],
+    patches: [],
+    support_matrix: [],
+    scorecard: {
+      authorization_stability: 0.9,
+      protection_scope: 0.85,
+      support_strength: 0.88,
+      prior_art_distinction: 0.82,
+      filing_maturity: 0.9,
+      official_hygiene: 0.95,
+      overall: 0.88,
+    },
+    notes: [],
+    created_at: "2026-06-29T08:18:00Z",
   };
 }
 
@@ -219,6 +291,39 @@ describe("deriveWorkbenchState", () => {
 
     expect(state.nextAction.label).toBe("提炼发明点");
     expect(state.primaryTarget).toBe("workbench-start");
+  });
+
+  it("exposes the deliberation provider-count block reason", () => {
+    const state = deriveWorkbenchState({
+      projectState: makeProjectState({
+        visiblePatentPoints: [makePatentPoint()],
+        selectedDeliberationProviders: ["codex", "deepseek"],
+      }),
+      exportReadiness: null,
+    });
+
+    expect(state.currentStepId).toBe("deliberation");
+    expect(state.primaryTarget).toBe("workbench-start");
+    expect(state.primaryActionBlockReason).toBe("至少需要 Codex 主席 + 2 个可用专家才能启动会审。");
+  });
+
+  it("exposes the post-draft review provider-count block reason", () => {
+    const state = deriveWorkbenchState({
+      projectState: makeProjectState({
+        selectedProject: makeProject({ package: makeProjectPackage() }),
+        currentSourceDraftHash: "draft-hash",
+        filingReports: [makeFilingReport()],
+        worksheets: [makeWorksheet()],
+        completionRuns: [makeCompletionRun()],
+        officialCompileRuns: [makeOfficialCompileRun()],
+        selectedDeliberationProviders: ["codex", "deepseek"],
+      }),
+      exportReadiness: null,
+    });
+
+    expect(state.currentStepId).toBe("postReview");
+    expect(state.primaryTarget).toBe("workbench-start");
+    expect(state.primaryActionBlockReason).toBe("至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。");
   });
 
   it("uses guided busy labels for the running summary", () => {

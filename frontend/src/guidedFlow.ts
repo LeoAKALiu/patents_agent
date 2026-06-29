@@ -34,9 +34,10 @@ import type {
   ProjectMaterial,
   ProjectRecord,
 } from "./api";
+import { deliberationExpertSeatCount } from "./AgentProviderCards";
+import { canExportPackage, latestCompletedDeliberation } from "./domain";
 
 export type { PatentType };
-import { canExportPackage, latestCompletedDeliberation } from "./domain";
 
 export type MainSectionId = "workbench" | "projects" | "documents" | "knowledge" | "expert" | "export" | "settings";
 
@@ -474,6 +475,24 @@ export function guidedProgressActionState(input: {
     disabledReason,
     title: disabledReason || guidedNextActionDescription(input.currentStepId),
   };
+}
+
+export function guidedProgressActionBlockReason({
+  currentStepId,
+  selectedDeliberationProviders,
+}: {
+  currentStepId: GuidedStepId;
+  selectedDeliberationProviders: string[];
+}): string {
+  if (
+    (currentStepId === "deliberation" || currentStepId === "postReview")
+    && selectedDeliberationProviders.length < deliberationExpertSeatCount
+  ) {
+    return currentStepId === "postReview"
+      ? "至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。"
+      : "至少需要 Codex 主席 + 2 个可用专家才能启动会审。";
+  }
+  return "";
 }
 
 export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
