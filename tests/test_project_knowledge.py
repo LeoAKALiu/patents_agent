@@ -4,12 +4,21 @@ import pytest
 
 from backend.app.schemas import (
     AgentSearchPlan,
+    PatentType,
     PriorArtCandidate,
+    ProjectCreate,
     ProjectCorpusVersion,
     ProjectKnowledgeState,
     SearchIntent,
     SearchPlanStrategyGroup,
 )
+from backend.app.services.project_knowledge_service import (
+    create_project_corpus_from_included_candidates,
+    ensure_project_knowledge_initialized,
+    mark_stale_if_project_changed,
+    run_agent_search_plan,
+)
+from backend.app.services.project_service import build_project_record
 from backend.app.storage import SQLiteStore
 
 
@@ -139,3 +148,74 @@ def test_update_prior_art_candidate_decision_rejects_invalid_values(tmp_path):
     stored = store.list_prior_art_candidates("project-1")
     assert len(stored) == 1
     assert stored[0].user_decision == "pending"
+
+
+def test_knowledge_initialization_extracts_intent_and_plan(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(
+        ProjectCreate(
+            name="一种城市体检智能体任务编排方法",
+            draft_text="通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+            patent_type=PatentType.INVENTION,
+            technical_field="城市治理智能体",
+            innovation="任务 DAG 与证据链复核",
+        )
+    )
+    store.create_project(project)
+
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    assert overview.state.status == "search_plan_pending"
+    assert overview.latest_intent is not None
+    assert "城市体检" in overview.latest_intent.keywords_zh
+    assert "任务编排" in overview.latest_intent.keywords_zh
+    assert overview.latest_plan is not None
+    assert {group.id for group in overview.latest_plan.strategy_groups} >= {"broad-recall", "closest-prior-art"}
+
+
+def test_run_plan_creates_fake_candidates_and_state(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(
+        ProjectCreate(
+            name="一种城市体检智能体任务编排方法",
+            draft_text="通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        )
+    )
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+
+    assert after_run.state.status == "candidates_pending"
+    assert len(after_run.candidates) >= 2
+    assert all(candidate.source == "fake" for candidate in after_run.candidates)
+
+
+def test_create_project_corpus_uses_included_candidates(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    for candidate in after_run.candidates[:2]:
+        store.update_prior_art_candidate_decision(project.id, candidate.id, "include")
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    assert after_build.state.status == "ready"
+    assert after_build.latest_corpus_version is not None
+    assert after_build.latest_corpus_version.document_count == 2
+    assert after_build.state.document_count == 2
+
+
+def test_project_change_marks_knowledge_stale(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    ensure_project_knowledge_initialized(store, project)
+    updated = project.model_copy(update={"draft_text": "改为桥梁裂缝检测和声学视觉复检。"})
+
+    state = mark_stale_if_project_changed(store, updated, [])
+
+    assert state.status == "stale"
+    assert "项目技术描述已变化" in state.staleness_reason
