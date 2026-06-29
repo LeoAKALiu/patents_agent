@@ -64,3 +64,18 @@
 
 - The live dev-server session was backend-offline (`GET /api/health` returned `500`), so the annotated repair editor could not be opened from a repairable review state during this task.
 - Packaged Tauri/DMG evidence was not produced and should not be inferred from this report.
+
+## Follow-Up Fix
+
+- Controller browser smoke found that export still rendered the visible phrase `人工修正` inside locked guidance copy even though the export screen no longer exposed repair action buttons.
+- Updated `frontend/src/features/export/ExportWorkspace.tsx` guidance copy to direct users back to `文稿与修复` without repeating repair-action labels.
+- Tightened `frontend/src/features/export/ExportWorkspace.test.tsx` so the rendered export body rejects:
+  - `人工修正`
+  - `一键AI修正`
+  - `一键 AI 修正`
+  - `标注修复面板`
+- Follow-up verification commands:
+  - `cd frontend && npm test -- features/export/ExportWorkspace.test.tsx views/exportView.test.tsx app/routes.test.tsx`
+  - `cd frontend && npm run build`
+  - `cd frontend && npm test`
+  - `git diff --check`

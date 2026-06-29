@@ -63,7 +63,7 @@ export function ExportWorkspace({
           <div className="workspace-band-header">
             <div>
               <h3>导出仍被锁定</h3>
-              <p>请回到文稿与修复处理门禁或阻断问题；导出区不提供人工修正、一键 AI 修正或标注修复面板。</p>
+              <p>请回到文稿与修复处理门禁或阻断问题；导出区只呈现文件与追溯信息，不承载正文修复面板。</p>
             </div>
           </div>
           <div className="workspace-action-row">

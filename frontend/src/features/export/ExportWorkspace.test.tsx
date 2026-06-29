@@ -100,8 +100,11 @@ describe("ExportWorkspace", () => {
     expect(screen.getAllByText("正式提交稿").length).toBeGreaterThan(0);
     expect(screen.getAllByText("内部复核材料").length).toBeGreaterThan(0);
     expect(screen.getAllByText("风险说明与追溯").length).toBeGreaterThan(0);
-    expect(screen.queryByText("人工修正")).toBeNull();
-    expect(screen.queryByText("一键AI修正")).toBeNull();
+    expect(screen.getByText("请回到文稿与修复处理门禁或阻断问题；导出区只呈现文件与追溯信息，不承载正文修复面板。")).toBeInTheDocument();
+    expect(screen.queryByText(/人工修正/)).toBeNull();
+    expect(screen.queryByText(/一键AI修正/)).toBeNull();
+    expect(screen.queryByText(/一键 AI 修正/)).toBeNull();
+    expect(screen.queryByText(/标注修复面板/)).toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: "返回文稿与修复 / 总览" }));
     expect(props.onNavigateDocuments).toHaveBeenCalledWith("overview");
