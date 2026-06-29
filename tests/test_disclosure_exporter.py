@@ -248,6 +248,82 @@ def test_clean_disclosure_scrubs_structured_internal_blocks_from_markdown_and_do
         assert "internal-dataset" not in text
 
 
+def test_clean_disclosure_scrubs_official_compile_evidence_fields_from_markdown_and_docx(tmp_path) -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "# 技术交底书正文\n\n"
+                "本段保留正式技术方案。\n"
+                "publication_number: CN999999999A\n"
+                "patent_url: https://internal.example/patent/CN999999999A\n"
+                "source_url: https://internal.example/source\n"
+                "references: internal comparison notes\n\n"
+                "| 字段 | 内容 |\n"
+                "| --- | --- |\n"
+                "| references | internal memo |\n"
+                "| 备注 | patent_url: https://internal.example/table |\n"
+                "| 技术效果 | 降低误检率 |\n\n"
+                "后续技术方案保留。"
+            )
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+    docx_path = export_disclosure_docx(package, tmp_path / "disclosure.docx", tmp_path)
+    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+
+    for text in (markdown, docx_text):
+        assert "本段保留正式技术方案" in text
+        assert "后续技术方案保留" in text
+        assert "降低误检率" in text
+        assert "publication_number" not in text
+        assert "patent_url" not in text
+        assert "source_url" not in text
+        assert "references" not in text
+        assert "CN999999999A" not in text
+        assert "internal.example" not in text
+        assert "internal memo" not in text
+
+
+def test_clean_disclosure_scrubs_official_compile_evidence_fields_in_structured_blocks(tmp_path) -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "---\n"
+                "title: 一种图像缺陷识别方法\n"
+                "publication_number: CN888888888A\n"
+                "patent_url: https://internal.example/front\n"
+                "---\n\n"
+                "# 技术交底书正文\n\n"
+                "```json\n"
+                "{\"publication_number\":\"CN777777777A\",\"source_url\":\"https://internal.example/json\"}\n"
+                "```\n\n"
+                "```yaml\n"
+                "references: internal-yaml-notes\n"
+                "url: https://internal.example/yaml\n"
+                "```\n\n"
+                "本发明涉及图像缺陷识别。"
+            )
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+    docx_path = export_disclosure_docx(package, tmp_path / "disclosure.docx", tmp_path)
+    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+
+    for text in (markdown, docx_text):
+        assert "本发明涉及图像缺陷识别" in text
+        assert "publication_number" not in text
+        assert "patent_url" not in text
+        assert "source_url" not in text
+        assert "references" not in text
+        assert "url:" not in text
+        assert "CN888888888A" not in text
+        assert "CN777777777A" not in text
+        assert "internal.example" not in text
+        assert "internal-yaml-notes" not in text
+
+
 def test_sidecar_contains_internal_sections() -> None:
     markdown = disclosure_sidecar_to_markdown(_package())
 

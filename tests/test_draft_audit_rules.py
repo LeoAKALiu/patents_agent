@@ -50,6 +50,20 @@ def test_audit_flags_internal_metadata_in_title_and_abstract() -> None:
     assert any(issue.category == "format_pollution" and "内部元信息" in issue.message for issue in issues)
 
 
+def test_audit_flags_official_compile_evidence_metadata_fields_in_official_sections() -> None:
+    cases = [
+        {"title": "一种方法 publication_number: CN123456789A"},
+        {"abstract": "摘要包含 patent_url: https://internal.example/patent/CN123456789A"},
+        {"claims": "1. 一种方法，其特征在于，references: internal claim chart。"},
+    ]
+
+    for update in cases:
+        package = _package("说明书正文干净。").model_copy(update=update)
+        issues = audit_draft_package(package)
+
+        assert any(issue.category == "format_pollution" and "内部元信息" in issue.message for issue in issues)
+
+
 def test_audit_flags_publication_without_matching_url_when_multiple_publications_present() -> None:
     description = (
         "现有技术 CN123456789A 可见于 https://patents.google.com/patent/CN123456789A 。"

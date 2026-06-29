@@ -8,6 +8,7 @@ from pathlib import Path
 
 from docx import Document
 
+from backend.app.internal_metadata import INTERNAL_METADATA_KEYS, contains_internal_metadata_field
 from backend.app.patent_urls import (
     is_supported_public_patent_url,
     normalize_url as normalize_public_url,
@@ -16,42 +17,6 @@ from backend.app.schemas import DisclosurePackage
 
 
 URL_PATTERN = re.compile(r"https?://\S+")
-INTERNAL_METADATA_KEYS = (
-    "evidence_id",
-    "evidence_refs",
-    "research_ledger",
-    "generation_logs",
-    "provider_diagnostics",
-    "revision_ledger",
-    "source_ledger",
-    "sidecar_notes",
-    "internal_only",
-    "official_safe_patches",
-    "attorney_memo",
-    "system_trace",
-    "material_id",
-    "source_id",
-    "source_label",
-    "修订记录",
-    "检索来源台账",
-    "证据编号",
-    "材料编号",
-    "来源标签",
-    "引用来源",
-    "引用链接",
-    "证据来源",
-)
-INTERNAL_METADATA_KEY_PATTERN = "|".join(re.escape(key) for key in INTERNAL_METADATA_KEYS)
-INTERNAL_METADATA_LINE_RE = re.compile(
-    rf"(?:^|\s)(?:[-*+]\s*)?(?:[\"']?)"
-    rf"(?:{INTERNAL_METADATA_KEY_PATTERN})"
-    rf"(?:[\"']?)\s*[:：=]",
-    re.IGNORECASE,
-)
-INTERNAL_METADATA_JSON_RE = re.compile(
-    rf"[\"'](?:{INTERNAL_METADATA_KEY_PATTERN})[\"']\s*[:：=]",
-    re.IGNORECASE,
-)
 MARKDOWN_TABLE_ROW_RE = re.compile(r"^\s*\|(?P<cells>.*)\|\s*$")
 MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
 FENCE_START_RE = re.compile(r"^(?P<indent>\s*)(?P<fence>`{3,}|~{3,})(?P<rest>.*)$")
@@ -367,7 +332,7 @@ def _block_contains_internal_metadata(lines: list[str]) -> bool:
 
 
 def _line_contains_internal_metadata(line: str) -> bool:
-    return bool(INTERNAL_METADATA_LINE_RE.search(line) or INTERNAL_METADATA_JSON_RE.search(line))
+    return contains_internal_metadata_field(line)
 
 
 def _table_row_contains_internal_metadata(line: str) -> bool:

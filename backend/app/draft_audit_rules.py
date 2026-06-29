@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 
+from backend.app.internal_metadata import contains_internal_metadata_marker
 from backend.app.patent_urls import (
     is_supported_public_patent_url,
     normalize_url as normalize_public_url,
@@ -16,11 +17,8 @@ RESOURCE_SUPERSCRIPT_RE = re.compile(
 )
 PUBLICATION_RE = re.compile(r"\b(?:CN|WO|US|EP|JP|KR)\s?\d{5,}[A-Z]\d?\b", re.IGNORECASE)
 URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
-INTERNAL_METADATA_RE = re.compile(
-    r"(evidence_id|evidence_refs|research_ledger|generation_logs|provider_diagnostics|self_check|"
-    r"revision_ledger|source_ledger|review_findings|internal_only|自检结果|检索来源台账|修订记录)",
-    re.IGNORECASE,
-)
+
+
 def audit_draft_package(
     package: DraftPackage,
     disclosures: list[DisclosureRun] | None = None,
@@ -59,7 +57,7 @@ def audit_draft_package(
                 blocks_submission=False,
             )
         )
-    if INTERNAL_METADATA_RE.search(combined_text):
+    if contains_internal_metadata_marker(combined_text):
         issues.append(
             _issue(
                 category="format_pollution",
