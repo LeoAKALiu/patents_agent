@@ -94,6 +94,7 @@ export function fixedGoalModeFor(
   startChoice: StartChoiceId | null,
   activeSection: MainSectionId,
 ): "utility" | undefined {
-  if (startChoice === "utility" || activeSection === "utility") return "utility";
+  void activeSection;
+  if (startChoice === "utility") return "utility";
   return undefined;
 }

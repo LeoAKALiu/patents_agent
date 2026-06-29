@@ -103,7 +103,7 @@ function routeKindToExpertTool(
  * 1:1 so the chrome is preserved.
  */
 function topbarActions(props: AppRootProps): React.ReactNode {
-  const onStart = props.activeSection === "generate" && !props.selectedProject && !props.startChoice;
+  const onStart = props.activeSection === "workbench" && !props.selectedProject && !props.startChoice;
   if (onStart) return null;
   return (
     <>
@@ -122,7 +122,7 @@ function topbarActions(props: AppRootProps): React.ReactNode {
         <Button
           variant="outline"
           className="topbar-action-button"
-          onClick={() => props.onSelectSection("generate")}
+          onClick={() => props.onSelectSection("workbench")}
           type="button"
         >
           <Wand2 size={16} />
@@ -215,7 +215,8 @@ function pageTitleForSection(activeSection: MainSectionId): { title: string; sub
   if (activeSection === "projects") return { title: "项目", subtitle: "查看历史项目和运行记录" };
   if (activeSection === "settings") return { title: "设置", subtitle: "本机 LLM 服务参数与 API Key" };
   if (activeSection === "expert") return { title: "专家工具", subtitle: "按工作流阶段拆分的子工具集" };
-  return { title: "开始", subtitle: "选择一种默认路径进入 v1.1.0 向导" };
+  if (activeSection === "workbench") return { title: "工作台", subtitle: "选择一种默认路径进入 v1.1.0 向导" };
+  return { title: "工作台" };
 }
 
 function projectWorkspace(props: AppRootProps, section: "generate" | "utility" | "projects"): React.ReactNode {
@@ -266,7 +267,7 @@ export function AppRoot(props: AppRootProps) {
       keySections={keySections}
       onSelectSection={(id) => props.onSelectSection(id as MainSectionId)}
       onSelectKeySection={(id) => {
-        if (id === "idea") props.onSelectSection("generate");
+        if (id === "idea") props.onSelectSection("workbench");
         else if (id === "moat") {
           props.onSelectSection("expert");
           props.onSelectExpertTool("moat");
@@ -307,7 +308,7 @@ export function AppRoot(props: AppRootProps) {
       {noticeBar(props)}
       <div className="workspace">
         {(route === "start-choice" || route === "guided") &&
-          projectWorkspace(props, props.activeSection === "utility" ? "utility" : "generate")}
+          projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")}
         {route === "projects-overview" && projectWorkspace(props, "projects")}
         {route === "settings" && (
           <div className="px-4 md:px-8 py-4 md:py-6">

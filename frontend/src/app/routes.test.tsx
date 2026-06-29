@@ -52,7 +52,7 @@ function makeRootProps(): AppRootProps {
   } as AppRootProps["projectHandlers"];
 
   return {
-    activeSection: "generate",
+    activeSection: "workbench",
     activeExpertTool: "build",
     startChoice: null,
     selectedProject: null,
@@ -167,7 +167,7 @@ describe("AppRoot routes", () => {
   it("renders the production shell navigation", () => {
     render(<AppRoot {...makeRootProps()} />);
 
-    expect(screen.getAllByText("开始").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("工作台").length).toBeGreaterThan(0);
     expect(screen.getAllByText("项目").length).toBeGreaterThan(0);
     expect(screen.getAllByText("设置").length).toBeGreaterThan(0);
   });

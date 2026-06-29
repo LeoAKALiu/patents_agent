@@ -1,185 +1,114 @@
-# Task 1 Report: DeepResearch Markdown Parser
+# Task 1 Report: Navigation Model And Persisted-State Migration
+
+- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
+- Branch: `codex/ui-refactor-2026-06-29`
+- Starting HEAD: `aba070d0`
+- Dirty at start: no
 
 ## What I implemented
 
-- Added `backend/app/research/deep_research_intake.py` with deterministic Markdown-only DeepResearch intake.
-- Implemented the required public functions:
-  - `is_deep_research_markdown_material(file_name: str, text: str) -> bool`
-  - `parse_deep_research_markdown(project_id: str, text: str, *, source_label: str = "") -> DeepResearchPacket`
-  - `parse_deep_research_materials(materials: Iterable[ProjectMaterial]) -> list[DeepResearchPacket]`
-  - `packet_prior_art_hits(packet: DeepResearchPacket) -> list[PriorArtHit]`
-- Added `tests/test_deep_research_intake.py` covering:
-  - markdown material detection
-  - packet construction from a structured DeepResearch Markdown report
-  - conversion into `PriorArtHit`
-  - graceful handling of unrecognized Markdown
-  - filtering of non-DeepResearch materials
+- Updated `frontend/src/guidedFlow.ts` to define the new top-level navigation model:
+  - `MainSectionId = "workbench" | "projects" | "documents" | "knowledge" | "expert" | "export" | "settings"`
+  - `mainSections` labels: `工作台`, `项目`, `文稿与修复`, `知识库`, `专家工具`, `导出`, `设置`
+  - `defaultMainSectionId = "workbench"`
+  - added `normalizeMainSectionId(value, activeExpertTool)` with the legacy migration rules from the brief
+- Updated `frontend/src/App.tsx` persisted-state recovery to use `normalizeMainSectionId(record.activeSection, activeExpertTool)` instead of the old hard-coded section allowlist.
+- Updated `handleStartChoice()` and `returnToStartChoices()` to route back to `workbench`.
+- Updated `openExpertTool()` so:
+  - `build` / `corpus` open `knowledge`
+  - `export` opens `export`
+  - all other expert tools stay under `expert`
+- Updated native menu actions so:
+  - import draft actions still open `expert` + `materials`
+  - export actions open `export` + `export`
 
-## TDD evidence
+## TDD Evidence
 
 ### RED
 
 Command:
 
 ```bash
-pytest tests/test_deep_research_intake.py -v
+cd frontend && npm test -- guidedFlow.test.ts domain.test.ts AppStateRecovery.test.ts
 ```
 
-Result:
+Result summary:
 
-```text
-E   ModuleNotFoundError: No module named 'backend.app.research.deep_research_intake'
-```
+- failed as expected
+- 3 test files failed
+- 9 tests failed, 65 passed
+- failures showed:
+  - old nav labels still returned `开始 / 项目 / 设置`
+  - `defaultMainSectionId` still returned `generate`
+  - `normalizeMainSectionId` was missing
+  - persisted state still restored `generate` / `expert` instead of `workbench` / `export`
 
 ### GREEN
 
 Command:
 
 ```bash
-pytest tests/test_deep_research_intake.py -v
+cd frontend && npm test -- guidedFlow.test.ts domain.test.ts AppStateRecovery.test.ts
 ```
 
-Result:
+Result summary:
 
-```text
-5 passed in 0.13s
-```
+- passed
+- 3 test files passed
+- 74 tests passed
 
 ## Test commands and results
 
-- `pytest tests/test_deep_research_intake.py -v` -> passed
+1. `cd frontend && npm test -- guidedFlow.test.ts domain.test.ts AppStateRecovery.test.ts`
+   - RED: 3 files failed, 9 tests failed, 65 passed
+2. `cd frontend && npm test -- guidedFlow.test.ts domain.test.ts AppStateRecovery.test.ts`
+   - GREEN: 3 files passed, 74 tests passed
+3. `cd frontend && npm test`
+   - full suite passed: 28 files, 191 tests passed
 
 ## Files changed
 
-- `backend/app/research/deep_research_intake.py`
-- `tests/test_deep_research_intake.py`
+- `frontend/src/guidedFlow.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/guidedFlow.test.ts`
+- `frontend/src/domain.test.ts`
+- `frontend/src/AppStateRecovery.test.ts`
 
 ## Self-review findings
 
-- The parser stays deterministic and Markdown-only, with no Office conversion, external skill runtime, or workflow restructuring.
-- Evidence hits are emitted with the stable source label `DeepResearch Markdown`, which matches the test expectations and keeps downstream `PriorArtHit` conversion predictable.
-- Unrecognized Markdown returns a partial packet with a warning instead of throwing.
+- The implementation stayed scoped to the navigation constants, legacy section normalization, persisted-state recovery, and the section-selection call sites named in the brief.
+- Full frontend regression coverage stayed green after the change.
 
-## Concerns
+## Issues or concerns
 
-- The worktree already contains unrelated dirty files outside Task 1 ownership; I left them untouched.
+- No blocking issues found during this task.
 
-## Commit
+## Fix after review
 
-- `f82cbc49 feat: parse deepresearch markdown materials`
+- Repair worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
+- Repair branch: `codex/ui-refactor-2026-06-29`
+- Repair starting HEAD: `fa1b4256`
+- Dirty at repair start: yes (`.superpowers/sdd/task-1-report.md` already modified)
 
-## Fix follow-up
+### Reviewer blocker addressed
 
-- Made DeepResearch Markdown parsing deterministic by replacing random finding and fallback hit IDs with stable content-derived IDs.
-- Propagated the provided `source_label` into evidence refs and ledger entries via a dedicated ledger `source_label` field, while keeping public `PriorArtHit.source` unchanged as `DeepResearch Markdown`.
-- Added a regression test proving repeated parses of the same Markdown yield identical finding IDs, ledger entries, and prior-art hit IDs.
+- Fixed the Task 1 TypeScript break caused by shell/router references that still treated the removed top-level sections `generate` and `utility` as `MainSectionId` values.
 
-## Fix test output
+### Changes made
 
-Command:
+- Updated `frontend/src/app/AppRoot.tsx` so shell-level navigation uses `workbench` instead of the removed `generate` section where it refers to the top-level main section.
+- Preserved guided-flow behavior by continuing to pass `ProjectWorkspace` the internal section variant:
+  - `"utility"` when `startChoice === "utility"`
+  - otherwise `"generate"`
+- Updated `frontend/src/app/routes.tsx` so `fixedGoalModeFor()` no longer checks `activeSection === "utility"` and still returns `"utility"` when `startChoice === "utility"`.
+- Updated `frontend/src/app/routes.test.tsx` fixtures and shell assertions to use the valid top-level section `workbench` and the label `工作台`.
+- Updated the AppRoot fallback page title for the new workbench label without broadening route coverage into Task 2.
 
-```bash
-pytest tests/test_deep_research_intake.py -v
-```
+### Verification
 
-Result:
-
-```text
-tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 16%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 33%]
-tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 50%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 66%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 83%]
-tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
-
-6 passed in 0.13s
-```
-
-## Blocking fix follow-up
-
-- Kept `DeepResearchEvidenceRef.source` on the stable public value `DeepResearch Markdown` so downstream code does not leak per-file labels into public `PriorArtHit.source`.
-- Preserved the file provenance separately in `evidence_ledger[...]["source_label"]`.
-- Updated the regression test to assert both the public evidence source and the ledger provenance label.
-
-## Blocking fix test output
-
-Command:
-
-```bash
-pytest tests/test_deep_research_intake.py -v
-```
-
-Result:
-
-```text
-tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 16%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 33%]
-tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 50%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 66%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 83%]
-tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
-
-6 passed in 0.15s
-```
-
-## Deterministic ID fix follow-up
-
-- Removed `project_id` and `source_label` from the stable finding ID inputs so the same Markdown content hashes to the same finding IDs across projects and renamed files.
-- Switched evidence ledger IDs to content-derived hashes based on evidence identity/content instead of packet-local ordinals.
-- Made `PriorArtHit.id` reuse the stable evidence ID, with a content-derived fallback that still ignores provenance labels.
-- Added regression coverage for cross-project/file stability and for non-collision between distinct prior-art evidence.
-
-## Deterministic ID fix test output
-
-Command:
-
-```bash
-pytest tests/test_deep_research_intake.py -v
-```
-
-Result:
-
-```text
-tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 12%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 25%]
-tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 37%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 50%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_ids_stable_across_project_and_file_changes PASSED [ 62%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_does_not_collide_on_distinct_evidence PASSED [ 75%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 87%]
-tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
-
-8 passed in 0.13s
-```
-
-## Final deterministic ID fix
-
-- Removed ordinal inputs from `DeepResearchFinding.id`; the ID now derives from stable content facts only: category, heading, title, summary, suggested action, and evidence identity.
-- Changed evidence dedupe to use exact evidence identity, including relevance/snippet content, so distinct excerpts from the same publication no longer collapse.
-- Kept `PriorArtHit.id` bound to the stable evidence ID, with content-derived fallback only.
-- Added regressions for inserted-earlier-content stability and for distinct snippets from the same patent staying separate.
-
-## Final deterministic ID fix test output
-
-Command:
-
-```bash
-pytest tests/test_deep_research_intake.py -v
-```
-
-Result:
-
-```text
-tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 10%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 20%]
-tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 30%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 40%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_finding_id_when_earlier_content_is_inserted PASSED [ 50%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_ids_stable_across_project_and_file_changes PASSED [ 60%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_does_not_collide_on_distinct_evidence PASSED [ 70%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_distinct_snippets_separate PASSED [ 80%]
-tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 90%]
-tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
-
-10 passed in 0.12s
-```
+1. `cd frontend && npm run build`
+   - passed
+2. `cd frontend && npm test -- guidedFlow.test.ts domain.test.ts AppStateRecovery.test.ts app/routes.test.tsx`
+   - passed: 4 files, 76 tests
+3. `cd frontend && npm test`
+   - passed: 28 files, 191 tests
