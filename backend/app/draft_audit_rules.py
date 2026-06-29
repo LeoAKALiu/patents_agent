@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import re
-from urllib.parse import urlparse
 
+from backend.app.patent_urls import (
+    is_supported_public_patent_url,
+    normalize_url as normalize_public_url,
+)
 from backend.app.schemas import CompletionIssue, DisclosureRun, DraftPackage
 
 
@@ -18,18 +21,6 @@ INTERNAL_METADATA_RE = re.compile(
     r"revision_ledger|source_ledger|review_findings|internal_only|自检结果|检索来源台账|修订记录)",
     re.IGNORECASE,
 )
-PUBLIC_PATENT_HOSTS = {
-    "patents.google.com",
-    "cnipa.gov.cn",
-    "epub.cnipa.gov.cn",
-    "wipo.int",
-    "patentscope.wipo.int",
-    "espacenet.com",
-    "worldwide.espacenet.com",
-    "epo.org",
-}
-
-
 def audit_draft_package(
     package: DraftPackage,
     disclosures: list[DisclosureRun] | None = None,
@@ -130,7 +121,7 @@ def _normalize_publication(value: str) -> str:
 
 
 def _normalize_url(value: str) -> str:
-    return value.rstrip(".,;:)]}>。！？）】").strip()
+    return normalize_public_url(value)
 
 
 def _publication_clause_bounds(text: str, start: int, end: int) -> tuple[int, int]:
@@ -171,10 +162,7 @@ def _is_strictly_bound_patent_url(
 
 
 def _is_allowed_public_patent_url(url: str) -> bool:
-    hostname = (urlparse(url).hostname or "").lower()
-    if not hostname:
-        return False
-    return any(hostname == allowed or hostname.endswith(f".{allowed}") for allowed in PUBLIC_PATENT_HOSTS)
+    return is_supported_public_patent_url(url)
 
 
 def _is_immediate_publication_url_binding(text: str) -> bool:

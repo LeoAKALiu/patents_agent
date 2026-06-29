@@ -12,6 +12,7 @@ from html import unescape
 from pathlib import Path
 from typing import Protocol
 
+from backend.app.patent_urls import is_supported_public_patent_url, normalize_url
 from backend.app.research.ledger import SourceLedger, citation_snapshot
 from backend.app.schemas import PriorArtHit
 
@@ -297,15 +298,21 @@ def dedupe_prior_art_hits(hits: list[PriorArtHit]) -> list[PriorArtHit]:
 def prior_art_url_warnings(hits: list[PriorArtHit]) -> list[str]:
     warnings: list[str] = []
     for hit in hits:
-        if (hit.url or "").strip():
-            continue
+        url = normalize_url(hit.url or "")
         label = (hit.publication_number or hit.title or hit.id).strip()
         title = (hit.title or "").strip()
-        if title and title != label:
-            warnings.append(f"prior_art missing public URL: {label} {title}")
-        else:
-            warnings.append(f"prior_art missing public URL: {label}")
+        if not url:
+            warnings.append(_prior_art_url_warning("missing public URL", label, title))
+            continue
+        if not is_supported_public_patent_url(url):
+            warnings.append(_prior_art_url_warning("unsupported public URL", label, title))
     return warnings
+
+
+def _prior_art_url_warning(reason: str, label: str, title: str) -> str:
+    if title and title != label:
+        return f"prior_art {reason}: {label} {title}"
+    return f"prior_art {reason}: {label}"
 
 
 def _split_cnipa_items(html: str) -> list[str]:
@@ -352,7 +359,7 @@ def _hit_from_mapping(raw: dict, source: str, query: str) -> PriorArtHit:
 
 def _prior_art_identifiers(hit: PriorArtHit) -> list[str]:
     publication = re.sub(r"\s+", "", (hit.publication_number or "")).upper()
-    url = (hit.url or "").strip().lower()
+    url = normalize_url(hit.url or "").lower()
     title = re.sub(r"\s+", " ", (hit.title or "").strip()).casefold()
     publication_alias = _publication_from_public_url(url)
 
@@ -396,8 +403,8 @@ def _richer_text(existing: str | None, candidate: str | None) -> str | None:
 
 
 def _richer_url(existing: str, candidate: str) -> str:
-    existing_url = (existing or "").strip()
-    candidate_url = (candidate or "").strip()
+    existing_url = normalize_url(existing or "")
+    candidate_url = normalize_url(candidate or "")
     if not existing_url:
         return candidate
     if not candidate_url:
@@ -412,19 +419,7 @@ def _richer_url(existing: str, candidate: str) -> str:
 
 
 def _looks_like_public_patent_url(url: str) -> bool:
-    hostname = urllib.parse.urlparse(url).hostname or ""
-    normalized = hostname.lower()
-    allowed_hosts = (
-        "patents.google.com",
-        "cnipa.gov.cn",
-        "epub.cnipa.gov.cn",
-        "wipo.int",
-        "patentscope.wipo.int",
-        "espacenet.com",
-        "worldwide.espacenet.com",
-        "epo.org",
-    )
-    return any(normalized == allowed or normalized.endswith(f".{allowed}") for allowed in allowed_hosts)
+    return is_supported_public_patent_url(url)
 
 
 def _publication_from_public_url(url: str) -> str:

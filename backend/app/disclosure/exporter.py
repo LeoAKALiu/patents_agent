@@ -8,6 +8,10 @@ from pathlib import Path
 
 from docx import Document
 
+from backend.app.patent_urls import (
+    is_supported_public_patent_url,
+    normalize_url as normalize_public_url,
+)
 from backend.app.schemas import DisclosurePackage
 
 
@@ -367,12 +371,16 @@ def _line_contains_internal_metadata(line: str) -> bool:
 
 
 def _table_row_contains_internal_metadata(line: str) -> bool:
+    if _line_contains_internal_metadata(line):
+        return True
     match = MARKDOWN_TABLE_ROW_RE.match(line)
     if not match:
         return False
     cells = [cell.strip() for cell in match.group("cells").split("|")]
     if not cells:
         return False
+    if any(_line_contains_internal_metadata(cell) for cell in cells):
+        return True
     normalized_keys = {_normalize_internal_heading(cell) for cell in cells if cell.strip()}
     return any(candidate.casefold() in normalized_keys for candidate in INTERNAL_METADATA_KEYS)
 
@@ -385,7 +393,7 @@ def _format_public_prior_art_appendix(package: DisclosurePackage, *, existing_ur
     lines = ["## 公开现有技术链接", ""]
     for hit in package.prior_art_hits:
         url = _normalize_url(hit.url or "")
-        if not url or url in existing_urls:
+        if not url or url in existing_urls or not is_supported_public_patent_url(url):
             continue
         label = hit.title
         if hit.publication_number:
@@ -399,7 +407,7 @@ def _extract_normalized_urls(text: str) -> set[str]:
 
 
 def _normalize_url(url: str) -> str:
-    return url.strip().rstrip(".,;:)]}>。！？）】")
+    return normalize_public_url(url)
 
 
 def _format_ledger_section(package: "DisclosurePackage") -> str:

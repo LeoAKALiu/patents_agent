@@ -37,6 +37,17 @@ DEEP_RESEARCH_MD_WITH_MISSING_URL = """
 - 本方案将检测结果实时回写至采集策略。
 """
 
+DEEP_RESEARCH_MD_WITH_UNSUPPORTED_URL = """
+# DeepResearch
+
+## 现有技术
+- CN123456789A 一种非公开视频链接的图像缺陷检测方法 https://example.com/patent/CN123456789A
+  摘要：公开了图像缺陷检测，但链接不是公开专利来源。
+
+## 差异点
+- 本方案将检测结果实时回写至采集策略。
+"""
+
 
 def _responses() -> dict[str, str]:
     return {
@@ -111,6 +122,35 @@ def test_deepresearch_markdown_hits_are_included_in_missing_url_warnings() -> No
 
     assert any(hit.publication_number == "CN987654321A" and not hit.url for hit in package.prior_art_hits)
     assert warnings == ["prior_art missing public URL: CN987654321A 一种无公开链接的图像缺陷检测方法"]
+    search_stage = next(stage for stage in stages if stage["phase"] == "prior_art_search")
+    assert search_stage["payload"]["warnings"] == warnings
+
+
+def test_deepresearch_markdown_hits_with_unsupported_urls_reach_warning_path() -> None:
+    project = ProjectRecord(id="p1", name="图像缺陷", draft_text="一种图像缺陷识别方法。")
+    material = ProjectMaterial(
+        id="m1",
+        project_id="p1",
+        file_name="deepresearch.md",
+        path="data/deepresearch.md",
+        file_type="md",
+        text=DEEP_RESEARCH_MD_WITH_UNSUPPORTED_URL,
+        status="processed",
+    )
+    generator = DisclosureGenerator(FakeLLMClient(_responses()), StaticPriorArtProvider())
+
+    package, stages, warnings = generator.generate(
+        project=project,
+        materials=[material],
+        context_chunks=[],
+        max_prior_art_results=0,
+    )
+
+    assert any(
+        hit.publication_number == "CN123456789A" and hit.url == "https://example.com/patent/CN123456789A"
+        for hit in package.prior_art_hits
+    )
+    assert warnings == ["prior_art unsupported public URL: CN123456789A 一种非公开视频链接的图像缺陷检测方法"]
     search_stage = next(stage for stage in stages if stage["phase"] == "prior_art_search")
     assert search_stage["payload"]["warnings"] == warnings
 

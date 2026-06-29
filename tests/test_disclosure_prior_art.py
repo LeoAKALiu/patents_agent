@@ -186,6 +186,15 @@ def test_prior_art_url_warnings_flags_missing_public_urls() -> None:
     assert warnings == ["prior_art missing public URL: CN123456789A 无 URL"]
 
 
+def test_prior_art_url_warnings_flags_unsupported_public_urls() -> None:
+    warnings = prior_art_url_warnings([
+        _hit("h1", "CN123456789A", "https://example.com/patent/CN123456789A", "非公开视频链接"),
+        _hit("h2", None, "https://patents.google.com/patent/US20240123456A1", "有 URL"),
+    ])
+
+    assert warnings == ["prior_art unsupported public URL: CN123456789A 非公开视频链接"]
+
+
 def test_public_provider_calls_cnipa_once_per_normalized_term() -> None:
     class RecordingProvider(PublicPriorArtProvider):
         def __init__(self) -> None:

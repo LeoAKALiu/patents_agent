@@ -179,6 +179,36 @@ def test_clean_disclosure_scrubs_internal_metadata_table_rows_and_blocks() -> No
     assert "| 字段 | evidence_id |" not in markdown
 
 
+def test_clean_disclosure_scrubs_value_cell_metadata_table_rows_from_markdown_and_docx(tmp_path) -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "# 技术交底书正文\n\n"
+                "| 字段 | 内容 |\n"
+                "| --- | --- |\n"
+                "| 技术效果 | 降低误检率 |\n"
+                "| 备注 | evidence_id: E-001 |\n"
+                "| 说明 | source_label: internal |\n"
+                "| 说明 | 修订记录：内部改写 |\n\n"
+                "后续技术方案保留。"
+            )
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+    docx_path = export_disclosure_docx(package, tmp_path / "disclosure.docx", tmp_path)
+    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+
+    for text in (markdown, docx_text):
+        assert "降低误检率" in text
+        assert "后续技术方案保留" in text
+        assert "evidence_id" not in text
+        assert "source_label" not in text
+        assert "修订记录" not in text
+        assert "E-001" not in text
+        assert "internal" not in text
+
+
 def test_clean_disclosure_scrubs_structured_internal_blocks_from_markdown_and_docx(tmp_path) -> None:
     package = _package().model_copy(
         update={
@@ -263,6 +293,40 @@ def test_clean_disclosure_appends_only_missing_public_prior_art_urls() -> None:
     assert markdown.count("https://patents.google.com/patent/CN123456789A") == 1
     assert "https://patents.google.com/patent/US20240123456A1" in markdown
     assert "无公开链接条目" not in markdown
+
+
+def test_clean_disclosure_does_not_append_unsupported_prior_art_urls() -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": "# 技术交底书正文\n\n正文。",
+            "prior_art_hits": [
+                PriorArtHit(
+                    id="h1",
+                    source="DeepResearch Markdown",
+                    query="图像 缺陷",
+                    title="非公开视频链接",
+                    publication_number="CN123456789A",
+                    url="https://example.com/patent/CN123456789A",
+                    abstract="公开了缺陷检测。",
+                ),
+                PriorArtHit(
+                    id="h2",
+                    source="Google Patents",
+                    query="图像 缺陷",
+                    title="公开链接条目",
+                    publication_number="US20240123456A1",
+                    url="https://patents.google.com/patent/US20240123456A1",
+                    abstract="公开了另一种处理方式。",
+                ),
+            ],
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+
+    assert "https://example.com/patent/CN123456789A" not in markdown
+    assert "非公开视频链接" not in markdown
+    assert "https://patents.google.com/patent/US20240123456A1" in markdown
 
 
 def test_clean_disclosure_normalizes_trailing_punctuation_when_comparing_urls() -> None:
