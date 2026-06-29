@@ -40,6 +40,7 @@ import {
   type PostDraftWorkspaceHandlers,
   type PostDraftWorkspaceState,
 } from "@/features/postDraft/PostDraftWorkspace";
+import { DocumentRepairWorkspace } from "@/features/documentRepair/DocumentRepairWorkspace";
 import { guidedBusyLabel, guidedOperationLog, mainSections } from "@/guidedFlow";
 import type { MainSectionId, ExpertToolId, StartChoiceId } from "@/guidedFlow";
 import type { Health, AgentDoctorReport, ProjectRecord } from "@/api";
@@ -307,8 +308,14 @@ export function AppRoot(props: AppRootProps) {
               startWorkspace={workbenchStartWorkspace}
             />
           )}
-          {route === "documents" &&
-            projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")}
+          {route === "documents" && (
+            <DocumentRepairWorkspace
+              projectState={props.projectState}
+              handlers={props.projectHandlers}
+              exportReadiness={props.postDraftState.exportReadiness}
+              onNavigate={props.onSelectSection}
+            />
+          )}
           {route === "projects-overview" && projectWorkspace(props, "projects")}
           {route === "settings" && (
             <div className="px-4 md:px-8 py-4 md:py-6">

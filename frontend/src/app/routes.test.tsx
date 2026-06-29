@@ -248,12 +248,14 @@ describe("AppRoot routes", () => {
     expect(screen.getByTestId("corpus-workspace")).toHaveTextContent("build");
   });
 
-  it("renders the documents title while reusing the current project workspace surface", () => {
+  it("renders the document repair workspace for the documents section", () => {
     render(<AppRoot {...makeRootProps()} activeSection="documents" activeExpertTool="materials" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "文稿与修复" })).toBeInTheDocument();
     expect(screen.getByText("处理当前项目的正文、问题和版本链路")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "开始撰写" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "总览" })).toBeInTheDocument();
+    expect(screen.getByText("当前项目尚未生成内部初稿。")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "开始撰写" })).not.toBeInTheDocument();
   });
 
   it("renders the export workspace for the export section", () => {
