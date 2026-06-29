@@ -216,7 +216,7 @@ Tauri 负责把 Web 工作台包装为 macOS 桌面应用：
 
 | 分组 | 工具 | 用途 |
 | --- | --- | --- |
-| 知识库 | 语料库建设、知识库检索 | 导入官方导出物，检索授权专利片段 |
+| 知识库 | 项目现有技术库、知识库检索、高级导入 | Agent 从项目题目和一句话介绍生成检索计划，检索官方/公开源，形成项目级现有技术语料库；高级用户仍可导入本地官方导出物 |
 | 发明点 | 护城河地图 | 管理候选发明点、证据状态和分案方向 |
 | 交底与策略 | 前置材料、多智能体会审、分步撰写 | 生成交底书、会审策略和手动申请文本 |
 | 质检 | 提交成熟度、授权前景、权利要求防线、初稿完善、审查修改 | 执行正式稿前的质量和风险分析 |
@@ -306,10 +306,14 @@ Tauri 负责把 Web 工作台包装为 macOS 桌面应用：
 - `POST /api/projects/{project_id}/materials`、`GET /api/projects/{project_id}/materials`：材料上传和列表。
 - `GET/POST/PATCH/DELETE /api/projects/{project_id}/patent-points`：发明点管理。
 
-### 语料库
+### 项目现有技术库和语料库
 
-- `POST /api/corpus/jobs`、`POST /api/corpus/jobs/{job_id}/files`、`POST /api/corpus/jobs/{job_id}/run`：批量语料导入任务。
-- `GET /api/corpus`、`GET /api/corpus/search`、`GET /api/corpus/stats`、`GET /api/corpus/versions`：语料列表、检索、统计和版本。
+- `GET /api/projects/{project_id}/knowledge`：查看项目知识状态、最新检索意图、检索计划、候选文献和语料库版本。
+- `POST /api/projects/{project_id}/knowledge/search-intent`：从项目题目和一句话介绍生成检索意图与 Agent 检索计划。
+- `POST /api/projects/{project_id}/knowledge/search-plans/{plan_id}/run`：执行官方/公开源检索，写入候选文献池。
+- `GET/PATCH /api/projects/{project_id}/knowledge/candidates`：查看并确认候选文献。
+- `POST /api/projects/{project_id}/knowledge/corpus-versions`：从已确认候选文献创建项目语料库版本。
+- `POST /api/corpus/jobs`、`POST /api/corpus/jobs/{job_id}/files`、`POST /api/corpus/jobs/{job_id}/run`：高级本地文件补充语料。
 
 ### 主流程
 
