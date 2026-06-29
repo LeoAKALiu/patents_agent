@@ -323,21 +323,26 @@ def create_app(
         if not source:
             raise HTTPException(status_code=404, detail="External draft source not found.")
         run = parse_external_draft_source(project_id=project_id, source=source)
-        stored = store.create_external_draft_intake_run(run)
-        if stored.status == "completed" and stored.parsed_package:
+        if run.status == "completed" and run.parsed_package:
             before_package = project.package
-            _update_project_package_with_external_draft_revision_ledger_event(
-                store,
+            record = _external_draft_revision_record_for_event(
                 project_id=project_id,
                 before_package=before_package,
-                after_package=stored.parsed_package,
-                artifact_ref=f"external-draft-intake:{stored.id}",
+                after_package=run.parsed_package,
+                artifact_ref=f"external-draft-intake:{run.id}",
                 user_intent_summary=(
                     "Imported parsed external draft package into the working draft."
                     if before_package
                     else "Imported the first parsed external draft package into an empty working draft."
                 ),
             )
+            stored = store.create_external_draft_intake_run_with_project_package_revision_record(
+                run,
+                run.parsed_package,
+                record,
+            )
+        else:
+            stored = store.create_external_draft_intake_run(run)
         return stored.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
@@ -394,12 +399,8 @@ def create_app(
                 "working_draft_hash": working_draft_hash(package),
             }
         )
-        persisted = store.update_external_draft_intake_run(updated)
-        if not persisted:
-            raise HTTPException(status_code=409, detail="External draft intake run update conflicted.")
         before_package = project.package
-        _update_project_package_with_external_draft_revision_ledger_event(
-            store,
+        record = _external_draft_revision_record_for_event(
             project_id=project_id,
             before_package=before_package,
             after_package=package,
@@ -410,6 +411,13 @@ def create_app(
                 else "Confirmed the first external draft intake package into an empty working draft."
             ),
         )
+        persisted = store.update_external_draft_intake_run_with_project_package_revision_record(
+            updated,
+            package,
+            record,
+        )
+        if not persisted:
+            raise HTTPException(status_code=409, detail="External draft intake run update conflicted.")
         return persisted.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-draft-review-bundle/report.md")
@@ -1257,18 +1265,15 @@ def create_app(
         current_hash = source_draft_hash(package)
         if existing_run.draft_package_hash and existing_run.draft_package_hash != current_hash:
             raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
-        run = store.update_completion_patch_status(project_id, run_id, patch_id, "accepted")
+        run = _completion_run_with_patch_status(existing_run, patch_id, "accepted")
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion patch not found.")
-        adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(run))
-        if not adjusted:
-            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        adjusted = _completion_run_with_progress_score(run)
         patch = next((candidate for candidate in adjusted.patches if candidate.id == patch_id), None)
         if patch:
             updated_package = _apply_completion_patch(package, patch, run_draft_package_hash=adjusted.draft_package_hash)
             if updated_package != package:
-                _update_project_package_with_revision_ledger_event(
-                    store,
+                record = _revision_ledger_record_for_event(
                     project_id=project_id,
                     before_package=package,
                     after_package=updated_package,
@@ -1278,7 +1283,18 @@ def create_app(
                     protection_scope_changed=patch.target_section == "claim",
                     artifact_refs=[f"completion-run:{run_id}", f"completion-patch:{patch_id}"],
                 )
-        return adjusted.model_dump(mode="json")
+                stored = store.update_draft_completion_run_with_project_package_revision_records(
+                    adjusted,
+                    updated_package,
+                    [record] if record is not None else [],
+                )
+                if not stored:
+                    raise HTTPException(status_code=404, detail="Draft completion run not found.")
+                return stored.model_dump(mode="json")
+        stored = store.update_draft_completion_run(adjusted)
+        if not stored:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/{patch_id}/reject")
     def reject_completion_patch(project_id: str, run_id: str, patch_id: str) -> dict:
@@ -1303,15 +1319,15 @@ def create_app(
             raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
         current = run
         current_package = package
+        records: list[RevisionLedgerRecord] = []
         for patch in [patch for patch in run.patches if patch.status == "proposed"]:
-            updated = store.update_completion_patch_status(project_id, run_id, patch.id, "accepted")
+            updated = _completion_run_with_patch_status(current, patch.id, "accepted")
             if not updated:
                 raise HTTPException(status_code=404, detail="Draft completion patch not found.")
             current = updated
             patched_package = _apply_completion_patch(current_package, patch)
             if patched_package != current_package:
-                _update_project_package_with_revision_ledger_event(
-                    store,
+                record = _revision_ledger_record_for_event(
                     project_id=project_id,
                     before_package=current_package,
                     after_package=patched_package,
@@ -1321,11 +1337,21 @@ def create_app(
                     protection_scope_changed=patch.target_section == "claim",
                     artifact_refs=[f"completion-run:{run_id}", f"completion-patch:{patch.id}"],
                 )
+                if record is not None:
+                    records.append(record)
                 current_package = patched_package
-        adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(current))
-        if not adjusted:
+        adjusted = _completion_run_with_progress_score(current)
+        if current_package != package:
+            stored = store.update_draft_completion_run_with_project_package_revision_records(
+                adjusted,
+                current_package,
+                records,
+            )
+        else:
+            stored = store.update_draft_completion_run(adjusted)
+        if not stored:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
-        return adjusted.model_dump(mode="json")
+        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/score-improvement")
     def improve_project_score(project_id: str, payload: ScoreImprovementRequest) -> dict:
@@ -1358,10 +1384,10 @@ def create_app(
                 if patched_package == before_package:
                     logs.append(f"score-improvement: 补丁 {patch.id} 未通过安全检查，未应用")
                     continue
-                current_package = patched_package
-                store.update_completion_patch_status(project_id, current_run.id, patch.id, "accepted")
-                _update_project_package_with_revision_ledger_event(
-                    store,
+                updated_run = _completion_run_with_patch_status(current_run, patch.id, "accepted")
+                if not updated_run:
+                    raise HTTPException(status_code=404, detail="Draft completion patch not found.")
+                record = _revision_ledger_record_for_event(
                     project_id=project_id,
                     before_package=before_package,
                     after_package=patched_package,
@@ -1371,6 +1397,15 @@ def create_app(
                     protection_scope_changed=patch.target_section == "claim",
                     artifact_refs=[f"completion-run:{current_run.id}", f"completion-patch:{patch.id}"],
                 )
+                stored_run = store.update_draft_completion_run_with_project_package_revision_records(
+                    updated_run,
+                    patched_package,
+                    [record] if record is not None else [],
+                )
+                if not stored_run:
+                    raise HTTPException(status_code=404, detail="Draft completion run not found.")
+                current_run = stored_run
+                current_package = patched_package
                 accepted_patch_ids.append(patch.id)
                 round_accepted = True
                 logs.append(f"score-improvement: 已应用补丁 {patch.id} -> {patch.target_section}")
@@ -3314,9 +3349,29 @@ def _update_project_package_with_external_draft_revision_ledger_event(
     artifact_ref: str,
     user_intent_summary: str,
 ) -> None:
+    record = _external_draft_revision_record_for_event(
+        project_id=project_id,
+        before_package=before_package,
+        after_package=after_package,
+        artifact_ref=artifact_ref,
+        user_intent_summary=user_intent_summary,
+    )
+    if record is None:
+        store.update_project_package(project_id, after_package)
+        return
+    store.update_project_package_with_revision_record(project_id, after_package, record)
+
+
+def _external_draft_revision_record_for_event(
+    *,
+    project_id: str,
+    before_package: DraftPackage | None,
+    after_package: DraftPackage,
+    artifact_ref: str,
+    user_intent_summary: str,
+) -> RevisionLedgerRecord | None:
     baseline_package = before_package or _empty_draft_package_baseline()
-    _update_project_package_with_revision_ledger_event(
-        store,
+    return _revision_ledger_record_for_event(
         project_id=project_id,
         before_package=baseline_package,
         after_package=after_package,
@@ -4484,6 +4539,30 @@ def _dedupe_provider_ids(provider_ids: list[str]) -> list[str]:
         if provider_id and provider_id not in deduped:
             deduped.append(provider_id)
     return deduped
+
+
+def _completion_run_with_patch_status(
+    run: DraftCompletionRun,
+    patch_id: str,
+    status: str,
+) -> DraftCompletionRun | None:
+    payload = run.model_dump(mode="json")
+    found = False
+    task_id = ""
+    for patch in payload["patches"]:
+        if patch["id"] == patch_id:
+            patch["status"] = status
+            task_id = patch["task_id"]
+            found = True
+            break
+    if not found:
+        return None
+    if status in {"accepted", "rejected"}:
+        for task in payload["tasks"]:
+            if task["id"] == task_id:
+                task["status"] = status
+                break
+    return DraftCompletionRun.model_validate(payload)
 
 
 def _completion_run_with_progress_score(run: DraftCompletionRun) -> DraftCompletionRun:

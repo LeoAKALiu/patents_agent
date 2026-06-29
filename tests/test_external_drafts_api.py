@@ -7,10 +7,12 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from docx import Document
 
+from backend.app import main as main_module
 from backend.app.external_drafts import create_external_draft_source, parse_external_draft_source
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.official_compile import source_draft_hash
+from backend.app.revision_ledger import create_revision_record
 from backend.app.schemas import DraftPackage, ProjectRecord
 from backend.app.storage import SQLiteStore
 
@@ -208,6 +210,72 @@ def test_external_draft_first_confirmed_intake_records_revision_ledger_for_empty
     assert records[0]["baseline_artifact_hash"]
     assert records[0]["new_artifact_hash"]
     assert records[0]["baseline_artifact_hash"] != records[0]["new_artifact_hash"]
+
+
+def test_external_draft_confirm_rolls_back_intake_when_revision_insert_fails(tmp_path, monkeypatch):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False), raise_server_exceptions=False)
+    project = client.post(
+        "/api/projects",
+        json={"name": "外部稿回滚", "draft_text": "外部初稿导入项目。"},
+    ).json()
+    before_package = DraftPackage(
+        title="原始工作稿",
+        abstract="原始摘要",
+        claims="1. 一种原始方法，其特征在于，包括旧步骤。",
+        description="原始说明书。",
+        drawing_description="图1。",
+        mermaid="flowchart TD\nA-->B",
+        image_prompt="黑白线稿",
+    )
+    client.app.state.store.update_project_package(project["id"], before_package)
+    source = client.post(
+        f"/api/projects/{project['id']}/external-drafts",
+        json={
+            "source_type": "pasted_text",
+            "file_name": "draft.txt",
+            "text": (
+                "发明名称\n一种外部稿处理方法\n"
+                "说明书\n本发明涉及专利初稿处理。\n"
+            ),
+        },
+    ).json()
+    intake = client.post(f"/api/projects/{project['id']}/external-drafts/{source['id']}/intake-runs").json()
+    assert intake["status"] == "needs_review"
+    duplicate_record = create_revision_record(
+        project_id=project["id"],
+        baseline_package=before_package,
+        updated_package=before_package.model_copy(update={"abstract": "占位摘要"}),
+        revision_kind="correction",
+        user_intent_summary="seed duplicate ledger id",
+        affected_sections=["abstract"],
+    ).model_copy(update={"id": "duplicate-ledger-record"})
+    client.app.state.store.create_revision_ledger_record(duplicate_record)
+
+    def duplicate_revision_record(**kwargs):
+        return create_revision_record(**kwargs).model_copy(update={"id": duplicate_record.id})
+
+    monkeypatch.setattr(main_module, "create_revision_record", duplicate_revision_record)
+
+    confirm_response = client.post(
+        f"/api/projects/{project['id']}/external-draft-intake-runs/{intake['id']}/confirm",
+        json={
+            "title": "一种外部稿处理方法",
+            "abstract": "本发明公开一种外部稿处理方法。",
+            "claims": "1. 一种外部稿处理方法，其特征在于，解析外部专利初稿并生成工作稿。",
+            "description": "本发明涉及专利初稿处理。系统保存原始稿并生成内部工作稿。",
+            "drawing_description": "图1为外部稿处理流程图。",
+        },
+    )
+
+    assert confirm_response.status_code == 500
+    reloaded_run = client.app.state.store.get_external_draft_intake_run(project["id"], intake["id"])
+    assert reloaded_run is not None
+    assert reloaded_run.status == "needs_review"
+    assert reloaded_run.working_draft_hash == intake["working_draft_hash"]
+    assert client.app.state.store.get_project(project["id"]).package == before_package
+    assert [record.id for record in client.app.state.store.list_revision_ledger_records(project["id"])] == [
+        duplicate_record.id
+    ]
 
 
 def test_external_draft_docx_upload_creates_source(tmp_path):

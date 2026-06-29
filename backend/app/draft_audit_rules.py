@@ -7,6 +7,7 @@ from backend.app.internal_metadata import contains_internal_metadata_marker
 from backend.app.patent_urls import (
     is_supported_public_patent_url,
     normalize_url as normalize_public_url,
+    public_url_publication_mismatch,
 )
 from backend.app.schemas import CompletionIssue, DisclosureRun, DraftPackage
 
@@ -94,7 +95,9 @@ def _has_publication_without_url(text: str) -> bool:
         if not normalized_publication:
             continue
         if any(
-            normalized_publication in url.upper() and _is_allowed_public_patent_url(url)
+            normalized_publication in url.upper()
+            and _is_allowed_public_patent_url(url)
+            and not public_url_publication_mismatch(normalized_publication, url)
             for url in normalized_urls
         ):
             continue
@@ -146,6 +149,8 @@ def _is_strictly_bound_patent_url(
     if not _is_allowed_public_patent_url(url):
         return False
     normalized_publication = _normalize_publication(publication.group(0))
+    if public_url_publication_mismatch(normalized_publication, url):
+        return False
     if normalized_publication in url.upper():
         return True
 

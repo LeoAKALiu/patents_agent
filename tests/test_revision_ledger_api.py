@@ -1,8 +1,10 @@
 from fastapi.testclient import TestClient
 
+from backend.app import main as main_module
 from backend.app.llm import FakeLLMClient
 from backend.app.main import _repair_patch_store, create_app
 from backend.app.official_compile import source_draft_hash
+from backend.app.revision_ledger import create_revision_record
 from backend.app.schemas import (
     CompletionIssue,
     CompletionScoreCard,
@@ -277,6 +279,42 @@ def test_revision_ledger_records_accept_all_completion_patches_sequentially(tmp_
     assert description_record["revision_kind"] == "completion_patch"
     assert description_record["protection_scope_changed"] is False
     assert description_record["artifact_refs"] == [f"completion-run:{run.id}", "completion-patch:patch-description"]
+
+
+def test_completion_patch_accept_rolls_back_run_when_revision_insert_fails(tmp_path, monkeypatch) -> None:
+    app = create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False)
+    client = TestClient(app, raise_server_exceptions=False)
+    project = client.post("/api/projects", json={"name": "补强回滚", "draft_text": "一种方法。"}).json()
+    project_id = project["id"]
+    package = _package()
+    app.state.store.update_project_package(project_id, package)
+    run = app.state.store.create_draft_completion_run(_completion_run(project_id, source_draft_hash(package)))
+    duplicate_record = create_revision_record(
+        project_id=project_id,
+        baseline_package=package,
+        updated_package=package.model_copy(update={"abstract": "占位摘要"}),
+        revision_kind="correction",
+        user_intent_summary="seed duplicate ledger id",
+        affected_sections=["abstract"],
+    ).model_copy(update={"id": "duplicate-ledger-record"})
+    app.state.store.create_revision_ledger_record(duplicate_record)
+
+    def duplicate_revision_record(**kwargs):
+        return create_revision_record(**kwargs).model_copy(update={"id": duplicate_record.id})
+
+    monkeypatch.setattr(main_module, "create_revision_record", duplicate_revision_record)
+
+    response = client.post(f"/api/projects/{project_id}/completion-runs/{run.id}/patches/patch-claim/accept")
+
+    assert response.status_code == 500
+    reloaded_run = app.state.store.get_draft_completion_run(project_id, run.id)
+    assert reloaded_run is not None
+    patch = next(candidate for candidate in reloaded_run.patches if candidate.id == "patch-claim")
+    task = next(candidate for candidate in reloaded_run.tasks if candidate.id == patch.task_id)
+    assert patch.status == "proposed"
+    assert task.status == "open"
+    assert app.state.store.get_project(project_id).package == package
+    assert [record.id for record in app.state.store.list_revision_ledger_records(project_id)] == [duplicate_record.id]
 
 
 def test_revision_ledger_records_manual_draft_package_update(tmp_path) -> None:
