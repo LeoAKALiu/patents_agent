@@ -75,7 +75,14 @@
   - `一键 AI 修正`
   - `标注修复面板`
 - Follow-up verification commands:
-  - `cd frontend && npm test -- features/export/ExportWorkspace.test.tsx views/exportView.test.tsx app/routes.test.tsx`
-  - `cd frontend && npm run build`
-  - `cd frontend && npm test`
-  - `git diff --check`
+  - `cd frontend && npm test -- features/export/ExportWorkspace.test.tsx views/exportView.test.tsx app/routes.test.tsx` -> passed (`3` files, `21` tests)
+  - `cd frontend && npm run build` -> passed
+  - `cd frontend && npm test` -> passed (`33` files, `237` tests)
+  - `git diff --check` -> passed
+- Controller browser smoke rerun against `http://127.0.0.1:5174/` passed:
+  - desktop sidebar has seven destinations
+  - workbench, document repair, and export pages had no horizontal overflow
+  - document repair tabs were visible
+  - export separated `正式提交稿`, `内部复核材料`, and `风险说明与追溯`
+  - export body no longer contained `人工修正`, `一键AI修正`, or `一键 AI 修正`
+  - mobile nav had seven destinations, stayed in viewport bounds, and labels did not overflow buttons

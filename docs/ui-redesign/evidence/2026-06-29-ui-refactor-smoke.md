@@ -77,3 +77,11 @@ git diff --check
   - `docs/release/dmg-ui-regression-guard.md`
   - `docs/release/v1.1.0-tauri-release-gate.md`
   - `docs/release/v1.1.0-tauri-packaging.md`
+
+## Controller Follow-Up Smoke
+
+- After the initial smoke, the export lock guidance copy was updated so the export page no longer repeats repair-action labels.
+- Re-ran browser smoke against `http://127.0.0.1:5174/`.
+- Confirmed the export body contains `正式提交稿`, `内部复核材料`, and `风险说明与追溯`.
+- Confirmed the export body does not contain `人工修正`, `一键AI修正`, or `一键 AI 修正`.
+- Reconfirmed desktop and mobile horizontal overflow checks passed, and mobile nav labels stayed inside their buttons at `390x844`.
