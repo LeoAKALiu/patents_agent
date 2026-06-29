@@ -389,4 +389,45 @@ describe("DocumentRepairWorkspace", () => {
     expect(screen.getByText("成稿会审")).toBeInTheDocument();
     expect(screen.getAllByText(/当前有效|已失效|等待生成/).length).toBeGreaterThan(0);
   });
+
+  it("does not show full hashes in the default version chain labels", async () => {
+    const shortButFullHash = "abc123def456";
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({
+          currentDraftHash: shortButFullHash,
+          currentSourceDraftHash: shortButFullHash,
+          officialCompileRuns: [
+            makeOfficialCompileRun({
+              source_draft_hash: shortButFullHash,
+              official_package_hash: shortButFullHash,
+              official_package: {
+                ...makeOfficialCompileRun().official_package!,
+                source_draft_hash: shortButFullHash,
+                official_package_hash: shortButFullHash,
+              },
+            }),
+          ],
+          postDraftReviews: [
+            makePostDraftReview({
+              draft_package_hash: shortButFullHash,
+              official_package_hash: shortButFullHash,
+            }),
+          ],
+        })}
+        exportReadiness={makeExportReadiness({
+          current_source_draft_hash: shortButFullHash,
+          official_package_hash: shortButFullHash,
+        })}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "版本" }));
+
+    expect(screen.getAllByText(/短标识 abc123/).length).toBeGreaterThan(0);
+    const visibleText = screen.getByRole("tabpanel").textContent ?? "";
+    expect(visibleText.replace(/查看哈希详情[\s\S]*/g, "")).not.toContain(shortButFullHash);
+  });
 });

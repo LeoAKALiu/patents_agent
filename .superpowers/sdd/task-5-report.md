@@ -39,3 +39,14 @@ Self-review notes:
 
 Concerns, if any:
 - None.
+
+Review fix:
+- Reviewer finding addressed: version-chain default labels could still expose the full hash when the source hash length was 12 characters or fewer.
+- Changed `shortHash` so every non-empty hash is elided before inline display, including short-but-complete hash strings.
+- Added a regression test covering a 12-character full hash and asserting it is not present in the default version-chain labels.
+
+Review fix tests/build commands and results:
+- `cd frontend && npm test -- features/documentRepair/DocumentRepairWorkspace.test.tsx features/documentRepair/selectors.test.ts`: passed, 2 files / 14 tests.
+- `cd frontend && npm run build`: passed.
+- `cd frontend && npm test`: passed, 32 files / 224 tests.
+- `git diff --check`: passed.
