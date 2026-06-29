@@ -12,6 +12,8 @@
 - `frontend/src/styles.css`
 - `frontend/src/styles/tokens.css`
 - `frontend/src/styles/glass.css`
+- `frontend/src/features/export/ExportWorkspace.tsx`
+- `frontend/src/features/export/ExportWorkspace.test.tsx`
 - `docs/ui-redesign/evidence/2026-06-29-ui-refactor-smoke.md`
 - `docs/ui-redesign/evidence/screenshots/task-8-desktop-workbench.png`
 - `docs/ui-redesign/evidence/screenshots/task-8-desktop-document-repair.png`
@@ -86,3 +88,6 @@
   - export separated `正式提交稿`, `内部复核材料`, and `风险说明与追溯`
   - export body no longer contained `人工修正`, `一键AI修正`, or `一键 AI 修正`
   - mobile nav had seven destinations, stayed in viewport bounds, and labels did not overflow buttons
+- Evidence follow-up:
+  - refreshed `docs/ui-redesign/evidence/screenshots/task-8-desktop-export.png` from the current live export page
+  - reconfirmed the refreshed screenshot and rendered export body no longer contain `人工修正`, `一键AI修正`, `一键 AI 修正`, or `标注修复面板`
