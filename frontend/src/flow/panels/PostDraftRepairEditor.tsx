@@ -25,15 +25,22 @@ export interface PostDraftRepairEditorProps {
   open: boolean;
   session: PostDraftRepairSession | null;
   saving: boolean;
+  mode?: "modal" | "embedded";
+  pendingRevalidationIssueIds?: string[];
   onClose: () => void;
   onSave: (fields: DraftPackageManualUpdate) => Promise<void> | void;
-  onPatchApplied?: (fields: DraftPackageManualUpdate) => Promise<void> | void;
+  onPatchApplied?: (
+    fields: DraftPackageManualUpdate,
+    issueId?: string,
+  ) => Promise<void> | void;
 }
 
 export function PostDraftRepairEditor({
   open,
   session,
   saving,
+  mode = "modal",
+  pendingRevalidationIssueIds = [],
   onClose,
   onSave,
   onPatchApplied,
@@ -150,7 +157,7 @@ export function PostDraftRepairEditor({
           [patch.target_section]: updatedSection,
         }));
       }
-      await onPatchApplied?.(editableFieldsFromPackage(result.package));
+      await onPatchApplied?.(editableFieldsFromPackage(result.package), patch.issue_id);
       // Mark patch as applied locally
       setPatch({ ...patch, status: "applied" });
     } catch (err) {
@@ -168,14 +175,19 @@ export function PostDraftRepairEditor({
 
   if (!open || !session) return null;
 
+  const embedded = mode === "embedded";
+  const selectedPendingRevalidation = selectedIssue
+    ? pendingRevalidationIssueIds.includes(selectedIssue.id)
+    : false;
+
   return (
     <div
-      className="draft-editor-overlay"
-      role="dialog"
-      aria-modal="true"
+      className={embedded ? "draft-editor-embedded" : "draft-editor-overlay"}
+      role={embedded ? undefined : "dialog"}
+      aria-modal={embedded ? undefined : "true"}
       aria-label="标注式修复编辑器"
     >
-      <div className="repair-editor-shell">
+      <div className={`repair-editor-shell${embedded ? " is-embedded" : ""}`}>
         <header className="draft-editor-header">
           <div>
             <h3>标注式修复编辑器</h3>
@@ -185,24 +197,31 @@ export function PostDraftRepairEditor({
                 : "手动修订各段落，保存后请重新编译正式稿并重新成稿会审。"}
             </p>
           </div>
-          <button
-            className="icon-button"
-            onClick={onClose}
-            type="button"
-            aria-label="关闭标注式修复编辑器"
-          >
-            <XCircle size={18} />
-          </button>
+          {!embedded && (
+            <button
+              className="icon-button"
+              onClick={onClose}
+              type="button"
+              aria-label="关闭标注式修复编辑器"
+            >
+              <XCircle size={18} />
+            </button>
+          )}
         </header>
 
         <div className="repair-editor-grid">
           <PostDraftIssueRail
             issues={session.issues}
             selectedIssueId={selectedIssue?.id ?? null}
+            pendingRevalidationIssueIds={pendingRevalidationIssueIds}
             onSelectIssue={handleSelectIssue}
           />
 
           <div className="repair-document-pane">
+            <div className="repair-pane-header">
+              <h4>正文定位</h4>
+              <p>按问题定位段落并直接修改当前初稿内容。</p>
+            </div>
             {DRAFT_SECTION_KEYS.map((sectionKey) => (
               <AnnotatedDraftSection
                 key={sectionKey}
@@ -225,6 +244,7 @@ export function PostDraftRepairEditor({
             }
             stale={session.stale}
             patch={patch}
+            pendingRevalidation={selectedPendingRevalidation}
             generating={generating}
             applying={applying}
             patchError={patchError}

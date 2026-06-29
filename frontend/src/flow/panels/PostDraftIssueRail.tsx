@@ -27,10 +27,16 @@ function groupIssues(issues: DraftReviewIssue[]) {
 export interface PostDraftIssueRailProps {
   issues: DraftReviewIssue[];
   selectedIssueId: string | null;
+  pendingRevalidationIssueIds?: string[];
   onSelectIssue: (issue: DraftReviewIssue) => void;
 }
 
-export function PostDraftIssueRail({ issues, selectedIssueId, onSelectIssue }: PostDraftIssueRailProps) {
+export function PostDraftIssueRail({
+  issues,
+  selectedIssueId,
+  pendingRevalidationIssueIds = [],
+  onSelectIssue,
+}: PostDraftIssueRailProps) {
   const grouped = groupIssues(issues);
   const groupOrder: Array<DraftReviewIssue["kind"] | "unanchored"> = [
     "blocking",
@@ -48,7 +54,7 @@ export function PostDraftIssueRail({ issues, selectedIssueId, onSelectIssue }: P
   return (
     <nav className="repair-issue-rail" aria-label="标注式修复问题导航">
       <div className="repair-issue-rail-header">
-        <h4>问题列表</h4>
+        <h4>问题队列</h4>
         <Badge variant="secondary" className="text-xs">
           {issues.length} 项
         </Badge>
@@ -76,6 +82,9 @@ export function PostDraftIssueRail({ issues, selectedIssueId, onSelectIssue }: P
                     {ISSUE_SEVERITY_LABELS[issue.severity]}
                   </span>
                   <span className="repair-issue-message">{issue.message}</span>
+                  {pendingRevalidationIssueIds.includes(issue.id) && (
+                    <span className="repair-issue-status">待复核</span>
+                  )}
                 </button>
               ))}
             </div>

@@ -2883,6 +2883,11 @@ input:focus, select:focus, textarea:focus {
 .draft-editor-textarea.tall { min-height: 340px; }
 
 /* ── Post-Draft Annotated Repair Editor ───────────────────────── */
+.draft-editor-embedded {
+  display: grid;
+  min-height: 0;
+}
+
 .repair-editor-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
@@ -2893,6 +2898,15 @@ input:focus, select:focus, textarea:focus {
   border-radius: var(--radius-lg);
   background: var(--surface-base);
   box-shadow: var(--shadow-lg);
+}
+
+.repair-editor-shell.is-embedded {
+  width: 100%;
+  height: min(76vh, 920px);
+  min-height: 640px;
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
 }
 
 .repair-editor-grid {
@@ -2991,8 +3005,23 @@ input:focus, select:focus, textarea:focus {
 .repair-issue-severity[data-severity="high"] { color: var(--warn); }
 
 .repair-issue-message {
+  grid-column: 2;
   line-height: 1.45;
   word-break: break-word;
+}
+
+.repair-issue-status {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 20px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--warn), transparent 88%);
+  color: var(--warn);
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .repair-document-pane {
@@ -3002,6 +3031,26 @@ input:focus, select:focus, textarea:focus {
   min-height: 0;
   overflow-y: auto;
   padding: 12px 14px;
+}
+
+.repair-pane-header {
+  display: grid;
+  gap: 4px;
+  padding: 2px 2px 6px;
+}
+
+.repair-pane-header h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.repair-pane-header p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .annotated-draft-section {
@@ -3251,12 +3300,17 @@ input:focus, select:focus, textarea:focus {
   padding-inline: 0;
 }
 
-/* ── Mobile: single column ────────────────────────────────────── */
-@media (max-width: 760px) {
+/* ── Tablet/mobile: stacked workspace ─────────────────────────── */
+@media (max-width: 920px) {
+  .repair-editor-shell.is-embedded {
+    height: auto;
+    min-height: 0;
+  }
+
   .repair-editor-grid {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(200px, 1fr) auto;
-    overflow-y: auto;
+    grid-template-rows: auto auto auto;
+    overflow: visible;
   }
 
   .repair-issue-rail {
@@ -3265,17 +3319,31 @@ input:focus, select:focus, textarea:focus {
   }
 
   .repair-issue-scroll {
-    max-height: 180px;
+    max-height: 240px;
   }
 
   .repair-document-pane {
     max-height: none;
+    overflow: visible;
   }
 
   .repair-inspector {
     border-left: 0;
     border-top: 1px solid var(--border-subtle);
+    overflow: visible;
   }
+}
+
+.document-repair-status-panel {
+  min-height: 280px;
+}
+
+.document-repair-status {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
 }
 
 /* ── External Draft ───────────────────────────────────────────── */

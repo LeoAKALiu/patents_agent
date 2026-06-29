@@ -49,6 +49,8 @@ describe("PostDraftRepairEditor", () => {
       />,
     );
 
+    expect(screen.getByText("问题队列")).toBeTruthy();
+    expect(screen.getByText("正文定位")).toBeTruthy();
     expect(screen.getAllByText("阻断").length).toBeGreaterThan(0);
     expect(screen.getByDisplayValue(/方法方法/)).toBeTruthy();
 
@@ -162,6 +164,25 @@ describe("PostDraftRepairEditor", () => {
     expect((aiButton as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("renders without dialog chrome in embedded mode", () => {
+    render(
+      <PostDraftRepairEditor
+        open
+        mode="embedded"
+        session={session}
+        saving={false}
+        onClose={() => {}}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: "关闭标注式修复编辑器" })).toBeNull();
+    expect(screen.getByText("问题队列")).toBeTruthy();
+    expect(screen.getByText("正文定位")).toBeTruthy();
+    expect(screen.getByText("修复面板")).toBeTruthy();
+  });
+
   it("shows stale warning when draft has changed", () => {
     const staleSession = { ...session, stale: true };
     render(
@@ -197,5 +218,21 @@ describe("PostDraftRepairEditor", () => {
     expect(
       screen.getByRole("button", { name: "生成 AI 修正" }),
     ).toBeTruthy();
+  });
+
+  it("shows pending revalidation marker for applied issue display state", () => {
+    render(
+      <PostDraftRepairEditor
+        open
+        mode="embedded"
+        session={session}
+        saving={false}
+        pendingRevalidationIssueIds={["blocking-1"]}
+        onClose={() => {}}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("待复核").length).toBeGreaterThan(0);
   });
 });

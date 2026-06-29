@@ -1,11 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   DraftPackage,
+  DraftReviewIssue,
   ExportReadiness,
   OfficialCompileRun,
+  PostDraftRepairSession,
   PostDraftReviewRun,
   ProjectRecord,
 } from "@/api";
@@ -15,6 +17,15 @@ import type {
 } from "@/features/projects/ProjectWorkspace";
 
 import { DocumentRepairWorkspace } from "./DocumentRepairWorkspace";
+import * as api from "@/api";
+
+vi.mock("@/api", async () => {
+  const actual = await vi.importActual<typeof import("@/api")>("@/api");
+  return {
+    ...actual,
+    getPostDraftRepairSession: vi.fn(),
+  };
+});
 
 function makeProject(overrides: Partial<ProjectRecord> = {}): ProjectRecord {
   return {
@@ -114,6 +125,46 @@ function makePostDraftReview(overrides: Partial<PostDraftReviewRun> = {}): PostD
   };
 }
 
+function makeRepairIssue(overrides: Partial<DraftReviewIssue> = {}): DraftReviewIssue {
+  return {
+    id: "issue-1",
+    kind: "blocking",
+    severity: "high",
+    source: "post_draft_review",
+    message: "标题存在重复词汇方法方法",
+    snippet: "方法方法",
+    target_section: "title",
+    anchor: {
+      type: "text",
+      section: "title",
+      start: 0,
+      end: 4,
+      snippet: "方法方法",
+    },
+    status: "open",
+    ...overrides,
+  };
+}
+
+function makeRepairSession(overrides: Partial<PostDraftRepairSession> = {}): PostDraftRepairSession {
+  return {
+    project_id: "project-1",
+    review_run_id: "review-raw-run-id-1234567890",
+    draft_package_hash: "draft-current-1234567890abcdef",
+    current_draft_hash: "draft-current-1234567890abcdef",
+    stale: false,
+    issues: [makeRepairIssue()],
+    sections: {
+      title: "一种基于城市体检指标置信度的无人机主动采集方法方法",
+      abstract: "摘要",
+      claims: "权利要求书",
+      description: "说明书",
+      drawing_description: "附图说明",
+    },
+    ...overrides,
+  };
+}
+
 function makeExportReadiness(overrides: Partial<ExportReadiness> = {}): ExportReadiness {
   return {
     export_allowed: false,
@@ -208,6 +259,11 @@ function makeHandlers(overrides: Partial<ProjectWorkspaceHandlers> = {}): Projec
 }
 
 describe("DocumentRepairWorkspace", () => {
+  beforeEach(() => {
+    vi.mocked(api.getPostDraftRepairSession).mockReset();
+    vi.mocked(api.getPostDraftRepairSession).mockResolvedValue(makeRepairSession());
+  });
+
   it("renders readable document-repair tabs and overview content", () => {
     render(
       <DocumentRepairWorkspace
@@ -230,7 +286,7 @@ describe("DocumentRepairWorkspace", () => {
     expect(screen.getByText("最近记录")).toBeInTheDocument();
   });
 
-  it("moves the primary action to the annotated repair placeholder tab", async () => {
+  it("opens the annotated repair workspace tab with issue queue, document body, and inspector", async () => {
     render(
       <DocumentRepairWorkspace
         projectState={makeProjectState()}
@@ -242,8 +298,13 @@ describe("DocumentRepairWorkspace", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "进入标注修复" }));
 
-    expect(screen.getByRole("tabpanel")).toHaveTextContent("标注修复");
-    expect(screen.getByRole("button", { name: "返回总览" })).toBeInTheDocument();
+    expect(await screen.findByText("问题队列")).toBeInTheDocument();
+    expect(screen.getByText("正文定位")).toBeInTheDocument();
+    expect(screen.getByText("修复面板")).toBeInTheDocument();
+    expect(api.getPostDraftRepairSession).toHaveBeenCalledWith(
+      "project-1",
+      "review-raw-run-id-1234567890",
+    );
   });
 
   it("routes export-ready primary action to the export destination", async () => {
@@ -432,5 +493,83 @@ describe("DocumentRepairWorkspace", () => {
     expect(shortLabels.length).toBeGreaterThan(0);
     expect(shortLabels.join(" ")).not.toContain(shortButFullHash);
     expect(screen.getAllByText("查看哈希详情").length).toBeGreaterThan(0);
+  });
+
+  it("shows an empty state when no repairable post-draft review exists", async () => {
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({
+          postDraftReviews: [
+            makePostDraftReview({
+              export_allowed: true,
+              blocking_issues: [],
+              contamination_hits: [],
+              role_results: [],
+            }),
+          ],
+        })}
+        exportReadiness={makeExportReadiness({
+          export_allowed: true,
+          post_draft_review_required: false,
+          review_gate_status: "passed",
+          review_blocking_issues: [],
+        })}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "标注修复" }));
+
+    expect(screen.getByText("暂无可修复会审")).toBeInTheDocument();
+    expect(api.getPostDraftRepairSession).not.toHaveBeenCalled();
+  });
+
+  it("shows a loading state while the repair session is being fetched", async () => {
+    let resolveSession!: (value: PostDraftRepairSession) => void;
+    vi.mocked(api.getPostDraftRepairSession).mockReturnValueOnce(
+      new Promise<PostDraftRepairSession>((resolve) => {
+        resolveSession = resolve;
+      }),
+    );
+
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "标注修复" }));
+
+    expect(screen.getByText("正在加载修复会话")).toBeInTheDocument();
+
+    resolveSession(makeRepairSession());
+    expect(await screen.findByText("问题队列")).toBeInTheDocument();
+  });
+
+  it("shows an error state and retry affordance when repair session loading fails", async () => {
+    vi.mocked(api.getPostDraftRepairSession)
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValueOnce(makeRepairSession());
+
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "标注修复" }));
+
+    expect(await screen.findByText("修复会话加载失败")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "重新加载" }));
+
+    expect(await screen.findByText("问题队列")).toBeInTheDocument();
   });
 });

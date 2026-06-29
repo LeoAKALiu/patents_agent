@@ -11,6 +11,7 @@ import { DocumentEditTab } from "./DocumentEditTab";
 import { DocumentIssuesTab } from "./DocumentIssuesTab";
 import { DocumentOverviewTab } from "./DocumentOverviewTab";
 import { DocumentVersionsTab } from "./DocumentVersionsTab";
+import { AnnotatedRepairTab } from "./AnnotatedRepairTab";
 import {
   deriveDocumentRepairState,
   type DocumentRepairTabId,
@@ -27,7 +28,7 @@ const tabs: Array<{ id: DocumentRepairTabId; label: string; description: string 
   { id: "overview", label: "总览", description: "门禁、文稿和问题摘要" },
   { id: "edit", label: "编辑", description: "内部初稿编辑" },
   { id: "issues", label: "问题", description: "问题队列" },
-  { id: "annotated", label: "标注修复", description: "标注式修复将在后续任务嵌入" },
+  { id: "annotated", label: "标注修复", description: "问题队列、正文定位与修复面板" },
   { id: "versions", label: "版本", description: "版本链路" },
 ];
 
@@ -102,6 +103,14 @@ export function DocumentRepairWorkspace({
           <DocumentIssuesTab
             inbox={state.issueInbox}
             onOpenAnnotated={() => setActiveTab("annotated")}
+          />
+        ) : activeTab === "annotated" ? (
+          <AnnotatedRepairTab
+            project={projectState.selectedProject}
+            reviews={projectState.postDraftReviews}
+            currentSourceDraftHash={projectState.currentSourceDraftHash}
+            saving={projectState.busy === "save-draft"}
+            onSaveDraftPackage={handlers.onSaveDraftPackage}
           />
         ) : activeTab === "versions" ? (
           <DocumentVersionsTab chain={state.versionChain} />

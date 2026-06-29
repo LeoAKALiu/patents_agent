@@ -36,6 +36,7 @@ export interface DraftRepairInspectorProps {
   sectionText: string;
   stale: boolean;
   patch: DraftRepairPatch | null;
+  pendingRevalidation?: boolean;
   generating: boolean;
   applying: boolean;
   patchError: string | null;
@@ -49,6 +50,7 @@ export function DraftRepairInspector({
   sectionText,
   stale,
   patch,
+  pendingRevalidation = false,
   generating,
   applying,
   patchError,
@@ -115,6 +117,7 @@ export function DraftRepairInspector({
               {SECTION_LABELS[issue.target_section] || issue.target_section}
             </span>
             <span className="repair-inspector-chip">{anchorModeLabel}</span>
+            {pendingRevalidation && <span className="repair-inspector-chip">待复核</span>}
           </div>
           <p className="repair-inspector-summary-text">{issue.message}</p>
         </section>
