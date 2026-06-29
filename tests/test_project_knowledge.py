@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from backend.app.schemas import (
     AgentSearchPlan,
     PriorArtCandidate,
@@ -110,3 +112,30 @@ def test_search_plan_candidates_and_corpus_version_round_trip(tmp_path):
     assert updated.user_decision == "include"
     assert store.list_prior_art_candidates("project-1") == [updated]
     assert store.get_latest_project_corpus_version("project-1") == version
+
+
+def test_update_prior_art_candidate_decision_rejects_invalid_values(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    candidate = PriorArtCandidate(
+        id="candidate-1",
+        project_id="project-1",
+        plan_id="plan-1",
+        source="fake",
+        title="一种城市体检任务编排方法",
+        publication_number="CN100000001A",
+        abstract="公开了城市体检任务编排。",
+        url="https://patents.google.com/patent/CN100000001A",
+        relevance_score=0.87,
+        matched_terms=["城市体检", "任务编排"],
+        fulltext_status="available",
+        recommended_action="include",
+        recommendation_reason="命中核心技术对象和技术手段",
+    )
+    store.upsert_prior_art_candidate(candidate)
+
+    with pytest.raises(ValueError, match="invalid prior art candidate decision"):
+        store.update_prior_art_candidate_decision("project-1", "candidate-1", "bogus")
+
+    stored = store.list_prior_art_candidates("project-1")
+    assert len(stored) == 1
+    assert stored[0].user_decision == "pending"

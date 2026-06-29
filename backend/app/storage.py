@@ -417,6 +417,8 @@ class SQLiteStore:
         candidate_id: str,
         decision: str,
     ) -> PriorArtCandidate | None:
+        if decision not in {"pending", "include", "exclude"}:
+            raise ValueError(f"invalid prior art candidate decision: {decision!r}")
         row = self.connection.execute(
             "select candidate_json from prior_art_candidates where project_id = ? and id = ?",
             (project_id, candidate_id),
