@@ -10,8 +10,8 @@ from backend.app.schemas import (
 )
 from backend.app.services.project_knowledge_service import (
     create_project_corpus_from_included_candidates,
-    ensure_project_knowledge_initialized,
     knowledge_overview,
+    regenerate_project_knowledge,
     run_agent_search_plan,
 )
 
@@ -29,7 +29,8 @@ def get_project_knowledge(project_id: str, request: Request) -> dict:
 def create_project_search_intent(project_id: str, request: Request) -> dict:
     repo = get_project_repository(request)
     project = require_project(project_id, repo)
-    return ensure_project_knowledge_initialized(request.app.state.store, project).model_dump(mode="json")
+    patent_points = repo.list_patent_points(project_id)
+    return regenerate_project_knowledge(request.app.state.store, project, patent_points).model_dump(mode="json")
 
 
 @router.post("/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")

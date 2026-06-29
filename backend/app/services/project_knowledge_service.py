@@ -49,6 +49,10 @@ def project_snapshot_hash(project: ProjectRecord, patent_points: list[PatentPoin
     return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
 
 
+def _selected_patent_points(patent_points: list[PatentPointCandidate] | None = None) -> list[PatentPointCandidate]:
+    return [point for point in patent_points or [] if point.selected]
+
+
 def _extract_keywords(text: str, *, limit: int = 8) -> list[str]:
     normalized = re.sub(r"[，。、“”《》；：:,.()\[\]{}]", " ", text)
     tokens: list[str] = []
@@ -67,7 +71,21 @@ def _extract_keywords(text: str, *, limit: int = 8) -> list[str]:
     return tokens[:limit]
 
 
-def _build_intent(project: ProjectRecord) -> SearchIntent:
+def _build_intent(
+    project: ProjectRecord,
+    patent_points: list[PatentPointCandidate] | None = None,
+) -> SearchIntent:
+    selected_points = _selected_patent_points(patent_points)
+    point_parts: list[str] = []
+    for point in selected_points:
+        point_parts.extend(
+            [
+                point.title,
+                point.technical_problem,
+                point.innovation,
+                point.technical_solution,
+            ]
+        )
     source_text = "\n".join(
         [
             project.name,
@@ -77,20 +95,36 @@ def _build_intent(project: ProjectRecord) -> SearchIntent:
             project.technical_solution,
             project.innovation,
             project.beneficial_effects,
+            *point_parts,
         ]
     )
     keywords_zh = _extract_keywords(source_text)
+    primary_point = selected_points[0] if selected_points else None
+    primary_point_problem = primary_point.technical_problem if primary_point else ""
+    primary_point_solution = primary_point.technical_solution if primary_point else ""
+    primary_point_innovation = primary_point.innovation if primary_point else ""
     return SearchIntent(
         id=uuid.uuid4().hex,
         project_id=project.id,
-        source_project_hash=project_snapshot_hash(project),
+        source_project_hash=project_snapshot_hash(project, patent_points),
         technical_object=project.name,
-        technical_problem=project.pain_point or project.background or "现有方案缺少自动化任务拆解和可信复核。",
-        technical_means=project.technical_solution or project.innovation or project.draft_text,
+        technical_problem=(
+            project.pain_point
+            or primary_point_problem
+            or project.background
+            or "现有方案缺少自动化任务拆解和可信复核。"
+        ),
+        technical_means=(
+            project.technical_solution
+            or primary_point_solution
+            or project.innovation
+            or primary_point_innovation
+            or project.draft_text
+        ),
         technical_effect=project.beneficial_effects or "提高处理效率和结果可信度。",
         keywords_zh=keywords_zh,
         keywords_en=["urban health", "agent", "task orchestration", "evidence review"],
-        synonyms=["城市诊断", "城市运行体检", "多智能体编排"],
+        synonyms=["城市诊断", "城市运行体检", "多智能体编排", *[point.title for point in selected_points[:2]]],
         negative_keywords=["医疗体检"],
         ipc_candidates=["G06Q", "G06F"],
         cpc_candidates=["G06Q10/063", "G06F16/35"],
@@ -145,21 +179,39 @@ def knowledge_overview(store: SQLiteStore, project_id: str) -> ProjectKnowledgeO
     )
 
 
+def regenerate_project_knowledge(
+    store: SQLiteStore,
+    project: ProjectRecord,
+    patent_points: list[PatentPointCandidate] | None = None,
+) -> ProjectKnowledgeOverview:
+    intent = store.create_search_intent(_build_intent(project, patent_points))
+    plan = store.create_agent_search_plan(_build_plan(intent))
+    existing = store.get_project_knowledge_state(project.id) or ProjectKnowledgeState(project_id=project.id)
+    state = existing.model_copy(
+        update={
+            "status": "search_plan_pending",
+            "active_intent_id": intent.id,
+            "active_plan_id": plan.id,
+            "active_corpus_version_id": "",
+            "last_search_at": "",
+            "last_indexed_at": "",
+            "staleness_reason": "",
+            "document_count": 0,
+            "candidate_count": 0,
+            "claim_coverage": 0.0,
+            "fulltext_coverage": 0.0,
+            "quality_flags": ["needs_search"],
+        }
+    )
+    store.upsert_project_knowledge_state(state)
+    return knowledge_overview(store, project.id)
+
+
 def ensure_project_knowledge_initialized(store: SQLiteStore, project: ProjectRecord) -> ProjectKnowledgeOverview:
     existing = store.get_project_knowledge_state(project.id)
     if existing and existing.status != "not_started":
         return knowledge_overview(store, project.id)
-    intent = store.create_search_intent(_build_intent(project))
-    plan = store.create_agent_search_plan(_build_plan(intent))
-    state = ProjectKnowledgeState(
-        project_id=project.id,
-        status="search_plan_pending",
-        active_intent_id=intent.id,
-        active_plan_id=plan.id,
-        quality_flags=["needs_search"],
-    )
-    store.upsert_project_knowledge_state(state)
-    return knowledge_overview(store, project.id)
+    return regenerate_project_knowledge(store, project, [])
 
 
 def run_agent_search_plan(store: SQLiteStore, project_id: str, plan_id: str) -> ProjectKnowledgeOverview:
@@ -272,7 +324,7 @@ def mark_stale_if_project_changed(
     intent = store.get_latest_search_intent(project.id)
     if not intent:
         return state
-    current_hash = project_snapshot_hash(project)
+    current_hash = project_snapshot_hash(project, patent_points)
     if current_hash == intent.source_project_hash:
         return state
     updated = state.model_copy(

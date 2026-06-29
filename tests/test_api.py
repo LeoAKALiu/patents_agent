@@ -9,10 +9,13 @@ from backend.app.schemas import (
     DisclosurePackage,
     DisclosureRun,
     DraftPackage,
+    PatentPointCandidate,
     PatentStrategyBrief,
     ProjectKnowledgeState,
+    ProjectRecord,
     PriorArtHit,
 )
+from backend.app.services.project_knowledge_service import project_snapshot_hash
 
 
 def _test_app_without_env(tmp_path):
@@ -416,14 +419,84 @@ def test_project_knowledge_search_intent_endpoint_returns_current_overview(tmp_p
         json={"name": "搜索意图测试", "draft_text": "围绕任务编排生成检索意图。"},
     )
     project_id = created.json()["id"]
+    initial = client.get(f"/api/projects/{project_id}/knowledge").json()
+    initial_intent_id = initial["latest_intent"]["id"]
+    initial_plan_id = initial["latest_plan"]["id"]
+
+    update_response = client.put(
+        f"/api/projects/{project_id}",
+        json={"technical_solution": "改为基于时序证据链的任务编排。"},
+    )
+    assert update_response.status_code == 200
+    stale = client.get(f"/api/projects/{project_id}/knowledge")
+    assert stale.status_code == 200
+    assert stale.json()["state"]["status"] == "stale"
 
     response = client.post(f"/api/projects/{project_id}/knowledge/search-intent")
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["state"]["status"] == "search_plan_pending"
+    assert payload["state"]["quality_flags"] == ["needs_search"]
     assert payload["latest_intent"]["project_id"] == project_id
     assert payload["latest_plan"]["project_id"] == project_id
+    assert payload["latest_intent"]["id"] != initial_intent_id
+    assert payload["latest_plan"]["id"] != initial_plan_id
+    expected_hash = project_snapshot_hash(ProjectRecord.model_validate(update_response.json()), [])
+    assert payload["latest_intent"]["source_project_hash"] == expected_hash
+
+
+def test_project_knowledge_stales_and_regenerates_after_patent_point_mutations(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "专利点检索测试", "draft_text": "围绕证据链复核生成候选检索计划。"},
+    )
+    project_id = created.json()["id"]
+
+    create_point = client.post(
+        f"/api/projects/{project_id}/patent-points",
+        json={
+            "source_candidate_id": "route-main",
+            "title": "证据链复核主路线",
+            "technical_problem": "现有复核过程缺少可追踪的证据回放。",
+            "innovation": "把证据链节点映射到复核任务。",
+            "technical_solution": "按证据节点生成复核步骤与对比规则。",
+            "selected": True,
+        },
+    )
+    assert create_point.status_code == 200
+    stale_after_create = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert stale_after_create["state"]["status"] == "stale"
+
+    regenerated = client.post(f"/api/projects/{project_id}/knowledge/search-intent")
+    assert regenerated.status_code == 200
+    regenerated_payload = regenerated.json()
+    point = PatentPointCandidate.model_validate(create_point.json())
+    project = ProjectRecord.model_validate(client.get(f"/api/projects/{project_id}").json())
+    expected_hash = project_snapshot_hash(project, [point])
+    assert regenerated_payload["state"]["status"] == "search_plan_pending"
+    assert regenerated_payload["latest_intent"]["source_project_hash"] == expected_hash
+
+    update_point = client.patch(
+        f"/api/projects/{project_id}/patent-points/{point.id}",
+        json={"technical_solution": "按证据节点生成复核步骤、差异比对规则与补证提示。"},
+    )
+    assert update_point.status_code == 200
+    stale_after_update = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert stale_after_update["state"]["status"] == "stale"
+
+    reroll = client.post(f"/api/projects/{project_id}/knowledge/search-intent")
+    assert reroll.status_code == 200
+    reroll_payload = reroll.json()
+    updated_point = PatentPointCandidate.model_validate(update_point.json())
+    expected_updated_hash = project_snapshot_hash(project, [updated_point])
+    assert reroll_payload["latest_intent"]["source_project_hash"] == expected_updated_hash
+
+    delete_point = client.delete(f"/api/projects/{project_id}/patent-points/{point.id}")
+    assert delete_point.status_code == 200
+    stale_after_delete = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert stale_after_delete["state"]["status"] == "stale"
 
 
 def test_project_knowledge_bulk_decision_updates_multiple_candidates(tmp_path):

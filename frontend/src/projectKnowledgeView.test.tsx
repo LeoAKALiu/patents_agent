@@ -136,13 +136,14 @@ describe("ProjectKnowledgeView", () => {
     expect(screen.getByText("Agent 建议纳入")).toBeInTheDocument();
     expect(screen.getByText("待人工决策")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "开始官方源检索" }));
+    fireEvent.click(screen.getByRole("button", { name: "运行候选检索" }));
     fireEvent.click(screen.getByRole("button", { name: "纳入建库" }));
     fireEvent.click(screen.getByRole("button", { name: "排除" }));
 
     expect(onRunKnowledgeSearch).toHaveBeenCalled();
     expect(onCandidateDecision).toHaveBeenCalledWith("c-1", "include");
     expect(onCandidateDecision).toHaveBeenCalledWith("c-1", "exclude");
+    expect(screen.queryByText("开始官方源检索")).not.toBeInTheDocument();
   });
 
   it("renders fail-closed quality guidance and builds corpus from included candidates", () => {
@@ -222,7 +223,7 @@ describe("ProjectKnowledgeView", () => {
     expect(onBuildProjectCorpus).toHaveBeenCalled();
   });
 
-  it("reruns the latest plan for stale ready states instead of advertising a no-op plan generation", () => {
+  it("regenerates a fresh plan for stale knowledge states", () => {
     const onRunKnowledgeSearch = vi.fn();
     const onGenerateKnowledgePlan = vi.fn();
     const knowledge: ProjectKnowledgeOverview = {
@@ -246,9 +247,9 @@ describe("ProjectKnowledgeView", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "重新运行最新检索计划" }));
+    fireEvent.click(screen.getByRole("button", { name: "重新生成检索计划" }));
 
-    expect(onRunKnowledgeSearch).toHaveBeenCalled();
-    expect(onGenerateKnowledgePlan).not.toHaveBeenCalled();
+    expect(onGenerateKnowledgePlan).toHaveBeenCalled();
+    expect(onRunKnowledgeSearch).not.toHaveBeenCalled();
   });
 });

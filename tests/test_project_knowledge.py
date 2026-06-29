@@ -258,11 +258,11 @@ def test_project_change_marks_knowledge_stale(tmp_path):
     assert "项目技术描述已变化" in state.staleness_reason
 
 
-def test_selected_patent_points_do_not_mark_stale_when_project_text_is_unchanged(tmp_path):
+def test_selected_patent_points_mark_knowledge_stale_when_snapshot_changes(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
     store.create_project(project)
-    initial = ensure_project_knowledge_initialized(store, project)
+    ensure_project_knowledge_initialized(store, project)
 
     state = mark_stale_if_project_changed(
         store,
@@ -279,5 +279,5 @@ def test_selected_patent_points_do_not_mark_stale_when_project_text_is_unchanged
         ],
     )
 
-    assert state.status == initial.state.status
-    assert state.staleness_reason == ""
+    assert state.status == "stale"
+    assert "项目技术描述已变化" in state.staleness_reason

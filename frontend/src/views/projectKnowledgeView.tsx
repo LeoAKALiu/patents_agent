@@ -17,7 +17,7 @@ import { QualityReportView, StatusPill } from "./widgets";
 const statusLabels: Record<string, string> = {
   not_started: "未生成检索计划",
   search_plan_pending: "检索计划待确认",
-  search_running: "官方源检索中",
+  search_running: "候选检索中",
   candidates_pending: "候选文献待确认",
   corpus_building: "语料库建库中",
   ready: "语料库就绪",
@@ -160,7 +160,7 @@ export function ProjectKnowledgeView({
   if (status === "search_plan_pending") {
     primaryAction = {
       icon: Search,
-      label: "开始官方源检索",
+      label: "运行候选检索",
       action: onRunKnowledgeSearch,
     };
   } else if (status === "candidates_pending") {
@@ -169,7 +169,13 @@ export function ProjectKnowledgeView({
       label: "确认建库",
       action: onBuildProjectCorpus,
     };
-  } else if (status === "ready" || status === "needs_supplemental_search" || status === "stale") {
+  } else if (status === "stale" || status === "needs_supplemental_search") {
+    primaryAction = {
+      icon: Wand2,
+      label: "重新生成检索计划",
+      action: onGenerateKnowledgePlan,
+    };
+  } else if (status === "ready") {
     primaryAction = {
       icon: Search,
       label: "重新运行最新检索计划",
@@ -317,7 +323,7 @@ export function ProjectKnowledgeView({
             ))}
             {candidates.length === 0 && (
               <p className="text-sm italic text-[var(--text-primary)]/50">
-                运行官方源检索后会出现候选文献。
+                运行确定性候选检索后会出现候选文献。
               </p>
             )}
           </div>

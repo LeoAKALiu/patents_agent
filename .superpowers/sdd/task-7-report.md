@@ -132,3 +132,15 @@ Manual smoke summary:
 
 - No production spec text change was needed because the design spec already matched the implemented fake-provider-first and fail-closed behavior.
 - Manual smoke validated the default Knowledge and Grantability surfaces, but did not walk the full candidate decision plus corpus build flow entirely through UI clicks because automated backend/frontend coverage already exercises that chain end to end.
+
+## Addendum: Branch-Level Review Blocker Fix
+
+- Follow-up fix on branch `codex/automation-test-plan` from head `7ee9362c`.
+- Wired project knowledge staleness to real project mutations and patent-point create/update/delete mutations.
+- Regeneration path for `POST /api/projects/{project_id}/knowledge/search-intent` now creates a fresh intent and plan from the current project snapshot plus selected patent points.
+- UI copy now refers to deterministic candidate search instead of implying a live official-source provider, and stale / needs-supplemental-search states now regenerate a fresh plan.
+- Verification rerun for this addendum:
+  - `python3 -m pytest tests/test_project_knowledge.py tests/test_api.py::test_project_creation_initializes_project_knowledge tests/test_api.py::test_project_knowledge_run_candidates_and_build_version -q`
+  - `python3 -m pytest tests/test_api.py tests/test_project_knowledge.py tests/test_grantability.py -q`
+  - `npm --prefix frontend test -- --run src/projectKnowledgeView.test.tsx src/features/corpus/CorpusWorkspace.test.tsx src/views/qualityViews.test.tsx`
+  - `npm --prefix frontend run build`
