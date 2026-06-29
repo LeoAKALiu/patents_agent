@@ -17,15 +17,12 @@
 
 ## Documentation Changes
 
-- Updated `docs/project-design-overview.md` so the expert-tools Knowledge row now describes:
-  - project evidence corpus
-  - knowledge search
-  - advanced local import fallback
-- Replaced the old corpus API paragraph with project knowledge endpoints plus advanced `/api/corpus/jobs/*` fallback endpoints.
-- Left `docs/superpowers/specs/2026-06-29-project-evidence-corpus-design.md` unchanged because it already matches the implemented behavior:
-  - fake provider first
-  - grantability low-evidence fail-closed gating
-  - advanced manual import as fallback
+- Updated `docs/project-design-overview.md` to match the actual knowledge API surface:
+  - `GET /api/projects/{project_id}/knowledge/candidates`
+  - `PATCH /api/projects/{project_id}/knowledge/candidates/{candidate_id}`
+  - `POST /api/projects/{project_id}/knowledge/candidates/bulk-decision`
+- Revised the Knowledge expert-tools row and search-plan run description so they now describe the deterministic fake-provider-first implementation, while keeping the future official/public-provider shape and the advanced local import fallback visible.
+- Left `docs/superpowers/specs/2026-06-29-project-evidence-corpus-design.md` unchanged because it already matches the implemented behavior.
 
 ## Verification Commands
 
