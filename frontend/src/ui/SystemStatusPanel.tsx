@@ -1,4 +1,11 @@
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { ProjectRecord, Health, AgentDoctorReport } from "@/api";
 
 export interface SystemStatusPanelProps {
@@ -54,11 +61,17 @@ function backendLabel(
   return { label: "检测中", variant: "secondary" };
 }
 
+function projectListLabel(projectListStatus: "idle" | "loading" | "ready" | "failed"): string {
+  if (projectListStatus === "failed") return "加载失败";
+  if (projectListStatus === "loading") return "加载中";
+  if (projectListStatus === "idle") return "未加载";
+  return "正常";
+}
+
 export function SystemStatusPanel({
   health,
   agentDoctor,
   backendStatus = "unknown",
-  projectListStatus = "idle",
   agentRunModeLabel = (mode) => mode,
 }: SystemStatusPanelProps) {
   const model = modelStatus(health, backendStatus);
@@ -77,28 +90,56 @@ export function SystemStatusPanel({
           {backend.label}
         </Badge>
       </StatusRow>
-
-      <details className="system-status-diagnostics">
-        <summary>查看诊断</summary>
-        <dl>
-          <div>
-            <dt>模型名称</dt>
-            <dd>{health?.model || "未检测"}</dd>
-          </div>
-          <div>
-            <dt>向量模型</dt>
-            <dd>{health?.embedding_model || "未检测"}</dd>
-          </div>
-          <div>
-            <dt>数据目录</dt>
-            <dd>{health?.data_dir || "未检测"}</dd>
-          </div>
-          <div>
-            <dt>项目列表</dt>
-            <dd>{projectListStatus === "failed" ? "加载失败" : "正常"}</dd>
-          </div>
-        </dl>
-      </details>
     </div>
+  );
+}
+
+export interface SystemDiagnosticsDialogProps extends SystemStatusPanelProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function SystemDiagnosticsDialog({
+  open,
+  onOpenChange,
+  health,
+  agentDoctor,
+  backendStatus = "unknown",
+  projectListStatus = "idle",
+  agentRunModeLabel = (mode) => mode,
+}: SystemDiagnosticsDialogProps) {
+  const backend = backendLabel(backendStatus);
+  const agents = agentStatus(agentDoctor, backendStatus, agentRunModeLabel);
+  const agentMode = agentDoctor ? agentRunModeLabel(agentDoctor.run_mode) : "未检测";
+  const rows = [
+    ["后端状态", backend.label],
+    ["项目列表", projectListLabel(projectListStatus)],
+    ["模型名称", health?.model || "未检测"],
+    ["向量模型", health?.embedding_model || "未检测"],
+    ["数据目录", health?.data_dir || "未检测"],
+    ["智能体状态", agents.label],
+  ];
+
+  if (agentMode !== agents.label) {
+    rows.push(["智能体模式", agentMode]);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="system-diagnostics-dialog">
+        <DialogHeader>
+          <DialogTitle>后端诊断</DialogTitle>
+          <DialogDescription>当前后端连接、模型配置与智能体运行摘要。</DialogDescription>
+        </DialogHeader>
+        <dl className="system-diagnostics-list">
+          {rows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </DialogContent>
+    </Dialog>
   );
 }

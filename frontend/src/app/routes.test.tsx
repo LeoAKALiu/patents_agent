@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import appSource from "@/App.tsx?raw";
@@ -341,6 +342,69 @@ describe("AppRoot routes", () => {
     expect(screen.getByText("在线")).toBeInTheDocument();
     expect(screen.queryByText("当前项目")).not.toBeInTheDocument();
     expect(screen.queryByText("内部痕迹检查")).not.toBeInTheDocument();
+    expect(screen.queryByText("模型名称")).not.toBeInTheDocument();
+    expect(screen.queryByText("向量模型")).not.toBeInTheDocument();
+    expect(screen.queryByText("数据目录")).not.toBeInTheDocument();
+    expect(screen.queryByText("/tmp/patent-agent")).not.toBeInTheDocument();
+    expect(screen.queryByText("qwen")).not.toBeInTheDocument();
+    expect(screen.queryByText("bge")).not.toBeInTheDocument();
+  });
+
+  it("opens backend diagnostics from the topbar backend chip", async () => {
+    const selectedProject = makeProject();
+    const health: Health = {
+      ok: true,
+      llm_configured: true,
+      data_dir: "/tmp/patent-agent",
+      model: "qwen-plus",
+      embedding_model: "bge-m3",
+    };
+    const agentDoctor: AgentDoctorReport = {
+      status: "degraded",
+      run_mode: "partial",
+      commands: {},
+      active_provider_ids: [],
+      missing_required: [],
+      missing_optional: ["codex"],
+      unknown_required: [],
+    };
+
+    render(
+      <AppRoot
+        {...makeRootProps()}
+        selectedProject={selectedProject}
+        projects={[selectedProject]}
+        health={health}
+        agentDoctor={agentDoctor}
+        backendStatus="online"
+        projectListStatus="ready"
+        projectState={{
+          ...makeRootProps().projectState,
+          selectedProject,
+          projects: [selectedProject],
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("模型名称")).not.toBeInTheDocument();
+    expect(screen.queryByText("/tmp/patent-agent")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "后端在线" }));
+
+    const dialog = screen.getByRole("dialog", { name: "后端诊断" });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText("后端状态")).toBeInTheDocument();
+    expect(within(dialog).getByText("在线")).toBeInTheDocument();
+    expect(within(dialog).getByText("项目列表")).toBeInTheDocument();
+    expect(within(dialog).getByText("正常")).toBeInTheDocument();
+    expect(within(dialog).getByText("模型名称")).toBeInTheDocument();
+    expect(within(dialog).getByText("qwen-plus")).toBeInTheDocument();
+    expect(within(dialog).getByText("向量模型")).toBeInTheDocument();
+    expect(within(dialog).getByText("bge-m3")).toBeInTheDocument();
+    expect(within(dialog).getByText("数据目录")).toBeInTheDocument();
+    expect(within(dialog).getByText("/tmp/patent-agent")).toBeInTheDocument();
+    expect(within(dialog).getByText("智能体状态")).toBeInTheDocument();
+    expect(within(dialog).getByText("部分可用")).toBeInTheDocument();
   });
 
   it("is wired from App.tsx instead of the legacy inline shell renderer", () => {

@@ -279,44 +279,45 @@ button.nav-link span {
   white-space: nowrap;
 }
 
-.system-status-diagnostics {
-  min-width: 0;
-  padding-top: 4px;
-  color: var(--text-muted);
-  font-size: 12px;
+.system-diagnostics-dialog {
+  max-width: min(92vw, 460px);
 }
 
-.system-status-diagnostics summary {
-  cursor: pointer;
-  color: var(--text-soft);
-  font-weight: 700;
-  list-style-position: inside;
-}
-
-.system-status-diagnostics dl {
+.system-diagnostics-list {
   display: grid;
-  gap: 6px;
-  margin: 8px 0 0;
+  gap: 8px;
+  margin: 0;
 }
 
-.system-status-diagnostics dl > div {
+.system-diagnostics-list > div {
   display: grid;
-  gap: 2px;
+  grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
   min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.system-status-diagnostics dt,
-.system-status-diagnostics dd {
+.system-diagnostics-list > div:last-child {
+  border-bottom: 0;
+}
+
+.system-diagnostics-list dt,
+.system-diagnostics-list dd {
   min-width: 0;
   margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 13px;
 }
 
-.system-status-diagnostics dt {
+.system-diagnostics-list dt {
   color: var(--text-soft);
   font-weight: 700;
+}
+
+.system-diagnostics-list dd {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
 }
 
 /* ── Main area ────────────────────────────────────────────────── */

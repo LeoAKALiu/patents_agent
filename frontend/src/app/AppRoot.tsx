@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { SettingsPanel } from "@/SettingsPanel";
 import { ExpertToolChooser } from "@/views/expertViews";
 import { BusyOperationConsole } from "@/views/runtimePanel";
-import { SystemStatusPanel } from "@/ui/SystemStatusPanel";
+import { SystemDiagnosticsDialog, SystemStatusPanel } from "@/ui/SystemStatusPanel";
 import type { ThemeMode } from "@/ui/useTheme";
 import { ShellLayout } from "@/app/ShellLayout";
 import {
@@ -47,7 +48,7 @@ import type { Health, AgentDoctorReport, ProjectRecord } from "@/api";
  * workspace inside. App.tsx keeps the existing state machine and forwards the
  * current state/handlers as props.
  *
- * AppRoot does not own state. It only:
+ * AppRoot does not own workflow state. It only:
  *   1. Decides which route is active via resolveRoute().
  *   2. Renders ShellLayout (sidebar + topbar + workspace area).
  *   3. Renders the workspace that matches the active route.
@@ -228,6 +229,7 @@ function projectWorkspace(props: AppRootProps, section: "generate" | "utility" |
 }
 
 export function AppRoot(props: AppRootProps) {
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const route = resolveRoute(
     props.activeSection,
     props.activeExpertTool,
@@ -245,73 +247,85 @@ export function AppRoot(props: AppRootProps) {
   const showExpertWorkspace = route === "knowledge" || route === "export" || route === "expert";
   const showExpertChooser = props.activeSection === "expert";
   return (
-    <ShellLayout
-      activeSectionId={props.activeSection}
-      mainSections={sidebarMain}
-      onSelectSection={(id) => props.onSelectSection(id as MainSectionId)}
-      sidebarFooter={
-        <SystemStatusPanel
-          health={props.health}
-          agentDoctor={props.agentDoctor}
-          backendStatus={props.backendStatus}
-          projectListStatus={props.projectListStatus}
-          agentRunModeLabel={agentRunModeLabel}
-        />
-      }
-      topbar={{
-        onRefresh: () => void props.onRefresh(),
-        statusLabel: props.busy ? "处理中" : "空闲",
-        statusVariant: props.busy ? "busy" : "idle",
-        exportStatusLabel: exportStatusChip.label,
-        exportStatusVariant: exportStatusChip.variant,
-        backendStatus: props.backendStatus,
-        projectSelector: (
-          <ProjectSelectorSlot
-            projects={props.projects}
-            selectedProjectId={props.selectedProject?.id ?? ""}
-            loadStatus={props.projectListStatus}
-            onSelect={props.onSelectProjectId}
+    <>
+      <ShellLayout
+        activeSectionId={props.activeSection}
+        mainSections={sidebarMain}
+        onSelectSection={(id) => props.onSelectSection(id as MainSectionId)}
+        sidebarFooter={
+          <SystemStatusPanel
+            health={props.health}
+            agentDoctor={props.agentDoctor}
+            backendStatus={props.backendStatus}
+            projectListStatus={props.projectListStatus}
+            agentRunModeLabel={agentRunModeLabel}
           />
-        ),
-        actions: topbarRecoveryAction(props),
-      }}
-      pageTitle={title}
-      pageSubtitle={subtitle}
-    >
-      {mobileNav(props)}
-      {noticeBar(props)}
-      <div className="workspace">
-        {(route === "workbench" || route === "documents") &&
-          projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")}
-        {route === "projects-overview" && projectWorkspace(props, "projects")}
-        {route === "settings" && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-            <SettingsPanel theme={props.theme} onThemeChange={props.onChangeTheme} />
-          </div>
-        )}
-        {showExpertWorkspace && (
-          <div className="flex flex-col gap-4">
-            {showExpertChooser && (
-              <ExpertToolChooser activeToolId={props.activeExpertTool} onSelect={props.onSelectExpertTool} />
-            )}
-            {route === "knowledge" && (
-              <CorpusWorkspace
-                tool={knowledgeTool(props.activeExpertTool)}
-                state={props.corpusState}
-                handlers={props.corpusHandlers}
-              />
-            )}
-            {route === "export" && (
-              <PostDraftWorkspace
-                tool="export"
-                state={props.postDraftState}
-                handlers={props.postDraftHandlers}
-              />
-            )}
-            {route === "expert" && expertSection(props)}
-          </div>
-        )}
-      </div>
-    </ShellLayout>
+        }
+        topbar={{
+          onRefresh: () => void props.onRefresh(),
+          statusLabel: props.busy ? "处理中" : "空闲",
+          statusVariant: props.busy ? "busy" : "idle",
+          exportStatusLabel: exportStatusChip.label,
+          exportStatusVariant: exportStatusChip.variant,
+          backendStatus: props.backendStatus,
+          onOpenDiagnostics: () => setDiagnosticsOpen(true),
+          projectSelector: (
+            <ProjectSelectorSlot
+              projects={props.projects}
+              selectedProjectId={props.selectedProject?.id ?? ""}
+              loadStatus={props.projectListStatus}
+              onSelect={props.onSelectProjectId}
+            />
+          ),
+          actions: topbarRecoveryAction(props),
+        }}
+        pageTitle={title}
+        pageSubtitle={subtitle}
+      >
+        {mobileNav(props)}
+        {noticeBar(props)}
+        <div className="workspace">
+          {(route === "workbench" || route === "documents") &&
+            projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")}
+          {route === "projects-overview" && projectWorkspace(props, "projects")}
+          {route === "settings" && (
+            <div className="px-4 md:px-8 py-4 md:py-6">
+              <SettingsPanel theme={props.theme} onThemeChange={props.onChangeTheme} />
+            </div>
+          )}
+          {showExpertWorkspace && (
+            <div className="flex flex-col gap-4">
+              {showExpertChooser && (
+                <ExpertToolChooser activeToolId={props.activeExpertTool} onSelect={props.onSelectExpertTool} />
+              )}
+              {route === "knowledge" && (
+                <CorpusWorkspace
+                  tool={knowledgeTool(props.activeExpertTool)}
+                  state={props.corpusState}
+                  handlers={props.corpusHandlers}
+                />
+              )}
+              {route === "export" && (
+                <PostDraftWorkspace
+                  tool="export"
+                  state={props.postDraftState}
+                  handlers={props.postDraftHandlers}
+                />
+              )}
+              {route === "expert" && expertSection(props)}
+            </div>
+          )}
+        </div>
+      </ShellLayout>
+      <SystemDiagnosticsDialog
+        open={diagnosticsOpen}
+        onOpenChange={setDiagnosticsOpen}
+        health={props.health}
+        agentDoctor={props.agentDoctor}
+        backendStatus={props.backendStatus}
+        projectListStatus={props.projectListStatus}
+        agentRunModeLabel={agentRunModeLabel}
+      />
+    </>
   );
 }
