@@ -1312,8 +1312,12 @@ function App() {
 
   async function handleGenerateKnowledgePlan(): Promise<void> {
     if (!selectedProject) return;
+    const projectId = selectedProject.id;
     await withStatus("knowledge-plan", async () => {
-      const overview = await createProjectSearchIntent(selectedProject.id);
+      const overview = await createProjectSearchIntent(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
       setProjectKnowledge(overview);
       setMessage("已生成 Agent 检索计划。");
     });
@@ -1322,8 +1326,12 @@ function App() {
   async function handleRunKnowledgeSearch(): Promise<void> {
     const latestPlan = projectKnowledge?.latest_plan;
     if (!selectedProject || !latestPlan) return;
+    const projectId = selectedProject.id;
     await withStatus("knowledge-search", async () => {
-      const overview = await runProjectSearchPlan(selectedProject.id, latestPlan.id);
+      const overview = await runProjectSearchPlan(projectId, latestPlan.id);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
       setProjectKnowledge(overview);
       setMessage(`已生成 ${overview.candidates.length} 条候选文献。`);
     });
@@ -1334,17 +1342,25 @@ function App() {
     decision: PriorArtCandidate["user_decision"],
   ): Promise<void> {
     if (!selectedProject) return;
+    const projectId = selectedProject.id;
     await withStatus("knowledge-candidate", async () => {
-      await updateProjectKnowledgeCandidate(selectedProject.id, candidateId, decision);
-      await loadProjectKnowledge(selectedProject.id);
+      await updateProjectKnowledgeCandidate(projectId, candidateId, decision);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      await loadProjectKnowledge(projectId);
     });
   }
 
   async function handleBuildProjectCorpus(): Promise<void> {
     const latestPlan = projectKnowledge?.latest_plan;
     if (!selectedProject || !latestPlan) return;
+    const projectId = selectedProject.id;
     await withStatus("knowledge-build", async () => {
-      const overview = await buildProjectCorpusVersion(selectedProject.id, latestPlan.id);
+      const overview = await buildProjectCorpusVersion(projectId, latestPlan.id);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
       setProjectKnowledge(overview);
       setMessage(`项目语料库已就绪：${overview.state.document_count} 件文献。`);
     });
