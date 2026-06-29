@@ -145,3 +145,39 @@ Result summary:
    - passed: 4 files, 80 tests
 3. `cd frontend && npm test`
    - passed: 28 files, 195 tests
+
+## Third fix after final re-review
+
+- Repair worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
+- Repair branch: `codex/ui-refactor-2026-06-29`
+- Repair starting HEAD: `905ab8fb`
+- Dirty at repair start: no
+
+### Reviewer blocker addressed
+
+- Fixed the Task 1 routing regression where `activeSection === "documents"` / `文稿与修复` appeared as a top-level navigation item but had no independent route kind or page title and fell through to the workbench/guided route.
+
+### Changes made
+
+- Updated `frontend/src/app/routes.tsx` so `resolveRoute()` returns a dedicated minimal `documents` route kind.
+- Updated `frontend/src/app/AppRoot.tsx` so:
+  - `documents` uses title `文稿与修复`
+  - `documents` uses subtitle `处理当前项目的正文、问题和版本链路`
+  - `documents` renders the existing project workspace surface via `projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")`
+- Updated `frontend/src/app/routes.test.tsx` with route/title/rendering coverage for the `documents` section.
+
+### TDD evidence
+
+1. `cd frontend && npm test -- app/routes.test.tsx`
+   - RED: failed as expected because `resolveRoute("documents", ...)` returned `start-choice` and AppRoot still rendered the `工作台` title.
+2. `cd frontend && npm test -- app/routes.test.tsx`
+   - GREEN: passed: 1 file, 7 tests
+
+### Verification
+
+1. `cd frontend && npm run build`
+   - passed
+2. `cd frontend && npm test -- app/routes.test.tsx guidedFlow.test.ts domain.test.ts AppStateRecovery.test.ts`
+   - passed: 4 files, 81 tests
+3. `cd frontend && npm test`
+   - passed: 28 files, 196 tests

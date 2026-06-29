@@ -16,6 +16,7 @@ export type RouteKind =
   | "start-choice"
   | "guided"
   | "projects-overview"
+  | "documents"
   | "settings"
   | "knowledge"
   | "export"
@@ -36,6 +37,7 @@ export function resolveRoute(
   hasStartChoice: boolean,
 ): RouteKind {
   if (activeSection === "projects") return "projects-overview";
+  if (activeSection === "documents") return "documents";
   if (activeSection === "settings") return "settings";
   if (activeSection === "knowledge") return "knowledge";
   if (activeSection === "export") return "export";

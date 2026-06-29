@@ -228,6 +228,7 @@ function expertSection(props: AppRootProps, kind: RouteKind): React.ReactNode {
 
 function pageTitleForSection(activeSection: MainSectionId): { title: string; subtitle?: string } {
   if (activeSection === "projects") return { title: "项目", subtitle: "查看历史项目和运行记录" };
+  if (activeSection === "documents") return { title: "文稿与修复", subtitle: "处理当前项目的正文、问题和版本链路" };
   if (activeSection === "settings") return { title: "设置", subtitle: "本机 LLM 服务参数与 API Key" };
   if (activeSection === "knowledge") return { title: "知识库", subtitle: "构建与检索现有语料库" };
   if (activeSection === "expert") return { title: "专家工具", subtitle: "按工作流阶段拆分的子工具集" };
@@ -329,7 +330,7 @@ export function AppRoot(props: AppRootProps) {
       {mobileNav(props)}
       {noticeBar(props)}
       <div className="workspace">
-        {(route === "start-choice" || route === "guided") &&
+        {(route === "start-choice" || route === "guided" || route === "documents") &&
           projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")}
         {route === "projects-overview" && projectWorkspace(props, "projects")}
         {route === "settings" && (
