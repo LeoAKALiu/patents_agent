@@ -189,17 +189,19 @@ export function normalizeMainSectionId(
   value: unknown,
   activeExpertTool: ExpertToolId = defaultExpertToolId,
 ): MainSectionId {
+  if (value === "expert") {
+    // Legacy persisted state: route old expert sub-tools to their new
+    // top-level destinations before accepting "expert" as the new section.
+    if (activeExpertTool === "build" || activeExpertTool === "corpus") return "knowledge";
+    if (activeExpertTool === "export") return "export";
+    return "expert";
+  }
   if (value === "workbench" || value === "projects" || value === "documents" ||
       value === "knowledge" || value === "expert" || value === "export" ||
       value === "settings") {
     return value;
   }
   if (value === "generate" || value === "utility") return "workbench";
-  if (value === "expert") {
-    if (activeExpertTool === "build" || activeExpertTool === "corpus") return "knowledge";
-    if (activeExpertTool === "export") return "export";
-    return "expert";
-  }
   return defaultMainSectionId;
 }
 ```
