@@ -250,6 +250,28 @@ def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
     ]
 
 
+def test_create_project_corpus_preserves_active_intent_and_last_search_metadata(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+
+    before_build = knowledge_overview(store, project.id)
+    assert before_build.state.active_intent_id == overview.latest_intent.id
+    assert before_build.state.active_plan_id == overview.latest_plan.id
+    assert before_build.state.last_search_at
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    assert after_build.state.active_intent_id == before_build.state.active_intent_id
+    assert after_build.state.active_plan_id == before_build.state.active_plan_id
+    assert after_build.state.last_search_at == before_build.state.last_search_at
+    assert after_build.state.last_indexed_at
+    assert after_build.state.active_corpus_version_id == after_build.latest_corpus_version.id
+
+
 def test_candidate_decisions_reject_superseded_or_stale_candidates_without_partial_mutation(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))

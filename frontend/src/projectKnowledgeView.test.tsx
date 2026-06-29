@@ -226,6 +226,7 @@ describe("ProjectKnowledgeView", () => {
   it("regenerates a fresh plan for stale knowledge states", () => {
     const onRunKnowledgeSearch = vi.fn();
     const onGenerateKnowledgePlan = vi.fn();
+    const onCandidateDecision = vi.fn();
     const knowledge: ProjectKnowledgeOverview = {
       ...baseOverview,
       candidates: [
@@ -248,17 +249,22 @@ describe("ProjectKnowledgeView", () => {
         busy=""
         onGenerateKnowledgePlan={onGenerateKnowledgePlan}
         onRunKnowledgeSearch={onRunKnowledgeSearch}
-        onCandidateDecision={vi.fn()}
+        onCandidateDecision={onCandidateDecision}
         onBuildProjectCorpus={vi.fn()}
       />,
     );
 
     expect(screen.queryByRole("button", { name: "确认建库" })).not.toBeInTheDocument();
     expect(screen.getAllByText(/需要重新生成检索计划后才能再次建库/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "纳入建库" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "排除" })).not.toBeInTheDocument();
+    expect(screen.getByText("这些候选属于旧的项目快照，当前只能只读查看。请先重新生成检索计划，再对新候选执行纳入或排除。")).toBeInTheDocument();
+    expect(screen.getByText("候选已过期，请重新生成检索计划。")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "重新生成检索计划" }));
 
     expect(onGenerateKnowledgePlan).toHaveBeenCalled();
     expect(onRunKnowledgeSearch).not.toHaveBeenCalled();
+    expect(onCandidateDecision).not.toHaveBeenCalled();
   });
 });

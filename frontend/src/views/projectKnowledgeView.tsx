@@ -148,9 +148,11 @@ export function ProjectKnowledgeView({
   const state = knowledge?.state;
   const latestCorpusVersion = knowledge?.latest_corpus_version ?? null;
   const includedCandidates = candidates.filter((candidate) => candidate.user_decision === "include");
+  const hasReadonlyCandidates =
+    status === "stale" || status === "not_started" || status === "search_running" || status === "failed";
+  const canDecideCandidates = !hasReadonlyCandidates;
   const canBuildCorpus =
-    includedCandidates.length > 0 &&
-    (status === "candidates_pending" || status === "needs_supplemental_search" || status === "ready");
+    includedCandidates.length > 0 && canDecideCandidates;
   const qualityFlags = Array.from(new Set(state?.quality_flags ?? []));
   const guidanceCards = qualityFlags.map((flag) => ({ flag, ...qualityFlagCopy(flag, state?.staleness_reason ?? "") }));
 
@@ -283,6 +285,13 @@ export function ProjectKnowledgeView({
               当前候选来自已过期的项目快照，需要重新生成检索计划后才能再次建库。
             </div>
           )}
+          {hasReadonlyCandidates && candidates.length > 0 && (
+            <div className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-4 py-3 text-sm text-[var(--text-primary)]/80">
+              {status === "stale"
+                ? "这些候选属于旧的项目快照，当前只能只读查看。请先重新生成检索计划，再对新候选执行纳入或排除。"
+                : "当前状态下候选文献仅供只读查看。请先完成新的检索计划或重新生成候选文献，再继续纳入或排除。"}
+            </div>
+          )}
           <div className="flex flex-col gap-3">
             {candidates.map((candidate) => (
               <article
@@ -304,24 +313,30 @@ export function ProjectKnowledgeView({
                       </span>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-sm"
-                      onClick={() => onCandidateDecision(candidate.id, "include")}
-                      type="button"
-                    >
-                      <CheckCircle2 size={15} />
-                      纳入建库
-                    </button>
-                    <button
-                      className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-sm"
-                      onClick={() => onCandidateDecision(candidate.id, "exclude")}
-                      type="button"
-                    >
-                      <XCircle size={15} />
-                      排除
-                    </button>
-                  </div>
+                  {canDecideCandidates ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-sm"
+                        onClick={() => onCandidateDecision(candidate.id, "include")}
+                        type="button"
+                      >
+                        <CheckCircle2 size={15} />
+                        纳入建库
+                      </button>
+                      <button
+                        className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-sm"
+                        onClick={() => onCandidateDecision(candidate.id, "exclude")}
+                        type="button"
+                      >
+                        <XCircle size={15} />
+                        排除
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-2 text-xs text-[var(--text-primary)]/60">
+                      {status === "stale" ? "候选已过期，请重新生成检索计划。" : "当前为只读候选，待生成新结果后再决策。"}
+                    </div>
+                  )}
                 </div>
                 <p className="mt-2 text-sm text-[var(--text-primary)]/65">{candidate.abstract}</p>
                 <p className="mt-2 text-xs text-[var(--text-primary)]/55">

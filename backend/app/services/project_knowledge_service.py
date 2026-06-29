@@ -350,7 +350,7 @@ def create_project_corpus_from_included_candidates(
     project_id: str,
     plan_id: str,
 ) -> ProjectKnowledgeOverview:
-    _state, _plan = _get_active_plan(store, project_id, plan_id)
+    state, _plan = _get_active_plan(store, project_id, plan_id)
     included = [
         candidate
         for candidate in store.list_prior_art_candidates(project_id, plan_id)
@@ -394,19 +394,20 @@ def create_project_corpus_from_included_candidates(
         quality_flags = []
     else:
         quality_flags = ["empty_corpus"]
-    state = ProjectKnowledgeState(
-        project_id=project_id,
-        status=state_status,
-        active_plan_id=plan_id,
-        active_corpus_version_id=version.id,
-        last_indexed_at=_now(),
-        document_count=version.document_count,
-        candidate_count=len(store.list_prior_art_candidates(project_id, plan_id)),
-        claim_coverage=version.claim_coverage,
-        fulltext_coverage=version.fulltext_coverage,
-        quality_flags=quality_flags,
+    updated_state = state.model_copy(
+        update={
+            "status": state_status,
+            "active_plan_id": plan_id,
+            "active_corpus_version_id": version.id,
+            "last_indexed_at": _now(),
+            "document_count": version.document_count,
+            "candidate_count": len(store.list_prior_art_candidates(project_id, plan_id)),
+            "claim_coverage": version.claim_coverage,
+            "fulltext_coverage": version.fulltext_coverage,
+            "quality_flags": quality_flags,
+        }
     )
-    store.upsert_project_knowledge_state(state)
+    store.upsert_project_knowledge_state(updated_state)
     return knowledge_overview(store, project_id)
 
 
