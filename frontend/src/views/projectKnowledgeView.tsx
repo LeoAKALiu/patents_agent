@@ -64,7 +64,7 @@ function qualityFlagCopy(flag: string, stalenessReason: string): { tone: "warnin
     case "synthetic_evidence":
       return {
         tone: "warning",
-        text: "当前证据库仅包含 synthetic/fake 候选结果，授权判断仍然受证据门控，不能视为真实检索结论。",
+        text: "建库已完成，但当前证据库仅包含 synthetic/fake 候选结果。授权判断仍然受证据门控，不能视为真实检索结论。",
       };
     case "empty_corpus":
       return {

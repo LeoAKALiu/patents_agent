@@ -188,6 +188,70 @@ def _get_active_plan(
     return state, plan
 
 
+def _get_mutable_candidate_set(
+    store: SQLiteStore,
+    project_id: str,
+    candidate_ids: list[str],
+) -> tuple[ProjectKnowledgeState, list[PriorArtCandidate]]:
+    state = store.get_project_knowledge_state(project_id) or ProjectKnowledgeState(project_id=project_id)
+    if state.status == "stale":
+        raise ProjectKnowledgeConflictError(
+            "Project knowledge is stale and must be regenerated before changing candidate decisions."
+        )
+    if state.status not in {"candidates_pending", "needs_supplemental_search", "ready"} or not state.active_plan_id:
+        raise ProjectKnowledgeConflictError(
+            "Project knowledge is not active for candidate decisions and must be regenerated or rerun first."
+        )
+
+    candidates_by_id = {
+        candidate.id: candidate
+        for candidate in store.list_prior_art_candidates(project_id)
+    }
+    missing_id = next((candidate_id for candidate_id in candidate_ids if candidate_id not in candidates_by_id), "")
+    if missing_id:
+        raise ValueError(f"Prior-art candidate not found: {missing_id}")
+
+    candidates = [candidates_by_id[candidate_id] for candidate_id in candidate_ids]
+    stale_id = next(
+        (candidate.id for candidate in candidates if candidate.plan_id != state.active_plan_id),
+        "",
+    )
+    if stale_id:
+        raise ProjectKnowledgeConflictError(
+            "Prior-art candidate no longer belongs to the active search plan for this project."
+        )
+    return state, candidates
+
+
+def update_project_candidate_decision(
+    store: SQLiteStore,
+    project_id: str,
+    candidate_id: str,
+    decision: str,
+) -> PriorArtCandidate:
+    _state, _candidates = _get_mutable_candidate_set(store, project_id, [candidate_id])
+    updated = store.update_prior_art_candidate_decision(project_id, candidate_id, decision)
+    if updated is None:
+        raise ValueError(f"Prior-art candidate not found: {candidate_id}")
+    return updated
+
+
+def bulk_update_project_candidate_decisions(
+    store: SQLiteStore,
+    project_id: str,
+    candidate_ids: list[str],
+    decision: str,
+) -> list[PriorArtCandidate]:
+    _state, _candidates = _get_mutable_candidate_set(store, project_id, candidate_ids)
+    updated: list[PriorArtCandidate] = []
+    for candidate_id in candidate_ids:
+        candidate = store.update_prior_art_candidate_decision(project_id, candidate_id, decision)
+        if candidate is None:
+            raise ValueError(f"Prior-art candidate not found: {candidate_id}")
+        updated.append(candidate)
+    return updated
+
+
 def knowledge_overview(store: SQLiteStore, project_id: str) -> ProjectKnowledgeOverview:
     state = store.get_project_knowledge_state(project_id) or ProjectKnowledgeState(project_id=project_id)
     latest_plan = store.get_latest_agent_search_plan(project_id)
@@ -323,9 +387,16 @@ def create_project_corpus_from_included_candidates(
         created_at=_now(),
     )
     store.create_project_corpus_version(version)
+    state_status = "needs_supplemental_search" if all_synthetic or not included else "ready"
+    if all_synthetic:
+        quality_flags = ["synthetic_evidence"]
+    elif included:
+        quality_flags = []
+    else:
+        quality_flags = ["empty_corpus"]
     state = ProjectKnowledgeState(
         project_id=project_id,
-        status="ready" if included else "needs_supplemental_search",
+        status=state_status,
         active_plan_id=plan_id,
         active_corpus_version_id=version.id,
         last_indexed_at=_now(),
@@ -333,7 +404,7 @@ def create_project_corpus_from_included_candidates(
         candidate_count=len(store.list_prior_art_candidates(project_id, plan_id)),
         claim_coverage=version.claim_coverage,
         fulltext_coverage=version.fulltext_coverage,
-        quality_flags=quality_flags if included else ["empty_corpus"],
+        quality_flags=quality_flags,
     )
     store.upsert_project_knowledge_state(state)
     return knowledge_overview(store, project_id)

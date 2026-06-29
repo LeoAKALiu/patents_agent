@@ -45,4 +45,10 @@ describe("App refresh effect dependencies", () => {
       /async function handleDeletePatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
     );
   });
+
+  it("announces gated synthetic-only corpus builds without the ready toast", () => {
+    expect(source).toContain('if (overview.state.quality_flags.includes("synthetic_evidence"))');
+    expect(source).toContain("项目证据库建库完成：");
+    expect(source).toContain("仍需补充检索");
+  });
 });

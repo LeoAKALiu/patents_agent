@@ -10,10 +10,12 @@ from backend.app.schemas import (
 )
 from backend.app.services.project_knowledge_service import (
     ProjectKnowledgeConflictError,
+    bulk_update_project_candidate_decisions,
     create_project_corpus_from_included_candidates,
     knowledge_overview,
     regenerate_project_knowledge,
     run_agent_search_plan,
+    update_project_candidate_decision as update_project_candidate_decision_in_store,
 )
 
 router = APIRouter(tags=["project-knowledge"])
@@ -66,13 +68,17 @@ def update_project_candidate_decision(
 ) -> dict:
     repo = get_project_repository(request)
     require_project(project_id, repo)
-    candidate = request.app.state.store.update_prior_art_candidate_decision(
-        project_id,
-        candidate_id,
-        payload.user_decision,
-    )
-    if not candidate:
-        raise HTTPException(status_code=404, detail="Prior-art candidate not found.")
+    try:
+        candidate = update_project_candidate_decision_in_store(
+            request.app.state.store,
+            project_id,
+            candidate_id,
+            payload.user_decision,
+        )
+    except ProjectKnowledgeConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return candidate.model_dump(mode="json")
 
 
@@ -84,31 +90,18 @@ def update_project_candidate_decisions(
 ) -> dict:
     repo = get_project_repository(request)
     require_project(project_id, repo)
-    store = request.app.state.store
-    known_candidates = {
-        candidate.id: candidate
-        for candidate in store.list_prior_art_candidates(project_id)
-    }
-    missing_ids = [candidate_id for candidate_id in payload.candidate_ids if candidate_id not in known_candidates]
-    if missing_ids:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Prior-art candidate not found: {missing_ids[0]}",
-        )
-    updated = []
-    for candidate_id in payload.candidate_ids:
-        candidate = store.update_prior_art_candidate_decision(
+    try:
+        updated = bulk_update_project_candidate_decisions(
+            request.app.state.store,
             project_id,
-            candidate_id,
+            payload.candidate_ids,
             payload.user_decision,
         )
-        if candidate is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Prior-art candidate not found: {candidate_id}",
-            )
-        updated.append(candidate.model_dump(mode="json"))
-    return {"candidates": updated}
+    except ProjectKnowledgeConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"candidates": [candidate.model_dump(mode="json") for candidate in updated]}
 
 
 @router.post("/api/projects/{project_id}/knowledge/corpus-versions")

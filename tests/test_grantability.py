@@ -513,7 +513,7 @@ def test_grantability_low_evidence_when_project_corpus_is_synthetic_only() -> No
         patent_points=_sample_patent_points(),
         project_knowledge_state=ProjectKnowledgeState(
             project_id="project-knowledge-synthetic",
-            status="ready",
+            status="needs_supplemental_search",
             document_count=2,
             candidate_count=2,
             quality_flags=["synthetic_evidence"],

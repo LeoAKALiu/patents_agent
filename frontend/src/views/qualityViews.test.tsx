@@ -53,11 +53,11 @@ const report: GrantabilityReport = {
 };
 
 describe("GrantabilityView knowledge gate copy", () => {
-  it("keeps ready corpus with synthetic evidence in a gated state", () => {
+  it("keeps synthetic-only corpus in a gated state", () => {
     const knowledge: ProjectKnowledgeOverview = {
       state: {
         project_id: "p-1",
-        status: "ready",
+        status: "needs_supplemental_search",
         active_intent_id: "",
         active_plan_id: "",
         active_corpus_version_id: "version-1",

@@ -408,7 +408,7 @@ def test_project_knowledge_run_candidates_and_build_version(tmp_path):
         json={"plan_id": plan_id},
     )
     assert version.status_code == 200
-    assert version.json()["state"]["status"] == "ready"
+    assert version.json()["state"]["status"] == "needs_supplemental_search"
     assert version.json()["latest_corpus_version"]["document_count"] >= 1
 
 
@@ -662,6 +662,74 @@ def test_project_knowledge_bulk_decision_updates_multiple_candidates(tmp_path):
     updated = response.json()["candidates"]
     assert [candidate["id"] for candidate in updated] == candidate_ids[:2]
     assert {candidate["user_decision"] for candidate in updated} == {"include"}
+
+
+def test_project_knowledge_rejects_superseded_single_candidate_decision_after_regeneration(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "候选失效测试", "draft_text": "验证旧候选不能在重生成后继续决策。"},
+    )
+    project_id = created.json()["id"]
+    original_plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{original_plan_id}/run")
+    assert run.status_code == 200
+    original_candidates = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"]
+    stale_candidate_id = original_candidates[0]["id"]
+
+    regenerated = client.post(f"/api/projects/{project_id}/knowledge/search-intent")
+    assert regenerated.status_code == 200
+    replacement_plan_id = regenerated.json()["latest_plan"]["id"]
+    assert replacement_plan_id != original_plan_id
+
+    rerun = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{replacement_plan_id}/run")
+    assert rerun.status_code == 200
+
+    response = client.patch(
+        f"/api/projects/{project_id}/knowledge/candidates/{stale_candidate_id}",
+        json={"user_decision": "include"},
+    )
+
+    assert response.status_code == 409
+    assert "active search plan" in response.json()["detail"]
+    stale_candidate = client.app.state.store.list_prior_art_candidates(project_id, original_plan_id)[0]
+    assert stale_candidate.user_decision == "pending"
+
+
+def test_project_knowledge_bulk_decision_rejects_superseded_candidate_without_partial_update(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "候选混合集测试", "draft_text": "验证批量更新遇到失效候选时不会发生部分写入。"},
+    )
+    project_id = created.json()["id"]
+    original_plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{original_plan_id}/run")
+    assert run.status_code == 200
+    stale_candidate_id = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"][0]["id"]
+
+    regenerated = client.post(f"/api/projects/{project_id}/knowledge/search-intent")
+    assert regenerated.status_code == 200
+    replacement_plan_id = regenerated.json()["latest_plan"]["id"]
+
+    rerun = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{replacement_plan_id}/run")
+    assert rerun.status_code == 200
+    active_candidate_id = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"][0]["id"]
+
+    response = client.post(
+        f"/api/projects/{project_id}/knowledge/candidates/bulk-decision",
+        json={"candidate_ids": [active_candidate_id, stale_candidate_id], "user_decision": "include"},
+    )
+
+    assert response.status_code == 409
+    assert "active search plan" in response.json()["detail"]
+    active_candidates = {
+        candidate.id: candidate
+        for candidate in client.app.state.store.list_prior_art_candidates(project_id, replacement_plan_id)
+    }
+    assert active_candidates[active_candidate_id].user_decision == "pending"
 
 
 def test_project_knowledge_corpus_version_rejects_invalid_plan_without_mutation(tmp_path):
@@ -955,7 +1023,7 @@ def test_grantability_report_api_generates_persists_and_exports(tmp_path):
     store.upsert_project_knowledge_state(
         ProjectKnowledgeState(
             project_id=project_id,
-            status="ready",
+            status="needs_supplemental_search",
             document_count=2,
             candidate_count=2,
             quality_flags=["synthetic_evidence"],

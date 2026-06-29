@@ -15,12 +15,14 @@ from backend.app.schemas import (
 )
 from backend.app.services.project_knowledge_service import (
     ProjectKnowledgeConflictError,
+    bulk_update_project_candidate_decisions,
     create_project_corpus_from_included_candidates,
     ensure_project_knowledge_initialized,
     knowledge_overview,
     mark_stale_if_project_changed,
     regenerate_project_knowledge,
     run_agent_search_plan,
+    update_project_candidate_decision,
 )
 from backend.app.services.project_service import build_project_record
 from backend.app.storage import SQLiteStore
@@ -235,7 +237,7 @@ def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
 
     after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
 
-    assert after_build.state.status == "ready"
+    assert after_build.state.status == "needs_supplemental_search"
     assert after_build.latest_corpus_version is not None
     assert after_build.latest_corpus_version.document_count == 2
     assert after_build.state.document_count == 2
@@ -246,6 +248,43 @@ def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
     assert after_build.latest_corpus_version.quality_report.failures == [
         {"code": "synthetic_evidence", "message": "Corpus built from synthetic fake-source candidates only."}
     ]
+
+
+def test_candidate_decisions_reject_superseded_or_stale_candidates_without_partial_mutation(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    initial = ensure_project_knowledge_initialized(store, project)
+    original_plan_id = initial.latest_plan.id
+    original_run = run_agent_search_plan(store, project.id, original_plan_id)
+    original_candidate_ids = [candidate.id for candidate in original_run.candidates[:2]]
+
+    regenerated = regenerate_project_knowledge(store, project, [])
+    replacement_plan_id = regenerated.latest_plan.id
+    run_agent_search_plan(store, project.id, replacement_plan_id)
+    replacement_candidates = store.list_prior_art_candidates(project.id, replacement_plan_id)
+    active_candidate_id = replacement_candidates[0].id
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="active search plan"):
+        update_project_candidate_decision(store, project.id, original_candidate_ids[0], "include")
+    assert store.list_prior_art_candidates(project.id, original_plan_id)[0].user_decision == "pending"
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="active search plan"):
+        bulk_update_project_candidate_decisions(
+            store,
+            project.id,
+            [active_candidate_id, original_candidate_ids[0]],
+            "include",
+        )
+    refreshed_active_candidates = {candidate.id: candidate for candidate in store.list_prior_art_candidates(project.id, replacement_plan_id)}
+    assert refreshed_active_candidates[active_candidate_id].user_decision == "pending"
+
+    mutated_project = project.model_copy(update={"draft_text": "改为桥梁裂缝检测和声学视觉复检。"})
+    mark_stale_if_project_changed(store, mutated_project, [])
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="stale"):
+        update_project_candidate_decision(store, project.id, active_candidate_id, "include")
+    assert store.list_prior_art_candidates(project.id, replacement_plan_id)[0].user_decision == "pending"
 
 
 def test_superseded_plan_cannot_run_or_build_and_does_not_reactivate(tmp_path):

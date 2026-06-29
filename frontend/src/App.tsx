@@ -1362,7 +1362,19 @@ function App() {
         return;
       }
       setProjectKnowledge(overview);
-      setMessage(`项目语料库已就绪：${overview.state.document_count} 件文献。`);
+      if (overview.state.status === "ready") {
+        setMessage(`项目语料库已就绪：${overview.state.document_count} 件文献。`);
+        return;
+      }
+      if (overview.state.quality_flags.includes("synthetic_evidence")) {
+        setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献，但当前仅含 synthetic/fake 证据，仍需补充检索。`);
+        return;
+      }
+      if (overview.state.status === "needs_supplemental_search") {
+        setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献，但当前仍需补充检索。`);
+        return;
+      }
+      setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献。`);
     });
   }
 
