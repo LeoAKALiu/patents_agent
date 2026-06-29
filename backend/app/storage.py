@@ -429,6 +429,41 @@ class SQLiteStore:
         updated = candidate.model_copy(update={"user_decision": decision})
         return self.upsert_prior_art_candidate(updated)
 
+    def apply_prior_art_candidate_updates(
+        self,
+        candidates: list[PriorArtCandidate],
+        state: ProjectKnowledgeState | None = None,
+    ) -> list[PriorArtCandidate]:
+        with self.connection:
+            for candidate in candidates:
+                self.connection.execute(
+                    """
+                    insert into prior_art_candidates(id, project_id, plan_id, candidate_json)
+                    values (?, ?, ?, ?)
+                    on conflict(id) do update set
+                        candidate_json = excluded.candidate_json,
+                        updated_at = current_timestamp
+                    """,
+                    (
+                        candidate.id,
+                        candidate.project_id,
+                        candidate.plan_id,
+                        json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False),
+                    ),
+                )
+            if state is not None:
+                self.connection.execute(
+                    """
+                    insert into project_knowledge_states(project_id, state_json)
+                    values (?, ?)
+                    on conflict(project_id) do update set
+                        state_json = excluded.state_json,
+                        updated_at = current_timestamp
+                    """,
+                    (state.project_id, json.dumps(state.model_dump(mode="json"), ensure_ascii=False)),
+                )
+        return candidates
+
     def create_project_corpus_version(self, version: ProjectCorpusVersion) -> ProjectCorpusVersion:
         with self.connection:
             self.connection.execute(

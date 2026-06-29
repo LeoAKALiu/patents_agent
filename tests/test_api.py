@@ -688,6 +688,113 @@ def test_project_knowledge_bulk_decision_updates_multiple_candidates(tmp_path):
     assert {candidate["user_decision"] for candidate in updated} == {"include"}
 
 
+def test_project_knowledge_single_candidate_change_invalidates_active_ready_corpus(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "单候选失效建库测试", "draft_text": "验证候选变更会使现有语料库失效。"},
+    )
+    project_id = created.json()["id"]
+    plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")
+    assert run.status_code == 200
+    candidates = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"]
+    assert len(candidates) >= 2
+    store = client.app.state.store
+    for candidate in store.list_prior_art_candidates(project_id, plan_id)[:2]:
+        store.upsert_prior_art_candidate(candidate.model_copy(update={"source": "google_patents"}))
+
+    for candidate in candidates[:2]:
+        include = client.patch(
+            f"/api/projects/{project_id}/knowledge/candidates/{candidate['id']}",
+            json={"user_decision": "include"},
+        )
+        assert include.status_code == 200
+
+    built = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": plan_id},
+    )
+    assert built.status_code == 200
+    before = built.json()
+    built_version_id = before["latest_corpus_version"]["id"]
+    assert before["state"]["status"] == "ready"
+    assert before["state"]["active_corpus_version_id"] == built_version_id
+
+    changed = client.patch(
+        f"/api/projects/{project_id}/knowledge/candidates/{candidates[0]['id']}",
+        json={"user_decision": "exclude"},
+    )
+    assert changed.status_code == 200
+    assert changed.json()["user_decision"] == "exclude"
+
+    after = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert after["state"]["status"] == "candidates_pending"
+    assert after["state"]["active_corpus_version_id"] == ""
+    assert after["state"]["last_indexed_at"] == ""
+    assert after["state"]["document_count"] == 0
+    assert after["state"]["claim_coverage"] == 0
+    assert after["state"]["fulltext_coverage"] == 0
+    assert after["state"]["quality_flags"] == ["candidates_need_confirmation"]
+    assert after["state"]["active_intent_id"] == before["state"]["active_intent_id"]
+    assert after["state"]["active_plan_id"] == before["state"]["active_plan_id"]
+    assert after["state"]["last_search_at"] == before["state"]["last_search_at"]
+    assert after["state"]["candidate_count"] == before["state"]["candidate_count"]
+    assert after["latest_corpus_version"] is None
+    assert client.app.state.store.get_latest_project_corpus_version(project_id).id == built_version_id
+
+
+def test_project_knowledge_bulk_candidate_change_invalidates_active_ready_corpus(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "批量候选失效建库测试", "draft_text": "验证批量候选变更会使现有语料库失效。"},
+    )
+    project_id = created.json()["id"]
+    plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")
+    assert run.status_code == 200
+    candidates = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"]
+    candidate_ids = [candidate["id"] for candidate in candidates[:2]]
+    assert len(candidate_ids) == 2
+    store = client.app.state.store
+    for candidate in store.list_prior_art_candidates(project_id, plan_id)[:2]:
+        store.upsert_prior_art_candidate(candidate.model_copy(update={"source": "google_patents"}))
+
+    included = client.post(
+        f"/api/projects/{project_id}/knowledge/candidates/bulk-decision",
+        json={"candidate_ids": candidate_ids, "user_decision": "include"},
+    )
+    assert included.status_code == 200
+
+    built = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": plan_id},
+    )
+    assert built.status_code == 200
+    before = built.json()
+    built_version_id = before["latest_corpus_version"]["id"]
+    assert before["state"]["status"] == "ready"
+
+    changed = client.post(
+        f"/api/projects/{project_id}/knowledge/candidates/bulk-decision",
+        json={"candidate_ids": candidate_ids, "user_decision": "exclude"},
+    )
+    assert changed.status_code == 200
+    assert {candidate["user_decision"] for candidate in changed.json()["candidates"]} == {"exclude"}
+
+    after = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert after["state"]["status"] == "candidates_pending"
+    assert after["state"]["active_corpus_version_id"] == ""
+    assert after["latest_corpus_version"] is None
+    assert after["state"]["active_intent_id"] == before["state"]["active_intent_id"]
+    assert after["state"]["active_plan_id"] == before["state"]["active_plan_id"]
+    assert after["state"]["last_search_at"] == before["state"]["last_search_at"]
+    assert after["state"]["candidate_count"] == before["state"]["candidate_count"]
+    assert client.app.state.store.get_latest_project_corpus_version(project_id).id == built_version_id
+
 def test_project_knowledge_rejects_superseded_single_candidate_decision_after_regeneration(tmp_path):
     client = _test_app_without_env(tmp_path)
     created = client.post(

@@ -36,6 +36,11 @@ def _stable_hex(*parts: str) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _validate_candidate_decision(decision: str) -> None:
+    if decision not in {"pending", "include", "exclude"}:
+        raise ValueError(f"invalid prior art candidate decision: {decision!r}")
+
+
 def project_snapshot_hash(project: ProjectRecord, patent_points: list[PatentPointCandidate] | None = None) -> str:
     parts = [
         project.name,
@@ -223,16 +228,45 @@ def _get_mutable_candidate_set(
     return state, candidates
 
 
+def _candidate_mutation_followup_state(
+    state: ProjectKnowledgeState,
+    *,
+    candidate_count: int,
+    decision_changed: bool,
+) -> ProjectKnowledgeState | None:
+    if not decision_changed or not state.active_corpus_version_id:
+        return None
+    return state.model_copy(
+        update={
+            "status": "candidates_pending",
+            "active_corpus_version_id": "",
+            "last_indexed_at": "",
+            "staleness_reason": "",
+            "document_count": 0,
+            "candidate_count": candidate_count,
+            "claim_coverage": 0.0,
+            "fulltext_coverage": 0.0,
+            "quality_flags": ["candidates_need_confirmation"],
+        }
+    )
+
+
 def update_project_candidate_decision(
     store: SQLiteStore,
     project_id: str,
     candidate_id: str,
     decision: str,
 ) -> PriorArtCandidate:
-    _state, _candidates = _get_mutable_candidate_set(store, project_id, [candidate_id])
-    updated = store.update_prior_art_candidate_decision(project_id, candidate_id, decision)
-    if updated is None:
-        raise ValueError(f"Prior-art candidate not found: {candidate_id}")
+    _validate_candidate_decision(decision)
+    state, candidates = _get_mutable_candidate_set(store, project_id, [candidate_id])
+    candidate = candidates[0]
+    updated = candidate.model_copy(update={"user_decision": decision})
+    followup_state = _candidate_mutation_followup_state(
+        state,
+        candidate_count=len(store.list_prior_art_candidates(project_id, state.active_plan_id)),
+        decision_changed=candidate.user_decision != decision,
+    )
+    store.apply_prior_art_candidate_updates([updated], followup_state)
     return updated
 
 
@@ -242,13 +276,15 @@ def bulk_update_project_candidate_decisions(
     candidate_ids: list[str],
     decision: str,
 ) -> list[PriorArtCandidate]:
-    _state, _candidates = _get_mutable_candidate_set(store, project_id, candidate_ids)
-    updated: list[PriorArtCandidate] = []
-    for candidate_id in candidate_ids:
-        candidate = store.update_prior_art_candidate_decision(project_id, candidate_id, decision)
-        if candidate is None:
-            raise ValueError(f"Prior-art candidate not found: {candidate_id}")
-        updated.append(candidate)
+    _validate_candidate_decision(decision)
+    state, candidates = _get_mutable_candidate_set(store, project_id, candidate_ids)
+    updated = [candidate.model_copy(update={"user_decision": decision}) for candidate in candidates]
+    followup_state = _candidate_mutation_followup_state(
+        state,
+        candidate_count=len(store.list_prior_art_candidates(project_id, state.active_plan_id)),
+        decision_changed=any(candidate.user_decision != decision for candidate in candidates),
+    )
+    store.apply_prior_art_candidate_updates(updated, followup_state)
     return updated
 
 

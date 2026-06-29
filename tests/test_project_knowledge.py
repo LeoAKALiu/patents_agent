@@ -28,6 +28,11 @@ from backend.app.services.project_service import build_project_record
 from backend.app.storage import SQLiteStore
 
 
+def _mark_candidates_as_real_sources(store: SQLiteStore, candidates: list[PriorArtCandidate]) -> None:
+    for candidate in candidates:
+        store.upsert_prior_art_candidate(candidate.model_copy(update={"source": "google_patents"}))
+
+
 def test_project_knowledge_state_round_trips(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     state = ProjectKnowledgeState(
@@ -287,6 +292,73 @@ def test_create_project_corpus_preserves_active_intent_and_last_search_metadata(
     assert after_build.state.last_search_at == before_build.state.last_search_at
     assert after_build.state.last_indexed_at
     assert after_build.state.active_corpus_version_id == after_build.latest_corpus_version.id
+
+
+def test_candidate_decision_change_invalidates_active_ready_corpus_state(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    _mark_candidates_as_real_sources(store, after_run.candidates[:2])
+    for candidate in after_run.candidates[:2]:
+        store.update_prior_art_candidate_decision(project.id, candidate.id, "include")
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+    assert after_build.state.status == "ready"
+    assert after_build.state.active_corpus_version_id
+    assert after_build.latest_corpus_version is not None
+
+    before_state = after_build.state
+    changed = update_project_candidate_decision(store, project.id, after_run.candidates[0].id, "exclude")
+    after = knowledge_overview(store, project.id)
+
+    assert changed.user_decision == "exclude"
+    assert after.state.status == "candidates_pending"
+    assert after.state.active_corpus_version_id == ""
+    assert after.state.last_indexed_at == ""
+    assert after.state.document_count == 0
+    assert after.state.claim_coverage == 0.0
+    assert after.state.fulltext_coverage == 0.0
+    assert after.state.quality_flags == ["candidates_need_confirmation"]
+    assert after.state.active_intent_id == before_state.active_intent_id
+    assert after.state.active_plan_id == before_state.active_plan_id
+    assert after.state.last_search_at == before_state.last_search_at
+    assert after.state.candidate_count == before_state.candidate_count
+    assert after.latest_corpus_version is None
+
+
+def test_bulk_candidate_decision_change_invalidates_active_corpus_once(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    _mark_candidates_as_real_sources(store, after_run.candidates[:2])
+    for candidate in after_run.candidates[:2]:
+        store.update_prior_art_candidate_decision(project.id, candidate.id, "include")
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+    built_version_id = after_build.latest_corpus_version.id
+    before_state = after_build.state
+
+    updated = bulk_update_project_candidate_decisions(
+        store,
+        project.id,
+        [candidate.id for candidate in after_run.candidates[:2]],
+        "exclude",
+    )
+    after = knowledge_overview(store, project.id)
+
+    assert {candidate.user_decision for candidate in updated} == {"exclude"}
+    assert after.state.status == "candidates_pending"
+    assert after.state.active_corpus_version_id == ""
+    assert after.latest_corpus_version is None
+    assert after.state.active_plan_id == before_state.active_plan_id
+    assert after.state.active_intent_id == before_state.active_intent_id
+    assert after.state.last_search_at == before_state.last_search_at
+    assert after.state.candidate_count == before_state.candidate_count
+    assert store.get_latest_project_corpus_version(project.id).id == built_version_id
 
 
 def test_candidate_decisions_reject_superseded_or_stale_candidates_without_partial_mutation(tmp_path):
