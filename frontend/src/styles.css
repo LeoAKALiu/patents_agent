@@ -218,7 +218,7 @@ button.nav-link span {
 /* ── Sidebar footer ───────────────────────────────────────────── */
 .sidebar-footer {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   max-width: 100%;
   margin-top: auto;
@@ -231,6 +231,92 @@ button.nav-link span {
 .sidebar-footer [class*="min-w-"] {
   max-width: 100%;
   min-width: 0;
+}
+
+.system-status-compact {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--surface-raised), transparent 12%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-md));
+  backdrop-filter: blur(var(--glass-blur-md));
+}
+
+.system-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 26px;
+}
+
+.system-status-row > span {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-status-row > div {
+  display: flex;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.system-status-row [class*="rounded-md"] {
+  max-width: 6.5rem;
+  min-width: 4.25rem;
+  justify-content: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-status-diagnostics {
+  min-width: 0;
+  padding-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.system-status-diagnostics summary {
+  cursor: pointer;
+  color: var(--text-soft);
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+.system-status-diagnostics dl {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.system-status-diagnostics dl > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.system-status-diagnostics dt,
+.system-status-diagnostics dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-status-diagnostics dt {
+  color: var(--text-soft);
+  font-weight: 700;
 }
 
 /* ── Main area ────────────────────────────────────────────────── */
@@ -405,11 +491,22 @@ button.nav-link span {
 }
 
 .topbar-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 148px;
   padding: 0 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar-action-button {
   padding: 0 12px;
+}
+
+.topbar-backend-button {
+  max-width: 148px;
 }
 
 .topbar-refresh-button {
@@ -417,10 +514,19 @@ button.nav-link span {
   padding: 0;
 }
 
+.topbar-status-chip svg,
 .topbar-action-button svg,
 .topbar-refresh-button svg {
   width: 15px;
   height: 15px;
+  flex: 0 0 auto;
+}
+
+.topbar-status-chip span,
+.topbar-backend-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar-actions-group {

@@ -13,22 +13,18 @@ import type {
  * so it can be unit-tested without rendering anything.
  */
 export type RouteKind =
-  | "start-choice"
-  | "guided"
+  | "workbench"
   | "projects-overview"
   | "documents"
-  | "settings"
   | "knowledge"
+  | "expert"
   | "export"
-  | "expert-corpus"
-  | "expert-quality"
-  | "expert-post-draft";
+  | "settings";
 
 /**
- * Translate the active main section into a coarse route kind. Expert tools
- * are folded into one of three feature workspaces: corpus, quality, or
- * post-draft. The expert tool id is still passed in because the workspace
- * itself decides which sub-view to render.
+ * Translate the active main section into the public route kind rendered by
+ * the shell. Expert sub-tool classification stays inside AppRoot so the
+ * top-level destination remains a single "expert" route.
  */
 export function resolveRoute(
   activeSection: MainSectionId,
@@ -36,29 +32,16 @@ export function resolveRoute(
   hasSelectedProject: boolean,
   hasStartChoice: boolean,
 ): RouteKind {
+  void activeExpertTool;
+  void hasSelectedProject;
+  void hasStartChoice;
   if (activeSection === "projects") return "projects-overview";
   if (activeSection === "documents") return "documents";
-  if (activeSection === "settings") return "settings";
   if (activeSection === "knowledge") return "knowledge";
+  if (activeSection === "expert") return "expert";
   if (activeSection === "export") return "export";
-  if (activeSection === "expert") {
-    if (activeExpertTool === "build" || activeExpertTool === "corpus") {
-      return "expert-corpus";
-    }
-    if (
-      activeExpertTool === "readiness"
-      || activeExpertTool === "grantability"
-      || activeExpertTool === "claimDefense"
-      || activeExpertTool === "completion"
-      || activeExpertTool === "review"
-    ) {
-      return "expert-quality";
-    }
-    return "expert-post-draft";
-  }
-  // generate / utility: start choice when nothing picked, otherwise the flow.
-  if (!hasSelectedProject && !hasStartChoice) return "start-choice";
-  return "guided";
+  if (activeSection === "settings") return "settings";
+  return "workbench";
 }
 
 /**

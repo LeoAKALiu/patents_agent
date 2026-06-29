@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import appSource from "@/App.tsx?raw";
 import { AppRoot, type AppRootProps } from "./AppRoot";
 import { resolveRoute } from "./routes";
+import { SystemStatusPanel } from "@/ui/SystemStatusPanel";
+import type { AgentDoctorReport, Health, ProjectRecord } from "@/api";
 
 vi.mock("@/features/corpus/CorpusWorkspace", () => ({
   CorpusWorkspace: ({ tool }: { tool: string }) => <div data-testid="corpus-workspace">{tool}</div>,
@@ -17,6 +19,27 @@ function noop() {}
 
 function asyncNoop() {
   return Promise.resolve();
+}
+
+function makeProject(): ProjectRecord {
+  return {
+    id: "project-1",
+    name: "城市体检智能体",
+    draft_text: "技术方案",
+    patent_type: "invention",
+    package: null,
+    created_at: "2026-06-29T08:00:00Z",
+    updated_at: "2026-06-29T08:00:00Z",
+    applicant: "",
+    inventors: "",
+    technical_field: "",
+    background: "",
+    pain_point: "",
+    technical_solution: "",
+    innovation: "",
+    embodiments: "",
+    beneficial_effects: "",
+  };
 }
 
 function makeRootProps(): AppRootProps {
@@ -173,18 +196,43 @@ function makeRootProps(): AppRootProps {
 }
 
 describe("AppRoot routes", () => {
-  it("resolves documents, knowledge, and export as dedicated route kinds", () => {
-    expect(resolveRoute("documents", "materials", false, false)).toBe("documents");
-    expect(resolveRoute("knowledge", "build", false, false)).toBe("knowledge");
-    expect(resolveRoute("export", "materials", true, true)).toBe("export");
+  it("resolves the seven public route kinds from top-level destinations", () => {
+    expect(resolveRoute("workbench", "build", false, false)).toBe("workbench");
+    expect(resolveRoute("projects", "build", false, false)).toBe("projects-overview");
+    expect(resolveRoute("documents", "review", true, false)).toBe("documents");
+    expect(resolveRoute("knowledge", "corpus", true, false)).toBe("knowledge");
+    expect(resolveRoute("export", "export", true, false)).toBe("export");
+    expect(resolveRoute("expert", "moat", true, false)).toBe("expert");
+    expect(resolveRoute("settings", "build", false, false)).toBe("settings");
   });
 
-  it("renders the production shell navigation", () => {
+  it("renders destination-only shell navigation", () => {
     render(<AppRoot {...makeRootProps()} />);
 
-    expect(screen.getAllByText("工作台").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("项目").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("设置").length).toBeGreaterThan(0);
+    for (const label of ["工作台", "项目", "文稿与修复", "知识库", "专家工具", "导出", "设置"]) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("does not render the old project key-node group in shell chrome", () => {
+    const selectedProject = makeProject();
+
+    render(
+      <AppRoot
+        {...makeRootProps()}
+        selectedProject={selectedProject}
+        projects={[selectedProject]}
+        projectState={{
+          ...makeRootProps().projectState,
+          selectedProject,
+          projects: [selectedProject],
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("关键节点")).not.toBeInTheDocument();
+    expect(screen.queryByText("01 想法与材料")).not.toBeInTheDocument();
+    expect(screen.queryByText("02 发明点确认")).not.toBeInTheDocument();
   });
 
   it("renders the corpus workspace for the knowledge section", () => {
@@ -211,6 +259,88 @@ describe("AppRoot routes", () => {
     render(<AppRoot {...makeRootProps()} activeSection="export" activeExpertTool="materials" />);
 
     expect(screen.getByTestId("postdraft-workspace")).toHaveTextContent("export");
+  });
+
+  it("renders status-only topbar chrome without global nav buttons", () => {
+    const selectedProject = makeProject();
+
+    render(
+      <AppRoot
+        {...makeRootProps()}
+        selectedProject={selectedProject}
+        projects={[selectedProject]}
+        activeSection="workbench"
+        backendStatus="online"
+        busy="postDraftReview"
+        projectState={{
+          ...makeRootProps().projectState,
+          selectedProject,
+          projects: [selectedProject],
+        }}
+        postDraftState={{
+          ...makeRootProps().postDraftState,
+          selectedProject,
+          exportReadiness: {
+            export_allowed: false,
+            draft_required: false,
+            quality_required: false,
+            official_compile_required: false,
+            post_draft_review_required: true,
+            next_action: "run_post_draft_review",
+            reason: "成稿会审未通过",
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText("当前项目")).toBeInTheDocument();
+    expect(screen.getByText("导出锁定")).toBeInTheDocument();
+    expect(screen.getByText("处理中")).toBeInTheDocument();
+    expect(screen.getByText("后端在线")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "刷新运行状态" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "专家工具" })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "返回向导" })).not.toBeInTheDocument();
+  });
+
+  it("keeps return-to-start-choice recovery only when the workbench start path is active", () => {
+    render(<AppRoot {...makeRootProps()} activeSection="workbench" startChoice="invention" />);
+
+    expect(screen.getByRole("button", { name: "返回三选一" })).toBeInTheDocument();
+  });
+
+  it("renders compact system health by default", () => {
+    const health: Health = {
+      ok: true,
+      llm_configured: true,
+      data_dir: "/tmp/patent-agent",
+      model: "qwen",
+      embedding_model: "bge",
+    };
+    const agentDoctor: AgentDoctorReport = {
+      status: "degraded",
+      run_mode: "partial",
+      commands: {},
+      active_provider_ids: [],
+      missing_required: [],
+      missing_optional: ["codex"],
+      unknown_required: [],
+    };
+
+    render(
+      <SystemStatusPanel
+        health={health}
+        agentDoctor={agentDoctor}
+        backendStatus="online"
+        agentRunModeLabel={(mode) => (mode === "partial" ? "部分可用" : mode)}
+      />,
+    );
+
+    expect(screen.getByText("模型")).toBeInTheDocument();
+    expect(screen.getByText("智能体")).toBeInTheDocument();
+    expect(screen.getByText("后端")).toBeInTheDocument();
+    expect(screen.getByText("在线")).toBeInTheDocument();
+    expect(screen.queryByText("当前项目")).not.toBeInTheDocument();
+    expect(screen.queryByText("内部痕迹检查")).not.toBeInTheDocument();
   });
 
   it("is wired from App.tsx instead of the legacy inline shell renderer", () => {

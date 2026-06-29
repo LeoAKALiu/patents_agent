@@ -1,4 +1,4 @@
-import { ClipboardList, Gauge, Loader2, Wand2 } from "lucide-react";
+import { ClipboardList, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { SettingsPanel } from "@/SettingsPanel";
@@ -9,8 +9,8 @@ import type { ThemeMode } from "@/ui/useTheme";
 import { ShellLayout } from "@/app/ShellLayout";
 import {
   fixedGoalModeFor,
+  classifyExpertTool,
   resolveRoute,
-  type RouteKind,
 } from "@/app/routes";
 import { agentRunModeLabel } from "@/domain";
 import {
@@ -89,64 +89,24 @@ export interface AppRootProps {
   postDraftHandlers: PostDraftWorkspaceHandlers;
 }
 
-function routeKindToExpertTool(
-  kind: RouteKind,
-  activeExpertTool: ExpertToolId,
-): CorpusTool | QualityTool | PostDraftTool {
-  if (kind === "knowledge") {
-    return activeExpertTool === "build" || activeExpertTool === "corpus"
-      ? activeExpertTool
-      : "build";
-  }
-  if (kind === "export") return "export";
-  if (kind === "expert-corpus") return activeExpertTool as CorpusTool;
-  if (kind === "expert-quality") return activeExpertTool as QualityTool;
-  return activeExpertTool as PostDraftTool;
+function knowledgeTool(activeExpertTool: ExpertToolId): CorpusTool {
+  return activeExpertTool === "build" || activeExpertTool === "corpus"
+    ? activeExpertTool
+    : "build";
 }
 
-/**
- * Decide which topbar action buttons to show. Mirrors the App.tsx logic
- * 1:1 so the chrome is preserved.
- */
-function topbarActions(props: AppRootProps): React.ReactNode {
-  const onStart = props.activeSection === "workbench" && !props.selectedProject && !props.startChoice;
-  if (onStart) return null;
+function topbarRecoveryAction(props: AppRootProps): React.ReactNode {
+  if (props.activeSection !== "workbench" || !props.startChoice) return null;
   return (
-    <>
-      {props.activeSection !== "expert" && (
-        <Button
-          variant="outline"
-          className="topbar-action-button"
-          onClick={() => props.onSelectSection("expert")}
-          type="button"
-        >
-          <Gauge size={16} />
-          <span>专家工具</span>
-        </Button>
-      )}
-      {props.activeSection === "expert" && (
-        <Button
-          variant="outline"
-          className="topbar-action-button"
-          onClick={() => props.onSelectSection("workbench")}
-          type="button"
-        >
-          <Wand2 size={16} />
-          <span>返回向导</span>
-        </Button>
-      )}
-      {(props.startChoice || props.activeSection === "expert") && (
-        <Button
-          variant="outline"
-          className="topbar-action-button"
-          onClick={props.onReturnToStartChoices}
-          type="button"
-        >
-          <ClipboardList size={16} />
-          <span>返回三选一</span>
-        </Button>
-      )}
-    </>
+    <Button
+      variant="outline"
+      className="topbar-action-button"
+      onClick={props.onReturnToStartChoices}
+      type="button"
+    >
+      <ClipboardList size={16} />
+      <span>返回三选一</span>
+    </Button>
   );
 }
 
@@ -189,41 +149,52 @@ function noticeBar(props: AppRootProps): React.ReactNode {
   );
 }
 
-function expertSection(props: AppRootProps, kind: RouteKind): React.ReactNode {
-  if (kind === "knowledge" || kind === "expert-corpus") {
+function expertSection(props: AppRootProps): React.ReactNode {
+  const toolGroup = classifyExpertTool(props.activeExpertTool);
+  if (toolGroup === "corpus") {
     return (
       <CorpusWorkspace
-        tool={routeKindToExpertTool(kind, props.activeExpertTool) as CorpusTool}
+        tool={props.activeExpertTool as CorpusTool}
         state={props.corpusState}
         handlers={props.corpusHandlers}
       />
     );
   }
-  if (kind === "expert-quality") {
+  if (toolGroup === "quality") {
     return (
       <QualityWorkspace
-        tool={routeKindToExpertTool(kind, props.activeExpertTool) as QualityTool}
+        tool={props.activeExpertTool as QualityTool}
         state={props.qualityState}
         handlers={props.qualityHandlers}
       />
     );
   }
-  if (kind === "expert-post-draft" || kind === "export") {
-    return (
-      <PostDraftWorkspace
-        tool={routeKindToExpertTool(kind, props.activeExpertTool) as PostDraftTool}
-        state={props.postDraftState}
-        handlers={props.postDraftHandlers}
-      />
-    );
-  }
   return (
     <PostDraftWorkspace
-      tool={routeKindToExpertTool(kind, props.activeExpertTool) as PostDraftTool}
+      tool={props.activeExpertTool as PostDraftTool}
       state={props.postDraftState}
       handlers={props.postDraftHandlers}
     />
   );
+}
+
+function exportStatus(props: AppRootProps): {
+  label: string;
+  variant: "idle" | "busy" | "error" | "success" | "warning";
+} {
+  const readiness = props.postDraftState.exportReadiness;
+  if (!props.selectedProject) return { label: "导出待检查", variant: "idle" };
+  if (!readiness) return { label: "导出待检查", variant: "idle" };
+  if (readiness.export_allowed || readiness.next_action === "export_ready") {
+    return { label: "可导出", variant: "success" };
+  }
+  if (readiness.compile_status === "running" || readiness.review_gate_status === "running") {
+    return { label: "导出检查中", variant: "busy" };
+  }
+  if (readiness.compile_status === "failed" || readiness.review_gate_status === "failed") {
+    return { label: "导出异常", variant: "error" };
+  }
+  return { label: "导出锁定", variant: "warning" };
 }
 
 function pageTitleForSection(activeSection: MainSectionId): { title: string; subtitle?: string } {
@@ -264,65 +235,45 @@ export function AppRoot(props: AppRootProps) {
     Boolean(props.startChoice),
   );
   const { title, subtitle } = pageTitleForSection(props.activeSection);
+  const exportStatusChip = exportStatus(props);
   const sidebarMain = mainSections.map((section) => ({
     id: section.id,
     label: section.label,
     icon: <section.icon size={16} aria-hidden="true" />,
     description: section.description,
   }));
-  const keySections = props.selectedProject
-    ? [
-        { id: "idea", label: "01 想法与材料", icon: <ClipboardList size={14} aria-hidden="true" /> },
-        { id: "moat", label: "02 发明点确认", icon: <Gauge size={14} aria-hidden="true" /> },
-        { id: "deliberate", label: "03 多智能体会审", icon: <ClipboardList size={14} aria-hidden="true" /> },
-      ]
-    : undefined;
-  const showExpertWorkspace = route === "knowledge"
-    || route === "export"
-    || route === "expert-corpus"
-    || route === "expert-quality"
-    || route === "expert-post-draft";
+  const showExpertWorkspace = route === "knowledge" || route === "export" || route === "expert";
   const showExpertChooser = props.activeSection === "expert";
   return (
     <ShellLayout
       activeSectionId={props.activeSection}
       mainSections={sidebarMain}
-      keySections={keySections}
       onSelectSection={(id) => props.onSelectSection(id as MainSectionId)}
-      onSelectKeySection={(id) => {
-        if (id === "idea") props.onSelectSection("workbench");
-        else if (id === "moat") {
-          props.onSelectSection("expert");
-          props.onSelectExpertTool("moat");
-        } else if (id === "deliberate") {
-          props.onSelectSection("expert");
-          props.onSelectExpertTool("deliberate");
-        }
-      }}
       sidebarFooter={
         <SystemStatusPanel
-          selectedProject={props.selectedProject}
           health={props.health}
           agentDoctor={props.agentDoctor}
           backendStatus={props.backendStatus}
           projectListStatus={props.projectListStatus}
           agentRunModeLabel={agentRunModeLabel}
-          onRefresh={props.onRefresh}
         />
       }
       topbar={{
         onRefresh: () => void props.onRefresh(),
         statusLabel: props.busy ? "处理中" : "空闲",
         statusVariant: props.busy ? "busy" : "idle",
+        exportStatusLabel: exportStatusChip.label,
+        exportStatusVariant: exportStatusChip.variant,
+        backendStatus: props.backendStatus,
         projectSelector: (
           <ProjectSelectorSlot
-              projects={props.projects}
-              selectedProjectId={props.selectedProject?.id ?? ""}
-              loadStatus={props.projectListStatus}
-              onSelect={props.onSelectProjectId}
-            />
+            projects={props.projects}
+            selectedProjectId={props.selectedProject?.id ?? ""}
+            loadStatus={props.projectListStatus}
+            onSelect={props.onSelectProjectId}
+          />
         ),
-        actions: topbarActions(props),
+        actions: topbarRecoveryAction(props),
       }}
       pageTitle={title}
       pageSubtitle={subtitle}
@@ -330,7 +281,7 @@ export function AppRoot(props: AppRootProps) {
       {mobileNav(props)}
       {noticeBar(props)}
       <div className="workspace">
-        {(route === "start-choice" || route === "guided" || route === "documents") &&
+        {(route === "workbench" || route === "documents") &&
           projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")}
         {route === "projects-overview" && projectWorkspace(props, "projects")}
         {route === "settings" && (
@@ -343,7 +294,21 @@ export function AppRoot(props: AppRootProps) {
             {showExpertChooser && (
               <ExpertToolChooser activeToolId={props.activeExpertTool} onSelect={props.onSelectExpertTool} />
             )}
-            {expertSection(props, route)}
+            {route === "knowledge" && (
+              <CorpusWorkspace
+                tool={knowledgeTool(props.activeExpertTool)}
+                state={props.corpusState}
+                handlers={props.corpusHandlers}
+              />
+            )}
+            {route === "export" && (
+              <PostDraftWorkspace
+                tool="export"
+                state={props.postDraftState}
+                handlers={props.postDraftHandlers}
+              />
+            )}
+            {route === "expert" && expertSection(props)}
           </div>
         )}
       </div>
