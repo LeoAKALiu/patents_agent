@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 
 from backend.app.claim_defense import generate_claim_defense_worksheet
+from backend.app.draft_audit_rules import audit_draft_package
 from backend.app.evidence_binding import build_evidence_bindings
 from backend.app.filing_readiness import assess_filing_readiness
 from backend.app.patch_generator import PatchGenerationContext, generate_evidence_backed_patches
@@ -92,6 +93,7 @@ def run_draft_completion(
     issues.extend(_issues_from_support_matrix(matrix))
     issues.extend(_specification_sufficiency_issues(package, matrix))
     issues.extend(_unverified_scheme_issues(package, patent_points))
+    issues.extend(audit_draft_package(package, disclosures))
     issues = _dedupe_issues(issues)
 
     tasks = _tasks_from_issues(issues)

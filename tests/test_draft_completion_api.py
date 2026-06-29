@@ -1,17 +1,31 @@
 from backend.app.llm import FakeLLMClient
 from backend.app.official_compile import source_draft_hash
-from backend.app.schemas import CompletionIssue, CompletionScoreCard, CompletionTask, DraftCompletionRun, ProposedPatch
+from backend.app.schemas import CompletionIssue, CompletionScoreCard, CompletionTask, DraftCompletionRun, DraftPackage, ProposedPatch
 from backend.app.storage import SQLiteStore
 from fastapi.testclient import TestClient
 
 from backend.app.main import _apply_completion_patch, create_app
 
 
-def _stored_completion_run(project_id: str = "project-1") -> DraftCompletionRun:
+def _stored_completion_package() -> DraftPackage:
+    return DraftPackage(
+        title="一种输入数据处理方法",
+        abstract="本发明公开一种输入数据处理方法。",
+        claims="1. 一种输入数据处理方法，其特征在于，包括接收输入数据并生成处理结果。",
+        description="本实施例接收输入数据，并记录中间状态。",
+        drawing_description="图1为流程图。",
+        mermaid="flowchart TD\nA-->B",
+        image_prompt="prompt",
+    )
+
+
+def _stored_completion_run(project_id: str = "project-1", package: DraftPackage | None = None) -> DraftCompletionRun:
+    package = package or _stored_completion_package()
     return DraftCompletionRun(
         id="run-1",
         project_id=project_id,
         snapshot_hash="hash-1",
+        draft_package_hash=source_draft_hash(package),
         status="completed",
         issues=[
             CompletionIssue(
@@ -59,13 +73,14 @@ def _stored_completion_run(project_id: str = "project-1") -> DraftCompletionRun:
             ProposedPatch(
                 id="patch-1",
                 task_id="task-1",
-                target_section="claims",
+                target_section="description",
                 patch_kind="rewrite",
-                before_text="old claim text",
-                after_text="new claim text",
+                before_text="本实施例接收输入数据，并记录中间状态。",
+                after_text="补充实施例文本。",
                 rationale="Strengthen claim support.",
                 risk_delta="lower",
-                evidence_refs=["matrix:claim-1"],
+                evidence_refs=["patent_point:verified"],
+                can_enter_official_draft=True,
             ),
             ProposedPatch(
                 id="patch-2",
@@ -206,7 +221,9 @@ def test_accept_all_completion_patches_updates_scores_once(tmp_path):
     ).json()
     app = client.app
     store = app.state.store
-    run = store.create_draft_completion_run(_stored_completion_run(project["id"]))
+    package = _stored_completion_package()
+    store.update_project_package(project["id"], package)
+    run = store.create_draft_completion_run(_stored_completion_run(project["id"], package))
 
     response = client.post(f"/api/projects/{run.project_id}/completion-runs/{run.id}/patches/accept-all")
 
@@ -220,8 +237,8 @@ def test_accept_all_completion_patches_updates_scores_once(tmp_path):
     assert accepted["scorecard"]["filing_maturity"] > run.scorecard.filing_maturity
 
     second_response = client.post(f"/api/projects/{run.project_id}/completion-runs/{run.id}/patches/accept-all")
-    assert second_response.status_code == 200
-    assert second_response.json()["scorecard"] == accepted["scorecard"]
+    assert second_response.status_code == 409
+    assert second_response.json()["detail"] == "Completion run is stale for the current draft."
 
 
 def test_score_improvement_applies_safe_patches_and_re_scores_project(tmp_path):
@@ -281,6 +298,16 @@ def test_score_improvement_applies_safe_patches_and_re_scores_project(tmp_path):
     updated_project = client.get(f"/api/projects/{project['id']}").json()
     assert "生成处理结果" in updated_project["package"]["description"]
     assert "伪代码" in updated_project["package"]["description"]
+
+    ledger_response = client.get(f"/api/projects/{project['id']}/revision-ledger")
+    assert ledger_response.status_code == 200
+    records = ledger_response.json()
+    assert any(record["revision_kind"] == "completion_patch" for record in records)
+    completion_patch_record = next(record for record in records if record["revision_kind"] == "completion_patch")
+    assert completion_patch_record["artifact_refs"] == [
+        f"completion-run:{payload['before_run']['id']}",
+        f"completion-patch:{payload['accepted_patch_ids'][0]}",
+    ]
 
 
 def test_apply_completion_patch_rejects_stale_run_hash():

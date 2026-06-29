@@ -355,7 +355,11 @@ def test_standard_mode_keeps_existing_disclosure_behaviour(tmp_path: Path) -> No
     phases = [stage.get("phase") for stage in run["stage_results"] if isinstance(stage, dict)]
     assert "project_scan" in phases
     assert "prior_art_search" in phases
-    assert not any(p and p.startswith("deep_research_") for p in phases)
+    assert "deep_research_material_intake" in phases
+    assert not any(
+        p and p.startswith("deep_research_") and p != "deep_research_material_intake"
+        for p in phases
+    )
     assert run["package"] is not None
     assert not any(
         "free_deep_research" in log or "deep_research:" in log

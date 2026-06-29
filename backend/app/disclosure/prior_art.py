@@ -12,8 +12,11 @@ from html import unescape
 from pathlib import Path
 from typing import Protocol
 
+from backend.app.patent_urls import is_supported_public_patent_url, normalize_url
 from backend.app.research.ledger import SourceLedger, citation_snapshot
 from backend.app.schemas import PriorArtHit
+
+PUBLICATION_NUMBER_RE = re.compile(r"\b(?:CN|WO|US|EP|JP|KR)\s?\d{5,}[A-Z]\d?\b", re.IGNORECASE)
 
 
 class PriorArtProvider(Protocol):
@@ -38,12 +41,17 @@ class PublicPriorArtProvider:
     def _search(
         self, terms: list[str], limit: int, *, ledger: SourceLedger | None
     ) -> tuple[list[PriorArtHit], list[str]]:
+        terms = normalize_search_terms(terms, fallback_text=" ".join(terms))
         warnings: list[str] = []
         hits: list[PriorArtHit] = []
         if limit <= 0:
             return [], warnings
         for term in terms[:8]:
-            cnipa_hits, cnipa_warnings = self._search_cnipa(term, max(1, limit - len(hits)))
+            unique_hits = dedupe_prior_art_hits(hits)
+            remaining = limit - len(unique_hits)
+            if remaining <= 0:
+                return unique_hits[:limit], [*warnings, *prior_art_url_warnings(unique_hits[:limit])]
+            cnipa_hits, cnipa_warnings = self._search_cnipa(term, max(1, remaining))
             _record_ledger_attempt(
                 ledger,
                 provider="cnipa",
@@ -54,11 +62,17 @@ class PublicPriorArtProvider:
             )
             warnings.extend(cnipa_warnings)
             hits.extend(cnipa_hits)
-            if len(hits) >= limit:
-                return _dedupe_hits(hits)[:limit], warnings
-        if len(hits) < limit:
+            deduped = dedupe_prior_art_hits(hits)
+            if len(deduped) >= limit:
+                deduped = deduped[:limit]
+                return deduped, [*warnings, *prior_art_url_warnings(deduped)]
+        deduped = dedupe_prior_art_hits(hits)
+        if len(deduped) < limit:
             for term in terms[:4]:
-                google_hits, google_warnings = self._search_google_patents(term, max(1, limit - len(hits)))
+                remaining = limit - len(deduped)
+                if remaining <= 0:
+                    break
+                google_hits, google_warnings = self._search_google_patents(term, max(1, remaining))
                 _record_ledger_attempt(
                     ledger,
                     provider="google_patents",
@@ -69,9 +83,11 @@ class PublicPriorArtProvider:
                 )
                 warnings.extend(google_warnings)
                 hits.extend(google_hits)
-                if len(hits) >= limit:
+                deduped = dedupe_prior_art_hits(hits)
+                if len(deduped) >= limit:
                     break
-        return _dedupe_hits(hits)[:limit], warnings
+        deduped = dedupe_prior_art_hits(hits)[:limit]
+        return deduped, [*warnings, *prior_art_url_warnings(deduped)]
 
     def _search_cnipa(self, term: str, limit: int) -> tuple[list[PriorArtHit], list[str]]:
         if not self.cnipa_script or not self.cnipa_script.exists():
@@ -183,7 +199,7 @@ def parse_cnipa_epub_html(html: str, query: str) -> list[PriorArtHit]:
                 abstract=_plain(abstract) if abstract else None,
             )
         )
-    return _dedupe_hits(hits)
+    return dedupe_prior_art_hits(hits)
 
 
 def parse_google_patents_html(html: str, query: str) -> list[PriorArtHit]:
@@ -205,7 +221,101 @@ def parse_google_patents_html(html: str, query: str) -> list[PriorArtHit]:
                 url=url,
             )
         )
-    return _dedupe_hits(hits)
+    return dedupe_prior_art_hits(hits)
+
+
+def normalize_search_terms(terms: list[str], *, fallback_text: str = "", max_terms: int = 8) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    fallback_terms = _candidate_chunks_from_text(fallback_text)
+
+    def add(term: str) -> None:
+        cleaned = _clean_term(term)
+        if not cleaned or not _is_useful_term(cleaned):
+            return
+        if len(cleaned) > 24:
+            return
+        key = cleaned.casefold()
+        if key in seen:
+            return
+        seen.add(key)
+        normalized.append(cleaned)
+
+    for raw in terms:
+        cleaned = _clean_term(raw)
+        if not cleaned:
+            continue
+        if _should_chunk_term(cleaned):
+            for chunk in _candidate_chunks_from_text(cleaned):
+                add(chunk)
+        elif len(cleaned) <= 24 and _is_useful_term(cleaned):
+            add(cleaned)
+        else:
+            for chunk in _candidate_chunks_from_text(cleaned):
+                add(chunk)
+        if len(normalized) >= max_terms:
+            return normalized[:max_terms]
+
+    if not normalized:
+        for chunk in fallback_terms:
+            add(chunk)
+            if len(normalized) >= max_terms:
+                break
+
+    if normalized:
+        return normalized[:max_terms]
+    return []
+
+
+def dedupe_prior_art_hits(hits: list[PriorArtHit]) -> list[PriorArtHit]:
+    identifier_to_index: dict[str, int] = {}
+    out: list[PriorArtHit] = []
+    for hit in hits:
+        identifiers = _prior_art_identifiers(hit)
+        if not identifiers:
+            continue
+        matched_indexes = {identifier_to_index[identifier] for identifier in identifiers if identifier in identifier_to_index}
+        if not matched_indexes:
+            out.append(hit)
+            index = len(out) - 1
+            for identifier in identifiers:
+                identifier_to_index[identifier] = index
+            continue
+        index = min(matched_indexes)
+        merged = out[index]
+        for matched_index in sorted(matched_indexes):
+            if matched_index == index:
+                continue
+            merged = _merge_prior_art_hit(merged, out[matched_index])
+        merged = _merge_prior_art_hit(merged, hit)
+        out[index] = merged
+        for matched_index in sorted(matched_indexes - {index}, reverse=True):
+            del out[matched_index]
+        identifier_to_index = _prior_art_identifier_index(out)
+    return out
+
+
+def prior_art_url_warnings(hits: list[PriorArtHit]) -> list[str]:
+    warnings: list[str] = []
+    for hit in hits:
+        url = normalize_url(hit.url or "")
+        label = (hit.publication_number or hit.title or hit.id).strip()
+        title = (hit.title or "").strip()
+        if not url:
+            warnings.append(_prior_art_url_warning("missing public URL", label, title))
+            continue
+        if not is_supported_public_patent_url(url):
+            warnings.append(_prior_art_url_warning("unsupported public URL", label, title))
+            continue
+        if _public_url_publication_mismatch(hit.publication_number or "", url):
+            warnings.append(_prior_art_url_warning("mismatched public URL", label, title))
+    return warnings
+
+
+def _prior_art_url_warning(reason: str, label: str, title: str) -> str:
+    if title and title != label:
+        return f"prior_art {reason}: {label} {title}"
+    return f"prior_art {reason}: {label}"
 
 
 def _split_cnipa_items(html: str) -> list[str]:
@@ -250,16 +360,184 @@ def _hit_from_mapping(raw: dict, source: str, query: str) -> PriorArtHit:
     )
 
 
-def _dedupe_hits(hits: list[PriorArtHit]) -> list[PriorArtHit]:
+def _prior_art_identifiers(hit: PriorArtHit) -> list[str]:
+    publication = _normalize_publication(hit.publication_number or "")
+    url = normalize_url(hit.url or "").lower()
+    title = re.sub(r"\s+", " ", (hit.title or "").strip()).casefold()
+    publication_alias = _publication_from_public_url(url)
+    url_identifier = url
+    if publication and publication_alias and publication_alias != publication:
+        publication_alias = ""
+        url_identifier = "" if _looks_like_public_patent_url(url) else url
+
+    identifiers = [identifier for identifier in (publication, publication_alias, url_identifier) if identifier]
+    if title and not publication and not _looks_like_public_patent_url(url):
+        identifiers.append(f"title:{title}")
+    return identifiers
+
+
+def _prior_art_identifier_index(hits: list[PriorArtHit]) -> dict[str, int]:
+    identifier_to_index: dict[str, int] = {}
+    for index, hit in enumerate(hits):
+        for identifier in _prior_art_identifiers(hit):
+            identifier_to_index[identifier] = index
+    return identifier_to_index
+
+
+def _merge_prior_art_hit(existing: PriorArtHit, candidate: PriorArtHit) -> PriorArtHit:
+    publication = existing.publication_number or candidate.publication_number
+    return existing.model_copy(
+        update={
+            "source": existing.source or candidate.source,
+            "query": existing.query or candidate.query,
+            "title": _richer_text(existing.title, candidate.title),
+            "publication_number": existing.publication_number or candidate.publication_number,
+            "url": _richer_url(existing.url, candidate.url, publication=publication),
+            "abstract": _richer_text(existing.abstract, candidate.abstract),
+            "relevance_summary": _richer_text(existing.relevance_summary, candidate.relevance_summary),
+            "differentiators": _union_differentiators(existing.differentiators, candidate.differentiators),
+        }
+    )
+
+
+def _richer_text(existing: str | None, candidate: str | None) -> str | None:
+    existing_text = (existing or "").strip()
+    candidate_text = (candidate or "").strip()
+    if not existing_text:
+        return candidate
+    if not candidate_text:
+        return existing
+    return candidate if len(candidate_text) > len(existing_text) else existing
+
+
+def _richer_url(existing: str, candidate: str, *, publication: str | None = None) -> str:
+    existing_url = normalize_url(existing or "")
+    candidate_url = normalize_url(candidate or "")
+    normalized_publication = _normalize_publication(publication or "")
+    candidate_mismatch = bool(
+        normalized_publication and _public_url_publication_mismatch(normalized_publication, candidate_url)
+    )
+    existing_mismatch = bool(
+        normalized_publication and _public_url_publication_mismatch(normalized_publication, existing_url)
+    )
+    if candidate_mismatch and existing_mismatch:
+        return ""
+    if candidate_mismatch:
+        return existing
+    if existing_mismatch:
+        return candidate
+    if not existing_url:
+        return candidate
+    if not candidate_url:
+        return existing
+    existing_public = _looks_like_public_patent_url(existing_url)
+    candidate_public = _looks_like_public_patent_url(candidate_url)
+    if candidate_public and not existing_public:
+        return candidate
+    if existing_public and not candidate_public:
+        return existing
+    return candidate if len(candidate_url) > len(existing_url) else existing
+
+
+def _looks_like_public_patent_url(url: str) -> bool:
+    return is_supported_public_patent_url(url)
+
+
+def _publication_from_public_url(url: str) -> str:
+    if not _looks_like_public_patent_url(url):
+        return ""
+    decoded_url = urllib.parse.unquote(url)
+    match = PUBLICATION_NUMBER_RE.search(decoded_url)
+    if not match:
+        return ""
+    return _normalize_publication(match.group(0))
+
+
+def _normalize_publication(value: str) -> str:
+    return re.sub(r"\s+", "", value or "").upper()
+
+
+def _public_url_publication_mismatch(publication: str, url: str) -> bool:
+    normalized_publication = _normalize_publication(publication)
+    if not normalized_publication:
+        return False
+    alias = _publication_from_public_url(normalize_url(url or "").lower())
+    return bool(alias and alias != normalized_publication)
+
+
+def _union_differentiators(existing: list[str], candidate: list[str]) -> list[str]:
+    merged: list[str] = []
     seen: set[str] = set()
-    out: list[PriorArtHit] = []
-    for hit in hits:
-        key = (hit.publication_number or hit.url or hit.title).upper()
-        if key in seen:
+    for differentiator in [*existing, *candidate]:
+        key = differentiator.strip().casefold()
+        if not key or key in seen:
             continue
         seen.add(key)
-        out.append(hit)
-    return out
+        merged.append(differentiator)
+    return merged
+
+
+def _candidate_chunks_from_text(text: str) -> list[str]:
+    cleaned = _clean_term(text)
+    if not cleaned:
+        return []
+    tokens = [_clean_term(token) for token in re.split(r"[\s,，;；/]+", cleaned)]
+    tokens = [token for token in tokens if token and _is_useful_term(token)]
+    if len(tokens) >= 2:
+        chunks: list[str] = []
+        for start in range(len(tokens)):
+            for width in (3, 2, 4):
+                window = tokens[start : start + width]
+                if len(window) < 2:
+                    continue
+                chunk = " ".join(window).strip()
+                if len(chunk) <= 24:
+                    chunks.append(chunk)
+        return chunks
+    if _contains_cjk(cleaned):
+        compact = re.sub(r"\s+", "", cleaned)
+        core = re.sub(r"^(一种|一个|基于|关于)", "", compact)
+        core = re.sub(r"(方法及系统|方法|系统|装置|设备)$", "", core)
+        spans = []
+        for pattern in (r".{4,8}?缺陷.{0,4}", r".{2,8}?神经网络.{0,4}", r".{2,8}?实时反馈.{0,4}"):
+            match = re.search(pattern, core)
+            if match:
+                spans.append(match.group(0))
+        if spans:
+            return [span[:24] for span in spans if _is_useful_term(span)]
+        if len(core) > 24:
+            midpoint = max(2, min(len(core) - 2, len(core) // 2))
+            return [core[:midpoint][:24], core[midpoint:][:24]]
+    return [cleaned[:24]] if len(cleaned) <= 24 else []
+
+
+def _should_chunk_term(term: str) -> bool:
+    tokens = [_clean_term(token) for token in re.split(r"[\s,，;；/]+", term)]
+    useful_tokens = [token for token in tokens if token and _is_useful_term(token)]
+    if len(useful_tokens) >= 2:
+        return True
+    if _contains_cjk(term):
+        compact = re.sub(r"\s+", "", term)
+        if len(compact) >= 12:
+            return True
+    return False
+
+
+def _clean_term(term: str) -> str:
+    term = re.sub(r"\s+", " ", term or "").strip()
+    return term.strip(" ,，;；")
+
+
+def _is_useful_term(term: str) -> bool:
+    cjk_count = len(re.findall(r"[\u3400-\u9fff]", term))
+    if cjk_count >= 2:
+        return True
+    ascii_count = len(re.findall(r"[A-Za-z0-9]", term))
+    return ascii_count >= 3
+
+
+def _contains_cjk(text: str) -> bool:
+    return bool(re.search(r"[\u3400-\u9fff]", text))
 
 
 def _record_ledger_attempt(

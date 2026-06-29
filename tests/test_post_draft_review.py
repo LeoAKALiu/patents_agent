@@ -642,6 +642,106 @@ def _safe_patch_review_llm() -> FakeLLMClient:
     )
 
 
+def _production_style_safe_patch_review_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "status": "blocked",
+  "blocking_issues": ["权利要求需要主席安全补丁。"],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "blocked",
+  "blocking_issues": ["说明书含内部提示。"],
+  "contamination_hits": ["提交前需补强"],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "blocked",
+  "blocking_issues": ["C_det 和 CCI 需要修订。"],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "blocked",
+  "export_allowed": false,
+  "blocking_issues": ["需要应用主席安全补丁。"],
+  "contamination_hits": ["提交前需补强"],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [
+    "{\\"apply_to\\":\\"claims.1\\",\\"patch\\":\\"将“生成任务有向无环图”修改为“生成所述体检任务的任务有向无环图”\\",\\"priority\\":\\"high\\"}",
+    "{\\"apply_to\\":\\"claims.3\\",\\"patch\\":\\"将C_det = P_class × IoU替换为C_det = P_class × (1 - U_seg)，并增加U_seg的定义：病害分割掩膜的空间不确定性度量，基于分割掩膜预测的熵或边界置信度获得。\\",\\"priority\\":\\"critical\\"}",
+    "{\\"apply_to\\":\\"claims.7\\",\\"patch\\":\\"在CCI定义后补充‘当N_total = 0时，CCI = 1。’\\",\\"priority\\":\\"critical\\"}",
+    "{\\"apply_to\\":\\"description\\",\\"patch\\":\\"删除所有内部提示内容，包括说明书末尾的补充材料清单、S101中的‘提交前需补强的实验材料’等。\\",\\"priority\\":\\"critical\\"}",
+    "{\\"apply_to\\":\\"description\\",\\"patch\\":\\"将‘此为一个待实验验证的改进方向’改为‘作为另一种可选的实施方式’\\",\\"priority\\":\\"high\\"}",
+    "{\\"apply_to\\":\\"description\\",\\"patch\\":\\"将‘首次在巡检领域内建立了…’改为‘建立了…’\\",\\"priority\\":\\"high\\"}"
+  ],
+  "attorney_memo": [],
+  "next_actions": ["重新编译正式稿"]
+}
+""",
+        }
+    )
+
+
+def test_apply_post_draft_safe_patches_accepts_chair_apply_to_patch_format(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_production_style_safe_patch_review_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            claims=(
+                "1. 一种方法，包括生成任务有向无环图。\n"
+                "3. C_{\\text{det}} = P_{\\text{class}} \\times \\text{IoU}。\n"
+                "P_class为病害分类器输出的最大类别概率，IoU为病害分割掩膜的交并比；\n"
+                "7. CCI定义为 CCI = N_compatible / N_total。"
+            ),
+            description=(
+                "步骤S101：提交前需补强的实验材料。\n\n"
+                "此为一个待实验验证的改进方向。\n\n"
+                "首次在巡检领域内建立了成本-方案闭环。"
+            ),
+        ),
+    )
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert compile_run["status"] == "completed"
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/apply-safe-patches")
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["applied_count"] >= 5
+    package = result["package"]
+    assert "生成所述体检任务的任务有向无环图" in package["claims"]
+    assert "C_det = P_class × (1 - U_seg)" in package["claims"]
+    assert "IoU" not in package["claims"]
+    assert "U_seg为病害分割掩膜的空间不确定性度量" in package["claims"]
+    assert "当N_total = 0时，CCI = 1" in package["claims"]
+    assert "提交前需补强" not in package["description"]
+    assert "待实验验证" not in package["description"]
+    assert "首次" not in package["description"]
+
+
 def _unsafe_safe_patch_review_llm() -> FakeLLMClient:
     return FakeLLMClient(
         {

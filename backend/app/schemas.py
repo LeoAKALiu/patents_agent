@@ -286,6 +286,22 @@ class DraftPackage(BaseModel):
     core_formula_summary: str | None = None
 
 
+class RevisionLedgerRecord(BaseModel):
+    id: str
+    project_id: str
+    revision_kind: str = Field(
+        pattern="^(material_merge|correction|protection_focus|post_draft_repair|official_cleanup|completion_patch)$"
+    )
+    baseline_artifact_hash: str
+    new_artifact_hash: str
+    user_intent_summary: str = ""
+    affected_sections: list[str] = Field(default_factory=list)
+    prior_art_changed: bool = False
+    protection_scope_changed: bool = False
+    artifact_refs: list[str] = Field(default_factory=list)
+    created_at: str = ""
+
+
 class OfficialFigurePlanItem(BaseModel):
     figure_no: str
     title: str

@@ -117,6 +117,26 @@ export type DraftPackageManualUpdate = Pick<
   "title" | "abstract" | "claims" | "description" | "drawing_description"
 >;
 
+export interface RevisionLedgerRecord {
+  id: string;
+  project_id: string;
+  revision_kind:
+    | "material_merge"
+    | "correction"
+    | "protection_focus"
+    | "post_draft_repair"
+    | "official_cleanup"
+    | "completion_patch";
+  baseline_artifact_hash: string;
+  new_artifact_hash: string;
+  user_intent_summary: string;
+  affected_sections: string[];
+  prior_art_changed: boolean;
+  protection_scope_changed: boolean;
+  artifact_refs: string[];
+  created_at: string;
+}
+
 export interface OfficialFigurePlanItem {
   figure_no: string;
   title: string;
@@ -1476,6 +1496,10 @@ export async function applyOfficialCompileCleanup(
   );
 }
 
+export async function listRevisionLedger(projectId: string): Promise<RevisionLedgerRecord[]> {
+  return request<RevisionLedgerRecord[]>(`/api/projects/${projectId}/revision-ledger`);
+}
+
 export async function startPostDraftReview(
   projectId: string,
   providers?: string[],
@@ -1601,10 +1625,11 @@ export function officialExportUrl(projectId: string, kind: "docx" | "md"): strin
 export function disclosureExportUrl(
   projectId: string,
   runId: string,
-  kind: "docx" | "md" | "mmd" | "prompt",
+  kind: "docx" | "md" | "mmd" | "prompt" | "sidecar",
 ): string {
   if (kind === "docx") return `/api/projects/${projectId}/disclosures/${runId}/export.docx`;
   if (kind === "md") return `/api/projects/${projectId}/disclosures/${runId}/export.md`;
+  if (kind === "sidecar") return `/api/projects/${projectId}/disclosures/${runId}/sidecar.md`;
   if (kind === "mmd") return `/api/projects/${projectId}/disclosures/${runId}/diagram.mmd`;
   return `/api/projects/${projectId}/disclosures/${runId}/image-prompt.md`;
 }

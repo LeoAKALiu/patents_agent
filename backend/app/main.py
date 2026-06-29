@@ -21,7 +21,13 @@ from backend.app.core_formula import assess_formula_need, formula_package_to_mar
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
 from backend.app.deliberation.providers import AgentProviderRunner, repair_suggestion_for_failure
-from backend.app.disclosure.exporter import disclosure_to_markdown, export_disclosure_docx, write_disclosure_artifacts
+from backend.app.disclosure.exporter import (
+    clean_disclosure_to_markdown,
+    disclosure_sidecar_to_markdown,
+    disclosure_to_markdown,
+    export_disclosure_docx,
+    write_disclosure_artifacts,
+)
 from backend.app.disclosure.generator import DisclosureGenerator
 from backend.app.disclosure.material_parser import read_project_material_text
 from backend.app.disclosure.prior_art import PublicPriorArtProvider
@@ -69,6 +75,7 @@ from backend.app.post_draft_review import (
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
+from backend.app.revision_ledger import create_revision_record
 from backend.app.post_draft_repair import (
     apply_section_patch,
     create_repair_patch_payload,
@@ -132,6 +139,7 @@ from backend.app.schemas import (
     ProjectCreate,
     ProjectUpdate,
     ProjectRecord,
+    RevisionLedgerRecord,
     RuntimeFailure,
     SectionType,
     CompletionScoreCard,
@@ -310,14 +318,31 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
     def create_external_draft_intake_run(project_id: str, source_id: str) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         source = store.get_external_draft_source(project_id, source_id)
         if not source:
             raise HTTPException(status_code=404, detail="External draft source not found.")
         run = parse_external_draft_source(project_id=project_id, source=source)
-        stored = store.create_external_draft_intake_run(run)
-        if stored.status == "completed" and stored.parsed_package:
-            store.update_project_package(project_id, stored.parsed_package)
+        if run.status == "completed" and run.parsed_package:
+            before_package = project.package
+            record = _external_draft_revision_record_for_event(
+                project_id=project_id,
+                before_package=before_package,
+                after_package=run.parsed_package,
+                artifact_ref=f"external-draft-intake:{run.id}",
+                user_intent_summary=(
+                    "Imported parsed external draft package into the working draft."
+                    if before_package
+                    else "Imported the first parsed external draft package into an empty working draft."
+                ),
+            )
+            stored = store.create_external_draft_intake_run_with_project_package_revision_record(
+                run,
+                run.parsed_package,
+                record,
+            )
+        else:
+            stored = store.create_external_draft_intake_run(run)
         return stored.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
@@ -347,7 +372,7 @@ def create_app(
         run_id: str,
         payload: ExternalDraftIntakeConfirmRequest,
     ) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         run = store.get_external_draft_intake_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="External draft intake run not found.")
@@ -374,10 +399,25 @@ def create_app(
                 "working_draft_hash": working_draft_hash(package),
             }
         )
-        persisted = store.update_external_draft_intake_run(updated)
+        before_package = project.package
+        record = _external_draft_revision_record_for_event(
+            project_id=project_id,
+            before_package=before_package,
+            after_package=package,
+            artifact_ref=f"external-draft-intake:{run.id}",
+            user_intent_summary=(
+                "Confirmed external draft intake package and replaced the working draft."
+                if before_package
+                else "Confirmed the first external draft intake package into an empty working draft."
+            ),
+        )
+        persisted = store.update_external_draft_intake_run_with_project_package_revision_record(
+            updated,
+            package,
+            record,
+        )
         if not persisted:
             raise HTTPException(status_code=409, detail="External draft intake run update conflicted.")
-        store.update_project_package(project_id, package)
         return persisted.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-draft-review-bundle/report.md")
@@ -997,8 +1037,23 @@ def create_app(
         project = _require_project(store, project_id)
         package = _require_package(project)
         updated = package.model_copy(update=payload.model_dump())
-        store.update_project_package(project_id, updated)
+        _update_project_package_with_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=updated,
+            revision_kind="correction",
+            user_intent_summary="Manually updated the draft package.",
+            affected_sections=_changed_draft_sections(package, updated),
+            protection_scope_changed=package.claims != updated.claims,
+            artifact_refs=["manual-draft-package"],
+        )
         return updated.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/revision-ledger")
+    def list_revision_ledger(project_id: str) -> list[dict]:
+        _require_project(store, project_id)
+        return [record.model_dump(mode="json") for record in store.list_revision_ledger_records(project_id)]
 
     @app.post("/api/projects/{project_id}/filing-readiness")
     def create_filing_readiness_report(project_id: str) -> dict:
@@ -1202,14 +1257,44 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/{patch_id}/accept")
     def accept_completion_patch(project_id: str, run_id: str, patch_id: str) -> dict:
-        _require_project(store, project_id)
-        run = store.update_completion_patch_status(project_id, run_id, patch_id, "accepted")
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        existing_run = store.get_draft_completion_run(project_id, run_id)
+        if not existing_run:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        current_hash = source_draft_hash(package)
+        if existing_run.draft_package_hash and existing_run.draft_package_hash != current_hash:
+            raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
+        run = _completion_run_with_patch_status(existing_run, patch_id, "accepted")
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion patch not found.")
-        adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(run))
-        if not adjusted:
+        adjusted = _completion_run_with_progress_score(run)
+        patch = next((candidate for candidate in adjusted.patches if candidate.id == patch_id), None)
+        if patch:
+            updated_package = _apply_completion_patch(package, patch, run_draft_package_hash=adjusted.draft_package_hash)
+            if updated_package != package:
+                record = _revision_ledger_record_for_event(
+                    project_id=project_id,
+                    before_package=package,
+                    after_package=updated_package,
+                    revision_kind="completion_patch",
+                    user_intent_summary=patch.rationale,
+                    affected_sections=_completion_patch_affected_sections(patch),
+                    protection_scope_changed=patch.target_section == "claim",
+                    artifact_refs=[f"completion-run:{run_id}", f"completion-patch:{patch_id}"],
+                )
+                stored = store.update_draft_completion_run_with_project_package_revision_records(
+                    adjusted,
+                    updated_package,
+                    [record] if record is not None else [],
+                )
+                if not stored:
+                    raise HTTPException(status_code=404, detail="Draft completion run not found.")
+                return stored.model_dump(mode="json")
+        stored = store.update_draft_completion_run(adjusted)
+        if not stored:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
-        return adjusted.model_dump(mode="json")
+        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/{patch_id}/reject")
     def reject_completion_patch(project_id: str, run_id: str, patch_id: str) -> dict:
@@ -1224,20 +1309,49 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/accept-all")
     def accept_all_completion_patches(project_id: str, run_id: str) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
+        package = _require_package(project)
         run = store.get_draft_completion_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        current_hash = source_draft_hash(package)
+        if run.draft_package_hash and run.draft_package_hash != current_hash:
+            raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
         current = run
+        current_package = package
+        records: list[RevisionLedgerRecord] = []
         for patch in [patch for patch in run.patches if patch.status == "proposed"]:
-            updated = store.update_completion_patch_status(project_id, run_id, patch.id, "accepted")
+            updated = _completion_run_with_patch_status(current, patch.id, "accepted")
             if not updated:
                 raise HTTPException(status_code=404, detail="Draft completion patch not found.")
             current = updated
-        adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(current))
-        if not adjusted:
+            patched_package = _apply_completion_patch(current_package, patch)
+            if patched_package != current_package:
+                record = _revision_ledger_record_for_event(
+                    project_id=project_id,
+                    before_package=current_package,
+                    after_package=patched_package,
+                    revision_kind="completion_patch",
+                    user_intent_summary=patch.rationale,
+                    affected_sections=_completion_patch_affected_sections(patch),
+                    protection_scope_changed=patch.target_section == "claim",
+                    artifact_refs=[f"completion-run:{run_id}", f"completion-patch:{patch.id}"],
+                )
+                if record is not None:
+                    records.append(record)
+                current_package = patched_package
+        adjusted = _completion_run_with_progress_score(current)
+        if current_package != package:
+            stored = store.update_draft_completion_run_with_project_package_revision_records(
+                adjusted,
+                current_package,
+                records,
+            )
+        else:
+            stored = store.update_draft_completion_run(adjusted)
+        if not stored:
             raise HTTPException(status_code=404, detail="Draft completion run not found.")
-        return adjusted.model_dump(mode="json")
+        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/score-improvement")
     def improve_project_score(project_id: str, payload: ScoreImprovementRequest) -> dict:
@@ -1261,16 +1375,37 @@ def create_app(
                 break
             round_accepted = False
             for patch in safe_patches:
+                before_package = current_package
                 patched_package = _apply_completion_patch(
-                    current_package,
+                    before_package,
                     patch,
                     run_draft_package_hash=current_run.draft_package_hash,
                 )
-                if patched_package == current_package:
+                if patched_package == before_package:
                     logs.append(f"score-improvement: 补丁 {patch.id} 未通过安全检查，未应用")
                     continue
+                updated_run = _completion_run_with_patch_status(current_run, patch.id, "accepted")
+                if not updated_run:
+                    raise HTTPException(status_code=404, detail="Draft completion patch not found.")
+                record = _revision_ledger_record_for_event(
+                    project_id=project_id,
+                    before_package=before_package,
+                    after_package=patched_package,
+                    revision_kind="completion_patch",
+                    user_intent_summary=patch.rationale,
+                    affected_sections=_completion_patch_affected_sections(patch),
+                    protection_scope_changed=patch.target_section == "claim",
+                    artifact_refs=[f"completion-run:{current_run.id}", f"completion-patch:{patch.id}"],
+                )
+                stored_run = store.update_draft_completion_run_with_project_package_revision_records(
+                    updated_run,
+                    patched_package,
+                    [record] if record is not None else [],
+                )
+                if not stored_run:
+                    raise HTTPException(status_code=404, detail="Draft completion run not found.")
+                current_run = stored_run
                 current_package = patched_package
-                store.update_completion_patch_status(project_id, current_run.id, patch.id, "accepted")
                 accepted_patch_ids.append(patch.id)
                 round_accepted = True
                 logs.append(f"score-improvement: 已应用补丁 {patch.id} -> {patch.target_section}")
@@ -1283,7 +1418,6 @@ def create_app(
             if not round_accepted:
                 logs.append("score-improvement: 本轮没有补丁通过安全检查")
                 break
-            store.update_project_package(project_id, current_package)
             current_run = _run_quality_cycle(app, store, project_id)
             logs.append(f"score-improvement: 第 {round_index} 轮重新评分 {current_run.scorecard.overall}/100")
             if current_run.scorecard.overall >= payload.target_score:
@@ -1509,7 +1643,17 @@ def create_app(
                 ]
             }
         )
-        store.update_project_package(project_id, updated_package)
+        _update_project_package_with_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=updated_package,
+            revision_kind="post_draft_repair",
+            user_intent_summary=patch.diff_summary,
+            affected_sections=[patch.target_section],
+            protection_scope_changed=patch.target_section == "claims",
+            artifact_refs=[f"post-draft-review:{run_id}", f"repair-patch:{patch_id}"],
+        )
 
         # Mark the patch as applied so it can't be re-applied
         applied_patch = patch.model_copy(update={"status": "applied"})
@@ -1528,7 +1672,18 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         result = _apply_post_draft_safe_patches(project_id=project_id, package=package, run=run)
-        store.update_project_package(project_id, result.package)
+        changed_sections = _changed_draft_sections(package, result.package)
+        _update_project_package_with_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=result.package,
+            revision_kind="post_draft_repair",
+            user_intent_summary=f"Applied post-draft safe patches from run {run.id}",
+            affected_sections=changed_sections,
+            protection_scope_changed="claims" in changed_sections,
+            artifact_refs=[f"post-draft-review:{run_id}"],
+        )
         return result.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/cancel")
@@ -1630,7 +1785,18 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Official compile run not found.")
         result = _apply_official_compile_cleanup(project_id=project_id, package=package, run=run)
-        store.update_project_package(project_id, result.package)
+        changed_sections = _changed_draft_sections(package, result.package)
+        _update_project_package_with_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=result.package,
+            revision_kind="official_cleanup",
+            user_intent_summary=f"Applied official compile cleanup from run {run.id}",
+            affected_sections=changed_sections,
+            protection_scope_changed="claims" in changed_sections,
+            artifact_refs=[f"official-compile:{run_id}"],
+        )
         return result.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/official-compile-runs/{run_id}/kimi-language-polish")
@@ -1688,13 +1854,7 @@ def create_app(
             }
         latest_compile_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
         compile_run = latest_compile_attempt
-        compile_current = (
-            compile_run
-            and compile_run.status == "completed"
-            and compile_run.official_package
-            and compile_run.official_package_hash
-            and compile_run.source_draft_hash == current_source_hash
-        )
+        compile_current = _official_compile_export_ready(compile_run, current_source_hash)
         if not compile_current:
             compile_for_state = latest_compile_attempt
             return {
@@ -1722,11 +1882,7 @@ def create_app(
         latest_matching_review = _latest_completed_matching_post_draft_review(
             store, project_id, current_source_hash, compile_run
         )
-        review_ready = (
-            matching_review_attempt
-            and matching_review_attempt.status == "completed"
-            and matching_review_attempt.export_allowed
-        )
+        review_ready = _post_draft_review_export_ready(matching_review_attempt)
         if not review_ready:
             review_for_state = matching_review_attempt or latest_matching_review
             return {
@@ -1741,7 +1897,7 @@ def create_app(
                 "official_package_hash": compile_run.official_package_hash,
                 "current_source_draft_hash": current_source_hash,
                 "has_review_run": matching_review_attempt is not None,
-                "review_export_allowed": review_for_state.export_allowed if review_for_state else False,
+                "review_export_allowed": _post_draft_review_export_ready(review_for_state),
                 "review_run_id": review_for_state.id if review_for_state else None,
                 "review_status": review_for_state.status if review_for_state else "missing",
                 "review_gate_status": _post_draft_review_gate_status(review_for_state),
@@ -1858,9 +2014,20 @@ def create_app(
         run = _require_disclosure_run(store, project_id, run_id)
         package = _require_disclosure_package(run)
         return PlainTextResponse(
-            disclosure_to_markdown(package),
+            clean_disclosure_to_markdown(package),
             media_type="text/markdown; charset=utf-8",
             headers=_content_disposition_header(f"{project.name}-技术交底书.md"),
+        )
+
+    @app.get("/api/projects/{project_id}/disclosures/{run_id}/sidecar.md")
+    def export_disclosure_run_sidecar(project_id: str, run_id: str) -> PlainTextResponse:
+        project = _require_project(store, project_id)
+        run = _require_disclosure_run(store, project_id, run_id)
+        package = _require_disclosure_package(run)
+        return PlainTextResponse(
+            disclosure_sidecar_to_markdown(package),
+            media_type="text/markdown; charset=utf-8",
+            headers=_content_disposition_header(f"{project.name}-交底书内部侧车.md"),
         )
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/diagram.mmd")
@@ -3123,6 +3290,136 @@ def _apply_official_compile_cleanup(
     )
 
 
+def _update_project_package_with_revision_ledger_event(
+    store: SQLiteStore,
+    *,
+    project_id: str,
+    before_package: DraftPackage,
+    after_package: DraftPackage,
+    revision_kind: str,
+    user_intent_summary: str,
+    affected_sections: list[str],
+    prior_art_changed: bool = False,
+    protection_scope_changed: bool = False,
+    artifact_refs: list[str] | None = None,
+) -> None:
+    record = _revision_ledger_record_for_event(
+        project_id=project_id,
+        before_package=before_package,
+        after_package=after_package,
+        revision_kind=revision_kind,
+        user_intent_summary=user_intent_summary,
+        affected_sections=affected_sections,
+        prior_art_changed=prior_art_changed,
+        protection_scope_changed=protection_scope_changed,
+        artifact_refs=artifact_refs,
+    )
+    if record is None:
+        store.update_project_package(project_id, after_package)
+        return
+    store.update_project_package_with_revision_record(project_id, after_package, record)
+
+
+def _revision_ledger_record_for_event(
+    *,
+    project_id: str,
+    before_package: DraftPackage,
+    after_package: DraftPackage,
+    revision_kind: str,
+    user_intent_summary: str,
+    affected_sections: list[str],
+    prior_art_changed: bool = False,
+    protection_scope_changed: bool = False,
+    artifact_refs: list[str] | None = None,
+) -> RevisionLedgerRecord | None:
+    if before_package == after_package:
+        return None
+    return create_revision_record(
+        project_id=project_id,
+        baseline_package=before_package,
+        updated_package=after_package,
+        revision_kind=revision_kind,
+        user_intent_summary=user_intent_summary,
+        affected_sections=affected_sections,
+        prior_art_changed=prior_art_changed,
+        protection_scope_changed=protection_scope_changed,
+        artifact_refs=artifact_refs,
+    )
+
+
+def _update_project_package_with_external_draft_revision_ledger_event(
+    store: SQLiteStore,
+    *,
+    project_id: str,
+    before_package: DraftPackage | None,
+    after_package: DraftPackage,
+    artifact_ref: str,
+    user_intent_summary: str,
+) -> None:
+    record = _external_draft_revision_record_for_event(
+        project_id=project_id,
+        before_package=before_package,
+        after_package=after_package,
+        artifact_ref=artifact_ref,
+        user_intent_summary=user_intent_summary,
+    )
+    if record is None:
+        store.update_project_package(project_id, after_package)
+        return
+    store.update_project_package_with_revision_record(project_id, after_package, record)
+
+
+def _external_draft_revision_record_for_event(
+    *,
+    project_id: str,
+    before_package: DraftPackage | None,
+    after_package: DraftPackage,
+    artifact_ref: str,
+    user_intent_summary: str,
+) -> RevisionLedgerRecord | None:
+    baseline_package = before_package or _empty_draft_package_baseline()
+    return _revision_ledger_record_for_event(
+        project_id=project_id,
+        before_package=baseline_package,
+        after_package=after_package,
+        revision_kind="material_merge",
+        user_intent_summary=user_intent_summary,
+        affected_sections=_changed_draft_sections(baseline_package, after_package),
+        protection_scope_changed=baseline_package.claims != after_package.claims,
+        artifact_refs=[artifact_ref],
+    )
+
+
+def _empty_draft_package_baseline() -> DraftPackage:
+    return DraftPackage(
+        title="",
+        abstract="",
+        claims="",
+        description="",
+        drawing_description="",
+        mermaid="",
+        image_prompt="",
+    )
+
+
+def _changed_draft_sections(before: DraftPackage, after: DraftPackage) -> list[str]:
+    return [
+        section
+        for section in ("title", "abstract", "claims", "description", "drawing_description")
+        if getattr(before, section) != getattr(after, section)
+    ]
+
+
+def _completion_patch_affected_sections(patch: ProposedPatch) -> list[str]:
+    if patch.target_section in {"description", "embodiment", "term"}:
+        return ["description"]
+    if patch.target_section == "claim":
+        return ["claims"]
+    if patch.target_section == "drawing":
+        return ["drawing_description"]
+    return []
+
+
 def _official_compile_cleanup_action_label(item: dict[str, str]) -> str:
     section = item.get("section") or "unknown"
     pattern = item.get("pattern") or item.get("category") or "cleanup"
@@ -3242,10 +3539,40 @@ def _apply_post_draft_safe_patch(
     package: DraftPackage,
     payload: dict[str, object],
 ) -> tuple[DraftPackage, str]:
-    action = str(payload.get("action") or "").strip()
-    target = str(payload.get("target") or "").strip()
-    section = target.split()[0].strip().lower()
+    action = str(payload.get("action") or payload.get("operation") or "").strip().lower()
+    section = _post_draft_safe_patch_section(payload)
+    if not section:
+        return package, ""
     data = package.model_dump()
+
+    match_text = str(payload.get("match") or payload.get("original_clause") or "").strip()
+    replacement_text = str(
+        payload.get("replacement")
+        or payload.get("proposed_clause")
+        or payload.get("patched")
+        or ""
+    ).strip()
+    if match_text and action in {"delete", "remove"}:
+        current = str(data.get(section, "") or "")
+        updated, changed = _replace_post_draft_patch_text(current, match_text, "")
+        if changed:
+            data[section] = _squash_patch_blank_lines(updated)
+            return DraftPackage(**data), f"{section}: delete matched passage"
+    if match_text and (replacement_text or action == "replace"):
+        current = str(data.get(section, "") or "")
+        replacement = replacement_text or _patch_content(payload)
+        updated, changed = _replace_post_draft_patch_text(current, match_text, replacement)
+        if changed:
+            data[section] = updated
+            return DraftPackage(**data), f"{section}: replace matched passage"
+
+    instruction = str(payload.get("patch") or "").strip()
+    if instruction:
+        current = str(data.get(section, "") or "")
+        updated, action_label = _apply_post_draft_patch_instruction(current, instruction, section)
+        if action_label:
+            data[section] = updated
+            return DraftPackage(**data), action_label
 
     if section == "title":
         replacement = _patch_content(payload)
@@ -3278,6 +3605,166 @@ def _apply_post_draft_safe_patch(
                 return DraftPackage(**data), "description: replace"
 
     return package, ""
+
+
+def _post_draft_safe_patch_section(payload: dict[str, object]) -> str:
+    raw_target = str(payload.get("target") or payload.get("apply_to") or "").strip()
+    if not raw_target:
+        return ""
+    target = raw_target.lower().replace("-", "_")
+    first_token = re.split(r"[\s.:：,，/]+", target, maxsplit=1)[0]
+    if first_token in {"title", "abstract", "claims", "description", "drawing_description"}:
+        return first_token
+    if first_token in {"claim", "claims"} or "权利要求" in raw_target:
+        return "claims"
+    if "说明书" in raw_target or "description" in target:
+        return "description"
+    if "摘要" in raw_target or "abstract" in target:
+        return "abstract"
+    if "附图" in raw_target or "drawing" in target:
+        return "drawing_description"
+    if "标题" in raw_target or "title" in target:
+        return "title"
+    return ""
+
+
+def _replace_post_draft_patch_text(text: str, match_text: str, replacement: str) -> tuple[str, bool]:
+    if not match_text:
+        return text, False
+    if match_text in text:
+        return text.replace(match_text, replacement, 1), True
+    if ".*" not in match_text:
+        return text, False
+    try:
+        updated, count = re.subn(match_text, lambda _: replacement, text, count=1, flags=re.DOTALL)
+    except re.error:
+        return text, False
+    return updated, count > 0
+
+
+def _apply_post_draft_patch_instruction(text: str, instruction: str, section: str) -> tuple[str, str]:
+    if section == "description" and "删除" in instruction and (
+        "内部提示" in instruction or "补充材料" in instruction or "需补强" in instruction
+    ):
+        updated = _remove_post_draft_internal_blocks(
+            text,
+            ["为增强本申请的可授权性", "提交前", "需补强", "补充材料", "待实验验证"],
+        )
+        if updated != text:
+            return updated, "description: remove internal markers"
+
+    replacement = _patch_instruction_replacement(instruction)
+    if replacement:
+        original, patched = replacement
+        updated, changed = _replace_patch_instruction_original(text, original, patched)
+        if changed:
+            return updated, f"{section}: replace instructed passage"
+
+    supplement = _patch_instruction_supplement(instruction)
+    if supplement:
+        anchor, addition = supplement
+        updated = _insert_post_draft_patch_addition(text, anchor, addition)
+        if updated != text:
+            return updated, f"{section}: add instructed passage"
+
+    if section == "description" and "首次" in instruction and "改为" in instruction and "首次" in text:
+        return text.replace("首次", "", 1), "description: remove absolute wording"
+
+    return text, ""
+
+
+def _patch_instruction_replacement(instruction: str) -> tuple[str, str] | None:
+    quoted = re.search(
+        r"将[“\"'](?P<old>.+?)[”\"'](?:修改为|替换为|改为)[“\"'](?P<new>.+?)[”\"']",
+        instruction,
+    )
+    if not quoted:
+        quoted = re.search(r"将‘(?P<old>.+?)’(?:修改为|替换为|改为)‘(?P<new>.+?)’", instruction)
+    if quoted:
+        return quoted.group("old").strip(), quoted.group("new").strip()
+
+    plain = re.search(r"^将(?P<old>.+?)(?:修改为|替换为|改为)(?P<new>.+?)(?:，并(?P<tail>.+))?$", instruction)
+    if not plain:
+        return None
+    return plain.group("old").strip(), plain.group("new").strip().rstrip("。")
+
+
+def _patch_instruction_supplement(instruction: str) -> tuple[str, str] | None:
+    supplement = re.search(r"在(?P<anchor>.+?)后补充[‘“\"'](?P<addition>.+?)[’”\"']", instruction)
+    if not supplement:
+        return None
+    return supplement.group("anchor").strip(), supplement.group("addition").strip()
+
+
+def _replace_patch_instruction_original(text: str, original: str, patched: str) -> tuple[str, bool]:
+    if not original or not patched:
+        return text, False
+    if "…" in original:
+        prefix = original.split("…", 1)[0]
+        if prefix and prefix in text:
+            return text.replace(prefix, patched, 1), True
+        if "首次" in original and "首次" in text:
+            return text.replace("首次", "", 1), True
+        return text, False
+    if original in text:
+        return text.replace(original, patched, 1), True
+    formula_updated, formula_changed = _replace_patch_formula_alias(text, original, patched)
+    if formula_changed:
+        return formula_updated, True
+    return text, False
+
+
+def _replace_patch_formula_alias(text: str, original: str, patched: str) -> tuple[str, bool]:
+    normalized = re.sub(r"\s+", "", original)
+    if normalized != "C_det=P_class×IoU":
+        return text, False
+    patterns = (
+        r"!\[[^\]\n]*(?:C_\{\\text\{det\}\}|C_det)[^\]\n]*(?:\\text\{IoU\}|IoU)[^\]\n]*\]\([^\)\n]*\)",
+        r"C_\{\\text\{det\}\}\s*=\s*P_\{\\text\{class\}\}\s*\\times\s*\\text\{IoU\}",
+        r"C_\{det\}\s*=\s*P_\{class\}\s*\\times\s*IoU",
+        r"C_det\s*=\s*P_class\s*[×x]\s*IoU",
+    )
+    for pattern in patterns:
+        updated, count = re.subn(pattern, lambda _: patched, text, count=1)
+        if count:
+            return _replace_cdet_iou_definition(updated), True
+    return text, False
+
+
+def _replace_cdet_iou_definition(text: str) -> str:
+    replacement = (
+        "P_class为病害分类器输出的最大类别概率，"
+        "U_seg为病害分割掩膜的空间不确定性度量，"
+        "所述空间不确定性度量基于分割掩膜预测的熵或边界置信度获得；"
+    )
+    patterns = (
+        r"P_class为病害分类器输出的最大类别概率，IoU为病害分割掩膜的交并比；?",
+        r"P_class\s*为病害分类器输出的最大类别概率，\s*IoU\s*为病害分割掩膜的交并比；?",
+    )
+    updated = text
+    for pattern in patterns:
+        updated, count = re.subn(pattern, replacement, updated, count=1)
+        if count:
+            return updated
+    return updated
+
+
+def _insert_post_draft_patch_addition(text: str, anchor: str, addition: str) -> str:
+    if not addition or addition in text:
+        return text
+    if anchor and anchor in text:
+        return text.replace(anchor, f"{anchor}{addition}", 1)
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if ("CCI" in anchor or "CCI" in addition) and "CCI" in line:
+            separator = "" if line.rstrip().endswith(("；", ";", "。", ".")) else "；"
+            lines[index] = f"{line.rstrip()}{separator}{addition}"
+            return "\n".join(lines)
+    return f"{text.rstrip()}\n{addition}"
+
+
+def _squash_patch_blank_lines(text: str) -> str:
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 def _patch_content(payload: dict[str, object]) -> str:
@@ -3443,7 +3930,10 @@ def _require_latest_completed_official_compile(
 ) -> OfficialCompileRun:
     current_source_hash = source_draft_hash(package)
     latest_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
-    if latest_attempt and latest_attempt.status in {"queued", "running", "blocked", "failed"}:
+    if latest_attempt and (
+        latest_attempt.status in {"queued", "running", "blocked", "failed"}
+        or (latest_attempt.status == "completed" and latest_attempt.blocked_items)
+    ):
         raise HTTPException(
             status_code=409,
             detail=_official_compile_gate_error_detail(latest_attempt).replace(
@@ -3481,7 +3971,7 @@ def _current_quality_artifacts(
         (
             worksheet
             for worksheet in store.list_claim_defense_worksheets(project_id)
-            if worksheet.draft_package_hash == current_source_hash
+            if worksheet.draft_package_hash == current_source_hash and worksheet.status != "superseded"
         ),
         None,
     )
@@ -3492,7 +3982,10 @@ def _current_quality_gate_state(store: SQLiteStore, project_id: str, current_sou
     filing_report, worksheet = _current_quality_artifacts(store, project_id, current_source_hash)
     completion_runs = store.list_draft_completion_runs(project_id)
     latest_filing = next(iter(store.list_filing_readiness_reports(project_id)), None)
-    latest_worksheet = next(iter(store.list_claim_defense_worksheets(project_id)), None)
+    latest_worksheet = next(
+        (worksheet for worksheet in store.list_claim_defense_worksheets(project_id) if worksheet.status != "superseded"),
+        None,
+    )
     latest_completion = next(
         (run for run in completion_runs if run.status == "completed"),
         None,
@@ -3609,11 +4102,24 @@ def _official_compile_gate_error_detail(run: OfficialCompileRun | None) -> str:
         return "Current draft has a blocked official compile. Resolve the blocked compile items and re-run official compile before official export."
     if run and run.status == "failed":
         return "Current draft has a failed official compile. Re-run official compile before official export."
+    if run and run.status == "completed" and run.blocked_items:
+        return "Current draft has a blocked official compile. Resolve the blocked compile items and re-run official compile before official export."
     if run and run.status == "completed" and not run.official_package:
         return "Current draft has an incomplete official compile: missing official package. Re-run official compile before official export."
     if run and run.status == "completed" and not run.official_package_hash:
         return "Current draft has an incomplete official compile: missing official package hash. Re-run official compile before official export."
     return "Official draft compile is required for the current draft before official export."
+
+
+def _official_compile_export_ready(run: OfficialCompileRun | None, current_source_hash: str) -> bool:
+    return bool(
+        run
+        and run.status == "completed"
+        and run.official_package
+        and run.official_package_hash
+        and run.source_draft_hash == current_source_hash
+        and not run.blocked_items
+    )
 
 
 def _official_compile_artifact_state(run: OfficialCompileRun | None, current_source_hash: str) -> str:
@@ -3625,6 +4131,8 @@ def _official_compile_artifact_state(run: OfficialCompileRun | None, current_sou
         return run.status
     if run.status in {"blocked", "failed"}:
         return run.status
+    if run.status == "completed" and run.blocked_items:
+        return "blocked"
     if run.status == "completed" and not run.official_package:
         return "missing_official_package"
     if run.status == "completed" and not run.official_package_hash:
@@ -3678,9 +4186,18 @@ def _post_draft_review_gate_error_detail(review: PostDraftReviewRun | None) -> s
         return "Current official draft has a failed post-draft review. Re-run the post-draft multi-agent review before official export."
     if review and review.status == "interrupted":
         return "Current official draft has an interrupted post-draft review. Re-run the post-draft multi-agent review before official export."
-    if review and review.status == "completed" and not review.export_allowed:
+    if review and review.status == "completed" and not _post_draft_review_export_ready(review):
         return "Current official draft has a blocked post-draft review. Resolve the review blocking issues and re-run post-draft review before official export."
     return "Post-draft multi-agent review is required for the current official draft before official export."
+
+
+def _post_draft_review_export_ready(review: PostDraftReviewRun | None) -> bool:
+    return bool(
+        review
+        and review.status == "completed"
+        and review.export_allowed
+        and not review.blocking_issues
+    )
 
 
 def _post_draft_review_gate_status(review: PostDraftReviewRun | None) -> str:
@@ -3688,7 +4205,7 @@ def _post_draft_review_gate_status(review: PostDraftReviewRun | None) -> str:
         return "missing"
     if review.status != "completed":
         return review.status
-    if review.export_allowed:
+    if _post_draft_review_export_ready(review):
         return "passed"
     if review.chair_result and review.chair_result.status:
         return review.chair_result.status
@@ -3705,13 +4222,7 @@ def _require_official_export_gate(store: SQLiteStore, project_id: str, package: 
         )
     latest_compile_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
     compile_run = latest_compile_attempt
-    if (
-        not compile_run
-        or compile_run.status != "completed"
-        or not compile_run.official_package
-        or not compile_run.official_package_hash
-        or compile_run.source_draft_hash != current_source_hash
-    ):
+    if not _official_compile_export_ready(compile_run, current_source_hash):
         raise HTTPException(
             status_code=409,
             detail=_official_compile_gate_error_detail(latest_compile_attempt),
@@ -3722,11 +4233,7 @@ def _require_official_export_gate(store: SQLiteStore, project_id: str, package: 
     latest_matching_review = _latest_completed_matching_post_draft_review(
         store, project_id, current_source_hash, compile_run
     )
-    review_ready = (
-        matching_review_attempt
-        and matching_review_attempt.status == "completed"
-        and matching_review_attempt.export_allowed
-    )
+    review_ready = _post_draft_review_export_ready(matching_review_attempt)
     if not review_ready:
         raise HTTPException(
             status_code=409,
@@ -4077,6 +4584,30 @@ def _dedupe_provider_ids(provider_ids: list[str]) -> list[str]:
         if provider_id and provider_id not in deduped:
             deduped.append(provider_id)
     return deduped
+
+
+def _completion_run_with_patch_status(
+    run: DraftCompletionRun,
+    patch_id: str,
+    status: str,
+) -> DraftCompletionRun | None:
+    payload = run.model_dump(mode="json")
+    found = False
+    task_id = ""
+    for patch in payload["patches"]:
+        if patch["id"] == patch_id:
+            patch["status"] = status
+            task_id = patch["task_id"]
+            found = True
+            break
+    if not found:
+        return None
+    if status in {"accepted", "rejected"}:
+        for task in payload["tasks"]:
+            if task["id"] == task_id:
+                task["status"] = status
+                break
+    return DraftCompletionRun.model_validate(payload)
 
 
 def _completion_run_with_progress_score(run: DraftCompletionRun) -> DraftCompletionRun:

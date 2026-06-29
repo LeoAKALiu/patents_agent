@@ -4,10 +4,16 @@ import json
 import uuid
 from typing import Any
 
-from backend.app.disclosure.prior_art import PriorArtProvider
+from backend.app.disclosure.prior_art import PriorArtProvider, dedupe_prior_art_hits, prior_art_url_warnings
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
+from backend.app.patent_urls import clean_prior_art_url_for_prompt, sanitize_patent_like_urls_for_public_text
 from backend.app.project_metadata import format_project_metadata_block
+from backend.app.research.deep_research_intake import (
+    is_deep_research_markdown_material,
+    packet_prior_art_hits,
+    parse_deep_research_materials,
+)
 from backend.app.research.ledger import SourceLedger, citation_snapshot
 from backend.app.runtime import RuntimeContext
 from backend.app.schemas import (
@@ -44,10 +50,31 @@ class DisclosureGenerator:
         logs: list[str] = []
         user_candidates = user_candidates or []
         strategic_context = _format_user_candidates(user_candidates)
-        material_context = _format_materials(project, materials)
+        deep_research_packets = parse_deep_research_materials(materials)
+        material_context = _format_materials(
+            project,
+            [material for material in materials if not _is_processed_deep_research_material(material)],
+        )
+        deep_research_context = _format_deep_research_prompt_context(deep_research_packets)
+        strategic_context = _merge_context_blocks(strategic_context, deep_research_context)
+        material_context = _merge_context_blocks(material_context, deep_research_context)
+        markdown_hits = [hit for packet in deep_research_packets for hit in packet_prior_art_hits(packet)]
         rag_context = _format_context(context_chunks)
         system_prompt = _system_prompt(project)
         ledger = ledger or SourceLedger()
+
+        stage_results.append(
+            {
+                "phase": "deep_research_material_intake",
+                "payload": {
+                    "packets": [packet.model_dump(mode="json") for packet in deep_research_packets],
+                    "prior_art_hit_count": len(markdown_hits),
+                    "warnings": [warning for packet in deep_research_packets for warning in packet.warnings],
+                },
+            }
+        )
+        _checkpoint_stage(stage_results, runtime, on_stage_result)
+        logs.extend(log for packet in deep_research_packets for log in packet.generation_logs)
 
         if runtime:
             runtime.begin_stage("disclosure_scan", provider="llm", subtask="project/material scan")
@@ -109,6 +136,9 @@ class DisclosureGenerator:
             prior_art_hits = []
             provider_warnings = [f"prior_art search failed: {exc}"]
 
+        prior_art_hits = dedupe_prior_art_hits([*prior_art_hits, *markdown_hits])
+        provider_warnings = _append_missing_prior_art_url_warnings(provider_warnings, prior_art_hits)
+
         stage_results.append(
             {
                 "phase": "prior_art_search",
@@ -124,7 +154,13 @@ class DisclosureGenerator:
 
         if runtime:
             runtime.begin_stage("prior_art_relevance", provider="llm", subtask="claim chart enrichment")
-        prior_art_hits, prior_art_differences, charts_by_candidate = self._enrich_prior_art(project, candidates, selected_id, prior_art_hits)
+        prior_art_hits, prior_art_differences, charts_by_candidate = self._enrich_prior_art(
+            project,
+            candidates,
+            selected_id,
+            prior_art_hits,
+            deep_research_context,
+        )
         candidates = [
             candidate.model_copy(update={"claim_chart": charts_by_candidate.get(candidate.id, candidate.claim_chart)})
             for candidate in candidates
@@ -231,13 +267,14 @@ class DisclosureGenerator:
         candidates: list[PatentPointCandidate],
         selected_id: str | None,
         hits: list[PriorArtHit],
+        deep_research_context: str,
     ) -> tuple[list[PriorArtHit], str, dict[str, list[ClaimChartItem]]]:
         if not hits:
             return hits, "未获得可用公开现有技术结果；交底书仅基于本地材料和授权专利语料生成。", {}
         raw = self.llm.complete_stage(
             "prior_art_relevance",
             _system_prompt(project),
-            _relevance_prompt(project, candidates, selected_id, hits),
+            _relevance_prompt(project, candidates, selected_id, hits, deep_research_context),
         )
         data = _json_object(raw, {})
         charts_by_candidate: dict[str, list[ClaimChartItem]] = {}
@@ -457,9 +494,11 @@ def _relevance_prompt(
     candidates: list[PatentPointCandidate],
     selected_id: str | None,
     hits: list[PriorArtHit],
+    deep_research_context: str,
 ) -> str:
     selected = _selected_candidate(candidates, selected_id)
     return f"""请基于公开现有技术结果，概括每篇文献与推荐专利点的相关性和差异。
+凡公开结果含 abstract，必须基于 abstract 概括方案要点、局限和区别，禁止仅凭标题判断。
 严格输出 JSON object：
 {{
   "prior_art_differences": "总体区别段落",
@@ -480,8 +519,10 @@ def _relevance_prompt(
 
 项目：{project.name}
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
+DeepResearch 内部材料：
+{deep_research_context or "无"}
 公开结果：
-{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False, indent=2)}
+{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False, indent=2)}
 """
 
 
@@ -512,7 +553,7 @@ def _body_prompt(
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
 扫描摘要：{json.dumps(scan, ensure_ascii=False)}
 材料：{materials}
-公开现有技术：{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False, indent=2)}
+公开现有技术：{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False, indent=2)}
 总体区别：{differences}
 """
     return f"""请生成完整中文技术交底书 Markdown。
@@ -529,7 +570,7 @@ def _body_prompt(
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
 扫描摘要：{json.dumps(scan, ensure_ascii=False)}
 材料：{materials}
-公开现有技术：{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False, indent=2)}
+公开现有技术：{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False, indent=2)}
 总体区别：{differences}
 """
 
@@ -583,7 +624,7 @@ Mermaid：
 {mermaid}
 
 公开现有技术：
-{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False)}
+{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False)}
 """
     return f"""请对以下技术交底书做内部自检，仅输出 JSON array。
 每项包含 category、severity(low|medium|high)、message、suggestion。
@@ -597,7 +638,7 @@ Mermaid：
 {mermaid}
 
 公开现有技术：
-{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False)}
+{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False)}
 """
 
 
@@ -611,6 +652,54 @@ def _format_materials(project: ProjectRecord, materials: list[ProjectMaterial]) 
     return "\n\n".join(blocks)
 
 
+def _is_processed_deep_research_material(material: ProjectMaterial) -> bool:
+    return material.status == "processed" and is_deep_research_markdown_material(material.file_name, material.text)
+
+
+def _format_deep_research_prompt_context(packets: list[Any]) -> str:
+    if not packets:
+        return ""
+    packet_blocks: list[str] = []
+    for index, packet in enumerate(packets, start=1):
+        packet_hits = packet_prior_art_hits(packet)
+        lines = [f"## DeepResearch 补充线索 {index}"]
+        if packet_hits:
+            lines.append("现有技术线索：")
+            for hit in packet_hits:
+                prompt_hit = _prior_art_hit_for_prompt(hit)
+                detail_parts = [
+                    part
+                    for part in (
+                        prompt_hit.publication_number,
+                        prompt_hit.title,
+                        prompt_hit.url,
+                        prompt_hit.abstract or prompt_hit.relevance_summary,
+                    )
+                    if part
+                ]
+                lines.append(f"- {' | '.join(detail_parts)}")
+        if packet.differentiators:
+            lines.append("关键差异点：")
+            lines.extend(f"- {item}" for item in packet.differentiators)
+        if packet.claim_drafting_constraints:
+            lines.append("权利要求约束：")
+            lines.extend(f"- {item}" for item in packet.claim_drafting_constraints)
+        if packet.suggested_completion_tasks:
+            lines.append("技术补充待办：")
+            lines.extend(f"- {item}" for item in packet.suggested_completion_tasks)
+        if len(lines) > 1:
+            packet_blocks.append("\n".join(lines))
+    return "\n\n".join(packet_blocks)
+
+
+def _merge_context_blocks(base: str, extra: str) -> str:
+    if not extra.strip():
+        return base
+    if not base.strip():
+        return extra
+    return f"{base}\n\n{extra}"
+
+
 def _format_context(chunks: list[PatentChunk]) -> str:
     if not chunks:
         return "无可用相似授权专利片段。"
@@ -618,6 +707,28 @@ def _format_context(chunks: list[PatentChunk]) -> str:
         f"[{index}] {chunk.section_type.value} / {chunk.metadata.get('title', chunk.document_id)}\n{chunk.text[:1200]}"
         for index, chunk in enumerate(chunks, start=1)
     )
+
+
+def _prior_art_hits_prompt_payload(hits: list[PriorArtHit]) -> list[dict[str, Any]]:
+    return [_prior_art_hit_for_prompt(hit).model_dump(mode="json") for hit in hits]
+
+
+def _prior_art_hit_for_prompt(hit: PriorArtHit) -> PriorArtHit:
+    return hit.model_copy(
+        update={
+            "title": _prompt_safe_patent_text(hit.title),
+            "url": clean_prior_art_url_for_prompt(hit.url, hit.publication_number),
+            "abstract": _prompt_safe_patent_text(hit.abstract),
+            "relevance_summary": _prompt_safe_patent_text(hit.relevance_summary),
+            "differentiators": [_prompt_safe_patent_text(item) for item in hit.differentiators],
+        }
+    )
+
+
+def _prompt_safe_patent_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return sanitize_patent_like_urls_for_public_text(value)
 
 
 def _format_user_candidates(candidates: list[PatentPointCandidate]) -> str:
@@ -737,9 +848,19 @@ def _parse_terms(raw: str, project: ProjectRecord) -> list[str]:
     if isinstance(parsed, dict):
         parsed = parsed.get("terms", [])
     terms = [str(item).strip() for item in parsed if str(item).strip()] if isinstance(parsed, list) else []
-    if len(terms) < 2:
+    if not terms:
         terms = _fallback_keywords(f"{project.name} {project.draft_text}")
     return terms[:8]
+
+
+def _append_missing_prior_art_url_warnings(warnings: list[str], hits: list[PriorArtHit]) -> list[str]:
+    merged = list(warnings)
+    seen = set(merged)
+    for warning in prior_art_url_warnings(hits):
+        if warning not in seen:
+            merged.append(warning)
+            seen.add(warning)
+    return merged
 
 
 def _parse_self_check(raw: str) -> list[DisclosureSelfCheckFinding]:

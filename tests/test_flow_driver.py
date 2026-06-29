@@ -368,6 +368,39 @@ def test_flow_driver_state_reports_failed_current_quality_gate(tmp_path) -> None
     assert driver.export_readiness()["failed_quality_checks"] == ["draft_completion"]
 
 
+def test_export_readiness_treats_superseded_current_claim_defense_as_missing(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    filing = client.post(f"/api/projects/{driver.project_id}/filing-readiness").json()
+    completion = client.post(f"/api/projects/{driver.project_id}/completion-runs").json()
+    current_hash = filing["draft_package_hash"]
+    assert completion["draft_package_hash"] == current_hash
+    client.app.state.store.create_claim_defense_worksheet(
+        ClaimDefenseWorksheet(
+            id="superseded-current-worksheet",
+            project_id=driver.project_id,
+            draft_package_hash=current_hash,
+            status="superseded",
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_quality_checks"
+    assert readiness["quality_required"] is True
+    assert readiness["missing_quality_checks"] == ["claim_defense_worksheet"]
+    assert readiness["quality_check_states"] == {
+        "filing_readiness": "current",
+        "claim_defense_worksheet": "missing",
+        "draft_completion": "current",
+    }
+    state = driver.state()
+    assert state.gates["quality"] == "missing"
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "missing quality checks: claim_defense_worksheet" in blocked["detail"]
+
+
 def test_export_readiness_uses_latest_current_draft_completion_attempt(tmp_path) -> None:
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
     driver = _driver_with_working_draft(client)
@@ -675,6 +708,52 @@ def test_export_readiness_reports_completed_compile_missing_official_package_has
     assert "missing official package hash" in review_response.json()["detail"]
 
 
+def test_export_readiness_blocks_completed_compile_with_blocked_items(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    completed_compile = driver.compile_official()
+    assert completed_compile["status"] == "completed"
+    client.app.state.store.create_official_compile_run(
+        OfficialCompileRun(
+            id="completed-compile-with-blocked-items",
+            project_id=driver.project_id,
+            status="completed",
+            source_draft_hash=completed_compile["source_draft_hash"],
+            official_package=OfficialDraftPackage.model_validate(completed_compile["official_package"]),
+            official_package_hash=completed_compile["official_package_hash"],
+            blocked_items=[
+                {
+                    "category": "residual_internal_text",
+                    "section": "claims",
+                    "pattern": "support_gap",
+                    "message": "legacy completed compile still records blocking contamination",
+                }
+            ],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_official_compile"
+    assert readiness["official_compile_required"] is True
+    assert readiness["post_draft_review_required"] is False
+    assert readiness["has_compile_run"] is True
+    assert readiness["compile_run_id"] == "completed-compile-with-blocked-items"
+    assert readiness["compile_status"] == "completed"
+    assert readiness["compile_artifact_state"] == "blocked"
+    assert readiness["compile_blocked_items"]
+    state = driver.state()
+    assert state.gates["official_compile"] == "blocked"
+    assert state.export_allowed is False
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "blocked official compile" in blocked["detail"]
+    review_response = client.post(f"/api/projects/{driver.project_id}/post-draft-reviews", json={})
+    assert review_response.status_code == 409
+    assert "blocked official compile" in review_response.json()["detail"]
+
+
 def test_export_readiness_uses_latest_failed_official_compile_attempt(tmp_path) -> None:
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
     driver = _driver_with_working_draft(client)
@@ -925,6 +1004,44 @@ def test_flow_driver_state_reports_latest_post_draft_review_attempt_status(tmp_p
         assert state.export_allowed is False
         if expected_gate in {"queued", "running"}:
             assert [run["id"] for run in state.active_runs] == [f"{expected_gate}-latest-current-review"]
+
+
+def test_export_readiness_blocks_contradictory_passed_review_with_blocking_issues(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(), load_env_file=False))
+    driver = _driver_with_working_draft(client)
+    driver.run_quality()
+    compile_run = driver.compile_official()
+    passed_review = driver.run_post_draft_review()
+    assert passed_review["export_allowed"] is True
+    assert driver.export_official()["ok"] is True
+    client.app.state.store.create_post_draft_review_run(
+        PostDraftReviewRun(
+            id="contradictory-passed-review",
+            project_id=driver.project_id,
+            status="completed",
+            draft_package_hash=compile_run["source_draft_hash"],
+            official_compile_run_id=compile_run["id"],
+            official_package_hash=compile_run["official_package_hash"],
+            export_allowed=True,
+            blocking_issues=["legacy record says export is allowed while blocking issues remain"],
+        )
+    )
+
+    readiness = driver.export_readiness()
+
+    assert readiness["next_action"] == "run_post_draft_review"
+    assert readiness["post_draft_review_required"] is True
+    assert readiness["has_review_run"] is True
+    assert readiness["review_run_id"] == "contradictory-passed-review"
+    assert readiness["review_gate_status"] == "blocked"
+    assert readiness["review_export_allowed"] is False
+    assert readiness["review_blocking_issues"] == ["legacy record says export is allowed while blocking issues remain"]
+    state = driver.state()
+    assert state.gates["post_draft_review"] == "blocked"
+    assert state.export_allowed is False
+    blocked = driver.export_official()
+    assert blocked["blocked"] is True
+    assert "blocked post-draft review" in blocked["detail"]
 
 
 def test_flow_driver_generates_utility_model_draft_and_reports_readiness(tmp_path) -> None:

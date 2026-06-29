@@ -221,11 +221,14 @@ def _quality_artifact_gate(
     artifact: dict[str, Any],
     *,
     completed_only: bool = False,
+    ignored_statuses: set[str] | None = None,
 ) -> str:
     if not artifact:
         return "missing"
     artifact_hash = artifact.get("draft_package_hash")
     status = str(artifact.get("status") or "")
+    if status in (ignored_statuses or set()):
+        return "missing"
     if completed_only:
         if status == "failed" and bool(current_hash) and artifact_hash == current_hash:
             return "failed"
@@ -246,6 +249,8 @@ def _official_compile_gate(current_hash: str, run: dict[str, Any]) -> str:
     status = str(run.get("status") or "")
     if status in {"queued", "running", "blocked", "failed"}:
         return status
+    if status == "completed" and run.get("blocked_items"):
+        return "blocked"
     if status == "completed" and run.get("official_package") and run.get("official_package_hash"):
         return "current"
     return "missing"
@@ -258,7 +263,7 @@ def _quality_gate(
     completion: dict[str, Any],
 ) -> str:
     filing_state = _quality_artifact_gate(current_hash, filing)
-    worksheet_state = _quality_artifact_gate(current_hash, worksheet)
+    worksheet_state = _quality_artifact_gate(current_hash, worksheet, ignored_statuses={"superseded"})
     completion_state = _quality_artifact_gate(current_hash, completion, completed_only=True)
     states = [filing_state, worksheet_state, completion_state]
     if "failed" in states:
@@ -283,7 +288,9 @@ def _review_gate(current_hash: str, compile_run: dict[str, Any], review: dict[st
         status = str(review.get("status") or "")
         if status != "completed":
             return status or "stale"
-        return "current" if review.get("export_allowed") is True else _blocked_review_gate_status(review)
+        if review.get("export_allowed") is True and not review.get("blocking_issues"):
+            return "current"
+        return _blocked_review_gate_status(review)
     return "stale"
 
 

@@ -36,7 +36,8 @@ def test_disclosure_run_records_runtime_state_and_retry_link(tmp_path):
     assert run["status"] == "completed"
     assert run["runtime_state"]["current_stage"] == "disclosure_package"
     assert run["runtime_state"]["partial_artifact_count"] >= 8
-    assert run["stage_results"][0]["phase"] == "project_scan"
+    phases = [stage["phase"] for stage in run["stage_results"]]
+    assert phases[:2] == ["deep_research_material_intake", "project_scan"]
 
     retry = client.post(f"/api/projects/{project_id}/disclosures/{run['id']}/retry").json()
     assert retry["status"] == "completed"

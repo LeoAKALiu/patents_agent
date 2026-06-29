@@ -308,6 +308,46 @@ def test_compiler_blocks_html_event_handler_evidence_leakage():
     assert any(item["pattern"] == "html_event_handler_citation" for item in run.blocked_items)
 
 
+def test_compiler_blocks_html_url_attribute_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器"
+            '<a href="#evidence=EV-CITY-001">生成任务包</a>。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<iframe src="/preview?证据=EV-CITY-002"></iframe>采集日志执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<link href="/figures?source=lab-note-002" rel="preload">',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_url_attribute_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_srcset_attribute_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            "1. 一种城市体检指标驱动无人机采集方法，其中控制器"
+            '<img srcset="/maps-small.png?evidence=EV-CITY-001 1x, /maps-large.png 2x" />生成任务包。'
+        ),
+        description=(
+            "本发明涉及无人机任务规划技术领域。任务包根据"
+            '<source srcset="/preview-small.png?证据=EV-CITY-002 480w, /preview-large.png 960w">采集日志执行复核。'
+        ),
+        drawing_description='图1为任务包生成流程图。<img srcset="/figures.png?source=lab-note-002 1x">',
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_srcset_attribute_citation" for item in run.blocked_items)
+
+
 def test_compiler_blocks_html_meta_evidence_leakage():
     package = _draft_package(
         claims=(
@@ -525,6 +565,35 @@ def test_compiler_blocks_html_json_script_evidence_leakage():
     assert run.status == "blocked"
     assert run.official_package is None
     assert any(item["pattern"] == "html_json_script_citation" for item in run.blocked_items)
+
+
+def test_compiler_blocks_html_script_text_evidence_leakage():
+    package = _draft_package(
+        claims=(
+            '<script type="text/javascript">\n'
+            'window.auditNote = "evidence: EV-CITY-001";\n'
+            "</script>\n"
+            "1. 一种城市体检指标驱动无人机采集方法，包括生成任务包。"
+        ),
+        description=(
+            '<script type="text/plain">\n'
+            "证据：EV-CITY-002\n"
+            "</script>\n"
+            "本发明涉及无人机任务规划技术领域。"
+        ),
+        drawing_description=(
+            "<script>\n"
+            "const source = 'lab-note-002';\n"
+            "</script>\n"
+            "图1为任务包生成流程图。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "html_script_text_citation" for item in run.blocked_items)
 
 
 def test_compiler_blocks_csv_evidence_metadata_leakage():

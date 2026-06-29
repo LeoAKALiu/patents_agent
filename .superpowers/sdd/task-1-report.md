@@ -1,82 +1,185 @@
-# Task 1 Report: Extend FlowDriver With Runner Primitives
+# Task 1 Report: DeepResearch Markdown Parser
 
-- Branch: `codex/automation-test-plan`
-- Repo root: `/Users/leo/Projects/patents_agent`
-- Base commit before task: `a73021f4`
-- Working tree before patch: dirty (pre-existing edits unrelated to task scope).
-- Current short SHA before commit: `a73021f4`
+## What I implemented
 
-## RED (failing before implementation)
+- Added `backend/app/research/deep_research_intake.py` with deterministic Markdown-only DeepResearch intake.
+- Implemented the required public functions:
+  - `is_deep_research_markdown_material(file_name: str, text: str) -> bool`
+  - `parse_deep_research_markdown(project_id: str, text: str, *, source_label: str = "") -> DeepResearchPacket`
+  - `parse_deep_research_materials(materials: Iterable[ProjectMaterial]) -> list[DeepResearchPacket]`
+  - `packet_prior_art_hits(packet: DeepResearchPacket) -> list[PriorArtHit]`
+- Added `tests/test_deep_research_intake.py` covering:
+  - markdown material detection
+  - packet construction from a structured DeepResearch Markdown report
+  - conversion into `PriorArtHit`
+  - graceful handling of unrecognized Markdown
+  - filtering of non-DeepResearch materials
 
-Command:
+## TDD evidence
 
-```bash
-python3 -m pytest tests/test_flow_driver.py -q
-```
-
-Relevant output:
-
-```text
-......FF                                                                 [100%]
-AttributeError: 'FlowDriver' object has no attribute 'formula_requirement'
-```
-
-and
-
-```text
-AttributeError: 'FlowDriver' object has no attribute 'formula_requirement'
-```
-
-This is expected from the brief before adding the new methods.
-
-## GREEN (after implementation)
+### RED
 
 Command:
 
 ```bash
-python3 -m pytest tests/test_flow_driver.py -q
+pytest tests/test_deep_research_intake.py -v
 ```
 
-Relevant output:
+Result:
 
 ```text
-........                                                                 [100%]
-8 passed, 9 warnings in 1.78s
+E   ModuleNotFoundError: No module named 'backend.app.research.deep_research_intake'
 ```
+
+### GREEN
+
+Command:
+
+```bash
+pytest tests/test_deep_research_intake.py -v
+```
+
+Result:
+
+```text
+5 passed in 0.13s
+```
+
+## Test commands and results
+
+- `pytest tests/test_deep_research_intake.py -v` -> passed
 
 ## Files changed
 
-- `tests/flow_driver.py`
-- `tests/test_flow_driver.py`
+- `backend/app/research/deep_research_intake.py`
+- `tests/test_deep_research_intake.py`
 
-## Self-review findings / concerns
+## Self-review findings
 
-- Added the requested helper `_drafting_llm` and new tests.
-- Added minimal FlowDriver primitives:
-  - `formula_requirement`
-  - `run_formula`
-  - `generate_draft`
-  - `export_readiness`
-  - `project`
+- The parser stays deterministic and Markdown-only, with no Office conversion, external skill runtime, or workflow restructuring.
+- Evidence hits are emitted with the stable source label `DeepResearch Markdown`, which matches the test expectations and keeps downstream `PriorArtHit` conversion predictable.
+- Unrecognized Markdown returns a partial packet with a warning instead of throwing.
 
-## Task 1 API key alignment follow-up fix
+## Concerns
 
-- **What I fixed**
-  - Tightened `test_flow_driver_generates_utility_model_draft_and_reports_readiness` in
-    `tests/test_flow_driver.py` to assert only the current readiness contract key:
-    `official_compile_required`.
-  - Updated Task 1 expected test snippet in
-    `docs/superpowers/plans/2026-06-28-agent-journey-runner.md` to match the same API key.
+- The worktree already contains unrelated dirty files outside Task 1 ownership; I left them untouched.
 
-- **Command run and result**
-  - `python3 -m pytest tests/test_flow_driver.py -q`
-  - Result: `11 passed, 12 warnings in 2.32s`.
+## Commit
 
-- **Files changed**
-  - `tests/test_flow_driver.py`
-  - `docs/superpowers/plans/2026-06-28-agent-journey-runner.md`
-  - `.superpowers/sdd/task-1-report.md`
+- `f82cbc49 feat: parse deepresearch markdown materials`
 
-- **Concerns**
-  - No functional concerns from this change; only pre-existing non-blocking warning from ChromaDB
-    deprecation is shown during test run.
+## Fix follow-up
+
+- Made DeepResearch Markdown parsing deterministic by replacing random finding and fallback hit IDs with stable content-derived IDs.
+- Propagated the provided `source_label` into evidence refs and ledger entries via a dedicated ledger `source_label` field, while keeping public `PriorArtHit.source` unchanged as `DeepResearch Markdown`.
+- Added a regression test proving repeated parses of the same Markdown yield identical finding IDs, ledger entries, and prior-art hit IDs.
+
+## Fix test output
+
+Command:
+
+```bash
+pytest tests/test_deep_research_intake.py -v
+```
+
+Result:
+
+```text
+tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 16%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 33%]
+tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 50%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 66%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 83%]
+tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
+
+6 passed in 0.13s
+```
+
+## Blocking fix follow-up
+
+- Kept `DeepResearchEvidenceRef.source` on the stable public value `DeepResearch Markdown` so downstream code does not leak per-file labels into public `PriorArtHit.source`.
+- Preserved the file provenance separately in `evidence_ledger[...]["source_label"]`.
+- Updated the regression test to assert both the public evidence source and the ledger provenance label.
+
+## Blocking fix test output
+
+Command:
+
+```bash
+pytest tests/test_deep_research_intake.py -v
+```
+
+Result:
+
+```text
+tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 16%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 33%]
+tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 50%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 66%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 83%]
+tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
+
+6 passed in 0.15s
+```
+
+## Deterministic ID fix follow-up
+
+- Removed `project_id` and `source_label` from the stable finding ID inputs so the same Markdown content hashes to the same finding IDs across projects and renamed files.
+- Switched evidence ledger IDs to content-derived hashes based on evidence identity/content instead of packet-local ordinals.
+- Made `PriorArtHit.id` reuse the stable evidence ID, with a content-derived fallback that still ignores provenance labels.
+- Added regression coverage for cross-project/file stability and for non-collision between distinct prior-art evidence.
+
+## Deterministic ID fix test output
+
+Command:
+
+```bash
+pytest tests/test_deep_research_intake.py -v
+```
+
+Result:
+
+```text
+tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 12%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 25%]
+tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 37%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 50%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_ids_stable_across_project_and_file_changes PASSED [ 62%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_does_not_collide_on_distinct_evidence PASSED [ 75%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 87%]
+tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
+
+8 passed in 0.13s
+```
+
+## Final deterministic ID fix
+
+- Removed ordinal inputs from `DeepResearchFinding.id`; the ID now derives from stable content facts only: category, heading, title, summary, suggested action, and evidence identity.
+- Changed evidence dedupe to use exact evidence identity, including relevance/snippet content, so distinct excerpts from the same publication no longer collapse.
+- Kept `PriorArtHit.id` bound to the stable evidence ID, with content-derived fallback only.
+- Added regressions for inserted-earlier-content stability and for distinct snippets from the same patent staying separate.
+
+## Final deterministic ID fix test output
+
+Command:
+
+```bash
+pytest tests/test_deep_research_intake.py -v
+```
+
+Result:
+
+```text
+tests/test_deep_research_intake.py::test_is_deep_research_markdown_material_detects_markdown_report PASSED [ 10%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_builds_internal_packet PASSED [ 20%]
+tests/test_deep_research_intake.py::test_packet_prior_art_hits_converts_ledger_entries PASSED [ 30%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_is_stable_across_repeated_runs PASSED [ 40%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_finding_id_when_earlier_content_is_inserted PASSED [ 50%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_ids_stable_across_project_and_file_changes PASSED [ 60%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_does_not_collide_on_distinct_evidence PASSED [ 70%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_keeps_distinct_snippets_separate PASSED [ 80%]
+tests/test_deep_research_intake.py::test_parse_deep_research_markdown_handles_unrecognized_markdown PASSED [ 90%]
+tests/test_deep_research_intake.py::test_parse_deep_research_materials_filters_markdown_materials PASSED [100%]
+
+10 passed in 0.12s
+```

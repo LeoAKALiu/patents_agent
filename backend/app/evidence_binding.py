@@ -11,7 +11,9 @@ from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any
 
+from backend.app.research.deep_research_intake import parse_deep_research_materials
 from backend.app.schemas import (
+    DeepResearchPacket,
     DisclosurePackage,
     DisclosureRun,
     EvidenceBinding,
@@ -42,6 +44,7 @@ def build_evidence_bindings(
 
     builder = _EvidenceBindingBuilder()
     project_id = project.id
+    material_list = list(materials)
 
     for disclosure in disclosures:
         if disclosure.project_id and disclosure.project_id != project_id:
@@ -50,10 +53,15 @@ def build_evidence_bindings(
             continue
         builder.add_disclosure(disclosure)
 
-    for material in materials:
+    for material in material_list:
         if material.project_id and material.project_id != project_id:
             continue
         builder.add_material(material)
+
+    for packet in parse_deep_research_materials(material_list):
+        if packet.project_id and packet.project_id != project_id:
+            continue
+        builder.add_deep_research_packet(packet)
 
     for point in patent_points:
         builder.add_patent_point(point)
@@ -119,6 +127,13 @@ class _EvidenceBindingBuilder:
         if not (material.text.strip() or material.file_name.strip()):
             return
         self._add(_binding_from_material(material), dedupe_key=f"material:{material.id}")
+
+    def add_deep_research_packet(self, packet: DeepResearchPacket) -> None:
+        for entry in packet.evidence_ledger:
+            self._add(
+                _binding_from_deep_research_entry(entry),
+                dedupe_key=_prior_art_key_from_entry(entry),
+            )
 
     def add_patent_point(self, point: PatentPointCandidate) -> None:
         if not (point.title.strip() or point.technical_solution.strip() or point.innovation.strip()):
@@ -242,6 +257,21 @@ def _binding_from_prior_art_hit(hit: PriorArtHit) -> EvidenceBinding:
                 "differentiators": hit.differentiators,
             }
         ),
+    )
+
+
+def _binding_from_deep_research_entry(entry: dict[str, Any]) -> EvidenceBinding | None:
+    binding = _binding_from_research_entry(entry)
+    if binding is None:
+        return None
+    citable = bool(binding.metadata.get("url") or binding.metadata.get("publication_number"))
+    if not citable:
+        return None
+    return binding.model_copy(
+        update={
+            "internal_only": True,
+            "citable": citable,
+        }
     )
 
 

@@ -67,6 +67,10 @@ export function DisclosurePreview({
                 <Download size={17} />
                 <span>MD</span>
               </a>
+              <a className="inline-flex items-center gap-2 text-sm text-[var(--action-primary)] hover:underline font-medium" href={disclosureExportUrl(project.id, run.id, "sidecar")}>
+                <Download size={17} />
+                <span>内部侧车</span>
+              </a>
             </>
           )}
         </div>

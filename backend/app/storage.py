@@ -30,6 +30,7 @@ from backend.app.schemas import (
     PostDraftReviewRun,
     ProjectMaterial,
     ProjectRecord,
+    RevisionLedgerRecord,
     SectionType,
 )
 
@@ -331,6 +332,7 @@ class SQLiteStore:
             for table in [
                 "project_materials",
                 "project_patent_points",
+                "revision_ledger_records",
                 "disclosure_runs",
                 "deliberation_runs",
                 "formula_runs",
@@ -387,14 +389,28 @@ class SQLiteStore:
 
     def update_project_package(self, project_id: str, package: DraftPackage) -> None:
         with self.connection:
-            self.connection.execute(
-                """
-                update projects
-                set package_json = ?, updated_at = current_timestamp
-                where id = ?
-                """,
-                (json.dumps(package.model_dump(mode="json"), ensure_ascii=False), project_id),
-            )
+            self._write_project_package(project_id, package)
+
+    def update_project_package_with_revision_record(
+        self,
+        project_id: str,
+        package: DraftPackage,
+        record: RevisionLedgerRecord,
+    ) -> RevisionLedgerRecord:
+        with self.connection:
+            self._write_project_package(project_id, package)
+            self._insert_revision_ledger_record(record)
+        return record
+
+    def _write_project_package(self, project_id: str, package: DraftPackage) -> None:
+        self.connection.execute(
+            """
+            update projects
+            set package_json = ?, updated_at = current_timestamp
+            where id = ?
+            """,
+            (json.dumps(package.model_dump(mode="json"), ensure_ascii=False), project_id),
+        )
 
     def create_external_draft_source(self, source: ExternalDraftSource) -> ExternalDraftSource:
         with self.connection:
@@ -434,18 +450,34 @@ class SQLiteStore:
 
     def create_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> ExternalDraftIntakeRun:
         with self.connection:
-            self.connection.execute(
-                """
-                insert into external_draft_intake_runs(
-                    id, project_id, source_id, status, parser_version, source_hash,
-                    parsed_package_json, section_confidence_json, intake_issues_json,
-                    unassigned_fragments_json, working_draft_hash, logs_json
-                )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                self._external_draft_intake_run_values(run),
-            )
+            self._insert_external_draft_intake_run(run)
         return self.get_external_draft_intake_run(run.project_id, run.id) or run
+
+    def create_external_draft_intake_run_with_project_package_revision_record(
+        self,
+        run: ExternalDraftIntakeRun,
+        package: DraftPackage,
+        record: RevisionLedgerRecord | None,
+    ) -> ExternalDraftIntakeRun:
+        with self.connection:
+            self._insert_external_draft_intake_run(run)
+            self._write_project_package(run.project_id, package)
+            if record is not None:
+                self._insert_revision_ledger_record(record)
+        return self.get_external_draft_intake_run(run.project_id, run.id) or run
+
+    def _insert_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> None:
+        self.connection.execute(
+            """
+            insert into external_draft_intake_runs(
+                id, project_id, source_id, status, parser_version, source_hash,
+                parsed_package_json, section_confidence_json, intake_issues_json,
+                unassigned_fragments_json, working_draft_hash, logs_json
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            self._external_draft_intake_run_values(run),
+        )
 
     def list_external_draft_intake_runs(
         self, project_id: str, source_id: str | None = None
@@ -475,35 +507,52 @@ class SQLiteStore:
 
     def update_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> ExternalDraftIntakeRun | None:
         with self.connection:
-            cursor = self.connection.execute(
-                """
-                update external_draft_intake_runs
-                set status = ?, parser_version = ?, source_hash = ?, parsed_package_json = ?,
-                    section_confidence_json = ?, intake_issues_json = ?, unassigned_fragments_json = ?,
-                    working_draft_hash = ?, logs_json = ?
-                where project_id = ? and id = ?
-                """,
-                (
-                    run.status,
-                    run.parser_version,
-                    run.source_hash,
-                    json.dumps(run.parsed_package.model_dump(mode="json"), ensure_ascii=False)
-                    if run.parsed_package
-                    else None,
-                    json.dumps(run.section_confidence.model_dump(mode="json"), ensure_ascii=False)
-                    if run.section_confidence
-                    else None,
-                    json.dumps([issue.model_dump(mode="json") for issue in run.intake_issues], ensure_ascii=False),
-                    json.dumps(run.unassigned_fragments, ensure_ascii=False),
-                    run.working_draft_hash,
-                    json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
-                    run.project_id,
-                    run.id,
-                ),
-            )
-            if cursor.rowcount == 0:
+            if self._update_external_draft_intake_run(run) == 0:
                 return None
         return self.get_external_draft_intake_run(run.project_id, run.id)
+
+    def update_external_draft_intake_run_with_project_package_revision_record(
+        self,
+        run: ExternalDraftIntakeRun,
+        package: DraftPackage,
+        record: RevisionLedgerRecord | None,
+    ) -> ExternalDraftIntakeRun | None:
+        with self.connection:
+            if self._update_external_draft_intake_run(run) == 0:
+                return None
+            self._write_project_package(run.project_id, package)
+            if record is not None:
+                self._insert_revision_ledger_record(record)
+        return self.get_external_draft_intake_run(run.project_id, run.id)
+
+    def _update_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> int:
+        cursor = self.connection.execute(
+            """
+            update external_draft_intake_runs
+            set status = ?, parser_version = ?, source_hash = ?, parsed_package_json = ?,
+                section_confidence_json = ?, intake_issues_json = ?, unassigned_fragments_json = ?,
+                working_draft_hash = ?, logs_json = ?
+            where project_id = ? and id = ?
+            """,
+            (
+                run.status,
+                run.parser_version,
+                run.source_hash,
+                json.dumps(run.parsed_package.model_dump(mode="json"), ensure_ascii=False)
+                if run.parsed_package
+                else None,
+                json.dumps(run.section_confidence.model_dump(mode="json"), ensure_ascii=False)
+                if run.section_confidence
+                else None,
+                json.dumps([issue.model_dump(mode="json") for issue in run.intake_issues], ensure_ascii=False),
+                json.dumps(run.unassigned_fragments, ensure_ascii=False),
+                run.working_draft_hash,
+                json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+                run.project_id,
+                run.id,
+            ),
+        )
+        return cursor.rowcount
 
     def create_filing_readiness_report(self, report: FilingReadinessReport) -> FilingReadinessReport:
         with self.connection:
@@ -607,6 +656,37 @@ class SQLiteStore:
             )
         return run
 
+    def create_revision_ledger_record(self, record: RevisionLedgerRecord) -> RevisionLedgerRecord:
+        with self.connection:
+            self._insert_revision_ledger_record(record)
+        return record
+
+    def list_revision_ledger_records(self, project_id: str) -> list[RevisionLedgerRecord]:
+        rows = self.connection.execute(
+            """
+            select record_json from revision_ledger_records
+            where project_id = ?
+            order by created_at desc, rowid desc
+            """,
+            (project_id,),
+        ).fetchall()
+        return [RevisionLedgerRecord.model_validate(json.loads(row["record_json"])) for row in rows]
+
+    def _insert_revision_ledger_record(self, record: RevisionLedgerRecord) -> None:
+        self.connection.execute(
+            """
+            insert into revision_ledger_records(
+                id, project_id, record_json, created_at
+            ) values (?, ?, ?, ?)
+            """,
+            (
+                record.id,
+                record.project_id,
+                json.dumps(record.model_dump(mode="json"), ensure_ascii=False),
+                record.created_at,
+            ),
+        )
+
     def list_draft_completion_runs(self, project_id: str) -> list[DraftCompletionRun]:
         rows = self.connection.execute(
             "select * from draft_completion_runs where project_id = ? order by created_at desc, rowid desc",
@@ -623,21 +703,39 @@ class SQLiteStore:
 
     def update_draft_completion_run(self, run: DraftCompletionRun) -> DraftCompletionRun | None:
         with self.connection:
-            cursor = self.connection.execute(
-                """
-                update draft_completion_runs
-                set run_json = ?
-                where project_id = ? and id = ?
-                """,
-                (
-                    json.dumps(run.model_dump(mode="json"), ensure_ascii=False),
-                    run.project_id,
-                    run.id,
-                ),
-            )
-        if cursor.rowcount == 0:
+            rowcount = self._update_draft_completion_run(run)
+        if rowcount == 0:
             return None
         return self.get_draft_completion_run(run.project_id, run.id) or run
+
+    def update_draft_completion_run_with_project_package_revision_records(
+        self,
+        run: DraftCompletionRun,
+        package: DraftPackage,
+        records: list[RevisionLedgerRecord],
+    ) -> DraftCompletionRun | None:
+        with self.connection:
+            if self._update_draft_completion_run(run) == 0:
+                return None
+            self._write_project_package(run.project_id, package)
+            for record in records:
+                self._insert_revision_ledger_record(record)
+        return self.get_draft_completion_run(run.project_id, run.id) or run
+
+    def _update_draft_completion_run(self, run: DraftCompletionRun) -> int:
+        cursor = self.connection.execute(
+            """
+            update draft_completion_runs
+            set run_json = ?
+            where project_id = ? and id = ?
+            """,
+            (
+                json.dumps(run.model_dump(mode="json"), ensure_ascii=False),
+                run.project_id,
+                run.id,
+            ),
+        )
+        return cursor.rowcount
 
     def get_llm_stage_cache(self, cache_key: str) -> dict[str, Any] | None:
         row = self.connection.execute(
@@ -1371,6 +1469,14 @@ class SQLiteStore:
                     id text primary key,
                     project_id text not null,
                     run_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists revision_ledger_records (
+                    id text primary key,
+                    project_id text not null,
+                    record_json text not null,
                     created_at text not null default current_timestamp,
                     foreign key(project_id) references projects(id)
                 );

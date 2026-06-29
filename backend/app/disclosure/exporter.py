@@ -1,16 +1,80 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
 
 from docx import Document
 
+from backend.app.internal_metadata import (
+    INTERNAL_METADATA_KEYS,
+    contains_internal_metadata_field,
+    contains_internal_metadata_marker,
+)
+from backend.app.patent_urls import (
+    is_supported_public_patent_url,
+    normalize_url as normalize_public_url,
+    sanitize_patent_like_urls_for_public_text,
+)
 from backend.app.schemas import DisclosurePackage
 
 
-def disclosure_to_markdown(package: DisclosurePackage) -> str:
+URL_PATTERN = re.compile(r"https?://\S+")
+PUBLICATION_NUMBER_RE = re.compile(r"\b(?:CN|WO|US|EP|JP|KR)\s?\d{5,}[A-Z]\d?\b", re.IGNORECASE)
+MARKDOWN_TABLE_ROW_RE = re.compile(r"^\s*\|(?P<cells>.*)\|\s*$")
+MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
+FENCE_START_RE = re.compile(r"^(?P<indent>\s*)(?P<fence>`{3,}|~{3,})(?P<rest>.*)$")
+MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$")
+INTERNAL_METADATA_FIELD_IN_LABEL_RE = re.compile(
+    rf"(?:(?<=^)|(?<=[\s,，;；|（(【\[]))[\"']?"
+    rf"(?:{'|'.join(re.escape(key) for key in INTERNAL_METADATA_KEYS)})"
+    rf"[\"']?\s*[:：=]\s*.*$",
+    re.IGNORECASE,
+)
+INTERNAL_DEEP_RESEARCH_HEADING_RE = re.compile(
+    r"^(?:deep\s*research|deepresearch)\s*补充线索(?:\s*\d+)?$",
+    re.IGNORECASE,
+)
+INTERNAL_SECTION_HEADINGS = {
+    "claim chart",
+    "provider diagnostics",
+    "diagnostics",
+    "mermaid 图",
+    "mermaid",
+    "绘图提示词",
+    "自检结果",
+    "生成日志",
+    "检索来源台账",
+    "引用快照",
+    "候选专利点",
+    "材料覆盖",
+    "前置材料摘要",
+    "research ledger",
+    "research_ledger",
+    "source ledger",
+    "source_ledger",
+    "revision ledger",
+    "revision_ledger",
+    "修订记录",
+    "generation logs",
+    "generation_logs",
+    "self check",
+    "provider_diagnostics",
+    "sidecar",
+}
+
+
+def clean_disclosure_to_markdown(package: DisclosurePackage) -> str:
+    body = _clean_export_body_markdown(package.body_markdown)
+    appendix = _format_public_prior_art_appendix(package, existing_urls=_extract_normalized_urls(body))
+    if not appendix:
+        return body
+    return f"{body}\n\n{appendix}"
+
+
+def disclosure_sidecar_to_markdown(package: DisclosurePackage) -> str:
     candidates = "\n".join(
         "\n".join(
             [
@@ -95,78 +159,23 @@ def disclosure_to_markdown(package: DisclosurePackage) -> str:
 """
 
 
+def disclosure_to_markdown(package: DisclosurePackage) -> str:
+    return disclosure_sidecar_to_markdown(package)
+
+
 def export_disclosure_docx(package: DisclosurePackage, output_path: Path, run_dir: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=True, exist_ok=True)
-    warnings = list(package.export_warnings)
-    image_path = _render_mermaid(package.mermaid, run_dir)
-    if not image_path:
-        warnings.append("Mermaid renderer unavailable or failed; DOCX keeps Mermaid code as text.")
 
     doc = Document()
-    doc.add_heading(package.title, level=0)
-
-    # ---- V1.1: Research confidence badge ----
-    confidence_badges = {"low": "🔴 低（0 references）", "medium": "🟡 中", "high": "🟢 高"}
-    confidence_label = confidence_badges.get(package.research_confidence, "⚪ 未知")
-    _add_section(doc, "检索置信度", f"{confidence_label}\n\n低置信度表示未检索到可引用的公开现有技术文献；交底书不隐含高专利性判断。")
-
-    _add_section(doc, "前置材料摘要", package.summary)
-    _add_section(doc, "材料覆盖", package.materials_summary)
-    _add_section(
-        doc,
-        "候选专利点",
-        "\n".join(f"{item.id}. {item.title}：{item.innovation}" for item in package.candidates) or "暂无。",
-    )
-    _add_section(
-        doc,
-        "护城河与证据状态",
-        "\n".join(
-            f"{item.id}. {item.title}\n证据状态：{item.evidence_status}\n来源：{item.source_type}\n支撑缺口：{'；'.join(item.support_gaps) or '无显式缺口'}"
-            for item in package.candidates
-        )
-        or "暂无。",
-    )
-    _add_section(
-        doc,
-        "Claim Chart",
-        "\n".join(
-            f"{candidate.title}｜{chart.prior_art_title}｜差异特征：{'；'.join(chart.differentiating_features) or '暂无'}｜撰写建议：{chart.claim_drafting_advice or '暂无'}"
-            for candidate in package.candidates
-            for chart in candidate.claim_chart
-        )
-        or "暂无。",
-    )
-    _add_section(
-        doc,
-        "公开现有技术",
-        "\n".join(
-            f"{hit.source}｜{hit.title}｜{hit.publication_number or ''}\n{hit.url}\n摘要：{hit.abstract or '无'}\n差异：{'；'.join(hit.differentiators) or hit.relevance_summary or '待人工复核'}"
-            for hit in package.prior_art_hits
-        )
-        or "暂无可用公开检索结果。",
-    )
-    _add_section(doc, "现有技术差异", package.prior_art_differences)
-    _add_section(doc, "检索来源台账", _format_ledger_section(package).replace("# ", "").replace("## ", ""))
-    _add_section(doc, "检索链路诊断", _format_diagnostics_section(package).replace("# ", "").replace("## ", ""))
-    _add_section(doc, "技术交底书", package.body_markdown)
-    doc.add_heading("Mermaid 图", level=1)
-    if image_path:
-        doc.add_picture(str(image_path))
-    else:
-        for line in package.mermaid.splitlines() or [""]:
+    doc.add_heading(_clean_single_line_label(package.title) or "技术交底书", level=0)
+    clean_body = _clean_export_body_markdown(package.body_markdown)
+    for line in clean_body.splitlines() or [""]:
+        doc.add_paragraph(line)
+    appendix = _format_public_prior_art_appendix(package, existing_urls=_extract_normalized_urls(clean_body))
+    if appendix:
+        for line in appendix.splitlines():
             doc.add_paragraph(line)
-    _add_section(doc, "绘图提示词", package.image_prompt)
-    _add_section(
-        doc,
-        "自检结果",
-        "\n".join(
-            f"[{finding.severity}] {finding.category}: {finding.message} 建议：{finding.suggestion}"
-            for finding in package.self_check_findings
-        )
-        or "暂无。",
-    )
-    _add_section(doc, "生成日志", "\n".join(package.generation_logs + warnings))
     doc.save(output_path)
     return output_path
 
@@ -174,14 +183,16 @@ def export_disclosure_docx(package: DisclosurePackage, output_path: Path, run_di
 def write_disclosure_artifacts(package: DisclosurePackage, run_dir: Path) -> dict[str, Path]:
     run_dir.mkdir(parents=True, exist_ok=True)
     md_path = run_dir / "disclosure.md"
+    sidecar_path = run_dir / "disclosure-sidecar.md"
     mmd_path = run_dir / "diagram.mmd"
     prompt_path = run_dir / "image-prompt.md"
     docx_path = run_dir / "disclosure.docx"
-    md_path.write_text(disclosure_to_markdown(package), encoding="utf-8")
+    md_path.write_text(clean_disclosure_to_markdown(package), encoding="utf-8")
+    sidecar_path.write_text(disclosure_sidecar_to_markdown(package), encoding="utf-8")
     mmd_path.write_text(package.mermaid, encoding="utf-8")
     prompt_path.write_text(package.image_prompt, encoding="utf-8")
     export_disclosure_docx(package, docx_path, run_dir)
-    return {"md": md_path, "mmd": mmd_path, "prompt": prompt_path, "docx": docx_path}
+    return {"md": md_path, "sidecar": sidecar_path, "mmd": mmd_path, "prompt": prompt_path, "docx": docx_path}
 
 
 def _render_mermaid(mermaid: str, run_dir: Path) -> Path | None:
@@ -212,6 +223,215 @@ def _add_section(doc: Document, heading: str, text: str) -> None:
     doc.add_heading(heading, level=1)
     for line in text.splitlines() or [""]:
         doc.add_paragraph(line)
+
+
+def _clean_export_body_markdown(body_markdown: str) -> str:
+    raw_lines = body_markdown.strip().splitlines()
+    if not raw_lines:
+        return ""
+
+    raw_lines = _drop_internal_front_matter(raw_lines)
+    lines: list[str] = []
+    skipping_section_level: int | None = None
+    index = 0
+    while index < len(raw_lines):
+        line = raw_lines[index]
+        heading = MARKDOWN_HEADING_RE.match(line)
+        if heading:
+            level = len(heading.group(1))
+            title = _normalize_internal_heading(heading.group(2))
+            if skipping_section_level is not None and level <= skipping_section_level:
+                skipping_section_level = None
+            if _is_internal_section_heading(title):
+                skipping_section_level = level
+                index += 1
+                continue
+        if skipping_section_level is not None:
+            index += 1
+            continue
+        fence_start = FENCE_START_RE.match(line)
+        if fence_start:
+            block, next_index = _collect_fenced_block(raw_lines, index, fence_start.group("fence"))
+            if not _block_contains_internal_metadata(block):
+                lines.extend(entry.rstrip() for entry in block)
+            index = next_index
+            continue
+        if MARKDOWN_TABLE_ROW_RE.match(line):
+            block, next_index = _collect_table_block(raw_lines, index)
+            lines.extend(_clean_markdown_table_block(block))
+            index = next_index
+            continue
+        if _line_contains_internal_metadata(line):
+            index += 1
+            continue
+        lines.append(line.rstrip())
+        index += 1
+    return sanitize_patent_like_urls_for_public_text("\n".join(lines).strip())
+
+
+def _normalize_internal_heading(heading: str) -> str:
+    normalized = re.sub(r"\s+", " ", heading.strip()).strip("：:").casefold()
+    return normalized
+
+
+def _is_internal_section_heading(normalized_heading: str) -> bool:
+    return normalized_heading in INTERNAL_SECTION_HEADINGS or bool(
+        INTERNAL_DEEP_RESEARCH_HEADING_RE.fullmatch(normalized_heading)
+    )
+
+
+def _drop_internal_front_matter(lines: list[str]) -> list[str]:
+    if not lines or lines[0].strip() != "---":
+        return lines
+
+    closing_index: int | None = None
+    for index in range(1, len(lines)):
+        if lines[index].strip() in {"---", "..."}:
+            closing_index = index
+            break
+    if closing_index is None:
+        return lines
+
+    block = lines[: closing_index + 1]
+    if any(_line_contains_internal_metadata(line) for line in block[1:-1]):
+        return lines[closing_index + 1 :]
+    return lines
+
+
+def _collect_fenced_block(lines: list[str], start_index: int, opening_fence: str) -> tuple[list[str], int]:
+    block = [lines[start_index]]
+    index = start_index + 1
+    fence_char = opening_fence[0]
+    minimum_width = len(opening_fence)
+    closing_re = re.compile(rf"^\s*{re.escape(fence_char)}{{{minimum_width},}}\s*$")
+    while index < len(lines):
+        block.append(lines[index])
+        if closing_re.match(lines[index]):
+            return block, index + 1
+        index += 1
+    return block, index
+
+
+def _collect_table_block(lines: list[str], start_index: int) -> tuple[list[str], int]:
+    block: list[str] = []
+    index = start_index
+    while index < len(lines) and MARKDOWN_TABLE_ROW_RE.match(lines[index]):
+        block.append(lines[index])
+        index += 1
+    return block, index
+
+
+def _clean_markdown_table_block(block: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    data_row_count = 0
+    for line in block:
+        if MARKDOWN_TABLE_SEPARATOR_RE.match(line):
+            cleaned.append(line.rstrip())
+            continue
+        if _table_row_contains_internal_metadata(line):
+            continue
+        cleaned.append(line.rstrip())
+        if not _looks_like_table_header(line):
+            data_row_count += 1
+    if data_row_count == 0:
+        return []
+    return cleaned
+
+
+def _looks_like_table_header(line: str) -> bool:
+    if MARKDOWN_TABLE_SEPARATOR_RE.match(line):
+        return False
+    match = MARKDOWN_TABLE_ROW_RE.match(line)
+    if not match:
+        return False
+    cells = [cell.strip() for cell in match.group("cells").split("|")]
+    normalized_cells = {_normalize_internal_heading(cell) for cell in cells if cell.strip()}
+    return normalized_cells <= {"字段", "内容", "field", "value", "label", "key"} or normalized_cells == {"---"}
+
+
+def _block_contains_internal_metadata(lines: list[str]) -> bool:
+    return any(_line_contains_internal_metadata(line) or _table_row_contains_internal_metadata(line) for line in lines)
+
+
+def _line_contains_internal_metadata(line: str) -> bool:
+    return contains_internal_metadata_field(line)
+
+
+def _table_row_contains_internal_metadata(line: str) -> bool:
+    if _line_contains_internal_metadata(line):
+        return True
+    match = MARKDOWN_TABLE_ROW_RE.match(line)
+    if not match:
+        return False
+    cells = [cell.strip() for cell in match.group("cells").split("|")]
+    if not cells:
+        return False
+    if any(_line_contains_internal_metadata(cell) for cell in cells):
+        return True
+    normalized_keys = {_normalize_internal_heading(cell) for cell in cells if cell.strip()}
+    return any(candidate.casefold() in normalized_keys for candidate in INTERNAL_METADATA_KEYS)
+
+
+def _format_public_prior_art_appendix(package: DisclosurePackage, *, existing_urls: set[str] | None = None) -> str:
+    if not package.prior_art_hits:
+        return ""
+
+    existing_urls = existing_urls or set()
+    lines = ["## 公开现有技术链接", ""]
+    for hit in package.prior_art_hits:
+        url = _normalize_url(hit.url or "")
+        if not url or url in existing_urls or not is_supported_public_patent_url(url):
+            continue
+        publication = _clean_single_line_label(hit.publication_number)
+        if _public_url_publication_mismatch(publication, url):
+            continue
+        title = _clean_single_line_label(hit.title)
+        if not title and not publication:
+            continue
+        label = title or publication
+        if title and publication:
+            label = f"{title}（{publication}）"
+        lines.append(f"- {label}: {url}")
+    return "\n".join(lines) if len(lines) > 2 else ""
+
+
+def _extract_normalized_urls(text: str) -> set[str]:
+    return {_normalize_url(match.group(0)) for match in URL_PATTERN.finditer(text) if _normalize_url(match.group(0))}
+
+
+def _normalize_url(url: str) -> str:
+    return normalize_public_url(url)
+
+
+def _clean_single_line_label(value: str | None) -> str:
+    text = re.sub(r"\s+", " ", value or "").strip()
+    if not text:
+        return ""
+    text = INTERNAL_METADATA_FIELD_IN_LABEL_RE.sub("", text).strip(" -:：,，;；|")
+    if contains_internal_metadata_marker(text):
+        return ""
+    return text
+
+
+def _public_url_publication_mismatch(publication: str, url: str) -> bool:
+    normalized_publication = _normalize_publication(publication)
+    if not normalized_publication:
+        return False
+    alias = _publication_from_public_url(url)
+    return bool(alias and alias != normalized_publication)
+
+
+def _publication_from_public_url(url: str) -> str:
+    if not is_supported_public_patent_url(url):
+        return ""
+    match = PUBLICATION_NUMBER_RE.search(url)
+    if not match:
+        return ""
+    return _normalize_publication(match.group(0))
+
+
+def _normalize_publication(value: str) -> str:
+    return re.sub(r"\s+", "", value or "").upper()
 
 
 def _format_ledger_section(package: "DisclosurePackage") -> str:
