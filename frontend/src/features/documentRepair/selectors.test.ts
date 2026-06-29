@@ -247,4 +247,46 @@ describe("deriveDocumentRepairState", () => {
       expect(APPROVED_GATE_STATES).toContain(gate.state);
     }
   });
+
+  it("elides version-chain short hashes without exposing complete values", () => {
+    const veryShortHash = "abc";
+    const shortButCompleteHash = "abc123def456";
+    const state = deriveDocumentRepairState({
+      projectState: makeProjectState({
+        selectedProject: makeProject({ package: makePackage() }),
+        currentPackage: makePackage(),
+        currentDraftHash: veryShortHash,
+        currentSourceDraftHash: veryShortHash,
+        officialCompileRuns: [
+          makeOfficialCompileRun({
+            source_draft_hash: veryShortHash,
+            official_package_hash: shortButCompleteHash,
+            official_package: {
+              ...makeOfficialCompileRun().official_package!,
+              source_draft_hash: veryShortHash,
+              official_package_hash: shortButCompleteHash,
+            },
+          }),
+        ],
+        postDraftReviews: [
+          makePostDraftReview({
+            draft_package_hash: veryShortHash,
+            official_package_hash: shortButCompleteHash,
+          }),
+        ],
+      }),
+      exportReadiness: makeExportReadiness({
+        current_source_draft_hash: veryShortHash,
+        official_package_hash: shortButCompleteHash,
+      }),
+    });
+
+    const internalDraftNode = state.versionChain.nodes.find((node) => node.id === "internalDraft");
+    const officialCompileNode = state.versionChain.nodes.find((node) => node.id === "officialCompile");
+
+    expect(internalDraftNode?.shortHash).toBe("a...");
+    expect(internalDraftNode?.shortHash).not.toContain(veryShortHash);
+    expect(officialCompileNode?.shortHash).toBe("abc123de...");
+    expect(officialCompileNode?.shortHash).not.toContain(shortButCompleteHash);
+  });
 });

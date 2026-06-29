@@ -64,3 +64,10 @@ Review follow-up tests/build commands and results:
 - `cd frontend && npm test -- features/documentRepair/DocumentRepairWorkspace.test.tsx features/documentRepair/selectors.test.ts`: passed, 2 files / 14 tests.
 - `cd frontend && npm run build`: passed.
 - `git diff --check`: passed.
+
+Controller test hardening:
+- Added selector-level coverage for both a very short hash (`abc`) and a 12-character full hash (`abc123def456`) in the version chain data model.
+- Re-ran `cd frontend && npm test -- features/documentRepair/DocumentRepairWorkspace.test.tsx features/documentRepair/selectors.test.ts`: passed, 2 files / 15 tests.
+- Re-ran `cd frontend && npm run build`: passed.
+- Re-ran `cd frontend && npm test`: passed, 32 files / 225 tests.
+- Re-ran `git diff --check`: passed.
