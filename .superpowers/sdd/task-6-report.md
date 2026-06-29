@@ -40,3 +40,14 @@
 
 ### Concerns
 - `待复核` is implemented as a local UI marker layered on top of the existing API issue model, since the current `DraftReviewIssue.status` type does not include a server-backed `pending_revalidation` enum value.
+
+### Fixes After Review
+- Finding: duplicate persisted save after patch apply in embedded `AnnotatedRepairTab`.
+  Fix: removed the `onSaveDraftPackage` call from the embedded `onPatchApplied` handler so patch apply now only updates local editor state plus the local `待复核` marker.
+- Finding: missing regression coverage for patch apply behavior.
+  Fix: added editor-level mocks for `createDraftRepairPatch` and `applyDraftRepairPatch`, asserted `onPatchApplied` receives the patched fields plus issue id, and asserted `onSave` is not called during patch apply. Added workspace coverage that the embedded tab marks `待复核` without calling `onSaveDraftPackage`.
+- Commands:
+  - `cd frontend && npm test -- PostDraftRepairEditor.test.tsx features/documentRepair/DocumentRepairWorkspace.test.tsx`
+  - `cd frontend && npm run build`
+  - `cd frontend && npm test`
+  - `git diff --check`

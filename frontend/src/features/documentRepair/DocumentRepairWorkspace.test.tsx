@@ -24,6 +24,8 @@ vi.mock("@/api", async () => {
   return {
     ...actual,
     getPostDraftRepairSession: vi.fn(),
+    createDraftRepairPatch: vi.fn(),
+    applyDraftRepairPatch: vi.fn(),
   };
 });
 
@@ -262,6 +264,8 @@ describe("DocumentRepairWorkspace", () => {
   beforeEach(() => {
     vi.mocked(api.getPostDraftRepairSession).mockReset();
     vi.mocked(api.getPostDraftRepairSession).mockResolvedValue(makeRepairSession());
+    vi.mocked(api.createDraftRepairPatch).mockReset();
+    vi.mocked(api.applyDraftRepairPatch).mockReset();
   });
 
   it("renders readable document-repair tabs and overview content", () => {
@@ -571,5 +575,54 @@ describe("DocumentRepairWorkspace", () => {
     await userEvent.click(screen.getByRole("button", { name: "重新加载" }));
 
     expect(await screen.findByText("问题队列")).toBeInTheDocument();
+  });
+
+  it("marks the issue pending revalidation after patch apply without triggering draft save", async () => {
+    const onSaveDraftPackage = vi.fn();
+    vi.mocked(api.createDraftRepairPatch).mockResolvedValue({
+      id: "patch-1",
+      issue_id: "issue-1",
+      project_id: "project-1",
+      review_run_id: "review-raw-run-id-1234567890",
+      status: "proposed",
+      target_section: "title",
+      original: "方法方法",
+      patched: "方法",
+      diff_summary: "删除重复词汇",
+      risk_notes: [],
+      draft_package_hash: "draft-current-1234567890abcdef",
+    });
+    vi.mocked(api.applyDraftRepairPatch).mockResolvedValue({
+      package: {
+        ...makePackage(),
+        title: "城市体检智能体",
+      },
+      current_draft_hash: "draft-updated",
+    });
+
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers({ onSaveDraftPackage })}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "标注修复" }));
+    expect(await screen.findByText("问题队列")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "生成 AI 修正" }));
+    expect(await screen.findByText("删除重复词汇")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "应用 AI 修正" }));
+
+    expect(api.applyDraftRepairPatch).toHaveBeenCalledWith(
+      "project-1",
+      "review-raw-run-id-1234567890",
+      "patch-1",
+    );
+    expect(onSaveDraftPackage).not.toHaveBeenCalled();
+    expect(await screen.findAllByText("待复核")).not.toHaveLength(0);
   });
 });

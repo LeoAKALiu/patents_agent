@@ -140,8 +140,7 @@ export function AnnotatedRepairTab({
       pendingRevalidationIssueIds={pendingRevalidationIssueIds}
       onClose={() => {}}
       onSave={onSaveDraftPackage}
-      onPatchApplied={async (fields, issueId) => {
-        await onSaveDraftPackage(fields);
+      onPatchApplied={(_fields, issueId) => {
         if (issueId) {
           setPendingRevalidationIssueIds((current) =>
             current.includes(issueId) ? current : [...current, issueId],

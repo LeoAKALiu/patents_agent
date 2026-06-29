@@ -1,7 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import * as api from "@/api";
 import { PostDraftRepairEditor } from "./flow/panels/PostDraftRepairEditor";
+
+vi.mock("@/api", async () => {
+  const actual = await vi.importActual<typeof import("@/api")>("@/api");
+  return {
+    ...actual,
+    createDraftRepairPatch: vi.fn(),
+    applyDraftRepairPatch: vi.fn(),
+  };
+});
 
 const session = {
   project_id: "p1",
@@ -38,6 +48,11 @@ const session = {
 };
 
 describe("PostDraftRepairEditor", () => {
+  beforeEach(() => {
+    vi.mocked(api.createDraftRepairPatch).mockReset();
+    vi.mocked(api.applyDraftRepairPatch).mockReset();
+  });
+
   it("renders issue rail, editable sections, and inspector actions", async () => {
     render(
       <PostDraftRepairEditor
@@ -234,5 +249,76 @@ describe("PostDraftRepairEditor", () => {
     );
 
     expect(screen.getAllByText("待复核").length).toBeGreaterThan(0);
+  });
+
+  it("applies a generated patch through onPatchApplied without triggering manual save", async () => {
+    const onSave = vi.fn();
+    const onPatchApplied = vi.fn();
+    vi.mocked(api.createDraftRepairPatch).mockResolvedValue({
+      id: "patch-1",
+      issue_id: "blocking-1",
+      project_id: "p1",
+      review_run_id: "r1",
+      status: "proposed",
+      target_section: "title",
+      original: "方法方法",
+      patched: "方法",
+      diff_summary: "删除重复词汇",
+      risk_notes: [],
+      draft_package_hash: "old",
+    });
+    vi.mocked(api.applyDraftRepairPatch).mockResolvedValue({
+      package: {
+        title: "一种基于城市体检指标置信度的无人机主动采集方法",
+        abstract: "摘要文本",
+        claims: "权利要求文本",
+        description: "说明书文本",
+        drawing_description: "图1说明",
+        mermaid: "",
+        image_prompt: "",
+        review_findings: [],
+        citations: [],
+        generation_logs: [],
+      },
+      current_draft_hash: "new-hash",
+    });
+
+    render(
+      <PostDraftRepairEditor
+        open
+        session={session}
+        saving={false}
+        onClose={() => {}}
+        onSave={onSave}
+        onPatchApplied={onPatchApplied}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "生成 AI 修正" }));
+    expect(await screen.findByText("删除重复词汇")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "应用 AI 修正" }));
+
+    expect(api.createDraftRepairPatch).toHaveBeenCalledWith(
+      "p1",
+      "r1",
+      expect.objectContaining({
+        issue_id: "blocking-1",
+        target_section: "title",
+      }),
+    );
+    expect(api.applyDraftRepairPatch).toHaveBeenCalledWith("p1", "r1", "patch-1");
+    expect(onPatchApplied).toHaveBeenCalledWith(
+      {
+        title: "一种基于城市体检指标置信度的无人机主动采集方法",
+        abstract: "摘要文本",
+        claims: "权利要求文本",
+        description: "说明书文本",
+        drawing_description: "图1说明",
+      },
+      "blocking-1",
+    );
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("一种基于城市体检指标置信度的无人机主动采集方法")).toBeInTheDocument();
   });
 });
