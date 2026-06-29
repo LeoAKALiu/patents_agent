@@ -311,6 +311,32 @@ describe("DocumentRepairWorkspace", () => {
     );
   });
 
+  it("switches to a requested tab when parent navigation intent changes", async () => {
+    const { rerender } = render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "总览", selected: true })).toBeInTheDocument();
+
+    rerender(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+        requestedTab="annotated"
+      />,
+    );
+
+    expect(await screen.findByRole("tab", { name: "标注修复", selected: true })).toBeInTheDocument();
+    expect(screen.getByText("问题队列")).toBeInTheDocument();
+  });
+
   it("routes export-ready primary action to the export destination", async () => {
     const navigate = vi.fn();
     render(

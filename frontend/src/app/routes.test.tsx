@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import appSource from "@/App.tsx?raw";
@@ -21,7 +22,21 @@ vi.mock("@/features/knowledge/KnowledgeWorkspace", () => ({
 }));
 
 vi.mock("@/features/export/ExportWorkspace", () => ({
-  ExportWorkspace: () => <div data-testid="export-workspace">export-wrapper</div>,
+  ExportWorkspace: ({
+    onNavigateDocuments,
+  }: {
+    onNavigateDocuments: (target: "overview" | "annotated") => void;
+  }) => (
+    <div data-testid="export-workspace">
+      <button onClick={() => onNavigateDocuments("overview")} type="button">
+        去总览
+      </button>
+      <button onClick={() => onNavigateDocuments("annotated")} type="button">
+        去标注修复
+      </button>
+      <span>export-wrapper</span>
+    </div>
+  ),
 }));
 
 vi.mock("@/features/expert/ExpertToolsWorkspace", () => ({
@@ -208,6 +223,35 @@ function makeRootProps(): AppRootProps {
   };
 }
 
+function AppRootHarness({
+  initialSection = "export",
+}: {
+  initialSection?: AppRootProps["activeSection"];
+}) {
+  const baseProps = makeRootProps();
+  const selectedProject = makeProject();
+  const [activeSection, setActiveSection] = useState<AppRootProps["activeSection"]>(initialSection);
+
+  return (
+    <AppRoot
+      {...baseProps}
+      activeSection={activeSection}
+      selectedProject={selectedProject}
+      projects={[selectedProject]}
+      onSelectSection={setActiveSection}
+      projectState={{
+        ...baseProps.projectState,
+        selectedProject,
+        projects: [selectedProject],
+      }}
+      postDraftState={{
+        ...baseProps.postDraftState,
+        selectedProject,
+      }}
+    />
+  );
+}
+
 describe("AppRoot routes", () => {
   it("resolves the seven public route kinds from top-level destinations", () => {
     expect(resolveRoute("workbench", "build", false, false)).toBe("workbench");
@@ -280,6 +324,17 @@ describe("AppRoot routes", () => {
     render(<AppRoot {...makeRootProps()} activeSection="expert" activeExpertTool="materials" />);
 
     expect(screen.getByTestId("expert-tools-workspace")).toHaveTextContent("expert-wrapper");
+  });
+
+  it("routes export guidance into the requested document-repair tab", async () => {
+    render(<AppRootHarness />);
+
+    await userEvent.click(screen.getByRole("button", { name: "去标注修复" }));
+    expect(await screen.findByRole("tab", { name: "标注修复", selected: true })).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole("button", { name: "工作台" })[0]);
+    await userEvent.click(screen.getAllByRole("button", { name: "文稿与修复" })[0]);
+    expect(await screen.findByRole("tab", { name: "总览", selected: true })).toBeInTheDocument();
   });
 
   it("renders status-only topbar chrome without global nav buttons", () => {

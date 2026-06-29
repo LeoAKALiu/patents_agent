@@ -40,6 +40,11 @@ import { guidedBusyLabel, guidedOperationLog, mainSections } from "@/guidedFlow"
 import type { MainSectionId, ExpertToolId, StartChoiceId } from "@/guidedFlow";
 import type { Health, AgentDoctorReport, ProjectRecord } from "@/api";
 
+type DocumentRepairIntent = {
+  id: number;
+  tab: "overview" | "annotated";
+};
+
 /**
  * AppRoot receives everything App.tsx currently manages — state, handlers,
  * navigation — and renders the production shell with the active feature
@@ -198,6 +203,7 @@ function onWorkbenchNavigate(props: AppRootProps, target: WorkbenchPrimaryTarget
 
 export function AppRoot(props: AppRootProps) {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [documentRepairIntent, setDocumentRepairIntent] = useState<DocumentRepairIntent | null>(null);
   const route = resolveRoute(
     props.activeSection,
     props.activeExpertTool,
@@ -219,6 +225,15 @@ export function AppRoot(props: AppRootProps) {
   const workbenchStartWorkspace = !props.selectedProject && props.startChoice
     ? projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")
     : undefined;
+
+  function navigateDocuments(tab: DocumentRepairIntent["tab"]): void {
+    setDocumentRepairIntent((current) => ({
+      id: (current?.id ?? 0) + 1,
+      tab,
+    }));
+    props.onSelectSection("documents");
+  }
+
   return (
     <>
       <ShellLayout
@@ -272,6 +287,8 @@ export function AppRoot(props: AppRootProps) {
               handlers={props.projectHandlers}
               exportReadiness={props.postDraftState.exportReadiness}
               onNavigate={props.onSelectSection}
+              requestedTab={documentRepairIntent?.tab ?? null}
+              onRequestedTabHandled={() => setDocumentRepairIntent(null)}
             />
           )}
           {route === "projects-overview" && projectWorkspace(props, "projects")}
@@ -292,7 +309,7 @@ export function AppRoot(props: AppRootProps) {
             <ExportWorkspace
               postDraftState={props.postDraftState}
               postDraftHandlers={props.postDraftHandlers}
-              onNavigateDocuments={() => props.onSelectSection("documents")}
+              onNavigateDocuments={navigateDocuments}
             />
           )}
           {route === "expert" && (

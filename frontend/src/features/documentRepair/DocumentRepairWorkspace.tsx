@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { ExportReadiness } from "@/api";
 import type {
@@ -22,6 +22,8 @@ export interface DocumentRepairWorkspaceProps {
   handlers: ProjectWorkspaceHandlers;
   exportReadiness?: ExportReadiness | null;
   onNavigate: (section: MainSectionId) => void;
+  requestedTab?: DocumentRepairTabId | null;
+  onRequestedTabHandled?: () => void;
 }
 
 const tabs: Array<{ id: DocumentRepairTabId; label: string; description: string }> = [
@@ -37,8 +39,17 @@ export function DocumentRepairWorkspace({
   handlers,
   exportReadiness = null,
   onNavigate,
+  requestedTab = null,
+  onRequestedTabHandled,
 }: DocumentRepairWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<DocumentRepairTabId>("overview");
+
+  useEffect(() => {
+    if (!requestedTab) return;
+    setActiveTab(requestedTab);
+    onRequestedTabHandled?.();
+  }, [requestedTab, onRequestedTabHandled]);
+
   const state = useMemo(
     () => deriveDocumentRepairState({ projectState, exportReadiness, activeTab }),
     [activeTab, exportReadiness, projectState],
