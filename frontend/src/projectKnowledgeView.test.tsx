@@ -228,6 +228,12 @@ describe("ProjectKnowledgeView", () => {
     const onGenerateKnowledgePlan = vi.fn();
     const knowledge: ProjectKnowledgeOverview = {
       ...baseOverview,
+      candidates: [
+        {
+          ...baseOverview.candidates[0],
+          user_decision: "include",
+        },
+      ],
       state: {
         ...baseOverview.state,
         status: "stale",
@@ -246,6 +252,9 @@ describe("ProjectKnowledgeView", () => {
         onBuildProjectCorpus={vi.fn()}
       />,
     );
+
+    expect(screen.queryByRole("button", { name: "确认建库" })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/需要重新生成检索计划后才能再次建库/).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "重新生成检索计划" }));
 

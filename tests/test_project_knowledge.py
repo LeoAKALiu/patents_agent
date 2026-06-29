@@ -302,13 +302,29 @@ def test_project_change_marks_knowledge_stale(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
     store.create_project(project)
-    ensure_project_knowledge_initialized(store, project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+    built_version_id = after_build.latest_corpus_version.id
     updated = project.model_copy(update={"draft_text": "改为桥梁裂缝检测和声学视觉复检。"})
 
     state = mark_stale_if_project_changed(store, updated, [])
+    stale_overview = knowledge_overview(store, project.id)
 
     assert state.status == "stale"
     assert "项目技术描述已变化" in state.staleness_reason
+    assert state.active_plan_id == overview.latest_plan.id
+    assert state.active_corpus_version_id == ""
+    assert state.document_count == 0
+    assert state.claim_coverage == 0.0
+    assert state.fulltext_coverage == 0.0
+    assert stale_overview.latest_corpus_version is None
+    assert store.get_latest_project_corpus_version(project.id).id == built_version_id
+    with pytest.raises(ProjectKnowledgeConflictError, match="stale"):
+        run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    with pytest.raises(ProjectKnowledgeConflictError, match="stale"):
+        create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
 
 
 def test_selected_patent_points_mark_knowledge_stale_when_snapshot_changes(tmp_path):
@@ -334,3 +350,27 @@ def test_selected_patent_points_mark_knowledge_stale_when_snapshot_changes(tmp_p
 
     assert state.status == "stale"
     assert "项目技术描述已变化" in state.staleness_reason
+
+
+def test_stale_overview_hides_active_corpus_for_legacy_state(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    legacy_stale = after_build.state.model_copy(
+        update={
+            "status": "stale",
+            "staleness_reason": "项目技术描述已变化，需要重新生成检索计划或补充检索。",
+            "quality_flags": ["stale_project_snapshot"],
+        }
+    )
+    store.upsert_project_knowledge_state(legacy_stale)
+
+    stale_overview = knowledge_overview(store, project.id)
+
+    assert stale_overview.state.active_corpus_version_id == after_build.latest_corpus_version.id
+    assert stale_overview.latest_corpus_version is None

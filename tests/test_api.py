@@ -581,6 +581,61 @@ def test_project_knowledge_overview_hides_old_corpus_after_regeneration(tmp_path
     assert payload["latest_corpus_version"] is None
 
 
+def test_project_knowledge_rejects_stale_plan_run_and_build_after_project_mutation(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "项目变更过期测试", "draft_text": "围绕任务编排生成项目证据库。"},
+    )
+    project_id = created.json()["id"]
+    original_plan_id = client.get(f"/api/projects/{project_id}/knowledge").json()["latest_plan"]["id"]
+
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{original_plan_id}/run")
+    assert run.status_code == 200
+    candidate_id = client.get(f"/api/projects/{project_id}/knowledge/candidates").json()["candidates"][0]["id"]
+    include = client.patch(
+        f"/api/projects/{project_id}/knowledge/candidates/{candidate_id}",
+        json={"user_decision": "include"},
+    )
+    assert include.status_code == 200
+    build = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": original_plan_id},
+    )
+    assert build.status_code == 200
+    built_version_id = build.json()["latest_corpus_version"]["id"]
+
+    mutated = client.put(
+        f"/api/projects/{project_id}",
+        json={"draft_text": "改为桥梁裂缝检测和声学视觉复检。"},
+    )
+    assert mutated.status_code == 200
+
+    before = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert before["state"]["status"] == "stale"
+    assert before["state"]["active_plan_id"] == original_plan_id
+    assert before["state"]["active_corpus_version_id"] == ""
+    assert before["state"]["document_count"] == 0
+    assert before["state"]["claim_coverage"] == 0
+    assert before["state"]["fulltext_coverage"] == 0
+    assert before["latest_corpus_version"] is None
+
+    stale_run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{original_plan_id}/run")
+    assert stale_run.status_code == 409
+    assert "stale" in stale_run.json()["detail"]
+
+    stale_build = client.post(
+        f"/api/projects/{project_id}/knowledge/corpus-versions",
+        json={"plan_id": original_plan_id},
+    )
+    assert stale_build.status_code == 409
+    assert "stale" in stale_build.json()["detail"]
+
+    after = client.get(f"/api/projects/{project_id}/knowledge").json()
+    assert after == before
+    assert client.app.state.store.get_latest_project_corpus_version(project_id).id == built_version_id
+
+
 def test_project_knowledge_bulk_decision_updates_multiple_candidates(tmp_path):
     client = _test_app_without_env(tmp_path)
     created = client.post(

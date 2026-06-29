@@ -179,6 +179,10 @@ def _get_active_plan(
     plan = store.get_agent_search_plan(project_id, plan_id)
     if plan is None:
         raise ValueError("Agent search plan not found.")
+    if state.status == "stale":
+        raise ProjectKnowledgeConflictError(
+            "Project knowledge is stale and must be regenerated before reusing this search plan."
+        )
     if not state.active_plan_id or state.active_plan_id != plan_id:
         raise ProjectKnowledgeConflictError("Agent search plan is no longer active for this project.")
     return state, plan
@@ -189,7 +193,7 @@ def knowledge_overview(store: SQLiteStore, project_id: str) -> ProjectKnowledgeO
     latest_plan = store.get_latest_agent_search_plan(project_id)
     candidates = store.list_prior_art_candidates(project_id, latest_plan.id if latest_plan else None)
     latest_corpus_version = None
-    if state.active_corpus_version_id:
+    if state.status != "stale" and state.active_corpus_version_id:
         latest_corpus_version = store.get_project_corpus_version(project_id, state.active_corpus_version_id)
     return ProjectKnowledgeOverview(
         state=state,
@@ -350,7 +354,11 @@ def mark_stale_if_project_changed(
     updated = state.model_copy(
         update={
             "status": "stale",
+            "active_corpus_version_id": "",
             "staleness_reason": "项目技术描述已变化，需要重新生成检索计划或补充检索。",
+            "document_count": 0,
+            "claim_coverage": 0.0,
+            "fulltext_coverage": 0.0,
             "quality_flags": sorted(set([*state.quality_flags, "stale_project_snapshot"])),
         }
     )

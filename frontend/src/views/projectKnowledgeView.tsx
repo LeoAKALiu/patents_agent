@@ -148,6 +148,9 @@ export function ProjectKnowledgeView({
   const state = knowledge?.state;
   const latestCorpusVersion = knowledge?.latest_corpus_version ?? null;
   const includedCandidates = candidates.filter((candidate) => candidate.user_decision === "include");
+  const canBuildCorpus =
+    includedCandidates.length > 0 &&
+    (status === "candidates_pending" || status === "needs_supplemental_search" || status === "ready");
   const qualityFlags = Array.from(new Set(state?.quality_flags ?? []));
   const guidanceCards = qualityFlags.map((flag) => ({ flag, ...qualityFlagCopy(flag, state?.staleness_reason ?? "") }));
 
@@ -270,9 +273,14 @@ export function ProjectKnowledgeView({
 
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-6">
           <h3>候选文献池</h3>
-          {includedCandidates.length > 0 && (
+          {canBuildCorpus && (
             <div className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-4 py-3 text-sm text-[var(--text-primary)]/80">
               已选 {includedCandidates.length} 篇候选文献进入建库范围，可直接确认建库。
+            </div>
+          )}
+          {status === "stale" && includedCandidates.length > 0 && (
+            <div className="mt-3 rounded-lg border border-[var(--warning,#d97706)]/30 bg-[var(--warning,#d97706)]/10 px-4 py-3 text-sm text-[var(--text-primary)]">
+              当前候选来自已过期的项目快照，需要重新生成检索计划后才能再次建库。
             </div>
           )}
           <div className="flex flex-col gap-3">
@@ -338,7 +346,7 @@ export function ProjectKnowledgeView({
               这里显示当前建库结果与质量报告，方便判断 grantability 是否具备可依赖的现有技术证据。
             </p>
           </div>
-          {includedCandidates.length > 0 && (
+          {canBuildCorpus && (
             <button
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-sm font-medium"
               disabled={busy.startsWith("knowledge")}
@@ -369,7 +377,9 @@ export function ProjectKnowledgeView({
           </div>
         ) : (
           <p className="mt-4 text-sm italic text-[var(--text-primary)]/50">
-            还没有项目证据库版本。完成候选文献决策后即可确认建库。
+            {status === "stale"
+              ? "当前项目快照已过期，需要重新生成检索计划后才能再次建库。"
+              : "还没有项目证据库版本。完成候选文献决策后即可确认建库。"}
           </p>
         )}
       </section>
