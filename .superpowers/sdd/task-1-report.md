@@ -112,3 +112,36 @@ Result summary:
    - passed: 4 files, 76 tests
 3. `cd frontend && npm test`
    - passed: 28 files, 191 tests
+
+## Second fix after re-review
+
+- Repair worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
+- Repair branch: `codex/ui-refactor-2026-06-29`
+- Repair starting HEAD: `2970bad2`
+- Dirty at repair start: no
+
+### Reviewer blocker addressed
+
+- Fixed the Task 1 routing regression where `activeSection === "knowledge"` and `activeSection === "export"` fell through the shell/router and rendered the guided workspace instead of the existing corpus/export workspaces.
+
+### Changes made
+
+- Updated `frontend/src/app/routes.tsx` so `resolveRoute()` returns minimal dedicated route kinds for `knowledge` and `export` instead of letting those section ids fall through to `guided`.
+- Updated `frontend/src/app/AppRoot.tsx` so:
+  - `knowledge` renders the existing `CorpusWorkspace`
+  - `export` renders the existing `PostDraftWorkspace`
+  - `knowledge` preserves `build` / `corpus` when already active and otherwise defaults safely to `build`
+  - `export` always renders the existing export tool
+- Updated `frontend/src/app/routes.test.tsx` with direct route assertions plus render coverage for:
+  - `knowledge` -> corpus workspace
+  - non-corpus expert tool + `knowledge` -> corpus `build`
+  - `export` -> post-draft export workspace
+
+### Verification
+
+1. `cd frontend && npm run build`
+   - passed
+2. `cd frontend && npm test -- app/routes.test.tsx guidedFlow.test.ts domain.test.ts AppStateRecovery.test.ts`
+   - passed: 4 files, 80 tests
+3. `cd frontend && npm test`
+   - passed: 28 files, 195 tests

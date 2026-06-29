@@ -3,6 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import appSource from "@/App.tsx?raw";
 import { AppRoot, type AppRootProps } from "./AppRoot";
+import { resolveRoute } from "./routes";
+
+vi.mock("@/features/corpus/CorpusWorkspace", () => ({
+  CorpusWorkspace: ({ tool }: { tool: string }) => <div data-testid="corpus-workspace">{tool}</div>,
+}));
+
+vi.mock("@/features/postDraft/PostDraftWorkspace", () => ({
+  PostDraftWorkspace: ({ tool }: { tool: string }) => <div data-testid="postdraft-workspace">{tool}</div>,
+}));
 
 function noop() {}
 
@@ -164,12 +173,35 @@ function makeRootProps(): AppRootProps {
 }
 
 describe("AppRoot routes", () => {
+  it("resolves knowledge and export as dedicated route kinds", () => {
+    expect(resolveRoute("knowledge", "build", false, false)).toBe("knowledge");
+    expect(resolveRoute("export", "materials", true, true)).toBe("export");
+  });
+
   it("renders the production shell navigation", () => {
     render(<AppRoot {...makeRootProps()} />);
 
     expect(screen.getAllByText("工作台").length).toBeGreaterThan(0);
     expect(screen.getAllByText("项目").length).toBeGreaterThan(0);
     expect(screen.getAllByText("设置").length).toBeGreaterThan(0);
+  });
+
+  it("renders the corpus workspace for the knowledge section", () => {
+    render(<AppRoot {...makeRootProps()} activeSection="knowledge" activeExpertTool="corpus" />);
+
+    expect(screen.getByTestId("corpus-workspace")).toHaveTextContent("corpus");
+  });
+
+  it("defaults knowledge to the build tool when the active expert tool is outside corpus", () => {
+    render(<AppRoot {...makeRootProps()} activeSection="knowledge" activeExpertTool="materials" />);
+
+    expect(screen.getByTestId("corpus-workspace")).toHaveTextContent("build");
+  });
+
+  it("renders the export workspace for the export section", () => {
+    render(<AppRoot {...makeRootProps()} activeSection="export" activeExpertTool="materials" />);
+
+    expect(screen.getByTestId("postdraft-workspace")).toHaveTextContent("export");
   });
 
   it("is wired from App.tsx instead of the legacy inline shell renderer", () => {

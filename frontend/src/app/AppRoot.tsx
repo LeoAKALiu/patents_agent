@@ -93,6 +93,12 @@ function routeKindToExpertTool(
   kind: RouteKind,
   activeExpertTool: ExpertToolId,
 ): CorpusTool | QualityTool | PostDraftTool {
+  if (kind === "knowledge") {
+    return activeExpertTool === "build" || activeExpertTool === "corpus"
+      ? activeExpertTool
+      : "build";
+  }
+  if (kind === "export") return "export";
   if (kind === "expert-corpus") return activeExpertTool as CorpusTool;
   if (kind === "expert-quality") return activeExpertTool as QualityTool;
   return activeExpertTool as PostDraftTool;
@@ -184,7 +190,7 @@ function noticeBar(props: AppRootProps): React.ReactNode {
 }
 
 function expertSection(props: AppRootProps, kind: RouteKind): React.ReactNode {
-  if (kind === "expert-corpus") {
+  if (kind === "knowledge" || kind === "expert-corpus") {
     return (
       <CorpusWorkspace
         tool={routeKindToExpertTool(kind, props.activeExpertTool) as CorpusTool}
@@ -202,6 +208,15 @@ function expertSection(props: AppRootProps, kind: RouteKind): React.ReactNode {
       />
     );
   }
+  if (kind === "expert-post-draft" || kind === "export") {
+    return (
+      <PostDraftWorkspace
+        tool={routeKindToExpertTool(kind, props.activeExpertTool) as PostDraftTool}
+        state={props.postDraftState}
+        handlers={props.postDraftHandlers}
+      />
+    );
+  }
   return (
     <PostDraftWorkspace
       tool={routeKindToExpertTool(kind, props.activeExpertTool) as PostDraftTool}
@@ -214,7 +229,9 @@ function expertSection(props: AppRootProps, kind: RouteKind): React.ReactNode {
 function pageTitleForSection(activeSection: MainSectionId): { title: string; subtitle?: string } {
   if (activeSection === "projects") return { title: "项目", subtitle: "查看历史项目和运行记录" };
   if (activeSection === "settings") return { title: "设置", subtitle: "本机 LLM 服务参数与 API Key" };
+  if (activeSection === "knowledge") return { title: "知识库", subtitle: "构建与检索现有语料库" };
   if (activeSection === "expert") return { title: "专家工具", subtitle: "按工作流阶段拆分的子工具集" };
+  if (activeSection === "export") return { title: "导出", subtitle: "导出正式稿与相关交付文件" };
   if (activeSection === "workbench") return { title: "工作台", subtitle: "选择一种默认路径进入 v1.1.0 向导" };
   return { title: "工作台" };
 }
@@ -259,6 +276,11 @@ export function AppRoot(props: AppRootProps) {
         { id: "deliberate", label: "03 多智能体会审", icon: <ClipboardList size={14} aria-hidden="true" /> },
       ]
     : undefined;
+  const showExpertWorkspace = route === "knowledge"
+    || route === "export"
+    || route === "expert-corpus"
+    || route === "expert-quality"
+    || route === "expert-post-draft";
   const showExpertChooser = props.activeSection === "expert";
   return (
     <ShellLayout
@@ -315,9 +337,11 @@ export function AppRoot(props: AppRootProps) {
             <SettingsPanel theme={props.theme} onThemeChange={props.onChangeTheme} />
           </div>
         )}
-        {showExpertChooser && (
+        {showExpertWorkspace && (
           <div className="flex flex-col gap-4">
-            <ExpertToolChooser activeToolId={props.activeExpertTool} onSelect={props.onSelectExpertTool} />
+            {showExpertChooser && (
+              <ExpertToolChooser activeToolId={props.activeExpertTool} onSelect={props.onSelectExpertTool} />
+            )}
             {expertSection(props, route)}
           </div>
         )}

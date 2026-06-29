@@ -17,6 +17,8 @@ export type RouteKind =
   | "guided"
   | "projects-overview"
   | "settings"
+  | "knowledge"
+  | "export"
   | "expert-corpus"
   | "expert-quality"
   | "expert-post-draft";
@@ -35,6 +37,8 @@ export function resolveRoute(
 ): RouteKind {
   if (activeSection === "projects") return "projects-overview";
   if (activeSection === "settings") return "settings";
+  if (activeSection === "knowledge") return "knowledge";
+  if (activeSection === "export") return "export";
   if (activeSection === "expert") {
     if (activeExpertTool === "build" || activeExpertTool === "corpus") {
       return "expert-corpus";
