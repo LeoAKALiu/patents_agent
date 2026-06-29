@@ -7,6 +7,7 @@ from typing import Any
 from backend.app.disclosure.prior_art import PriorArtProvider, dedupe_prior_art_hits, prior_art_url_warnings
 from backend.app.llm import LLMClient
 from backend.app.patent_mode import is_utility_model_project
+from backend.app.patent_urls import clean_prior_art_url_for_prompt, sanitize_patent_like_urls_for_public_text
 from backend.app.project_metadata import format_project_metadata_block
 from backend.app.research.deep_research_intake import (
     is_deep_research_markdown_material,
@@ -521,7 +522,7 @@ def _relevance_prompt(
 DeepResearch 内部材料：
 {deep_research_context or "无"}
 公开结果：
-{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False, indent=2)}
+{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False, indent=2)}
 """
 
 
@@ -552,7 +553,7 @@ def _body_prompt(
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
 扫描摘要：{json.dumps(scan, ensure_ascii=False)}
 材料：{materials}
-公开现有技术：{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False, indent=2)}
+公开现有技术：{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False, indent=2)}
 总体区别：{differences}
 """
     return f"""请生成完整中文技术交底书 Markdown。
@@ -569,7 +570,7 @@ def _body_prompt(
 推荐专利点：{selected.model_dump_json(ensure_ascii=False) if selected else ""}
 扫描摘要：{json.dumps(scan, ensure_ascii=False)}
 材料：{materials}
-公开现有技术：{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False, indent=2)}
+公开现有技术：{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False, indent=2)}
 总体区别：{differences}
 """
 
@@ -623,7 +624,7 @@ Mermaid：
 {mermaid}
 
 公开现有技术：
-{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False)}
+{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False)}
 """
     return f"""请对以下技术交底书做内部自检，仅输出 JSON array。
 每项包含 category、severity(low|medium|high)、message、suggestion。
@@ -637,7 +638,7 @@ Mermaid：
 {mermaid}
 
 公开现有技术：
-{json.dumps([hit.model_dump(mode="json") for hit in hits], ensure_ascii=False)}
+{json.dumps(_prior_art_hits_prompt_payload(hits), ensure_ascii=False)}
 """
 
 
@@ -665,13 +666,14 @@ def _format_deep_research_prompt_context(packets: list[Any]) -> str:
         if packet_hits:
             lines.append("现有技术线索：")
             for hit in packet_hits:
+                prompt_hit = _prior_art_hit_for_prompt(hit)
                 detail_parts = [
                     part
                     for part in (
-                        hit.publication_number,
-                        hit.title,
-                        hit.url,
-                        hit.abstract or hit.relevance_summary,
+                        prompt_hit.publication_number,
+                        prompt_hit.title,
+                        prompt_hit.url,
+                        prompt_hit.abstract or prompt_hit.relevance_summary,
                     )
                     if part
                 ]
@@ -705,6 +707,28 @@ def _format_context(chunks: list[PatentChunk]) -> str:
         f"[{index}] {chunk.section_type.value} / {chunk.metadata.get('title', chunk.document_id)}\n{chunk.text[:1200]}"
         for index, chunk in enumerate(chunks, start=1)
     )
+
+
+def _prior_art_hits_prompt_payload(hits: list[PriorArtHit]) -> list[dict[str, Any]]:
+    return [_prior_art_hit_for_prompt(hit).model_dump(mode="json") for hit in hits]
+
+
+def _prior_art_hit_for_prompt(hit: PriorArtHit) -> PriorArtHit:
+    return hit.model_copy(
+        update={
+            "title": _prompt_safe_patent_text(hit.title),
+            "url": clean_prior_art_url_for_prompt(hit.url, hit.publication_number),
+            "abstract": _prompt_safe_patent_text(hit.abstract),
+            "relevance_summary": _prompt_safe_patent_text(hit.relevance_summary),
+            "differentiators": [_prompt_safe_patent_text(item) for item in hit.differentiators],
+        }
+    )
+
+
+def _prompt_safe_patent_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return sanitize_patent_like_urls_for_public_text(value)
 
 
 def _format_user_candidates(candidates: list[PatentPointCandidate]) -> str:

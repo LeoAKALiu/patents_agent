@@ -4,6 +4,7 @@ from backend.app.evidence_binding import build_evidence_bindings
 from backend.app.llm import FakeLLMClient
 from backend.app.schemas import (
     EvidenceBindingSourceType,
+    PriorArtHit,
     ProjectMaterial,
     ProjectRecord,
 )
@@ -137,7 +138,8 @@ def test_deepresearch_markdown_hits_with_unsupported_urls_reach_warning_path() -
         text=DEEP_RESEARCH_MD_WITH_UNSUPPORTED_URL,
         status="processed",
     )
-    generator = DisclosureGenerator(FakeLLMClient(_responses()), StaticPriorArtProvider())
+    llm = FakeLLMClient(_responses())
+    generator = DisclosureGenerator(llm, StaticPriorArtProvider())
 
     package, stages, warnings = generator.generate(
         project=project,
@@ -150,9 +152,48 @@ def test_deepresearch_markdown_hits_with_unsupported_urls_reach_warning_path() -
         hit.publication_number == "CN123456789A" and hit.url == "https://example.com/patent/CN123456789A"
         for hit in package.prior_art_hits
     )
+    assert all("https://example.com/patent/CN123456789A" not in call.user_prompt for call in llm.calls)
+    body_call = next(call for call in llm.calls if call.stage == "disclosure_body")
+    assert "CN123456789A" in body_call.user_prompt
+    assert "链接不是公开专利来源" in body_call.user_prompt
     assert warnings == ["prior_art unsupported public URL: CN123456789A 一种非公开视频链接的图像缺陷检测方法"]
     search_stage = next(stage for stage in stages if stage["phase"] == "prior_art_search")
     assert search_stage["payload"]["warnings"] == warnings
+
+
+def test_provider_prior_art_hits_with_unsafe_urls_are_sanitized_before_prompts() -> None:
+    project = ProjectRecord(id="p1", name="图像缺陷", draft_text="一种图像缺陷识别方法。")
+    llm = FakeLLMClient(_responses())
+    generator = DisclosureGenerator(
+        llm,
+        StaticPriorArtProvider(
+            [
+                PriorArtHit(
+                    id="provider-hit-1",
+                    source="Provider",
+                    query="图像 缺陷",
+                    title="公开视频错配条目",
+                    publication_number="CN123456789A",
+                    url="https://patents.google.com/patent/US20240123456A1",
+                    abstract="公开了图像缺陷检测，但公开链接与出版号不一致。",
+                )
+            ]
+        ),
+    )
+
+    package, _stages, warnings = generator.generate(
+        project=project,
+        materials=[],
+        context_chunks=[],
+        max_prior_art_results=1,
+    )
+
+    assert any(hit.url == "https://patents.google.com/patent/US20240123456A1" for hit in package.prior_art_hits)
+    assert warnings == ["prior_art mismatched public URL: CN123456789A 公开视频错配条目"]
+    assert all("https://patents.google.com/patent/US20240123456A1" not in call.user_prompt for call in llm.calls)
+    relevance_call = next(call for call in llm.calls if call.stage == "prior_art_relevance")
+    assert "CN123456789A" in relevance_call.user_prompt
+    assert "公开视频错配条目" in relevance_call.user_prompt
 
 
 def test_deepresearch_material_becomes_prior_art_evidence_binding() -> None:

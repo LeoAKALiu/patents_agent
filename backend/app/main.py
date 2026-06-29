@@ -139,6 +139,7 @@ from backend.app.schemas import (
     ProjectCreate,
     ProjectUpdate,
     ProjectRecord,
+    RevisionLedgerRecord,
     RuntimeFailure,
     SectionType,
     CompletionScoreCard,
@@ -325,8 +326,7 @@ def create_app(
         stored = store.create_external_draft_intake_run(run)
         if stored.status == "completed" and stored.parsed_package:
             before_package = project.package
-            store.update_project_package(project_id, stored.parsed_package)
-            _record_external_draft_revision_ledger_event(
+            _update_project_package_with_external_draft_revision_ledger_event(
                 store,
                 project_id=project_id,
                 before_package=before_package,
@@ -398,8 +398,7 @@ def create_app(
         if not persisted:
             raise HTTPException(status_code=409, detail="External draft intake run update conflicted.")
         before_package = project.package
-        store.update_project_package(project_id, package)
-        _record_external_draft_revision_ledger_event(
+        _update_project_package_with_external_draft_revision_ledger_event(
             store,
             project_id=project_id,
             before_package=before_package,
@@ -1030,8 +1029,7 @@ def create_app(
         project = _require_project(store, project_id)
         package = _require_package(project)
         updated = package.model_copy(update=payload.model_dump())
-        store.update_project_package(project_id, updated)
-        _record_revision_ledger_event(
+        _update_project_package_with_revision_ledger_event(
             store,
             project_id=project_id,
             before_package=package,
@@ -1269,8 +1267,7 @@ def create_app(
         if patch:
             updated_package = _apply_completion_patch(package, patch, run_draft_package_hash=adjusted.draft_package_hash)
             if updated_package != package:
-                store.update_project_package(project_id, updated_package)
-                _record_revision_ledger_event(
+                _update_project_package_with_revision_ledger_event(
                     store,
                     project_id=project_id,
                     before_package=package,
@@ -1313,8 +1310,7 @@ def create_app(
             current = updated
             patched_package = _apply_completion_patch(current_package, patch)
             if patched_package != current_package:
-                store.update_project_package(project_id, patched_package)
-                _record_revision_ledger_event(
+                _update_project_package_with_revision_ledger_event(
                     store,
                     project_id=project_id,
                     before_package=current_package,
@@ -1364,7 +1360,7 @@ def create_app(
                     continue
                 current_package = patched_package
                 store.update_completion_patch_status(project_id, current_run.id, patch.id, "accepted")
-                _record_revision_ledger_event(
+                _update_project_package_with_revision_ledger_event(
                     store,
                     project_id=project_id,
                     before_package=before_package,
@@ -1387,7 +1383,6 @@ def create_app(
             if not round_accepted:
                 logs.append("score-improvement: 本轮没有补丁通过安全检查")
                 break
-            store.update_project_package(project_id, current_package)
             current_run = _run_quality_cycle(app, store, project_id)
             logs.append(f"score-improvement: 第 {round_index} 轮重新评分 {current_run.scorecard.overall}/100")
             if current_run.scorecard.overall >= payload.target_score:
@@ -1606,8 +1601,7 @@ def create_app(
                 ]
             }
         )
-        store.update_project_package(project_id, updated_package)
-        _record_revision_ledger_event(
+        _update_project_package_with_revision_ledger_event(
             store,
             project_id=project_id,
             before_package=package,
@@ -1636,9 +1630,8 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         result = _apply_post_draft_safe_patches(project_id=project_id, package=package, run=run)
-        store.update_project_package(project_id, result.package)
         changed_sections = _changed_draft_sections(package, result.package)
-        _record_revision_ledger_event(
+        _update_project_package_with_revision_ledger_event(
             store,
             project_id=project_id,
             before_package=package,
@@ -1750,9 +1743,8 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Official compile run not found.")
         result = _apply_official_compile_cleanup(project_id=project_id, package=package, run=run)
-        store.update_project_package(project_id, result.package)
         changed_sections = _changed_draft_sections(package, result.package)
-        _record_revision_ledger_event(
+        _update_project_package_with_revision_ledger_event(
             store,
             project_id=project_id,
             before_package=package,
@@ -3256,7 +3248,7 @@ def _apply_official_compile_cleanup(
     )
 
 
-def _record_revision_ledger_event(
+def _update_project_package_with_revision_ledger_event(
     store: SQLiteStore,
     *,
     project_id: str,
@@ -3269,24 +3261,51 @@ def _record_revision_ledger_event(
     protection_scope_changed: bool = False,
     artifact_refs: list[str] | None = None,
 ) -> None:
-    if before_package == after_package:
+    record = _revision_ledger_record_for_event(
+        project_id=project_id,
+        before_package=before_package,
+        after_package=after_package,
+        revision_kind=revision_kind,
+        user_intent_summary=user_intent_summary,
+        affected_sections=affected_sections,
+        prior_art_changed=prior_art_changed,
+        protection_scope_changed=protection_scope_changed,
+        artifact_refs=artifact_refs,
+    )
+    if record is None:
+        store.update_project_package(project_id, after_package)
         return
-    store.create_revision_ledger_record(
-        create_revision_record(
-            project_id=project_id,
-            baseline_package=before_package,
-            updated_package=after_package,
-            revision_kind=revision_kind,
-            user_intent_summary=user_intent_summary,
-            affected_sections=affected_sections,
-            prior_art_changed=prior_art_changed,
-            protection_scope_changed=protection_scope_changed,
-            artifact_refs=artifact_refs,
-        )
+    store.update_project_package_with_revision_record(project_id, after_package, record)
+
+
+def _revision_ledger_record_for_event(
+    *,
+    project_id: str,
+    before_package: DraftPackage,
+    after_package: DraftPackage,
+    revision_kind: str,
+    user_intent_summary: str,
+    affected_sections: list[str],
+    prior_art_changed: bool = False,
+    protection_scope_changed: bool = False,
+    artifact_refs: list[str] | None = None,
+) -> RevisionLedgerRecord | None:
+    if before_package == after_package:
+        return None
+    return create_revision_record(
+        project_id=project_id,
+        baseline_package=before_package,
+        updated_package=after_package,
+        revision_kind=revision_kind,
+        user_intent_summary=user_intent_summary,
+        affected_sections=affected_sections,
+        prior_art_changed=prior_art_changed,
+        protection_scope_changed=protection_scope_changed,
+        artifact_refs=artifact_refs,
     )
 
 
-def _record_external_draft_revision_ledger_event(
+def _update_project_package_with_external_draft_revision_ledger_event(
     store: SQLiteStore,
     *,
     project_id: str,
@@ -3296,7 +3315,7 @@ def _record_external_draft_revision_ledger_event(
     user_intent_summary: str,
 ) -> None:
     baseline_package = before_package or _empty_draft_package_baseline()
-    _record_revision_ledger_event(
+    _update_project_package_with_revision_ledger_event(
         store,
         project_id=project_id,
         before_package=baseline_package,

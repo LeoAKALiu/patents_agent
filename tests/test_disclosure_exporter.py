@@ -422,6 +422,30 @@ def test_clean_disclosure_does_not_append_unsupported_prior_art_urls() -> None:
     assert "https://patents.google.com/patent/US20240123456A1" in markdown
 
 
+def test_clean_disclosure_scrubs_unsafe_patent_like_body_urls_from_markdown_and_docx(tmp_path) -> None:
+    package = _package().model_copy(
+        update={
+            "body_markdown": (
+                "# 技术交底书正文\n\n"
+                "本段保留正式技术内容。\n"
+                "非公开链接 https://example.com/patent/CN123456789A 不能进入清洁交底书。\n"
+                "错配公开链接 CN123456789A https://patents.google.com/patent/US20240123456A1 也不能进入清洁交底书。\n"
+                "正确公开链接 CN123456789A https://patents.google.com/patent/CN123456789A 应当保留。"
+            )
+        }
+    )
+
+    markdown = clean_disclosure_to_markdown(package)
+    docx_path = export_disclosure_docx(package, tmp_path / "disclosure.docx", tmp_path)
+    docx_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
+
+    for text in (markdown, docx_text):
+        assert "本段保留正式技术内容" in text
+        assert "https://example.com/patent/CN123456789A" not in text
+        assert "https://patents.google.com/patent/US20240123456A1" not in text
+        assert "https://patents.google.com/patent/CN123456789A" in text
+
+
 def test_clean_disclosure_normalizes_trailing_punctuation_when_comparing_urls() -> None:
     package = _package().model_copy(
         update={

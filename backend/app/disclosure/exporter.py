@@ -16,6 +16,7 @@ from backend.app.internal_metadata import (
 from backend.app.patent_urls import (
     is_supported_public_patent_url,
     normalize_url as normalize_public_url,
+    sanitize_patent_like_urls_for_public_text,
 )
 from backend.app.schemas import DisclosurePackage
 
@@ -265,7 +266,7 @@ def _clean_export_body_markdown(body_markdown: str) -> str:
             continue
         lines.append(line.rstrip())
         index += 1
-    return "\n".join(lines).strip()
+    return sanitize_patent_like_urls_for_public_text("\n".join(lines).strip())
 
 
 def _normalize_internal_heading(heading: str) -> str:

@@ -398,6 +398,24 @@ class SQLiteStore:
                 (json.dumps(package.model_dump(mode="json"), ensure_ascii=False), project_id),
             )
 
+    def update_project_package_with_revision_record(
+        self,
+        project_id: str,
+        package: DraftPackage,
+        record: RevisionLedgerRecord,
+    ) -> RevisionLedgerRecord:
+        with self.connection:
+            self.connection.execute(
+                """
+                update projects
+                set package_json = ?, updated_at = current_timestamp
+                where id = ?
+                """,
+                (json.dumps(package.model_dump(mode="json"), ensure_ascii=False), project_id),
+            )
+            self._insert_revision_ledger_record(record)
+        return record
+
     def create_external_draft_source(self, source: ExternalDraftSource) -> ExternalDraftSource:
         with self.connection:
             self.connection.execute(
@@ -611,19 +629,7 @@ class SQLiteStore:
 
     def create_revision_ledger_record(self, record: RevisionLedgerRecord) -> RevisionLedgerRecord:
         with self.connection:
-            self.connection.execute(
-                """
-                insert into revision_ledger_records(
-                    id, project_id, record_json, created_at
-                ) values (?, ?, ?, ?)
-                """,
-                (
-                    record.id,
-                    record.project_id,
-                    json.dumps(record.model_dump(mode="json"), ensure_ascii=False),
-                    record.created_at,
-                ),
-            )
+            self._insert_revision_ledger_record(record)
         return record
 
     def list_revision_ledger_records(self, project_id: str) -> list[RevisionLedgerRecord]:
@@ -636,6 +642,21 @@ class SQLiteStore:
             (project_id,),
         ).fetchall()
         return [RevisionLedgerRecord.model_validate(json.loads(row["record_json"])) for row in rows]
+
+    def _insert_revision_ledger_record(self, record: RevisionLedgerRecord) -> None:
+        self.connection.execute(
+            """
+            insert into revision_ledger_records(
+                id, project_id, record_json, created_at
+            ) values (?, ?, ?, ?)
+            """,
+            (
+                record.id,
+                record.project_id,
+                json.dumps(record.model_dump(mode="json"), ensure_ascii=False),
+                record.created_at,
+            ),
+        )
 
     def list_draft_completion_runs(self, project_id: str) -> list[DraftCompletionRun]:
         rows = self.connection.execute(

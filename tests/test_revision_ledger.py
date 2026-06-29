@@ -1,7 +1,9 @@
 from pathlib import Path
 
+import pytest
+
 from backend.app.revision_ledger import create_revision_record
-from backend.app.schemas import DraftPackage
+from backend.app.schemas import DraftPackage, ProjectRecord
 from backend.app.storage import SQLiteStore
 
 
@@ -73,3 +75,29 @@ def test_sqlite_store_persists_revision_ledger_records(tmp_path: Path) -> None:
     assert [record.id for record in records] == [second.id, first.id]
     assert records[0].revision_kind == "protection_focus"
     assert records[1].prior_art_changed is True
+
+
+def test_sqlite_store_rolls_back_package_update_when_revision_insert_fails(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "patents.sqlite3")
+    before = _package("旧说明书")
+    after = _package("新说明书")
+    store.create_project(ProjectRecord(id="p1", name="测试项目", draft_text="草稿", package=before))
+    record = create_revision_record(
+        project_id="p1",
+        baseline_package=before,
+        updated_package=after,
+        revision_kind="correction",
+        user_intent_summary="修正说明书",
+        affected_sections=["description"],
+    )
+    store.create_revision_ledger_record(record)
+
+    helper = getattr(store, "update_project_package_with_revision_record", None)
+    assert callable(helper)
+    with pytest.raises(Exception):
+        helper("p1", after, record)
+
+    project = store.get_project("p1")
+    assert project is not None
+    assert project.package == before
+    assert [stored.id for stored in store.list_revision_ledger_records("p1")] == [record.id]
