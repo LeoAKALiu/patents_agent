@@ -525,6 +525,47 @@ def test_grantability_low_evidence_when_project_corpus_is_synthetic_only() -> No
     assert report.fail_closed is True
 
 
+def test_grantability_fail_closed_when_project_corpus_failed() -> None:
+    report = generate_grantability_report(
+        project_id="project-knowledge-failed",
+        package=_sample_package(),
+        disclosures=[_sample_disclosure()],
+        patent_points=_sample_patent_points(),
+        project_knowledge_state=ProjectKnowledgeState(
+            project_id="project-knowledge-failed",
+            status="failed",
+            document_count=3,
+            candidate_count=3,
+            quality_flags=[],
+        ),
+    )
+
+    assert report.fail_closed is True
+    assert any("项目语料库状态为failed" in flag for flag in report.low_evidence_flags)
+
+
+def test_grantability_fail_closed_when_project_corpus_needs_supplemental_search() -> None:
+    report = generate_grantability_report(
+        project_id="project-knowledge-needs-supplemental-search",
+        package=_sample_package(),
+        disclosures=[_sample_disclosure()],
+        patent_points=_sample_patent_points(),
+        project_knowledge_state=ProjectKnowledgeState(
+            project_id="project-knowledge-needs-supplemental-search",
+            status="needs_supplemental_search",
+            document_count=3,
+            candidate_count=3,
+            quality_flags=[],
+        ),
+    )
+
+    assert report.fail_closed is True
+    assert any(
+        "项目语料库状态为needs_supplemental_search" in flag
+        for flag in report.low_evidence_flags
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tests: low-evidence fail-closed behavior
 # ---------------------------------------------------------------------------

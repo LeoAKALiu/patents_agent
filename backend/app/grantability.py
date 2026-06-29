@@ -96,19 +96,13 @@ def generate_grantability_report(
     if project_knowledge_state is None:
         low_evidence_flags.append("项目语料库未就绪，授权前景不能给出高置信结论。")
         fail_closed = True
-    elif knowledge_status in {
-        "not_started",
-        "search_plan_pending",
-        "search_running",
-        "candidates_pending",
-        "corpus_building",
-    }:
-        low_evidence_flags.append(
-            f"项目语料库状态为{knowledge_status}，尚不能支撑高置信授权判断。"
-        )
-        fail_closed = True
-    elif knowledge_status == "stale":
-        low_evidence_flags.append("项目语料库已过期，需要补充检索后再确认授权前景。")
+    elif knowledge_status != "ready":
+        if knowledge_status == "stale":
+            low_evidence_flags.append("项目语料库已过期，需要补充检索后再确认授权前景。")
+        else:
+            low_evidence_flags.append(
+                f"项目语料库状态为{knowledge_status}，尚不能支撑高置信授权判断。"
+            )
         fail_closed = True
 
     if "synthetic_evidence" in knowledge_flags:
