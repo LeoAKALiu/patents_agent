@@ -58,6 +58,19 @@ def test_cli_adapter_raises_runtime_failure_for_empty_output(tmp_path: Path) -> 
     assert exc.value.provider_id == "claude"
 
 
+def test_cli_adapter_normalizes_timeout_provider_id_for_aliases(tmp_path: Path) -> None:
+    async def fake_spawn(_command, _args, _cwd, _prompt, _timeout_ms):
+        raise AgentRuntimeFailure("timeout", "reasonix timed out", provider_id="reasonix")
+
+    adapter = CliAgentAdapter(spawn_func=fake_spawn)
+
+    with pytest.raises(AgentRuntimeFailure) as exc:
+        asyncio.run(adapter.run_task(_request(tmp_path, provider_id="deepseek", label="opening deepseek")))
+
+    assert exc.value.reason == "timeout"
+    assert exc.value.provider_id == "deepseek"
+
+
 def test_deliberation_provider_runner_remains_compatible(tmp_path: Path) -> None:
     async def fake_spawn(_command, _args, _cwd, _prompt, _timeout_ms):
         return 0, '{"ok": true}', ""

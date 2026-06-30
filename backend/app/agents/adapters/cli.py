@@ -97,8 +97,7 @@ class CliAgentAdapter:
                     attempts=attempt,
                 )
             except AgentRuntimeFailure as exc:
-                if not exc.provider_id:
-                    exc.provider_id = request.provider_id
+                exc.provider_id = request.provider_id
                 last_failure = exc
                 _emit_log(
                     request.log_callback,
