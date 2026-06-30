@@ -270,6 +270,8 @@ describe("AppRoot routes", () => {
     for (const label of ["工作台", "项目", "文稿与修复", "知识库", "专家工具", "导出", "设置"]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
+    const sidebar = document.querySelector(".sidebar") as HTMLElement;
+    expect(within(sidebar).queryByText("Main")).not.toBeInTheDocument();
   });
 
   it("does not render the old project key-node group in shell chrome", () => {

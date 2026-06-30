@@ -39,7 +39,6 @@ export function ShellSidebar({
       </div>
 
       <nav className="nav-group" aria-label="主导航">
-        <div className="nav-label">Main</div>
         {mainSections.map((section) => (
           <Button
             key={section.id}

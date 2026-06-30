@@ -29,10 +29,12 @@ function StatusRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
+type SystemStatusVariant = "success" | "warning" | "secondary" | "destructive";
+
 function modelStatus(
   health: Health | null | undefined,
   backendStatus: "unknown" | "online" | "offline",
-): { label: string; variant: "success" | "secondary" | "destructive" } {
+): { label: string; variant: Exclude<SystemStatusVariant, "warning"> } {
   if (backendStatus === "offline") return { label: "离线", variant: "destructive" };
   if (!health) return { label: "检测中", variant: "secondary" };
   if (health.llm_configured) return { label: "可用", variant: "success" };
@@ -43,7 +45,7 @@ function agentStatus(
   agentDoctor: AgentDoctorReport | null | undefined,
   backendStatus: "unknown" | "online" | "offline",
   agentRunModeLabel: (mode: string) => string,
-): { label: string; variant: "success" | "warning" | "secondary" | "destructive" } {
+): { label: string; variant: SystemStatusVariant } {
   if (backendStatus === "offline") return { label: "离线", variant: "destructive" };
   if (!agentDoctor) return { label: "检测中", variant: "secondary" };
   if (agentDoctor.status === "ready") return { label: "可用", variant: "success" };
@@ -55,7 +57,7 @@ function agentStatus(
 
 function backendLabel(
   backendStatus: "unknown" | "online" | "offline",
-): { label: string; variant: "success" | "secondary" | "destructive" } {
+): { label: string; variant: Exclude<SystemStatusVariant, "warning"> } {
   if (backendStatus === "online") return { label: "在线", variant: "success" };
   if (backendStatus === "offline") return { label: "离线", variant: "destructive" };
   return { label: "检测中", variant: "secondary" };
@@ -80,13 +82,22 @@ export function SystemStatusPanel({
   return (
     <div className="system-status-compact">
       <StatusRow label="模型">
-        <Badge variant={model.variant}>{model.label}</Badge>
+        <Badge className="system-status-chip" data-status={model.variant} variant={model.variant}>
+          {model.label}
+        </Badge>
       </StatusRow>
       <StatusRow label="智能体">
-        <Badge variant={agents.variant}>{agents.label}</Badge>
+        <Badge className="system-status-chip" data-status={agents.variant} variant={agents.variant}>
+          {agents.label}
+        </Badge>
       </StatusRow>
       <StatusRow label="后端">
-        <Badge variant={backend.variant} aria-label={`后端${backend.label}`}>
+        <Badge
+          aria-label={`后端${backend.label}`}
+          className="system-status-chip"
+          data-status={backend.variant}
+          variant={backend.variant}
+        >
           {backend.label}
         </Badge>
       </StatusRow>
