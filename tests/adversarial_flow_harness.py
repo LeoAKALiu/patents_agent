@@ -948,6 +948,222 @@ def _generated_html_hidden_text_honesty(
     )
 
 
+def _generated_html_details_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_details_llm(),
+        project_name_prefix="HTML折叠详情证据隔离项目",
+    )
+
+
+def _generated_html_table_cell_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_table_cell_llm(),
+        project_name_prefix="HTML表格单元格证据隔离项目",
+    )
+
+
+def _generated_html_list_item_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_list_item_llm(),
+        project_name_prefix="HTML列表项证据隔离项目",
+    )
+
+
+def _generated_html_definition_list_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_definition_list_llm(),
+        project_name_prefix="HTML定义列表证据隔离项目",
+    )
+
+
+def _generated_html_code_block_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_code_block_llm(),
+        project_name_prefix="HTML代码块证据隔离项目",
+    )
+
+
+def _generated_html_ruby_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_ruby_text_llm(),
+        project_name_prefix="HTML注音文本证据隔离项目",
+    )
+
+
+def _generated_html_phrase_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_phrase_text_llm(),
+        project_name_prefix="HTML短语文本证据隔离项目",
+    )
+
+
+def _generated_html_heading_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_heading_text_llm(),
+        project_name_prefix="HTML标题文本证据隔离项目",
+    )
+
+
+def _generated_html_sectioning_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_sectioning_text_llm(),
+        project_name_prefix="HTML分区容器证据隔离项目",
+    )
+
+
+def _generated_html_form_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_form_text_llm(),
+        project_name_prefix="HTML表单文本证据隔离项目",
+    )
+
+
+def _generated_html_embedded_fallback_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_embedded_fallback_text_llm(),
+        project_name_prefix="HTML嵌入回退文本证据隔离项目",
+    )
+
+
+def _generated_html_blockquote_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_blockquote_text_llm(),
+        project_name_prefix="HTML引用块证据隔离项目",
+    )
+
+
+def _generated_html_edit_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_edit_text_llm(),
+        project_name_prefix="HTML编辑痕迹证据隔离项目",
+    )
+
+
+def _generated_html_link_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_link_text_llm(),
+        project_name_prefix="HTML链接文本证据隔离项目",
+    )
+
+
+def _generated_html_figure_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_figure_text_llm(),
+        project_name_prefix="HTML图文容器证据隔离项目",
+    )
+
+
+def _generated_html_semantic_container_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_semantic_container_text_llm(),
+        project_name_prefix="HTML语义容器证据隔离项目",
+    )
+
+
+def _generated_html_select_option_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_select_option_text_llm(),
+        project_name_prefix="HTML选项文本证据隔离项目",
+    )
+
+
+def _generated_html_textarea_text_honesty(
+    driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
+) -> dict[str, Any]:
+    return _generated_evidence_honesty_with_llm(
+        driver,
+        rng,
+        payload,
+        llm=_generated_html_textarea_text_llm(),
+        project_name_prefix="HTML文本域证据隔离项目",
+    )
+
+
 def _generated_html_caption_honesty(
     driver: FlowDriver, rng: random.Random, payload: dict[str, Any]
 ) -> dict[str, Any]:
@@ -1295,6 +1511,24 @@ _ACTIONS: dict[str, Callable[[FlowDriver, random.Random, dict[str, Any]], dict[s
     "generated_html_accessible_attribute_honesty": _generated_html_accessible_attribute_honesty,
     "generated_html_visible_text_honesty": _generated_html_visible_text_honesty,
     "generated_html_hidden_text_honesty": _generated_html_hidden_text_honesty,
+    "generated_html_details_honesty": _generated_html_details_honesty,
+    "generated_html_table_cell_honesty": _generated_html_table_cell_honesty,
+    "generated_html_list_item_honesty": _generated_html_list_item_honesty,
+    "generated_html_definition_list_honesty": _generated_html_definition_list_honesty,
+    "generated_html_code_block_honesty": _generated_html_code_block_honesty,
+    "generated_html_ruby_text_honesty": _generated_html_ruby_text_honesty,
+    "generated_html_phrase_text_honesty": _generated_html_phrase_text_honesty,
+    "generated_html_heading_text_honesty": _generated_html_heading_text_honesty,
+    "generated_html_sectioning_text_honesty": _generated_html_sectioning_text_honesty,
+    "generated_html_form_text_honesty": _generated_html_form_text_honesty,
+    "generated_html_embedded_fallback_text_honesty": _generated_html_embedded_fallback_text_honesty,
+    "generated_html_blockquote_text_honesty": _generated_html_blockquote_text_honesty,
+    "generated_html_edit_text_honesty": _generated_html_edit_text_honesty,
+    "generated_html_link_text_honesty": _generated_html_link_text_honesty,
+    "generated_html_figure_text_honesty": _generated_html_figure_text_honesty,
+    "generated_html_semantic_container_text_honesty": _generated_html_semantic_container_text_honesty,
+    "generated_html_select_option_text_honesty": _generated_html_select_option_text_honesty,
+    "generated_html_textarea_text_honesty": _generated_html_textarea_text_honesty,
     "generated_html_caption_honesty": _generated_html_caption_honesty,
     "generated_svg_title_desc_honesty": _generated_svg_title_desc_honesty,
     "generated_svg_text_honesty": _generated_svg_text_honesty,
@@ -1966,6 +2200,366 @@ def _generated_html_hidden_text_llm() -> FakeLLMClient:
             ),
             "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
             "drawings": "图1为声学视觉融合巡检结构示意图。<template>source: lab-note-002</template>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_details_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "<details><summary>source: lab-note-001</summary>声学阈值由控制器确定</details>。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<details open><summary>证据：EV-ACOUSTIC-002</summary>控制器执行复检</details>。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<summary>material: figure-note-002</summary>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_table_cell_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<table><tr><th>source: lab-note-001</th><td>声学阈值</td></tr></table>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<table><tr><td>证据：EV-ACOUSTIC-002</td><td>视觉复检日志</td></tr></table>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<td>material: figure-note-002</td>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_list_item_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<ul><li>source: lab-note-001</li><li>声学阈值</li></ul>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<ol><li>证据：EV-ACOUSTIC-002</li><li>视觉复检日志</li></ol>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<li>material: figure-note-002</li>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_definition_list_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<dl><dt>source: lab-note-001</dt><dd>声学阈值</dd></dl>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<dl><dt>证据：EV-ACOUSTIC-002</dt><dd>视觉复检日志</dd></dl>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<dd>material: figure-note-002</dd>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_code_block_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<code>source: lab-note-001</code>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<pre>证据：EV-ACOUSTIC-002</pre>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<code>material: figure-note-002</code>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_ruby_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<ruby>阈值<rt>source: lab-note-001</rt></ruby>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<ruby>复核<rt>证据：EV-ACOUSTIC-002</rt></ruby>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<rt>material: figure-note-002</rt>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_phrase_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<abbr>source: lab-note-001</abbr>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<time>证据：EV-ACOUSTIC-002</time>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<data>material: figure-note-002</data>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_heading_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<h2>source: lab-note-001</h2>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<h3>证据：EV-ACOUSTIC-002</h3>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<h4>material: figure-note-002</h4>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_sectioning_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<section>source: lab-note-001</section>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<header>证据：EV-ACOUSTIC-002</header>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<footer>material: figure-note-002</footer>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_form_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<label>source: lab-note-001</label>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<button>证据：EV-ACOUSTIC-002</button>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<legend>material: figure-note-002</legend>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_embedded_fallback_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<iframe>source: lab-note-001</iframe>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<object>证据：EV-ACOUSTIC-002</object>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<canvas>material: figure-note-002</canvas>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_blockquote_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<blockquote>source: lab-note-001</blockquote>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<blockquote>证据：EV-ACOUSTIC-002</blockquote>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<blockquote>material: figure-note-002</blockquote>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_edit_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<ins>source: lab-note-001</ins>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<del>证据：EV-ACOUSTIC-002</del>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<s>material: figure-note-002</s>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_link_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                '控制器依据<a href="#note-1">source: lab-note-001</a>生成任务包。'
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                '<a href="#note-2">证据：EV-ACOUSTIC-002</a>用于触发复检。'
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": '图1为声学视觉融合巡检结构示意图。<a href="#note-3">material: figure-note-002</a>',
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_figure_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<figure>source: lab-note-001</figure>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<figure>证据：EV-ACOUSTIC-002</figure>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<figure>material: figure-note-002</figure>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_semantic_container_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<address>source: lab-note-001</address>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<dialog>证据：EV-ACOUSTIC-002</dialog>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<fieldset>material: figure-note-002</fieldset>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_select_option_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<option>source: lab-note-001</option>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<select>证据：EV-ACOUSTIC-002</select>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<datalist>material: figure-note-002</datalist>",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_html_textarea_text_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "控制器依据<textarea>source: lab-note-001</textarea>生成任务包。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "<textarea>证据：EV-ACOUSTIC-002</textarea>用于触发复检。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。<textarea>material: figure-note-002</textarea>",
             "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
             "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
         }

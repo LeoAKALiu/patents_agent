@@ -181,6 +181,78 @@ HTML_HIDDEN_TEXT_EVIDENCE_CITATION_RE = re.compile(
     r"""<\s*(?P<html_hidden_text_tag>template|noscript)\b[^>]*>.*?(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=].*?<\s*/\s*(?P=html_hidden_text_tag)\s*>""",
     re.IGNORECASE | re.DOTALL,
 )
+HTML_DETAILS_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_details_text_tag>details|summary)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_details_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_TABLE_CELL_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_table_cell_tag>td|th)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_table_cell_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_LIST_ITEM_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*li\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*li\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_DEFINITION_LIST_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_definition_list_tag>dt|dd)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_definition_list_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_CODE_BLOCK_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_code_block_tag>code|pre)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_code_block_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_RUBY_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_ruby_text_tag>ruby|rt|rp)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_ruby_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_PHRASE_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_phrase_text_tag>abbr|time|data|dfn|cite|q|kbd|samp|var)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_phrase_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_HEADING_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_heading_text_tag>h[1-6])\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_heading_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_SECTIONING_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_sectioning_text_tag>section|article|aside|header|footer|nav|main)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_sectioning_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_FORM_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_form_text_tag>label|button|legend|output|meter|progress)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_form_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_EMBEDDED_FALLBACK_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_embedded_fallback_text_tag>iframe|object|audio|video|canvas|picture)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_embedded_fallback_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_BLOCKQUOTE_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*blockquote\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*blockquote\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_EDIT_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_edit_text_tag>ins|del|s|u)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_edit_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_LINK_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*a\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*a\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_FIGURE_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*figure\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*figure\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_SEMANTIC_CONTAINER_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_semantic_container_text_tag>address|dialog|fieldset|menu)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_semantic_container_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_SELECT_OPTION_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*(?P<html_select_option_text_tag>select|option|optgroup|datalist)\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*(?P=html_select_option_text_tag)\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
+HTML_TEXTAREA_TEXT_EVIDENCE_CITATION_RE = re.compile(
+    r"""<\s*textarea\b[^>]*>.*?(?:(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=]|(?:EV|EVIDENCE)-[A-Z0-9_-]+).*?<\s*/\s*textarea\s*>""",
+    re.IGNORECASE | re.DOTALL,
+)
 HTML_CAPTION_TEXT_EVIDENCE_CITATION_RE = re.compile(
     r"""<\s*(?P<html_caption_text_tag>figcaption|caption)\b[^>]*>[^<]*(?:evidence|source|citation|ref|material|证据|来源|引用|材料)\s*[:：=][^<]+<\s*/\s*(?P=html_caption_text_tag)\s*>""",
     re.IGNORECASE,
@@ -506,6 +578,168 @@ class OfficialDraftCompiler:
                         "section": section,
                         "pattern": "html_hidden_text_citation",
                         "message": "Draft text contains HTML hidden evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_DETAILS_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_details_text_citation",
+                        "message": "Draft text contains HTML details/summary evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_TABLE_CELL_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_table_cell_citation",
+                        "message": "Draft text contains HTML table-cell evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_LIST_ITEM_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_list_item_citation",
+                        "message": "Draft text contains HTML list-item evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_DEFINITION_LIST_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_definition_list_citation",
+                        "message": "Draft text contains HTML definition-list evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_CODE_BLOCK_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_code_block_citation",
+                        "message": "Draft text contains HTML code/pre evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_RUBY_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_ruby_text_citation",
+                        "message": "Draft text contains HTML ruby/annotation evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_PHRASE_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_phrase_text_citation",
+                        "message": "Draft text contains HTML phrase evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_HEADING_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_heading_text_citation",
+                        "message": "Draft text contains HTML heading evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_SECTIONING_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_sectioning_text_citation",
+                        "message": "Draft text contains HTML sectioning/container evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_FORM_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_form_text_citation",
+                        "message": "Draft text contains HTML form text evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_EMBEDDED_FALLBACK_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_embedded_fallback_text_citation",
+                        "message": "Draft text contains HTML embedded fallback evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_BLOCKQUOTE_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_blockquote_text_citation",
+                        "message": "Draft text contains HTML blockquote evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_EDIT_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_edit_text_citation",
+                        "message": "Draft text contains HTML edit/revision evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_LINK_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_link_text_citation",
+                        "message": "Draft text contains HTML link text evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_FIGURE_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_figure_text_citation",
+                        "message": "Draft text contains HTML figure evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_SEMANTIC_CONTAINER_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_semantic_container_text_citation",
+                        "message": "Draft text contains HTML semantic container evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_SELECT_OPTION_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_select_option_text_citation",
+                        "message": "Draft text contains HTML select/option evidence metadata that must not appear in official text.",
+                    }
+                )
+            if HTML_TEXTAREA_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_textarea_text_citation",
+                        "message": "Draft text contains HTML textarea evidence metadata that must not appear in official text.",
                     }
                 )
             if HTML_CAPTION_TEXT_EVIDENCE_CITATION_RE.search(source_section_text):
@@ -864,6 +1098,168 @@ class OfficialDraftCompiler:
                         "category": "residual_internal_text",
                         "section": section,
                         "pattern": "html_hidden_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_DETAILS_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_details_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_TABLE_CELL_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_table_cell_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_LIST_ITEM_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_list_item_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_DEFINITION_LIST_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_definition_list_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_CODE_BLOCK_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_code_block_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_RUBY_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_ruby_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_PHRASE_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_phrase_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_HEADING_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_heading_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_SECTIONING_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_sectioning_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_FORM_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_form_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_EMBEDDED_FALLBACK_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_embedded_fallback_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_BLOCKQUOTE_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_blockquote_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_EDIT_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_edit_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_LINK_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_link_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_FIGURE_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_figure_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_SEMANTIC_CONTAINER_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_semantic_container_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_SELECT_OPTION_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_select_option_text_citation",
+                        "message": "Cleaned official text still contains internal drafting text.",
+                    }
+                )
+            if HTML_TEXTAREA_TEXT_EVIDENCE_CITATION_RE.search(text):
+                blocked_items.append(
+                    {
+                        "category": "residual_internal_text",
+                        "section": section,
+                        "pattern": "html_textarea_text_citation",
                         "message": "Cleaned official text still contains internal drafting text.",
                     }
                 )
