@@ -307,9 +307,6 @@ export function ProjectsOverview({
         <header className="flex flex-col gap-4 border-b border-[var(--border-subtle)] px-4 py-4 md:flex-row md:items-start md:justify-between md:px-5">
           <div className="min-w-0">
             <h3 className="m-0 font-[var(--font-display)] text-lg font-semibold text-[var(--text-primary)]">项目列表</h3>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-              选择历史项目后，可以继续生成、质检或导出；删除操作仍使用原有确认流程。
-            </p>
           </div>
           <div className="project-filter-row flex flex-wrap gap-2" aria-label="项目筛选">
             {filterOptions.map((option) => (

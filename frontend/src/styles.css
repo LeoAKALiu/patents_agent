@@ -74,7 +74,7 @@
    ══════════════════════════════════════════════════════════════════ */
 
 .app-shell {
-  --sidebar-width: clamp(248px, 18vw, 272px);
+  --sidebar-width: clamp(212px, 15vw, 232px);
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   width: 100vw;
@@ -175,6 +175,7 @@
 button.nav-link {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 9px;
   min-width: 0;
   min-height: 44px;
@@ -273,13 +274,37 @@ button.nav-link span {
   justify-content: flex-end;
 }
 
-.system-status-row [class*="rounded-md"] {
+.system-status-chip {
   max-width: 6.5rem;
   min-width: 4.25rem;
   justify-content: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.system-status-chip[data-status="success"] {
+  border-color: color-mix(in oklch, var(--success-strong), white 55%);
+  background: color-mix(in oklch, var(--brand-green-100), white 36%);
+  color: var(--success-text);
+}
+
+.system-status-chip[data-status="warning"] {
+  border-color: color-mix(in oklch, var(--warn-text), white 45%);
+  background: color-mix(in oklch, var(--warn), white 40%);
+  color: color-mix(in oklch, var(--warn-text), black 10%);
+}
+
+.system-status-chip[data-status="secondary"] {
+  border-color: var(--border-strong);
+  background: var(--surface-solid-subtle);
+  color: var(--text-primary);
+}
+
+.system-status-chip[data-status="destructive"] {
+  border-color: color-mix(in oklch, var(--danger), white 42%);
+  background: color-mix(in oklch, var(--danger), white 86%);
+  color: var(--danger-700);
 }
 
 .system-diagnostics-dialog {
