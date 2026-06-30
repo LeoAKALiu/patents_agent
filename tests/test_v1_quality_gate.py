@@ -72,6 +72,22 @@ def test_loop_gate_groups_cover_stability_reliability_and_final_draft_quality():
     assert "unverified_effect_leak_count" in groups["final_draft_quality"]
 
 
+def test_golden_grantability_uses_ready_project_knowledge_state():
+    smoke = load_smoke_module()
+    case = smoke.GOLDEN_CASES[0]
+
+    state = smoke._golden_project_knowledge_state("project-1", case)
+
+    assert state.project_id == "project-1"
+    assert state.status == "ready"
+    assert state.document_count == len(smoke.RESEARCH_SEEDS[case.category].prior_art)
+    assert state.document_count >= 2
+    assert state.candidate_count == state.document_count
+    assert state.claim_coverage == 1.0
+    assert state.fulltext_coverage == 1.0
+    assert state.quality_flags == ["verified_golden_evidence"]
+
+
 def test_release_smoke_runs_api_gate_with_repeatability_loop():
     smoke_sh = SMOKE_SH_PATH.read_text(encoding="utf-8")
 

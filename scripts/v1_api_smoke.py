@@ -37,6 +37,7 @@ from backend.app.schemas import (
     DraftPackage,
     MoatScores,
     PatentPointCandidate,
+    ProjectKnowledgeState,
     PatentStrategyBrief,
     PatentType,
     PriorArtHit,
@@ -718,6 +719,19 @@ def _deep_research_packet(project_id: str, case: GoldenCase) -> DeepResearchPack
     )
 
 
+def _golden_project_knowledge_state(project_id: str, case: GoldenCase) -> ProjectKnowledgeState:
+    document_count = len(RESEARCH_SEEDS[case.category].prior_art)
+    return ProjectKnowledgeState(
+        project_id=project_id,
+        status="ready",
+        document_count=document_count,
+        candidate_count=document_count,
+        claim_coverage=1.0,
+        fulltext_coverage=1.0,
+        quality_flags=["verified_golden_evidence"],
+    )
+
+
 def _prepare_official_export(client: TestClient, project_id: str, label: str) -> dict[str, Any]:
     blocked_before_compile = client.get(f"/api/projects/{project_id}/official-export.md")
     if blocked_before_compile.status_code != 409:
@@ -908,6 +922,7 @@ def _grantability_summary(client: TestClient, project_id: str, case: GoldenCase)
             risk_controls=["未验证效果不得写成已验证事实。"],
         ),
         deep_research_packets=[_deep_research_packet(project_id, case)],
+        project_knowledge_state=_golden_project_knowledge_state(project_id, case),
     )
     if not report.claim_chart:
         raise AssertionError(f"{case.workflow} grantability report has no claim chart")
