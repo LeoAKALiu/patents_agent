@@ -128,3 +128,39 @@ Result:
 ### Concerns
 
 - Test runs still emit existing `chromadb` deprecation warnings; they did not block the scoped fixes.
+
+---
+
+# Task 3 Report: Workbench Workspace
+
+Status: DONE_WITH_CONCERNS
+
+Source identity:
+- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
+- Branch: `codex/ui-refactor-2026-06-29`
+- Starting HEAD: `7cf5a118`
+- Dirty at start: no source changes in this worktree
+
+Implementation summary:
+- Added `deriveWorkbenchState()` in `frontend/src/features/workbench/selectors.ts`.
+- Added `WorkbenchWorkspace` in `frontend/src/features/workbench/WorkbenchWorkspace.tsx`.
+- Routed `workbench` in `AppRoot` to the new workspace.
+- Kept `documents` on the existing temporary `ProjectWorkspace` route for Task 4.
+- Added compact 3-group / 9-step progress, one primary action, risk summary, run summary, and no raw internals.
+- Updated route test assertion so local workbench shortcuts do not count as topbar/global nav.
+
+Verification:
+- RED: `cd frontend && npm test -- features/workbench/selectors.test.ts features/workbench/WorkbenchWorkspace.test.tsx` failed on missing modules before implementation.
+- GREEN targeted: `cd frontend && npm test -- features/workbench/selectors.test.ts features/workbench/WorkbenchWorkspace.test.tsx app/routes.test.tsx` passed, 3 files / 20 tests.
+- Build: `cd frontend && npm run build` passed.
+- Full suite: `cd frontend && npm test` passed, 30 files / 210 tests.
+- Final combined rerun after local review fix passed: targeted tests, build, and full suite.
+- Browser smoke: `npm run dev -- --host 127.0.0.1 --port 5178`; Playwright snapshot confirmed the real workbench route renders the workbench region, three start paths, grouped progress, and risk/run status.
+
+Review:
+- Subagent dispatcher tool was not available in this Codex session, so implementer/reviewer gates were executed locally.
+- Local review found and fixed one accessibility issue: `WorkbenchWorkspace` originally nested a `<main>` inside the shell `<main>`; it now renders as a section-level workspace region.
+- No Critical or Important findings remain from the local review.
+
+Concerns:
+- Browser smoke had expected Vite proxy errors because no backend was running on `127.0.0.1:8000`; the UI route still rendered.

@@ -34,11 +34,12 @@ import type {
   ProjectMaterial,
   ProjectRecord,
 } from "./api";
-
-export type { PatentType };
+import { deliberationExpertSeatCount } from "./AgentProviderCards";
 import { canExportPackage, latestCompletedDeliberation } from "./domain";
 
-export type MainSectionId = "generate" | "utility" | "projects" | "expert" | "settings";
+export type { PatentType };
+
+export type MainSectionId = "workbench" | "projects" | "documents" | "knowledge" | "expert" | "export" | "settings";
 
 export type ExpertToolId =
   | "build"
@@ -172,7 +173,7 @@ export const v1StartChoices: Array<{
   },
 ];
 
-export const defaultMainSectionId: MainSectionId = "generate";
+export const defaultMainSectionId: MainSectionId = "workbench";
 export const defaultExpertToolId: ExpertToolId = "build";
 export const utilityModelModePrefix = "目标模式：实用新型轻量版。";
 
@@ -219,9 +220,39 @@ export function isUtilityModelProject(project: ProjectRecord | null | undefined)
   return draftText.includes(utilityModelModePrefix) || draftText.includes("专利类型：实用新型");
 }
 
+export function normalizeMainSectionId(
+  value: unknown,
+  activeExpertTool: ExpertToolId = defaultExpertToolId,
+): MainSectionId {
+  if (value === "expert") {
+    // Legacy persisted state: route old expert sub-tools to their new
+    // top-level destinations before accepting "expert" as the new section.
+    if (activeExpertTool === "build" || activeExpertTool === "corpus") return "knowledge";
+    if (activeExpertTool === "export") return "export";
+    return "expert";
+  }
+  if (
+    value === "workbench"
+    || value === "projects"
+    || value === "documents"
+    || value === "knowledge"
+    || value === "expert"
+    || value === "export"
+    || value === "settings"
+  ) {
+    return value;
+  }
+  if (value === "generate" || value === "utility") return "workbench";
+  return defaultMainSectionId;
+}
+
 export const mainSections: Array<NavEntry<MainSectionId>> = [
-  { id: "generate", label: "开始", description: "选择一种默认路径进入 v1.1.0 向导", icon: Wand2 },
+  { id: "workbench", label: "工作台", description: "选择一种默认路径进入 v1.1.0 向导", icon: Wand2 },
   { id: "projects", label: "项目", description: "查看历史项目和运行记录", icon: FolderKanban },
+  { id: "documents", label: "文稿与修复", description: "管理初稿、修复和正式稿处理", icon: ClipboardCheck },
+  { id: "knowledge", label: "知识库", description: "导入官方导出物并检索授权专利片段", icon: Database },
+  { id: "expert", label: "专家工具", description: "查看发明点与交底策略工具", icon: Gauge },
+  { id: "export", label: "导出", description: "导出正式稿和侧车文件", icon: Download },
   { id: "settings", label: "设置", description: "本机 LLM 服务参数与 API Key", icon: SettingsIcon },
 ];
 
@@ -444,6 +475,24 @@ export function guidedProgressActionState(input: {
     disabledReason,
     title: disabledReason || guidedNextActionDescription(input.currentStepId),
   };
+}
+
+export function guidedProgressActionBlockReason({
+  currentStepId,
+  selectedDeliberationProviders,
+}: {
+  currentStepId: GuidedStepId;
+  selectedDeliberationProviders: string[];
+}): string {
+  if (
+    (currentStepId === "deliberation" || currentStepId === "postReview")
+    && selectedDeliberationProviders.length < deliberationExpertSeatCount
+  ) {
+    return currentStepId === "postReview"
+      ? "至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。"
+      : "至少需要 Codex 主席 + 2 个可用专家才能启动会审。";
+  }
+  return "";
 }
 
 export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {

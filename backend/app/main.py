@@ -1555,12 +1555,19 @@ def create_app(
         if payload.draft_package_hash and payload.draft_package_hash != current_hash:
             raise HTTPException(status_code=409, detail="Draft package has changed since the repair session was opened.")
 
+        target_section_text = getattr(package, _repair_section_attr(payload.target_section), "")
+        selected_text = _current_repair_selected_text(
+            issue=issue,
+            requested_selected_text=payload.selected_text,
+            section_text=target_section_text,
+        )
+
         patch_dict = create_repair_patch_payload(
             issue_id=payload.issue_id,
             target_section=payload.target_section,
             draft_package_hash=current_hash,
-            selected_text=payload.selected_text or _repair_issue_anchor_snippet(issue),
-            nearby_context=payload.nearby_context,
+            selected_text=selected_text,
+            nearby_context=target_section_text or payload.nearby_context,
             project_id=project_id,
             review_run_id=run_id,
             issue_message=str(issue.get("message") or ""),
@@ -3861,6 +3868,44 @@ def _repair_issue_anchor_snippet(issue: dict) -> str | None:
     snippet = issue.get("snippet")
     if isinstance(snippet, str) and snippet.strip():
         return snippet.strip()
+    return None
+
+
+def _repair_section_attr(section: str) -> str:
+    return {
+        "title": "title",
+        "abstract": "abstract",
+        "claims": "claims",
+        "description": "description",
+        "drawing_description": "drawing_description",
+    }.get(section, "")
+
+
+def _current_repair_selected_text(
+    *,
+    issue: dict,
+    requested_selected_text: str | None,
+    section_text: str,
+) -> str | None:
+    selected = (requested_selected_text or "").strip()
+    if selected and any(term in selected for term in ('{"action"', '"patched"')):
+        return selected
+    if selected and selected in section_text:
+        return selected
+
+    anchor_snippet = _repair_issue_anchor_snippet(issue)
+    if anchor_snippet and anchor_snippet in section_text:
+        return anchor_snippet
+
+    anchor = issue.get("anchor")
+    if isinstance(anchor, dict):
+        start = anchor.get("start")
+        end = anchor.get("end")
+        if isinstance(start, int) and isinstance(end, int) and 0 <= start < end <= len(section_text):
+            anchored_text = section_text[start:end].strip()
+            if anchored_text:
+                return anchored_text
+
     return None
 
 

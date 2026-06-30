@@ -44,7 +44,7 @@ describe("app state recovery", () => {
   it("restores selected project and guided context when the project still exists", () => {
     const persisted: PersistedAppState = {
       selectedProjectId: "p-2",
-      activeSection: "generate",
+      activeSection: "workbench",
       activeExpertTool: "materials",
       startChoice: "external",
       disclosureResearchMode: "free_deep_research",
@@ -75,7 +75,61 @@ describe("app state recovery", () => {
       }),
     ).toEqual({
       selectedProjectId: "p-1",
-      activeSection: "generate",
+      activeSection: "workbench",
+      activeExpertTool: "build",
+      startChoice: null,
+      disclosureResearchMode: "standard",
+    });
+  });
+
+  it("migrates legacy generate state to the new workbench section", () => {
+    expect(
+      sanitizePersistedAppState({
+        selectedProjectId: "p-1",
+        activeSection: "generate",
+        activeExpertTool: "materials",
+        startChoice: "external",
+        disclosureResearchMode: "standard",
+      }),
+    ).toEqual({
+      selectedProjectId: "p-1",
+      activeSection: "workbench",
+      activeExpertTool: "materials",
+      startChoice: "external",
+      disclosureResearchMode: "standard",
+    });
+  });
+
+  it("migrates legacy expert export state to the new export section", () => {
+    expect(
+      sanitizePersistedAppState({
+        selectedProjectId: "p-1",
+        activeSection: "expert",
+        activeExpertTool: "export",
+        startChoice: null,
+        disclosureResearchMode: "standard",
+      }),
+    ).toEqual({
+      selectedProjectId: "p-1",
+      activeSection: "export",
+      activeExpertTool: "export",
+      startChoice: null,
+      disclosureResearchMode: "standard",
+    });
+  });
+
+  it("keeps legacy expert state neutral when the persisted expert tool is stale", () => {
+    expect(
+      sanitizePersistedAppState({
+        selectedProjectId: "p-1",
+        activeSection: "expert",
+        activeExpertTool: "missing-tool",
+        startChoice: null,
+        disclosureResearchMode: "standard",
+      }),
+    ).toEqual({
+      selectedProjectId: "p-1",
+      activeSection: "expert",
       activeExpertTool: "build",
       startChoice: null,
       disclosureResearchMode: "standard",

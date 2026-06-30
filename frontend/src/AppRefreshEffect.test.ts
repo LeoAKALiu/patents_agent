@@ -51,4 +51,20 @@ describe("App refresh effect dependencies", () => {
     expect(source).toContain("项目证据库建库完成：");
     expect(source).toContain("仍需补充检索");
   });
+
+  it("refreshes stale draft and gate state after an embedded repair patch is applied", () => {
+    const handler = source.match(/async function handleDraftRepairPatchApplied[\s\S]*?^  async function handleStartOfficialCompile/m);
+    expect(handler?.[0]).toBeDefined();
+    const body = handler?.[0] ?? "";
+
+    expect(body).toContain("refreshProjectsPreservingSelection(projectId)");
+    expect(body).toContain("setFilingReports([])");
+    expect(body).toContain("setWorksheets([])");
+    expect(body).toContain("setCompletionRuns([])");
+    expect(body).toContain("await loadOfficialCompileRuns(projectId)");
+    expect(body).toContain("await loadPostDraftReviews(projectId)");
+    expect(body).toContain("await loadExportReadiness(projectId)");
+    expect(body).not.toContain("updateProjectDraftPackage");
+    expect(source).toContain("onDraftRepairPatchApplied: (issueId) => void handleDraftRepairPatchApplied(issueId)");
+  });
 });

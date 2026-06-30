@@ -33,6 +33,7 @@ import {
   ideaPatentGoalModes,
   isUtilityModelProject,
   mainSections,
+  normalizeMainSectionId,
   officialCompileActionGate,
   patentGoalModes,
   postDraftReviewActionGate,
@@ -427,11 +428,14 @@ describe("guided flow navigation", () => {
     ]);
     expect(v1StartChoices).toHaveLength(3);
     expect(mainSections.map((item) => item.label)).toEqual([
-      "开始",
+      "工作台",
       "项目",
+      "文稿与修复",
+      "知识库",
+      "专家工具",
+      "导出",
       "设置",
     ]);
-    expect(mainSections.some((item) => item.id === "expert")).toBe(false);
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
     expect(guidedStepLabels).toEqual([
       "想法与材料",
@@ -609,13 +613,22 @@ describe("guided action gates", () => {
 
 describe("guided flow defaults", () => {
   it("opens on patent generation and keeps expert tools on knowledge import", () => {
-    expect(defaultMainSectionId).toBe("generate");
+    expect(defaultMainSectionId).toBe("workbench");
     expect(defaultExpertToolId).toBe("build");
   });
 
   it("keeps idea mode as the default main generation entry", () => {
     expect(guidedStepLabels[0]).toBe("想法与材料");
-    expect(defaultMainSectionId).toBe("generate");
+    expect(defaultMainSectionId).toBe("workbench");
+  });
+
+  it("normalizes legacy and expert-derived main sections", () => {
+    expect(normalizeMainSectionId("generate")).toBe("workbench");
+    expect(normalizeMainSectionId("utility")).toBe("workbench");
+    expect(normalizeMainSectionId("expert", "build")).toBe("knowledge");
+    expect(normalizeMainSectionId("expert", "corpus")).toBe("knowledge");
+    expect(normalizeMainSectionId("expert", "export")).toBe("export");
+    expect(normalizeMainSectionId("expert", "moat")).toBe("expert");
   });
 
   it("provides a visible next-action label for each guided step", () => {

@@ -16,7 +16,6 @@ import {
   Wand2,
 } from "lucide-react";
 
-import { deliberationExpertSeatCount } from "./AgentProviderCards";
 import {
   draftCompletionReportUrl,
   exportUrl,
@@ -47,6 +46,7 @@ import {
 } from "./api";
 import {
   deriveGuidedFlowState,
+  guidedProgressActionBlockReason,
   guidedOperationLog,
   guidedNextActionDescription,
   guidedProgressActionState,
@@ -267,7 +267,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
     state.hasCompletedExternalDraftIntake || state.draftReady,
   );
   const completedStepCount = state.steps.filter((step) => step.status === "done").length;
-  const progressActionBlockReason = progressActionBlocker({
+  const progressActionBlockReason = guidedProgressActionBlockReason({
     currentStepId: state.currentStepId,
     selectedDeliberationProviders: props.selectedDeliberationProviders,
   });
@@ -530,24 +530,6 @@ function GuidedProgressBanner({
       )}
     </section>
   );
-}
-
-function progressActionBlocker({
-  currentStepId,
-  selectedDeliberationProviders,
-}: {
-  currentStepId: GuidedStepId;
-  selectedDeliberationProviders: string[];
-}): string {
-  if (
-    (currentStepId === "deliberation" || currentStepId === "postReview")
-    && selectedDeliberationProviders.length < deliberationExpertSeatCount
-  ) {
-    return currentStepId === "postReview"
-      ? "至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。"
-      : "至少需要 Codex 主席 + 2 个可用专家才能启动会审。";
-  }
-  return "";
 }
 
 function WorkflowStepper({
