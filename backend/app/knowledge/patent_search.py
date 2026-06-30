@@ -136,8 +136,8 @@ def patent_hit_to_candidate(
     strategy_group_id: str,
 ) -> PriorArtCandidate:
     normalized_pub = normalize_publication_number(hit.publication_number)
-    matched_terms = hit.query.split()
     sanitized_query = sanitize_untrusted_text(hit.query)
+    matched_terms = sanitized_query.split()
     sanitized_metadata = _sanitize_candidate_metadata(hit.metadata)
     if isinstance(sanitized_metadata, dict):
         sanitized_metadata["source_attempt_ids"] = sanitized_metadata.get("source_attempt_ids") or (

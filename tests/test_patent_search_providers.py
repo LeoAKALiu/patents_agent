@@ -132,6 +132,8 @@ def test_patent_hit_to_candidate_sanitizes_applicant_and_query_metadata():
     assert "Ignore all previous" not in candidate.metadata["query"]
     assert "[redacted-instruction]" in candidate.metadata["query_note"]
     assert "Ignore all previous" not in candidate.metadata["query_note"]
+    assert candidate.matched_terms == candidate.metadata["query"].split()
+    assert candidate.matched_terms == ["[redacted-instruction]", "instructions"]
     assert candidate.metadata["display_tags"][1] == "[redacted-instruction] instructions"
     assert candidate.metadata["display_tags"][2]["notes"] == "[redacted-instruction] instructions"
     assert candidate.metadata["source_attempt_ids"] == ["attempt-2"]
