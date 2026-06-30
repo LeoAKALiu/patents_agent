@@ -65,6 +65,11 @@ from backend.app.official_compile import (
     official_package_to_markdown,
     source_draft_hash,
 )
+from backend.app.agents.registry import (
+    STRICT_DELIBERATION_PROVIDERS,
+    agent_provider_ids_for_role,
+    selectable_agent_provider_ids,
+)
 from backend.app.patch_generator import PatchGenerationContext, generate_evidence_backed_patches
 from backend.app.patent_mode import is_utility_model_project
 from backend.app.patent_parser import chunk_document, make_patent_document, read_document_text
@@ -145,7 +150,6 @@ from backend.app.settings import Settings, build_settings
 from backend.app.storage import SQLiteStore
 
 
-STRICT_DELIBERATION_PROVIDERS = ("codex", "deepseek", "claude")
 APP_VERSION = "1.1.0"
 LOCAL_RENDERER_ORIGINS = frozenset(
     {
@@ -3614,29 +3618,11 @@ def _retrieve_generation_context(index: LocalVectorIndex, brief: InventionBrief)
 
 
 def _selectable_agent_provider_ids(doctor: AgentDoctorReport) -> set[str]:
-    return (
-        set(doctor.active_provider_ids)
-        | set(doctor.unknown_required)
-        | {provider_id for provider_id, status in doctor.commands.items() if status.selectable}
-    )
+    return selectable_agent_provider_ids(doctor)
 
 
 def _agent_provider_ids_for_role(doctor: AgentDoctorReport, requested: list[str], role: str) -> list[str]:
-    provider_role = "deliberation" if role == "post_review" else role
-    normalized: list[str] = []
-    for provider_id in STRICT_DELIBERATION_PROVIDERS:
-        if provider_id not in normalized:
-            normalized.append(provider_id)
-    for provider_id in requested:
-        if provider_id in normalized:
-            continue
-        status = doctor.commands.get(provider_id)
-        if not status or not status.selectable:
-            continue
-        if provider_role not in status.roles:
-            continue
-        normalized.append(provider_id)
-    return normalized
+    return agent_provider_ids_for_role(doctor, requested, role)
 
 
 def _run_mode(active_count: int) -> str:
