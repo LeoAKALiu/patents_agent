@@ -1,0 +1,59 @@
+name: AI Issue Maintenance
+
+"on":
+  schedule:
+    # 每 6 小时运行一次（UTC 时间偏移 7 分钟避开整点高峰）
+    - cron: "7 */6 * * *"
+  # 允许手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  discover:
+    name: Discover issues
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Run discover
+        working-directory: .github/issuer
+        env:
+          GITHUB_TOKEN: ${{ secrets.ISSUER_PAT }}
+          LLM_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_PROVIDER: anthropic
+          LLM_MODEL: claude-sonnet-4-6
+        run: python runner.py discover
+
+  verify:
+    name: Verify PRs
+    runs-on: ubuntu-latest
+    needs: discover
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Run verify
+        working-directory: .github/issuer
+        env:
+          GITHUB_TOKEN: ${{ secrets.ISSUER_PAT }}
+          LLM_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_PROVIDER: anthropic
+          LLM_MODEL: claude-sonnet-4-6
+        run: python runner.py verify
