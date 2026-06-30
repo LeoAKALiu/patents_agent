@@ -226,6 +226,62 @@ describe("ProjectKnowledgeView", () => {
     expect(onBuildProjectCorpus).toHaveBeenCalled();
   });
 
+  it("disables the primary corpus build action until a candidate is included", () => {
+    const onBuildProjectCorpus = vi.fn();
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      state: {
+        ...baseOverview.state,
+        status: "candidates_pending",
+        quality_flags: ["candidates_need_confirmation"],
+      },
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={onBuildProjectCorpus}
+      />,
+    );
+
+    const primaryBuildButton = screen.getByRole("button", { name: "确认建库" });
+    expect(primaryBuildButton).toBeDisabled();
+
+    fireEvent.click(primaryBuildButton);
+    expect(onBuildProjectCorpus).not.toHaveBeenCalled();
+  });
+
+  it("renders non-patent source corpus flags as warning guidance", () => {
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      state: {
+        ...baseOverview.state,
+        status: "needs_supplemental_search",
+        quality_flags: ["non_patent_source"],
+      },
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/包含非专利来源/)).toBeInTheDocument();
+    expect(screen.getByText(/不能作为项目现有技术库就绪依据/)).toBeInTheDocument();
+  });
+
   it("renders real provider warnings and source badges without fake success copy", () => {
     const knowledge: ProjectKnowledgeOverview = {
       ...baseOverview,
