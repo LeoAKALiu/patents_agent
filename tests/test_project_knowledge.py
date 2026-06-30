@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from backend.app.knowledge.patent_search import StaticPatentSearchProvider
+from backend.app.knowledge.patent_search import (
+    CnipaEpubPatentProvider,
+    GooglePatentsProvider,
+    StaticPatentSearchProvider,
+)
 from backend.app.schemas import (
     AgentSearchPlan,
     PatentSearchHit,
@@ -25,6 +29,7 @@ from backend.app.services.project_knowledge_service import (
     mark_stale_if_project_changed,
     regenerate_project_knowledge,
     run_agent_search_plan,
+    run_patent_search_plan,
     update_project_candidate_decision,
 )
 from backend.app.services.project_service import build_project_record
@@ -289,6 +294,58 @@ def test_project_search_all_providers_empty_fails_without_fake_candidates(tmp_pa
     assert result.state.candidate_count == 0
     assert "no_hits" in result.state.quality_flags
     assert result.candidates == []
+
+
+def test_run_patent_search_plan_records_skipped_and_successful_default_attempts(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    provider_chain = [
+        CnipaEpubPatentProvider(script_path=None),
+        GooglePatentsProvider(
+            http_get=lambda url, timeout: (
+                '<html><body><a href="/patent/CN112233445A/en">Urban inspection agent</a></body></html>'
+            )
+        ),
+    ]
+
+    candidates, ledger = run_patent_search_plan(provider_chain, project.id, plan)
+
+    assert candidates
+    assert ledger.attempts
+    assert any(attempt.provider == "cnipa_epub" and attempt.status == "skipped" for attempt in ledger.attempts)
+    assert any(attempt.provider == "google_patents" and attempt.status == "ok" for attempt in ledger.attempts)
+    assert any("CNIPA EPUB helper is not configured" in warning for warning in ledger.warnings)
+
+
+def test_run_agent_search_plan_keeps_provider_warnings_for_default_chain_attempts(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    providers = [
+        CnipaEpubPatentProvider(script_path=None),
+        GooglePatentsProvider(
+            http_get=lambda url, timeout: (
+                '<html><body><a href="/patent/CN112233445A/en">Urban inspection agent</a></body></html>'
+            )
+        ),
+    ]
+
+    result = run_agent_search_plan(store, project.id, plan.id, providers=providers)
+
+    assert result.state.status == "candidates_pending"
+    stored_plan = store.get_agent_search_plan(project.id, plan.id)
+    assert stored_plan is not None
+    assert stored_plan.warnings
+    assert any("CNIPA EPUB helper is not configured" in warning for warning in stored_plan.warnings)
 
 
 def test_run_plan_rerun_keeps_candidate_count_stable(tmp_path):

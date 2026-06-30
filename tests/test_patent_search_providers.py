@@ -1,10 +1,12 @@
 from backend.app.knowledge.patent_search import (
+    CnipaEpubPatentProvider,
+    GooglePatentsProvider,
     dedupe_patent_search_hits,
     normalize_publication_number,
     patent_hit_to_candidate,
     stable_id,
 )
-from backend.app.schemas import PatentSearchHit
+from backend.app.schemas import PatentSearchFilters, PatentSearchHit
 
 
 def test_normalize_publication_number_collapses_spaces_and_case():
@@ -139,3 +141,26 @@ def test_patent_hit_to_candidate_sanitizes_applicant_and_query_metadata():
     assert candidate.metadata["source_attempt_ids"] == ["attempt-2"]
     assert candidate.url == "https://patents.google.com/patent/CN109999999A"
     assert candidate.id == stable_id("p1", "plan1", "closest", "google_patents", "CN109999999A")
+
+
+def test_google_patents_provider_parse_does_not_synthesize_missing_results():
+    html = '<html><body><a href="/patent/CN112233445A/en">Urban inspection agent</a></body></html>'
+    provider = GooglePatentsProvider(http_get=lambda url, timeout: html)
+
+    hits, warnings = provider.search("urban inspection agent", filters=PatentSearchFilters(), limit=5)
+
+    assert warnings == []
+    assert len(hits) == 1
+    assert hits[0].source == "google_patents"
+    assert hits[0].publication_number == "CN112233445A"
+    assert hits[0].url == "https://patents.google.com/patent/CN112233445A"
+
+
+def test_cnipa_provider_skips_when_helper_missing():
+    provider = CnipaEpubPatentProvider(script_path=None)
+
+    ok, reason = provider.available()
+
+    assert ok is False
+    assert reason is not None
+    assert "CNIPA" in reason

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from backend.app.knowledge.patent_search import (
     PatentSearchProvider,
+    default_project_patent_providers,
     patent_hit_to_candidate,
     run_provider_chain,
 )
@@ -340,10 +341,6 @@ def ensure_project_knowledge_initialized(store: SQLiteStore, project: ProjectRec
     if existing and existing.status != "not_started":
         return knowledge_overview(store, project.id)
     return regenerate_project_knowledge(store, project, [])
-
-
-def default_project_patent_providers() -> list[PatentSearchProvider]:
-    return []
 
 
 def run_patent_search_plan(

@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import re
+import shutil
+import subprocess
+import urllib.parse
+import urllib.request
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Protocol
 
 from backend.app.research.providers import sanitize_untrusted_text
@@ -63,6 +70,146 @@ class StaticPatentSearchProvider:
             for hit in self._hits[:limit]
         ]
         return hits, list(self._warnings)
+
+
+def _urllib_get(url: str, timeout: int) -> str:
+    request = urllib.request.Request(url, headers={"User-Agent": "patents-agent/0.1"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read(500_000).decode("utf-8", errors="replace")
+
+
+def parse_google_patents_hits(html: str, query: str) -> list[PatentSearchHit]:
+    hits: list[PatentSearchHit] = []
+    for match in re.finditer(r'href="(/patent/[^"]+)"[^>]*>(.*?)</a>', html, flags=re.I | re.S):
+        href, label = match.groups()
+        title = sanitize_untrusted_text(re.sub(r"<[^>]+>", " ", label), max_len=300).strip()
+        if len(title) < 4:
+            continue
+        publication_match = re.search(r"/patent/([^/?#]+)", href)
+        publication_number = publication_match.group(1) if publication_match else None
+        url = "https://patents.google.com/patent/" + publication_number if publication_number else (
+            "https://patents.google.com" + href.split("?")[0]
+        )
+        hits.append(
+            PatentSearchHit(
+                id=uuid.uuid4().hex,
+                source="google_patents",
+                query=query,
+                title=title,
+                publication_number=publication_number,
+                url=url,
+            )
+        )
+    return dedupe_patent_search_hits(hits)
+
+
+class CnipaEpubPatentProvider:
+    name = "CNIPA EPUB"
+    source_id = "cnipa_epub"
+
+    def __init__(self, *, script_path: str | Path | None = None, timeout_seconds: int = 45) -> None:
+        configured = os.environ.get("CNIPA_EPUB_SEARCH_SCRIPT")
+        resolved = configured if configured else script_path
+        self.script_path = Path(resolved) if resolved else None
+        self.timeout_seconds = timeout_seconds
+
+    def available(self) -> tuple[bool, str | None]:
+        if not self.script_path or not self.script_path.exists():
+            return False, "CNIPA EPUB helper is not configured; set CNIPA_EPUB_SEARCH_SCRIPT to enable live CNIPA search."
+        if not (shutil.which("python3") or shutil.which("python")):
+            return False, "CNIPA EPUB helper requires a Python executable, but none was found."
+        return True, None
+
+    def search(
+        self,
+        query: str,
+        *,
+        filters: PatentSearchFilters,
+        limit: int,
+    ) -> tuple[list[PatentSearchHit], list[str]]:
+        del filters
+        python = shutil.which("python3") or shutil.which("python")
+        if not python or not self.script_path:
+            return [], ["CNIPA EPUB helper is not configured; set CNIPA_EPUB_SEARCH_SCRIPT to enable live CNIPA search."]
+        try:
+            completed = subprocess.run(
+                [python, str(self.script_path), query],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+            )
+        except subprocess.TimeoutExpired:
+            return [], [f"CNIPA EPUB search timed out for query: {query}"]
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout).strip()[:300]
+            return [], [f"CNIPA EPUB search failed for query {query}: {detail}"]
+        match = re.search(r"EPUB_HITS_JSON:\s*(\[.*\])", completed.stdout, flags=re.S)
+        if not match:
+            return [], [f"CNIPA EPUB search returned no parseable JSON for query: {query}"]
+        try:
+            raw_hits = json.loads(match.group(1))
+        except json.JSONDecodeError as exc:
+            return [], [f"CNIPA EPUB JSON parse failed for query {query}: {exc}"]
+        hits = [
+            PatentSearchHit(
+                id=uuid.uuid4().hex,
+                source="cnipa_epub",
+                query=query,
+                title=sanitize_untrusted_text(str(raw.get("title") or raw.get("publication_number") or "未命名公开文献"), max_len=300)
+                or str(raw.get("title") or raw.get("publication_number") or "未命名公开文献"),
+                publication_number=normalize_publication_number(raw.get("publication_number")),
+                application_number=raw.get("application_number"),
+                applicant=str(raw.get("applicant") or ""),
+                publication_date=str(raw.get("publication_date") or ""),
+                grant_date=str(raw.get("grant_date") or ""),
+                abstract=sanitize_untrusted_text(str(raw.get("abstract"))) if raw.get("abstract") else None,
+                ipc=list(raw.get("ipc") or []),
+                cpc=list(raw.get("cpc") or []),
+                family_id=str(raw.get("family_id") or ""),
+                url=str(raw.get("link") or raw.get("url") or ""),
+            )
+            for raw in raw_hits[:limit]
+            if raw.get("link") or raw.get("url")
+        ]
+        return dedupe_patent_search_hits(hits), []
+
+
+class GooglePatentsProvider:
+    name = "Google Patents"
+    source_id = "google_patents"
+
+    def __init__(self, http_get=None, timeout_seconds: int = 20) -> None:
+        self._http_get = http_get or _urllib_get
+        self.timeout_seconds = timeout_seconds
+
+    def available(self) -> tuple[bool, str | None]:
+        return True, None
+
+    def search(
+        self,
+        query: str,
+        *,
+        filters: PatentSearchFilters,
+        limit: int,
+    ) -> tuple[list[PatentSearchHit], list[str]]:
+        del filters
+        url = "https://patents.google.com/?q=" + urllib.parse.quote(query)
+        try:
+            html = self._http_get(url, self.timeout_seconds)
+        except Exception as exc:
+            return [], [f"Google Patents search failed for query {query}: {exc}"]
+        hits = parse_google_patents_hits(html, query)[:limit]
+        if not hits:
+            return [], [f"Google Patents returned no parseable hits for query: {query}"]
+        return hits, []
+
+
+def default_project_patent_providers() -> list[PatentSearchProvider]:
+    return [
+        CnipaEpubPatentProvider(),
+        GooglePatentsProvider(),
+    ]
 
 
 def _sanitize_candidate_text(value: str | None) -> str:
