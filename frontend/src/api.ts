@@ -1040,6 +1040,7 @@ export interface AgentSearchPlan {
   target_result_count: number;
   filters: Record<string, unknown>;
   warnings: string[];
+  metadata: Record<string, unknown>;
   created_at: string;
   confirmed_at: string;
   run_started_at: string;

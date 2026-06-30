@@ -152,6 +152,7 @@ export function ProjectKnowledgeView({
   const status = knowledge?.state.status ?? "not_started";
   const candidates = knowledge?.candidates ?? [];
   const plan = knowledge?.latest_plan ?? null;
+  const planWarnings = plan?.warnings ?? [];
   const intent = knowledge?.latest_intent ?? null;
   const state = knowledge?.state;
   const latestCorpusVersion = knowledge?.latest_corpus_version ?? null;
@@ -256,6 +257,18 @@ export function ProjectKnowledgeView({
               <p className="text-sm text-[var(--text-primary)]/70">
                 {intent.technical_means || intent.technical_object}
               </p>
+              {planWarnings.length > 0 && (
+                <div className="rounded-lg border border-[var(--warning,#d97706)]/30 bg-[var(--warning,#d97706)]/10 px-4 py-3 text-sm text-[var(--text-primary)]">
+                  <div className="flex flex-col gap-2">
+                    {planWarnings.map((warning) => (
+                      <p className="flex items-start gap-2" key={warning}>
+                        <AlertTriangle className="mt-0.5 shrink-0" size={15} />
+                        <span>{warning}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {intent.keywords_zh.map((keyword) => (
                   <span className="tag" key={keyword}>
