@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import re
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from backend.app.research.providers import sanitize_untrusted_text
-from backend.app.schemas import PatentSearchFilters, PatentSearchHit, PriorArtCandidate
+from backend.app.schemas import PatentSearchFilters, PatentSearchHit, PriorArtCandidate, ProviderAttempt
 
 
 def now_iso() -> str:
@@ -36,6 +37,32 @@ class PatentSearchProvider(Protocol):
         filters: PatentSearchFilters,
         limit: int,
         ) -> tuple[list[PatentSearchHit], list[str]]: ...
+
+
+class StaticPatentSearchProvider:
+    name = "Static Patent Search"
+
+    def __init__(self, *, source_id: str, hits: list[PatentSearchHit], warnings: list[str] | None = None) -> None:
+        self.source_id = source_id
+        self._hits = hits
+        self._warnings = warnings or []
+
+    def available(self) -> tuple[bool, str | None]:
+        return True, None
+
+    def search(
+        self,
+        query: str,
+        *,
+        filters: PatentSearchFilters,
+        limit: int,
+    ) -> tuple[list[PatentSearchHit], list[str]]:
+        del filters
+        hits = [
+            hit.model_copy(update={"query": hit.query or query, "source": self.source_id})
+            for hit in self._hits[:limit]
+        ]
+        return hits, list(self._warnings)
 
 
 def _sanitize_candidate_text(value: str | None) -> str:
@@ -126,6 +153,112 @@ def dedupe_patent_search_hits(hits: list[PatentSearchHit]) -> list[PatentSearchH
         )
         retained[by_key[key]] = merged
     return retained
+
+
+def run_provider_chain(
+    *,
+    providers: list[PatentSearchProvider],
+    queries: list[tuple[str, str]],
+    filters: PatentSearchFilters,
+    limit: int,
+) -> tuple[list[PatentSearchHit], list[ProviderAttempt], list[str]]:
+    all_hits: list[PatentSearchHit] = []
+    attempts: list[ProviderAttempt] = []
+    warnings: list[str] = []
+
+    if not providers:
+        warnings.append("No patent search providers are configured for runtime search.")
+
+    for strategy_group_id, query in queries:
+        for provider in providers:
+            attempt_id = uuid.uuid4().hex
+            started_at = now_iso()
+            available, skip_reason = provider.available()
+            if not available:
+                attempt = ProviderAttempt(
+                    id=attempt_id,
+                    provider=provider.source_id,
+                    query=query,
+                    filters=filters.model_dump(mode="json"),
+                    status="skipped",
+                    warnings=[skip_reason or "provider unavailable"],
+                    failure_reason=skip_reason or "provider unavailable",
+                    started_at=started_at,
+                    finished_at=now_iso(),
+                )
+                attempts.append(attempt)
+                warnings.extend(attempt.warnings)
+                continue
+            try:
+                hits, provider_warnings = provider.search(query, filters=filters, limit=limit)
+                tagged_hits = [
+                    hit.model_copy(
+                        update={
+                            "provider_attempt_id": attempt_id,
+                            "query": query,
+                            "metadata": _merge_metadata(hit.metadata, {"strategy_group": strategy_group_id}),
+                        }
+                    )
+                    for hit in hits
+                ]
+                attempts.append(
+                    ProviderAttempt(
+                        id=attempt_id,
+                        provider=provider.source_id,
+                        query=query,
+                        filters=filters.model_dump(mode="json"),
+                        status="ok" if tagged_hits else "partial",
+                        hit_count=len(tagged_hits),
+                        warnings=provider_warnings,
+                        started_at=started_at,
+                        finished_at=now_iso(),
+                    )
+                )
+                warnings.extend(provider_warnings)
+                all_hits.extend(tagged_hits)
+            except TimeoutError as exc:
+                message = str(exc)
+                attempts.append(
+                    ProviderAttempt(
+                        id=attempt_id,
+                        provider=provider.source_id,
+                        query=query,
+                        filters=filters.model_dump(mode="json"),
+                        status="timed_out",
+                        warnings=[message],
+                        failure_reason=message,
+                        started_at=started_at,
+                        finished_at=now_iso(),
+                    )
+                )
+                warnings.append(message)
+            except Exception as exc:
+                message = str(exc)
+                attempts.append(
+                    ProviderAttempt(
+                        id=attempt_id,
+                        provider=provider.source_id,
+                        query=query,
+                        filters=filters.model_dump(mode="json"),
+                        status="failed",
+                        warnings=[message],
+                        failure_reason=message,
+                        started_at=started_at,
+                        finished_at=now_iso(),
+                    )
+                )
+                warnings.append(message)
+
+    retained_hits = dedupe_patent_search_hits(all_hits)[:limit]
+    retained_by_attempt: dict[str, int] = {}
+    for hit in retained_hits:
+        for attempt_id in hit.metadata.get("source_attempt_ids", []):
+            retained_by_attempt[attempt_id] = retained_by_attempt.get(attempt_id, 0) + 1
+    finalized_attempts = [
+        attempt.model_copy(update={"retained_count": retained_by_attempt.get(attempt.id, 0)})
+        for attempt in attempts
+    ]
+    return retained_hits, finalized_attempts, warnings
 
 
 def patent_hit_to_candidate(

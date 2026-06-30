@@ -5,11 +5,18 @@ import re
 import uuid
 from datetime import datetime, timezone
 
+from backend.app.knowledge.patent_search import (
+    PatentSearchProvider,
+    patent_hit_to_candidate,
+    run_provider_chain,
+)
 from backend.app.schemas import (
     AgentSearchPlan,
     CorpusQualityReport,
     PatentPointCandidate,
+    PatentSearchFilters,
     PriorArtCandidate,
+    ProjectSearchLedger,
     ProjectCorpusVersion,
     ProjectKnowledgeOverview,
     ProjectKnowledgeState,
@@ -21,6 +28,7 @@ from backend.app.storage import SQLiteStore
 
 
 ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通过", "以及", "进行", "生成"}
+PROJECT_PATENT_PROVIDER_SOURCES = ["google_patents", "cnipa_epub"]
 
 
 class ProjectKnowledgeConflictError(ValueError):
@@ -29,11 +37,6 @@ class ProjectKnowledgeConflictError(ValueError):
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _stable_hex(*parts: str) -> str:
-    payload = "\n".join(parts).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
 
 
 def _validate_candidate_decision(decision: str) -> None:
@@ -158,17 +161,17 @@ def _build_plan(intent: SearchIntent) -> AgentSearchPlan:
                 label="宽召回检索",
                 purpose="尽量找全相关技术方向的公开和授权专利。",
                 queries=[core_query],
-                sources=["fake"],
+                sources=list(PROJECT_PATENT_PROVIDER_SOURCES),
             ),
             SearchPlanStrategyGroup(
                 id="closest-prior-art",
                 label="最接近现有技术检索",
                 purpose="寻找可用于新颖性和创造性对比的高相关文献。",
                 queries=[closest_query or core_query],
-                sources=["fake"],
+                sources=list(PROJECT_PATENT_PROVIDER_SOURCES),
             ),
         ],
-        target_sources=["fake"],
+        target_sources=list(PROJECT_PATENT_PROVIDER_SOURCES),
         target_result_count=20,
         filters={"jurisdictions": intent.jurisdictions, "date_range": intent.date_range},
         created_at=_now(),
@@ -339,43 +342,90 @@ def ensure_project_knowledge_initialized(store: SQLiteStore, project: ProjectRec
     return regenerate_project_knowledge(store, project, [])
 
 
-def run_agent_search_plan(store: SQLiteStore, project_id: str, plan_id: str) -> ProjectKnowledgeOverview:
+def default_project_patent_providers() -> list[PatentSearchProvider]:
+    return []
+
+
+def run_patent_search_plan(
+    provider_chain: list[PatentSearchProvider],
+    project_id: str,
+    plan: AgentSearchPlan,
+) -> tuple[list[PriorArtCandidate], ProjectSearchLedger]:
+    queries = [
+        (group.id, query)
+        for group in plan.strategy_groups
+        for query in (group.queries or [group.label])
+    ]
+    filters = PatentSearchFilters.model_validate(plan.filters)
+    hits, attempts, warnings = run_provider_chain(
+        providers=provider_chain,
+        queries=queries,
+        filters=filters,
+        limit=plan.target_result_count,
+    )
+    candidates = [
+        patent_hit_to_candidate(
+            hit,
+            project_id=project_id,
+            plan_id=plan.id,
+            strategy_group_id=str(hit.metadata.get("strategy_group") or "search"),
+        )
+        for hit in hits
+    ]
+    ledger = ProjectSearchLedger(
+        id=uuid.uuid4().hex,
+        project_id=project_id,
+        plan_id=plan.id,
+        attempts=attempts,
+        retained_candidate_ids=[candidate.id for candidate in candidates],
+        warnings=warnings,
+        created_at=_now(),
+    )
+    return candidates, ledger
+
+
+def _replace_plan_candidates(
+    store: SQLiteStore,
+    project_id: str,
+    plan_id: str,
+    candidates: list[PriorArtCandidate],
+) -> list[PriorArtCandidate]:
+    with store.connection:
+        store.connection.execute(
+            "delete from prior_art_candidates where project_id = ? and plan_id = ?",
+            (project_id, plan_id),
+        )
+    return [store.upsert_prior_art_candidate(candidate) for candidate in candidates]
+
+
+def run_agent_search_plan(
+    store: SQLiteStore,
+    project_id: str,
+    plan_id: str,
+    providers: list[PatentSearchProvider] | None = None,
+) -> ProjectKnowledgeOverview:
     _state, plan = _get_active_plan(store, project_id, plan_id)
     running = plan.model_copy(update={"status": "running", "run_started_at": _now()})
     store.update_agent_search_plan(running)
-    candidates: list[PriorArtCandidate] = []
-    for index, group in enumerate(running.strategy_groups, start=1):
-        query = group.queries[0] if group.queries else group.label
-        publication_number = f"CN{100000000 + index}A"
-        candidate = PriorArtCandidate(
-            id=_stable_hex(project_id, plan_id, group.id),
-            project_id=project_id,
-            plan_id=plan_id,
-            source="fake",
-            title=f"{group.label}候选文献{index}",
-            publication_number=publication_number,
-            applicant="示例申请人",
-            publication_date="2024-01-01",
-            abstract=f"围绕{query}公开了相关技术方案。",
-            url=f"https://patents.google.com/patent/{publication_number}",
-            relevance_score=0.82,
-            matched_terms=query.split(),
-            fulltext_status="available",
-            recommended_action="include",
-            recommendation_reason="命中检索计划中的核心查询。",
-            metadata={"query": query, "strategy_group": group.id},
-        )
-        candidates.append(store.upsert_prior_art_candidate(candidate))
-    completed = running.model_copy(update={"status": "completed", "run_finished_at": _now()})
+    provider_chain = list(providers) if providers is not None else default_project_patent_providers()
+    candidates, ledger = run_patent_search_plan(provider_chain, project_id, running)
+    stored_candidates = _replace_plan_candidates(store, project_id, plan_id, candidates)
+    completed = running.model_copy(
+        update={
+            "status": "completed",
+            "run_finished_at": _now(),
+            "warnings": ledger.warnings,
+        }
+    )
     store.update_agent_search_plan(completed)
     state = ProjectKnowledgeState(
         project_id=project_id,
-        status="candidates_pending",
+        status="candidates_pending" if stored_candidates else "failed",
         active_intent_id=completed.intent_id,
         active_plan_id=plan_id,
         last_search_at=_now(),
-        candidate_count=len(store.list_prior_art_candidates(project_id, plan_id)),
-        quality_flags=["candidates_need_confirmation"],
+        candidate_count=len(stored_candidates),
+        quality_flags=["candidates_need_confirmation"] if stored_candidates else ["no_hits"],
     )
     store.upsert_project_knowledge_state(state)
     return knowledge_overview(store, project_id)
