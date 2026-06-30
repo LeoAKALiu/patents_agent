@@ -399,6 +399,41 @@ def test_run_patent_search_plan_marks_cnipa_parse_failures(tmp_path):
     assert all("JSON parse failed" in attempt.failure_reason for attempt in ledger.attempts)
 
 
+def test_run_patent_search_plan_records_timeout_attempts_without_fake_candidates(tmp_path):
+    class TimeoutPatentSearchProvider:
+        name = "Timeout Patent Search"
+        source_id = "timeout_provider"
+
+        def available(self) -> tuple[bool, str | None]:
+            return True, None
+
+        def search(
+            self,
+            query: str,
+            *,
+            filters: PatentSearchFilters,
+            limit: int,
+        ) -> tuple[list[PatentSearchHit], list[str]]:
+            del query, filters, limit
+            raise TimeoutError("slow provider")
+
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    candidates, ledger = run_patent_search_plan([TimeoutPatentSearchProvider()], project.id, plan)
+
+    assert candidates == []
+    assert ledger.retained_candidate_ids == []
+    assert ledger.attempts
+    assert all(attempt.status == "timed_out" for attempt in ledger.attempts)
+    assert all(attempt.failure_reason and "slow provider" in attempt.failure_reason for attempt in ledger.attempts)
+    assert any("slow provider" in warning for warning in ledger.warnings)
+
+
 def test_run_agent_search_plan_persists_latest_search_ledger(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
