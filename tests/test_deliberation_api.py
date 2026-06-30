@@ -112,6 +112,85 @@ def test_deliberation_create_replaces_deprecated_gemini_request(tmp_path):
     assert not any("gemini" in event for event in run["events"])
 
 
+def test_deliberation_api_accepts_agent_runtime_adapter(tmp_path):
+    from backend.app.agents.adapters.fake import FakeAgentRuntime
+
+    runtime = FakeAgentRuntime(
+        task_payloads={
+            "opening codex": {
+                "stance": "codex stance",
+                "claim_scope": ["method"],
+                "risks": [],
+                "recommendations": ["add embodiments"],
+            },
+            "opening deepseek": {
+                "stance": "deepseek stance",
+                "claim_scope": ["system"],
+                "risks": [],
+                "recommendations": ["narrow novelty"],
+            },
+            "opening claude": {
+                "stance": "claude stance",
+                "claim_scope": ["medium"],
+                "risks": [],
+                "recommendations": ["align terms"],
+            },
+            "pair codex-vs-deepseek": {
+                "conflict_level": 0.2,
+                "agreements": ["method claim"],
+                "disagreements": [],
+                "resolved_recommendation": "keep method claim",
+            },
+            "pair codex-vs-claude": {
+                "conflict_level": 0.1,
+                "agreements": ["embodiments"],
+                "disagreements": [],
+                "resolved_recommendation": "add examples",
+            },
+            "pair deepseek-vs-claude": {
+                "conflict_level": 0.3,
+                "agreements": ["term alignment"],
+                "disagreements": [],
+                "resolved_recommendation": "align terms",
+            },
+            "chair synthesis": {
+                "summary": "Runtime adapter synthesis.",
+                "claim_strategy": ["method claim"],
+                "description_strategy": ["add embodiments"],
+                "risk_controls": ["avoid functional overbreadth"],
+                "agent_consensus": "Runtime adapter consensus.",
+            },
+        }
+    )
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=_minimal_llm(),
+            agent_runtime=runtime,
+            load_env_file=False,
+        )
+    )
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "runtime adapter project", "draft_text": "A defect detection method."},
+    ).json()["id"]
+
+    response = client.post(
+        f"/api/projects/{project_id}/deliberations",
+        json={"providers": ["codex", "deepseek", "claude"], "trace": False},
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "completed"
+    assert run["strategy_brief"]["summary"] == "Runtime adapter synthesis."
+    assert [request.label for request in runtime.requests[:3]] == [
+        "opening codex",
+        "opening deepseek",
+        "opening claude",
+    ]
+
+
 def test_missing_required_provider_creates_failed_diagnostic_run(tmp_path, monkeypatch):
     def fake_doctor():
         return AgentDoctorReport(

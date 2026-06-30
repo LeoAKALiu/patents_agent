@@ -223,6 +223,7 @@ def create_app(
     data_dir: Path | None = None,
     llm_client: LLMClient | None = None,
     provider_runner: object | None = None,
+    agent_runtime: object | None = None,
     prior_art_provider: object | None = None,
     research_search_provider: DeepResearchSearchProvider | None = None,
     load_env_file: bool = True,
@@ -255,6 +256,7 @@ def create_app(
     app.state.llm_client_override = llm_client is not None
     app.state.desktop_config = desktop_config
     app.state.provider_runner = provider_runner
+    app.state.agent_runtime = agent_runtime
     app.state.prior_art_provider = prior_art_provider or PublicPriorArtProvider()
     app.state.research_search_provider = research_search_provider
     app.state.disclosure_inline = prior_art_provider is not None
@@ -910,10 +912,15 @@ def create_app(
         )
         available = set(doctor.active_provider_ids)
         selectable = _selectable_agent_provider_ids(doctor)
-        active_requested_count = len(requested) if app.state.provider_runner is not None else len([provider for provider in requested if provider in available])
+        runtime_injected = app.state.provider_runner is not None or app.state.agent_runtime is not None
+        active_requested_count = (
+            len(requested)
+            if runtime_injected
+            else len([provider for provider in requested if provider in available])
+        )
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
-        if app.state.provider_runner is None:
+        if not runtime_injected:
             missing_providers = [provider for provider in requested if provider not in selectable]
             if missing_providers:
                 failures = [
@@ -962,11 +969,12 @@ def create_app(
             run_dir=str(run_dir),
         )
         store.create_deliberation_run(run)
-        if app.state.provider_runner is not None:
+        if app.state.provider_runner is not None or app.state.agent_runtime is not None:
             completed = _execute_deliberation(
                 store=store,
                 index=index,
                 provider_runner=app.state.provider_runner,
+                agent_runtime=app.state.agent_runtime,
                 project=project,
                 run=run,
                 trace=payload.trace,
@@ -979,6 +987,7 @@ def create_app(
             store,
             index,
             app.state.provider_runner,
+            app.state.agent_runtime,
             project,
             run,
             payload.trace,
@@ -1037,11 +1046,12 @@ def create_app(
             events=[f"retry requested for deliberation run {previous.id}", f"providers normalized: {','.join(providers)}"],
         )
         store.create_deliberation_run(retry_run)
-        if app.state.provider_runner is not None:
+        if app.state.provider_runner is not None or app.state.agent_runtime is not None:
             completed = _execute_deliberation(
                 store=store,
                 index=index,
                 provider_runner=app.state.provider_runner,
+                agent_runtime=app.state.agent_runtime,
                 project=project,
                 run=retry_run,
                 trace=retry_run.trace,
@@ -1054,6 +1064,7 @@ def create_app(
             store,
             index,
             app.state.provider_runner,
+            app.state.agent_runtime,
             project,
             retry_run,
             retry_run.trace,
@@ -2850,6 +2861,7 @@ def _execute_deliberation(
     store: SQLiteStore,
     index: LocalVectorIndex,
     provider_runner: object | None,
+    agent_runtime: object | None,
     project: ProjectRecord,
     run: DeliberationRun,
     trace: bool,
@@ -2899,7 +2911,10 @@ def _execute_deliberation(
 
     try:
         runtime.begin_stage("deliberation_prepare", provider="system", subtask="context retrieval")
-        orchestrator = DeliberationOrchestrator(provider_runner=provider_runner)
+        orchestrator = DeliberationOrchestrator(
+            provider_runner=provider_runner,
+            agent_runtime=agent_runtime,
+        )
         completed = __import__("asyncio").run(
             orchestrator.run(
                 run_id=run.id,
