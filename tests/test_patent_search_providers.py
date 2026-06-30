@@ -1,3 +1,5 @@
+import pytest
+
 from backend.app.knowledge.patent_search import (
     CnipaEpubPatentProvider,
     GooglePatentsProvider,
@@ -164,3 +166,10 @@ def test_cnipa_provider_skips_when_helper_missing():
     assert ok is False
     assert reason is not None
     assert "CNIPA" in reason
+
+
+def test_google_patents_provider_raises_transport_failures():
+    provider = GooglePatentsProvider(http_get=lambda url, timeout: (_ for _ in ()).throw(RuntimeError("network down")))
+
+    with pytest.raises(RuntimeError, match="Google Patents search failed"):
+        provider.search("urban inspection agent", filters=PatentSearchFilters(), limit=5)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import textwrap
+
 import pytest
 
 from backend.app.knowledge.patent_search import (
@@ -346,6 +348,78 @@ def test_run_agent_search_plan_keeps_provider_warnings_for_default_chain_attempt
     assert stored_plan is not None
     assert stored_plan.warnings
     assert any("CNIPA EPUB helper is not configured" in warning for warning in stored_plan.warnings)
+
+
+def test_run_patent_search_plan_marks_google_transport_failures(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    provider_chain = [
+        GooglePatentsProvider(
+            http_get=lambda url, timeout: (_ for _ in ()).throw(RuntimeError("network down"))
+        )
+    ]
+
+    candidates, ledger = run_patent_search_plan(provider_chain, project.id, plan)
+
+    assert candidates == []
+    assert ledger.attempts
+    assert all(attempt.status == "failed" for attempt in ledger.attempts)
+    assert all("network down" in attempt.failure_reason for attempt in ledger.attempts)
+
+
+def test_run_patent_search_plan_marks_cnipa_parse_failures(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    script = tmp_path / "fake_cnipa.py"
+    script.write_text(
+        textwrap.dedent(
+            """\
+            print("EPUB_HITS_JSON: [invalid]")
+            """
+        ),
+        encoding="utf-8",
+    )
+    provider_chain = [CnipaEpubPatentProvider(script_path=script)]
+
+    candidates, ledger = run_patent_search_plan(provider_chain, project.id, plan)
+
+    assert candidates == []
+    assert ledger.attempts
+    assert all(attempt.status == "failed" for attempt in ledger.attempts)
+    assert all("JSON parse failed" in attempt.failure_reason for attempt in ledger.attempts)
+
+
+def test_run_agent_search_plan_persists_latest_search_ledger(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+
+    stored_plan = store.get_agent_search_plan(project.id, overview.latest_plan.id)
+    assert stored_plan is not None
+    ledger_id = stored_plan.metadata["latest_search_ledger_id"]
+    assert after_run.latest_plan is not None
+    assert after_run.latest_plan.metadata["latest_search_ledger_id"] == ledger_id
+
+    persisted = store.get_project_search_ledger(project.id, ledger_id)
+    latest = store.get_latest_project_search_ledger(project.id, overview.latest_plan.id)
+    assert persisted is not None
+    assert latest is not None
+    assert persisted.id == ledger_id
+    assert latest.id == ledger_id
+    assert persisted.retained_candidate_ids == [candidate.id for candidate in after_run.candidates]
 
 
 def test_run_plan_rerun_keeps_candidate_count_stable(tmp_path):

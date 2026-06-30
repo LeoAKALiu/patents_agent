@@ -11,6 +11,7 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from socket import timeout as SocketTimeout
 from typing import Any, Protocol
 
 from backend.app.research.providers import sanitize_untrusted_text
@@ -139,18 +140,18 @@ class CnipaEpubPatentProvider:
                 text=True,
                 timeout=self.timeout_seconds,
             )
-        except subprocess.TimeoutExpired:
-            return [], [f"CNIPA EPUB search timed out for query: {query}"]
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError(f"CNIPA EPUB search timed out for query: {query}") from exc
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout).strip()[:300]
-            return [], [f"CNIPA EPUB search failed for query {query}: {detail}"]
+            raise RuntimeError(f"CNIPA EPUB search failed for query {query}: {detail}")
         match = re.search(r"EPUB_HITS_JSON:\s*(\[.*\])", completed.stdout, flags=re.S)
         if not match:
-            return [], [f"CNIPA EPUB search returned no parseable JSON for query: {query}"]
+            raise RuntimeError(f"CNIPA EPUB search returned no parseable JSON for query: {query}")
         try:
             raw_hits = json.loads(match.group(1))
         except json.JSONDecodeError as exc:
-            return [], [f"CNIPA EPUB JSON parse failed for query {query}: {exc}"]
+            raise ValueError(f"CNIPA EPUB JSON parse failed for query {query}: {exc}") from exc
         hits = [
             PatentSearchHit(
                 id=uuid.uuid4().hex,
@@ -197,8 +198,10 @@ class GooglePatentsProvider:
         url = "https://patents.google.com/?q=" + urllib.parse.quote(query)
         try:
             html = self._http_get(url, self.timeout_seconds)
+        except (TimeoutError, SocketTimeout) as exc:
+            raise TimeoutError(f"Google Patents search timed out for query {query}: {exc}") from exc
         except Exception as exc:
-            return [], [f"Google Patents search failed for query {query}: {exc}"]
+            raise RuntimeError(f"Google Patents search failed for query {query}: {exc}") from exc
         hits = parse_google_patents_hits(html, query)[:limit]
         if not hits:
             return [], [f"Google Patents returned no parseable hits for query: {query}"]

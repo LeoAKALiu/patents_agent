@@ -32,6 +32,7 @@ from backend.app.schemas import (
     PostDraftReviewRun,
     ProjectCorpusVersion,
     ProjectKnowledgeState,
+    ProjectSearchLedger,
     ProjectMaterial,
     ProjectRecord,
     RevisionLedgerRecord,
@@ -370,6 +371,60 @@ class SQLiteStore:
             (project_id,),
         ).fetchone()
         return AgentSearchPlan.model_validate(json.loads(row["plan_json"])) if row else None
+
+    def create_project_search_ledger(self, ledger: ProjectSearchLedger) -> ProjectSearchLedger:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert or replace into project_search_ledgers(id, project_id, plan_id, ledger_json, created_at)
+                values (?, ?, ?, ?, ?)
+                """,
+                (
+                    ledger.id,
+                    ledger.project_id,
+                    ledger.plan_id,
+                    ledger.model_dump_json(),
+                    ledger.created_at,
+                ),
+            )
+        return ledger
+
+    def get_project_search_ledger(self, project_id: str, ledger_id: str) -> ProjectSearchLedger | None:
+        row = self.connection.execute(
+            """
+            select ledger_json from project_search_ledgers
+            where project_id = ? and id = ?
+            """,
+            (project_id, ledger_id),
+        ).fetchone()
+        return ProjectSearchLedger.model_validate_json(row["ledger_json"]) if row else None
+
+    def get_latest_project_search_ledger(
+        self,
+        project_id: str,
+        plan_id: str | None = None,
+    ) -> ProjectSearchLedger | None:
+        if plan_id is not None:
+            row = self.connection.execute(
+                """
+                select ledger_json from project_search_ledgers
+                where project_id = ? and plan_id = ?
+                order by created_at desc, rowid desc
+                limit 1
+                """,
+                (project_id, plan_id),
+            ).fetchone()
+        else:
+            row = self.connection.execute(
+                """
+                select ledger_json from project_search_ledgers
+                where project_id = ?
+                order by created_at desc, rowid desc
+                limit 1
+                """,
+                (project_id,),
+            ).fetchone()
+        return ProjectSearchLedger.model_validate_json(row["ledger_json"]) if row else None
 
     def upsert_prior_art_candidate(self, candidate: PriorArtCandidate) -> PriorArtCandidate:
         with self.connection:
@@ -1641,6 +1696,15 @@ class SQLiteStore:
                     candidate_json text not null,
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists project_search_ledgers (
+                    id text primary key,
+                    project_id text not null,
+                    plan_id text not null,
+                    ledger_json text not null,
+                    created_at text not null,
                     foreign key(project_id) references projects(id)
                 );
 

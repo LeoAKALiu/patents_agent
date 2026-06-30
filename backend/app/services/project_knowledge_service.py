@@ -29,7 +29,7 @@ from backend.app.storage import SQLiteStore
 
 
 ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通过", "以及", "进行", "生成"}
-PROJECT_PATENT_PROVIDER_SOURCES = ["google_patents", "cnipa_epub"]
+PROJECT_PATENT_PROVIDER_SOURCES = ["cnipa_epub", "google_patents"]
 
 
 class ProjectKnowledgeConflictError(ValueError):
@@ -406,12 +406,18 @@ def run_agent_search_plan(
     store.update_agent_search_plan(running)
     provider_chain = list(providers) if providers is not None else default_project_patent_providers()
     candidates, ledger = run_patent_search_plan(provider_chain, project_id, running)
+    store.create_project_search_ledger(ledger)
     stored_candidates = _replace_plan_candidates(store, project_id, plan_id, candidates)
+    status = "completed" if stored_candidates else "failed"
     completed = running.model_copy(
         update={
-            "status": "completed",
+            "status": status,
             "run_finished_at": _now(),
             "warnings": ledger.warnings,
+            "metadata": {
+                **running.metadata,
+                "latest_search_ledger_id": ledger.id,
+            },
         }
     )
     store.update_agent_search_plan(completed)

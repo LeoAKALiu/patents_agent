@@ -1308,6 +1308,7 @@ class AgentSearchPlan(BaseModel):
     target_sources: list[str] = Field(default_factory=list)
     target_result_count: int = 50
     filters: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
     created_at: str = ""
     confirmed_at: str = ""
