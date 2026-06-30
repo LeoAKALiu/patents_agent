@@ -15,6 +15,7 @@ import type {
   GrantabilityReport,
   OfficialCompileRun,
   PostDraftReviewRun,
+  ProjectKnowledgeOverview,
   ProjectRecord,
 } from "@/api";
 
@@ -24,6 +25,7 @@ import type {
  */
 export interface QualityWorkspaceState {
   selectedProject: ProjectRecord | null;
+  projectKnowledge: ProjectKnowledgeOverview | null;
   filingReports: FilingReadinessReport[];
   latestFilingReport: FilingReadinessReport | null;
   grantabilityReports: GrantabilityReport[];
@@ -88,6 +90,7 @@ export function QualityWorkspace({ tool, state, handlers }: QualityWorkspaceProp
       return (
         <GrantabilityView
           project={state.selectedProject}
+          projectKnowledge={state.projectKnowledge}
           report={state.latestGrantabilityReport}
           reports={state.grantabilityReports}
           busy={state.busy}

@@ -12,7 +12,7 @@
  * here. Only pure leaf components are extracted.
  */
 import { AlertTriangle, BarChart3 } from "@/lib/icons";
-import type { CorpusImportJob } from "@/api";
+import type { CorpusImportJob, CorpusQualityFailure } from "@/api";
 
 /** Small label/value stat tile. Reusable inside expert-tool views. */
 export function StatusPill({ label, value }: { label: string; value: string }) {
@@ -29,6 +29,19 @@ function percent(value: number | undefined): string {
   return `${Math.round((value ?? 0) * 100)}%`;
 }
 
+function qualityFailureFields(failure: CorpusQualityFailure): { title: string; detail: string } {
+  if ("file" in failure) {
+    return {
+      title: failure.file,
+      detail: "reason" in failure ? failure.reason : "",
+    };
+  }
+  return {
+    title: failure.code,
+    detail: "message" in failure ? failure.message : "",
+  };
+}
+
 /** Corpus quality report block — depends only on StatusPill + the report. */
 export function QualityReportView({ report }: { report: CorpusImportJob["quality_report"] }) {
   if (!report) return null;
@@ -43,15 +56,18 @@ export function QualityReportView({ report }: { report: CorpusImportJob["quality
       </div>
       {report.failures.length > 0 && (
         <div className="flex flex-col gap-3">
-          {report.failures.slice(0, 6).map((failure) => (
-            <article className="flex gap-3 items-start p-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] rounded-lg shadow-sm" key={`${failure.file}-${failure.reason}`}>
-              <AlertTriangle size={18} />
-              <div>
-                <strong>{failure.file}</strong>
-                <span>{failure.reason}</span>
-              </div>
-            </article>
-          ))}
+          {report.failures.slice(0, 6).map((failure) => {
+            const fields = qualityFailureFields(failure);
+            return (
+              <article className="flex gap-3 items-start p-4 bg-[var(--surface-subtle)] border border-[var(--border-subtle)] rounded-lg shadow-sm" key={`${fields.title}-${fields.detail}`}>
+                <AlertTriangle size={18} />
+                <div>
+                  <strong>{fields.title}</strong>
+                  <span>{fields.detail}</span>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>

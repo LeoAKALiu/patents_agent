@@ -152,6 +152,7 @@ from backend.app.storage import SQLiteStore
 from backend.app.api.desktop_config import router as desktop_config_router
 from backend.app.api.system import router as system_router
 from backend.app.api.corpus import router as corpus_router
+from backend.app.api.project_knowledge import router as project_knowledge_router
 from backend.app.api.projects import router as projects_router
 from backend.app.services.desktop_config_service import LOCAL_RENDERER_ORIGINS
 from backend.app.services.llm_factory import build_llm
@@ -238,6 +239,7 @@ def create_app(
     app.include_router(desktop_config_router)
     app.include_router(corpus_router)
     app.include_router(projects_router)
+    app.include_router(project_knowledge_router)
     app.state.settings = settings
     app.state.store = store
     app.state.index = index
@@ -1094,6 +1096,7 @@ def create_app(
         disclosures = store.list_disclosure_runs(project_id)
         patent_points = store.list_project_patent_points(project_id)
         strategy_brief = _latest_strategy_brief(store, project_id)
+        knowledge_state = store.get_project_knowledge_state(project_id)
         report = generate_grantability_report(
             project_id=project_id,
             package=package,
@@ -1101,6 +1104,7 @@ def create_app(
             patent_points=patent_points,
             strategy_brief=strategy_brief,
             deep_research_packets=_deep_research_packets_from_disclosures(disclosures),
+            project_knowledge_state=knowledge_state,
         )
         stored = store.create_grantability_report(report)
         return stored.model_dump(mode="json")

@@ -1195,6 +1195,136 @@ class CorpusImportJob(BaseModel):
     quality_report: CorpusQualityReport | None = None
 
 
+class ProjectKnowledgeState(BaseModel):
+    project_id: str
+    status: str = Field(
+        default="not_started",
+        pattern="^(not_started|search_plan_pending|search_running|candidates_pending|corpus_building|ready|needs_supplemental_search|stale|failed)$",
+    )
+    active_intent_id: str = ""
+    active_plan_id: str = ""
+    active_corpus_version_id: str = ""
+    last_search_at: str = ""
+    last_indexed_at: str = ""
+    staleness_reason: str = ""
+    document_count: int = 0
+    candidate_count: int = 0
+    claim_coverage: float = 0.0
+    fulltext_coverage: float = 0.0
+    quality_flags: list[str] = Field(default_factory=list)
+
+
+class SearchIntent(BaseModel):
+    id: str
+    project_id: str
+    source_project_hash: str = ""
+    technical_object: str = ""
+    technical_problem: str = ""
+    technical_means: str = ""
+    technical_effect: str = ""
+    keywords_zh: list[str] = Field(default_factory=list)
+    keywords_en: list[str] = Field(default_factory=list)
+    synonyms: list[str] = Field(default_factory=list)
+    negative_keywords: list[str] = Field(default_factory=list)
+    ipc_candidates: list[str] = Field(default_factory=list)
+    cpc_candidates: list[str] = Field(default_factory=list)
+    jurisdictions: list[str] = Field(default_factory=list)
+    date_range: str = ""
+    created_by: str = Field(default="agent", pattern="^(agent|user|system)$")
+    created_at: str = ""
+
+
+class SearchPlanStrategyGroup(BaseModel):
+    id: str
+    label: str
+    purpose: str
+    queries: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+
+
+class AgentSearchPlan(BaseModel):
+    id: str
+    project_id: str
+    intent_id: str
+    status: str = Field(default="draft", pattern="^(draft|confirmed|running|completed|failed)$")
+    strategy_groups: list[SearchPlanStrategyGroup] = Field(default_factory=list)
+    target_sources: list[str] = Field(default_factory=list)
+    target_result_count: int = 50
+    filters: dict[str, Any] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+    created_at: str = ""
+    confirmed_at: str = ""
+    run_started_at: str = ""
+    run_finished_at: str = ""
+
+
+class PriorArtCandidate(BaseModel):
+    id: str
+    project_id: str
+    plan_id: str
+    source: str
+    title: str
+    publication_number: str | None = None
+    application_number: str | None = None
+    applicant: str = ""
+    publication_date: str = ""
+    grant_date: str = ""
+    abstract: str | None = None
+    url: str
+    relevance_score: float = 0.0
+    matched_terms: list[str] = Field(default_factory=list)
+    ipc: list[str] = Field(default_factory=list)
+    cpc: list[str] = Field(default_factory=list)
+    family_id: str = ""
+    duplicate_of: str = ""
+    fulltext_status: str = Field(default="unknown", pattern="^(unknown|available|unavailable|failed)$")
+    recommended_action: str = Field(default="review", pattern="^(include|exclude|review)$")
+    recommendation_reason: str = ""
+    user_decision: str = Field(default="pending", pattern="^(pending|include|exclude)$")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: str = ""
+
+
+class ProjectCorpusVersion(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    source_plan_id: str = ""
+    candidate_set_id: str = ""
+    status: str = Field(
+        default="building",
+        pattern="^(building|ready|needs_supplemental_search|failed|superseded)$",
+    )
+    document_count: int = 0
+    chunk_count: int = 0
+    claim_coverage: float = 0.0
+    fulltext_coverage: float = 0.0
+    quality_report: CorpusQualityReport | None = None
+    created_at: str = ""
+    superseded_by: str = ""
+
+
+class ProjectKnowledgeOverview(BaseModel):
+    state: ProjectKnowledgeState
+    latest_intent: SearchIntent | None = None
+    latest_plan: AgentSearchPlan | None = None
+    candidates: list[PriorArtCandidate] = Field(default_factory=list)
+    latest_corpus_version: ProjectCorpusVersion | None = None
+
+
+class CandidateDecisionPatch(BaseModel):
+    user_decision: str = Field(pattern="^(include|exclude|pending)$")
+
+
+class CandidateBulkDecision(BaseModel):
+    candidate_ids: list[str]
+    user_decision: str = Field(pattern="^(include|exclude|pending)$")
+
+
+class BuildProjectCorpusRequest(BaseModel):
+    plan_id: str = Field(min_length=1)
+
+
 class DesktopConfigView(BaseModel):
     """Redacted view of the desktop LLM configuration (PR6, issue #20).
 

@@ -34,6 +34,24 @@ describe("App refresh effect dependencies", () => {
     expect(code).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
+  it("refreshes project knowledge after patent-point mutations reload the selected project", () => {
+    expect(source).toMatch(
+      /async function handleCreatePatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
+    );
+    expect(source).toMatch(
+      /async function handleSelectPatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
+    );
+    expect(source).toMatch(
+      /async function handleDeletePatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
+    );
+  });
+
+  it("announces gated synthetic-only corpus builds without the ready toast", () => {
+    expect(source).toContain('if (overview.state.quality_flags.includes("synthetic_evidence"))');
+    expect(source).toContain("项目证据库建库完成：");
+    expect(source).toContain("仍需补充检索");
+  });
+
   it("refreshes stale draft and gate state after an embedded repair patch is applied", () => {
     const handler = source.match(/async function handleDraftRepairPatchApplied[\s\S]*?^  async function handleStartOfficialCompile/m);
     expect(handler?.[0]).toBeDefined();

@@ -53,7 +53,9 @@ import {
   PatentPointCreatePayload,
   PatentDocument,
   PostDraftReviewRun,
+  PriorArtCandidate,
   ProjectMaterial,
+  ProjectKnowledgeOverview,
   PatentStrategyBrief,
   ProjectRecord,
   ProjectUpdate,
@@ -69,6 +71,7 @@ import {
   acceptCompletionPatch,
   applyOfficialCompileCleanup,
   applyPostDraftSafePatches,
+  buildProjectCorpusVersion,
   cancelFormulaRun,
   cancelPostDraftReview,
   cancelProjectDeliberation,
@@ -79,6 +82,7 @@ import {
   createDraftCompletionRun,
   createExternalDraftSource,
   createFilingReadinessReport,
+  createProjectSearchIntent,
   createGrantabilityReport,
   createProject,
   createProjectPatentPoint,
@@ -95,6 +99,7 @@ import {
   getCorpusStats,
   getExportReadiness,
   getHealth,
+  getProjectKnowledge,
   improveProjectScore,
   importPatent,
   listClaimDefenseWorksheets,
@@ -121,6 +126,7 @@ import {
   retryProjectDeliberation,
   retryProjectDisclosure,
   runCorpusJob,
+  runProjectSearchPlan,
   searchCorpus,
   startKimiOfficialLanguagePolish,
   startProjectDisclosure,
@@ -129,6 +135,7 @@ import {
   startFormulaRun,
   startOfficialCompileRun,
   startPostDraftReview,
+  updateProjectKnowledgeCandidate,
   updateProjectDraftPackage,
   updateProjectPatentPoint,
   uploadCorpusJobFile,
@@ -585,6 +592,7 @@ function App() {
   const [corpusVersions, setCorpusVersions] = useState<CorpusVersion[]>([]);
   const [corpusStats, setCorpusStats] = useState<CorpusStats | null>(null);
   const [corpusJob, setCorpusJob] = useState<CorpusImportJob | null>(null);
+  const [projectKnowledge, setProjectKnowledge] = useState<ProjectKnowledgeOverview | null>(null);
   const [corpusJobForm, setCorpusJobForm] = useState({
     source_type: "cnipa_export",
     source_name: "CNIPA",
@@ -782,6 +790,7 @@ function App() {
   }, [agentDoctor]);
 
   useEffect(() => {
+    setProjectKnowledge(null);
     setOfficialCompileRuns([]);
     setCurrentSourceDraftHash("");
     setPostDraftReviews([]);
@@ -790,6 +799,7 @@ function App() {
     setExternalDraftSources([]);
     setExternalDraftIntakeRuns([]);
     if (selectedProject?.id) {
+      void loadProjectKnowledge(selectedProject.id);
       void loadDeliberations(selectedProject.id);
       void loadMaterials(selectedProject.id);
       void loadDisclosures(selectedProject.id);
@@ -815,6 +825,7 @@ function App() {
       setDisclosureRuns([]);
       setFormulaRequirement(null);
       setFormulaRuns([]);
+      setProjectKnowledge(null);
       setExportReadiness(null);
       setPatentPoints([]);
       setFilingReports([]);
@@ -879,6 +890,11 @@ function App() {
         setCorpusVersions(versionsData);
         setCorpusStats(statsData);
         setProjects(projectsData);
+        if (recoveredSelection.selectedProjectId === selectedProjectIdRef.current && recoveredSelection.selectedProjectId) {
+          await loadProjectKnowledge(recoveredSelection.selectedProjectId);
+        } else if (!recoveredSelection.selectedProjectId) {
+          setProjectKnowledge(null);
+        }
         if (recoveredSelection.selectedProjectId !== selectedProjectIdRef.current) {
           setSelectedProjectId(recoveredSelection.selectedProjectId);
         }
@@ -936,6 +952,22 @@ function App() {
     } catch {
       if (selectedProjectIdRef.current === projectId) {
         setExportReadiness(null);
+      }
+      return false;
+    }
+  }
+
+  async function loadProjectKnowledge(projectId: string): Promise<boolean> {
+    try {
+      const overview = await getProjectKnowledge(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setProjectKnowledge(overview);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setProjectKnowledge(null);
       }
       return false;
     }
@@ -1279,6 +1311,74 @@ function App() {
       setCorpusVersions(nextVersions);
       setCorpusStats(nextStats);
       setMessage(`导入完成：入库 ${job.imported_documents} 件，去重 ${job.duplicate_documents} 件`);
+    });
+  }
+
+  async function handleGenerateKnowledgePlan(): Promise<void> {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-plan", async () => {
+      const overview = await createProjectSearchIntent(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      setProjectKnowledge(overview);
+      setMessage("已生成 Agent 检索计划。");
+    });
+  }
+
+  async function handleRunKnowledgeSearch(): Promise<void> {
+    const latestPlan = projectKnowledge?.latest_plan;
+    if (!selectedProject || !latestPlan) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-search", async () => {
+      const overview = await runProjectSearchPlan(projectId, latestPlan.id);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      setProjectKnowledge(overview);
+      setMessage(`已生成 ${overview.candidates.length} 条候选文献。`);
+    });
+  }
+
+  async function handleCandidateDecision(
+    candidateId: string,
+    decision: PriorArtCandidate["user_decision"],
+  ): Promise<void> {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-candidate", async () => {
+      await updateProjectKnowledgeCandidate(projectId, candidateId, decision);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      await loadProjectKnowledge(projectId);
+    });
+  }
+
+  async function handleBuildProjectCorpus(): Promise<void> {
+    const latestPlan = projectKnowledge?.latest_plan;
+    if (!selectedProject || !latestPlan) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-build", async () => {
+      const overview = await buildProjectCorpusVersion(projectId, latestPlan.id);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      setProjectKnowledge(overview);
+      if (overview.state.status === "ready") {
+        setMessage(`项目语料库已就绪：${overview.state.document_count} 件文献。`);
+        return;
+      }
+      if (overview.state.quality_flags.includes("synthetic_evidence")) {
+        setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献，但当前仅含 synthetic/fake 证据，仍需补充检索。`);
+        return;
+      }
+      if (overview.state.status === "needs_supplemental_search") {
+        setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献，但当前仍需补充检索。`);
+        return;
+      }
+      setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献。`);
     });
   }
 
@@ -1862,6 +1962,7 @@ function App() {
       await createProjectPatentPoint(projectId, payload);
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
+      await loadProjectKnowledge(projectId);
       setMessage("已加入护城河专利点");
       succeeded = true;
     });
@@ -1886,6 +1987,7 @@ function App() {
       }
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
+      await loadProjectKnowledge(projectId);
       const backupCount = Math.max(0, payloads.length - 1);
       setMessage(`已选择主路线：${point.title}${backupCount ? `；已保存 ${backupCount} 条后备路线` : ""}`);
     });
@@ -1898,6 +2000,7 @@ function App() {
       await deleteProjectPatentPoint(projectId, point.id);
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
+      await loadProjectKnowledge(projectId);
       setMessage(`已删除专利点：${point.title}`);
     });
   }
@@ -2049,6 +2152,8 @@ function App() {
         onOpenExpertTool: (tool) => openExpertTool(tool as ExpertToolId),
       }}
       corpusState={{
+        selectedProject,
+        projectKnowledge,
         corpusJobForm,
         corpusJob,
         corpusVersions,
@@ -2064,6 +2169,10 @@ function App() {
         onCreateCorpusJob: handleCreateCorpusJob,
         onUploadCorpusJobFile: handleUploadCorpusJobFile,
         onRunCorpusJob: handleRunCorpusJob,
+        onGenerateKnowledgePlan: handleGenerateKnowledgePlan,
+        onRunKnowledgeSearch: handleRunKnowledgeSearch,
+        onCandidateDecision: handleCandidateDecision,
+        onBuildProjectCorpus: handleBuildProjectCorpus,
         onImport: handleImport,
         onSearch: handleSearch,
         onSearchText: setSearchText,
@@ -2071,6 +2180,7 @@ function App() {
       }}
       qualityState={{
         selectedProject,
+        projectKnowledge,
         filingReports,
         latestFilingReport,
         grantabilityReports,

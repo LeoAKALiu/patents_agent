@@ -181,6 +181,7 @@ function makeRootProps(): AppRootProps {
     corpusHandlers: {} as AppRootProps["corpusHandlers"],
     qualityState: {
       selectedProject: null,
+      projectKnowledge: null,
       filingReports: [],
       latestFilingReport: null,
       grantabilityReports: [],

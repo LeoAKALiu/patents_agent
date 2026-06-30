@@ -39,8 +39,21 @@ from backend.app.services.project_service import (
     merge_patent_point_update,
     project_material_upload_error,
 )
+from backend.app.services.project_knowledge_service import (
+    ensure_project_knowledge_initialized,
+    mark_stale_if_project_changed,
+)
 
 router = APIRouter(tags=["projects"])
+
+
+def _refresh_project_knowledge_staleness(request: Request, repo, project_id: str, project: ProjectRecord | None = None) -> None:
+    current_project = project or require_project(project_id, repo)
+    mark_stale_if_project_changed(
+        request.app.state.store,
+        current_project,
+        repo.list_patent_points(project_id),
+    )
 
 
 @router.get("/api/projects")
@@ -58,6 +71,7 @@ def create_project(payload: ProjectCreate, request: Request) -> dict:
     repo = get_project_repository(request)
     project = build_project_record(payload)
     stored = repo.create(project)
+    ensure_project_knowledge_initialized(request.app.state.store, stored)
     return stored.model_dump(mode="json")
 
 
@@ -75,6 +89,7 @@ def update_project(project_id: str, payload: ProjectUpdate, request: Request) ->
     updated = apply_project_update(project_id, payload, repo)
     if updated is None:
         raise HTTPException(status_code=404, detail="Project not found.")
+    _refresh_project_knowledge_staleness(request, repo, project_id, updated)
     return updated.model_dump(mode="json")
 
 
@@ -146,9 +161,10 @@ def create_project_patent_point(
     project_id: str, payload: PatentPointCreate, request: Request
 ) -> dict:
     repo = get_project_repository(request)
-    require_project(project_id, repo)
+    project = require_project(project_id, repo)
     point = build_patent_point_candidate(payload)
     stored = repo.add_patent_point(project_id, point)
+    _refresh_project_knowledge_staleness(request, repo, project_id, project)
     return stored.model_dump(mode="json")
 
 
@@ -157,7 +173,7 @@ def update_project_patent_point(
     project_id: str, point_id: str, payload: PatentPointUpdate, request: Request
 ) -> dict:
     repo = get_project_repository(request)
-    require_project(project_id, repo)
+    project = require_project(project_id, repo)
     existing = repo.get_patent_point(project_id, point_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Patent point not found.")
@@ -166,6 +182,7 @@ def update_project_patent_point(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     stored = repo.add_patent_point(project_id, updated)
+    _refresh_project_knowledge_staleness(request, repo, project_id, project)
     return stored.model_dump(mode="json")
 
 
@@ -174,10 +191,11 @@ def delete_project_patent_point(
     project_id: str, point_id: str, request: Request
 ) -> dict:
     repo = get_project_repository(request)
-    require_project(project_id, repo)
+    project = require_project(project_id, repo)
     deleted = repo.delete_patent_point(project_id, point_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Patent point not found.")
+    _refresh_project_knowledge_staleness(request, repo, project_id, project)
     return {"ok": True}
 
 

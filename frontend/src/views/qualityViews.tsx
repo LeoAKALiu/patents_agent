@@ -17,6 +17,7 @@ import {
   grantabilityReportUrl,
   type GrantabilityReport,
   type ClaimDefenseWorksheet,
+  type ProjectKnowledgeOverview,
   type ProjectRecord,
   type ReviewFinding,
 } from "@/api";
@@ -64,14 +65,70 @@ function grantabilityTone(status: string, failClosed: boolean): "danger" | "warn
   return "info";
 }
 
+const blockingKnowledgeFlags = new Set([
+  "synthetic_evidence",
+  "empty_corpus",
+  "needs_search",
+  "failed",
+  "insufficient_corpus",
+  "candidates_need_confirmation",
+  "stale_project_snapshot",
+]);
+
+function isGrantabilityKnowledgeReady(projectKnowledge: ProjectKnowledgeOverview | null): boolean {
+  const state = projectKnowledge?.state;
+  if (!state) return false;
+  if (state.status !== "ready") return false;
+  if (state.document_count < 2) return false;
+  return !state.quality_flags.some((flag) => (
+    blockingKnowledgeFlags.has(flag)
+    || flag.includes("synthetic")
+    || flag.includes("empty")
+    || flag.includes("needs_search")
+    || flag.includes("failed")
+    || flag.includes("insufficient")
+  ));
+}
+
+function knowledgeGateCopy(projectKnowledge: ProjectKnowledgeOverview | null): string {
+  const state = projectKnowledge?.state;
+  if (isGrantabilityKnowledgeReady(projectKnowledge) && state) {
+    return `项目语料库已就绪：已入库 ${state.document_count} 件文献，可用于授权前景分析。`;
+  }
+  if (!state) {
+    return "项目语料库未就绪：可以生成草案，但授权前景和权利要求防线只能输出证据不足结论。";
+  }
+  const reasons: string[] = [];
+  if (state.status !== "ready") {
+    reasons.push(`当前状态为 ${state.status}`);
+  }
+  if (state.document_count < 2) {
+    reasons.push(`入库文献仅 ${state.document_count} 件`);
+  }
+  const blockingFlags = state.quality_flags.filter((flag) => (
+    blockingKnowledgeFlags.has(flag)
+    || flag.includes("synthetic")
+    || flag.includes("empty")
+    || flag.includes("needs_search")
+    || flag.includes("failed")
+    || flag.includes("insufficient")
+  ));
+  if (blockingFlags.length) {
+    reasons.push(`质量标记：${blockingFlags.join("、")}`);
+  }
+  return `项目语料库仍受证据门控：${reasons.join("；")}。可以生成草案，但授权前景和权利要求防线只能输出证据不足或 gated 结论。`;
+}
+
 export function GrantabilityView({
   project,
+  projectKnowledge,
   report,
   reports,
   busy,
   onGenerate,
 }: {
   project: ProjectRecord | null;
+  projectKnowledge: ProjectKnowledgeOverview | null;
   report: GrantabilityReport | null;
   reports: GrantabilityReport[];
   busy: string;
@@ -110,6 +167,8 @@ export function GrantabilityView({
           </button>
         )}
       />
+
+      <p className="text-sm text-[var(--text-primary)]/65">{knowledgeGateCopy(projectKnowledge)}</p>
 
       <SettingsGroup title="结论摘要" description="低证据场景默认 fail closed，不把少量或重复文献包装成高可授权性。">
         <div className="boundary-grid">
