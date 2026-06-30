@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from backend.app.knowledge.patent_search import StaticPatentSearchProvider
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
 from backend.app.patent_mode import UTILITY_MODEL_MODE_PREFIX
@@ -11,6 +12,7 @@ from backend.app.schemas import (
     DraftPackage,
     PatentPointCandidate,
     PatentStrategyBrief,
+    PatentSearchHit,
     ProjectKnowledgeState,
     ProjectRecord,
     PriorArtHit,
@@ -19,7 +21,39 @@ from backend.app.services.project_knowledge_service import project_snapshot_hash
 
 
 def _test_app_without_env(tmp_path):
-    return TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    client.app.state.project_patent_search_providers = [_static_project_patent_provider()]
+    return client
+
+
+def _static_project_patent_provider() -> StaticPatentSearchProvider:
+    return StaticPatentSearchProvider(
+        source_id="google_patents",
+        hits=[
+            PatentSearchHit(
+                id="api-hit-1",
+                source="google_patents",
+                query="城市体检 智能体",
+                title="城市体检智能体调度方法",
+                publication_number="CN112233445A",
+                url="https://patents.google.com/patent/CN112233445A",
+                applicant="示例申请人甲",
+                publication_date="2024-01-01",
+                abstract="公开了一种城市体检调度方法。",
+            ),
+            PatentSearchHit(
+                id="api-hit-2",
+                source="google_patents",
+                query="任务编排 证据链",
+                title="基于证据链的任务编排复核方法",
+                publication_number="CN223344556A",
+                url="https://patents.google.com/patent/CN223344556A",
+                applicant="示例申请人乙",
+                publication_date="2023-05-20",
+                abstract="公开了一种基于证据链的任务编排复核方法。",
+            ),
+        ],
+    )
 
 
 def test_api_corpus_project_generation_review_and_export(tmp_path):
@@ -408,9 +442,31 @@ def test_project_knowledge_run_candidates_and_build_version(tmp_path):
         json={"plan_id": plan_id},
     )
     assert version.status_code == 200
-    assert version.json()["state"]["status"] == "needs_supplemental_search"
-    assert version.json()["latest_corpus_version"]["status"] == "needs_supplemental_search"
+    assert version.json()["state"]["status"] == "ready"
+    assert version.json()["latest_corpus_version"]["status"] == "ready"
     assert version.json()["latest_corpus_version"]["document_count"] >= 1
+
+
+def test_project_knowledge_search_ledger_endpoint(tmp_path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={"name": "城市体检智能体", "draft_text": "通过智能体编排任务并复核证据链。"},
+    )
+    project_id = created.json()["id"]
+    overview = client.get(f"/api/projects/{project_id}/knowledge").json()
+    plan_id = overview["latest_plan"]["id"]
+
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")
+    assert run.status_code == 200
+    ledger_id = run.json()["latest_plan"]["metadata"]["latest_search_ledger_id"]
+
+    ledger = client.get(f"/api/projects/{project_id}/knowledge/search-ledger/{ledger_id}")
+
+    assert ledger.status_code == 200
+    assert ledger.json()["project_id"] == project_id
+    assert ledger.json()["plan_id"] == plan_id
+    assert ledger.json()["attempts"]
 
 
 def test_project_knowledge_rejects_corpus_build_before_search(tmp_path):

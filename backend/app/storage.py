@@ -32,6 +32,7 @@ from backend.app.schemas import (
     PostDraftReviewRun,
     ProjectCorpusVersion,
     ProjectKnowledgeState,
+    ProjectSearchLedger,
     ProjectMaterial,
     ProjectRecord,
     RevisionLedgerRecord,
@@ -370,6 +371,127 @@ class SQLiteStore:
             (project_id,),
         ).fetchone()
         return AgentSearchPlan.model_validate(json.loads(row["plan_json"])) if row else None
+
+    def create_project_search_ledger(self, ledger: ProjectSearchLedger) -> ProjectSearchLedger:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert or replace into project_search_ledgers(id, project_id, plan_id, ledger_json, created_at)
+                values (?, ?, ?, ?, ?)
+                """,
+                (
+                    ledger.id,
+                    ledger.project_id,
+                    ledger.plan_id,
+                    ledger.model_dump_json(),
+                    ledger.created_at,
+                ),
+            )
+        return ledger
+
+    def replace_agent_search_run(
+        self,
+        *,
+        project_id: str,
+        plan: AgentSearchPlan,
+        candidates: list[PriorArtCandidate],
+        ledger: ProjectSearchLedger,
+        state: ProjectKnowledgeState,
+    ) -> tuple[list[PriorArtCandidate], ProjectSearchLedger]:
+        with self.connection:
+            self.connection.execute(
+                "delete from prior_art_candidates where project_id = ? and plan_id = ?",
+                (project_id, plan.id),
+            )
+            self.connection.executemany(
+                """
+                insert into prior_art_candidates(id, project_id, plan_id, candidate_json)
+                values (?, ?, ?, ?)
+                on conflict(id) do update set
+                    candidate_json = excluded.candidate_json,
+                    updated_at = current_timestamp
+                """,
+                [
+                    (
+                        candidate.id,
+                        candidate.project_id,
+                        candidate.plan_id,
+                        json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False),
+                    )
+                    for candidate in candidates
+                ],
+            )
+            stored_candidates = self.list_prior_art_candidates(project_id, plan.id)
+            stored_ledger = ledger.model_copy(update={"retained_candidate_ids": [candidate.id for candidate in stored_candidates]})
+            self.connection.execute(
+                """
+                insert or replace into project_search_ledgers(id, project_id, plan_id, ledger_json, created_at)
+                values (?, ?, ?, ?, ?)
+                """,
+                (
+                    stored_ledger.id,
+                    stored_ledger.project_id,
+                    stored_ledger.plan_id,
+                    stored_ledger.model_dump_json(),
+                    stored_ledger.created_at,
+                ),
+            )
+            self.connection.execute(
+                """
+                update agent_search_plans
+                set plan_json = ?, updated_at = current_timestamp
+                where project_id = ? and id = ?
+                """,
+                (json.dumps(plan.model_dump(mode="json"), ensure_ascii=False), plan.project_id, plan.id),
+            )
+            self.connection.execute(
+                """
+                insert into project_knowledge_states(project_id, state_json)
+                values (?, ?)
+                on conflict(project_id) do update set
+                    state_json = excluded.state_json,
+                    updated_at = current_timestamp
+                """,
+                (state.project_id, json.dumps(state.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return stored_candidates, stored_ledger
+
+    def get_project_search_ledger(self, project_id: str, ledger_id: str) -> ProjectSearchLedger | None:
+        row = self.connection.execute(
+            """
+            select ledger_json from project_search_ledgers
+            where project_id = ? and id = ?
+            """,
+            (project_id, ledger_id),
+        ).fetchone()
+        return ProjectSearchLedger.model_validate_json(row["ledger_json"]) if row else None
+
+    def get_latest_project_search_ledger(
+        self,
+        project_id: str,
+        plan_id: str | None = None,
+    ) -> ProjectSearchLedger | None:
+        if plan_id is not None:
+            row = self.connection.execute(
+                """
+                select ledger_json from project_search_ledgers
+                where project_id = ? and plan_id = ?
+                order by created_at desc, rowid desc
+                limit 1
+                """,
+                (project_id, plan_id),
+            ).fetchone()
+        else:
+            row = self.connection.execute(
+                """
+                select ledger_json from project_search_ledgers
+                where project_id = ?
+                order by created_at desc, rowid desc
+                limit 1
+                """,
+                (project_id,),
+            ).fetchone()
+        return ProjectSearchLedger.model_validate_json(row["ledger_json"]) if row else None
 
     def upsert_prior_art_candidate(self, candidate: PriorArtCandidate) -> PriorArtCandidate:
         with self.connection:
@@ -1641,6 +1763,15 @@ class SQLiteStore:
                     candidate_json text not null,
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists project_search_ledgers (
+                    id text primary key,
+                    project_id text not null,
+                    plan_id text not null,
+                    ledger_json text not null,
+                    created_at text not null,
                     foreign key(project_id) references projects(id)
                 );
 

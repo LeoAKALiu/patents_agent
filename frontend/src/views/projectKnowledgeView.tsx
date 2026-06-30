@@ -74,6 +74,11 @@ function qualityFlagCopy(flag: string, stalenessReason: string): { tone: "warnin
         tone: "warning",
         text: "建库已完成，但当前证据库仅包含 synthetic/fake 候选结果。授权判断仍然受证据门控，不能视为真实检索结论。",
       };
+    case "non_patent_source":
+      return {
+        tone: "warning",
+        text: "当前纳入项包含非专利来源，不能作为项目现有技术库就绪依据；请改用专利检索来源或重新筛选候选文献。",
+      };
     case "empty_corpus":
       return {
         tone: "warning",
@@ -152,6 +157,7 @@ export function ProjectKnowledgeView({
   const status = knowledge?.state.status ?? "not_started";
   const candidates = knowledge?.candidates ?? [];
   const plan = knowledge?.latest_plan ?? null;
+  const planWarnings = plan?.warnings ?? [];
   const intent = knowledge?.latest_intent ?? null;
   const state = knowledge?.state;
   const latestCorpusVersion = knowledge?.latest_corpus_version ?? null;
@@ -197,6 +203,7 @@ export function ProjectKnowledgeView({
   }
 
   const PrimaryIcon = primaryAction.icon;
+  const primaryActionDisabled = busy.startsWith("knowledge") || (status === "candidates_pending" && !canBuildCorpus);
 
   return (
     <div className="flex flex-col gap-4">
@@ -210,7 +217,7 @@ export function ProjectKnowledgeView({
           </div>
           <button
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-[var(--action-primary)] to-[color-mix(in_oklch,var(--action-primary),black_30%)] px-5 py-2.5 font-medium text-[var(--action-primary-contrast)] disabled:opacity-50"
-            disabled={busy.startsWith("knowledge")}
+            disabled={primaryActionDisabled}
             onClick={primaryAction.action}
             type="button"
           >
@@ -256,6 +263,18 @@ export function ProjectKnowledgeView({
               <p className="text-sm text-[var(--text-primary)]/70">
                 {intent.technical_means || intent.technical_object}
               </p>
+              {planWarnings.length > 0 && (
+                <div className="rounded-lg border border-[var(--warning,#d97706)]/30 bg-[var(--warning,#d97706)]/10 px-4 py-3 text-sm text-[var(--text-primary)]">
+                  <div className="flex flex-col gap-2">
+                    {planWarnings.map((warning) => (
+                      <p className="flex items-start gap-2" key={warning}>
+                        <AlertTriangle className="mt-0.5 shrink-0" size={15} />
+                        <span>{warning}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {intent.keywords_zh.map((keyword) => (
                   <span className="tag" key={keyword}>

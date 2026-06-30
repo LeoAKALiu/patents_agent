@@ -21,6 +21,13 @@ from backend.app.services.project_knowledge_service import (
 router = APIRouter(tags=["project-knowledge"])
 
 
+def _resolve_patent_search_providers(request: Request, project_id: str, plan_id: str):
+    providers = getattr(request.app.state, "project_patent_search_providers", None)
+    if callable(providers):
+        return providers(project_id=project_id, plan_id=plan_id)
+    return providers
+
+
 @router.get("/api/projects/{project_id}/knowledge")
 def get_project_knowledge(project_id: str, request: Request) -> dict:
     repo = get_project_repository(request)
@@ -41,12 +48,27 @@ def run_project_search_plan(project_id: str, plan_id: str, request: Request) -> 
     repo = get_project_repository(request)
     require_project(project_id, repo)
     try:
-        overview = run_agent_search_plan(request.app.state.store, project_id, plan_id)
+        overview = run_agent_search_plan(
+            request.app.state.store,
+            project_id,
+            plan_id,
+            providers=_resolve_patent_search_providers(request, project_id, plan_id),
+        )
     except ProjectKnowledgeConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return overview.model_dump(mode="json")
+
+
+@router.get("/api/projects/{project_id}/knowledge/search-ledger/{ledger_id}")
+def get_project_search_ledger(project_id: str, ledger_id: str, request: Request) -> dict:
+    repo = get_project_repository(request)
+    require_project(project_id, repo)
+    ledger = request.app.state.store.get_project_search_ledger(project_id, ledger_id)
+    if ledger is None:
+        raise HTTPException(status_code=404, detail="Project search ledger not found.")
+    return ledger.model_dump(mode="json")
 
 
 @router.get("/api/projects/{project_id}/knowledge/candidates")

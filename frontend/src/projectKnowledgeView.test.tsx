@@ -69,13 +69,14 @@ const baseOverview: ProjectKnowledgeOverview = {
         label: "宽召回检索",
         purpose: "尽量找全相关专利",
         queries: ["城市体检 智能体 任务编排"],
-        sources: ["fake"],
+        sources: ["google_patents"],
       },
     ],
-    target_sources: ["fake"],
+    target_sources: ["google_patents"],
     target_result_count: 20,
     filters: {},
     warnings: [],
+    metadata: {},
     created_at: "",
     confirmed_at: "",
     run_started_at: "",
@@ -86,7 +87,7 @@ const baseOverview: ProjectKnowledgeOverview = {
       id: "c-1",
       project_id: "p-1",
       plan_id: "plan-1",
-      source: "fake",
+      source: "google_patents",
       title: "一种城市体检任务编排方法",
       publication_number: "CN100A",
       application_number: null,
@@ -223,6 +224,96 @@ describe("ProjectKnowledgeView", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "确认建库" })[0]);
     expect(onBuildProjectCorpus).toHaveBeenCalled();
+  });
+
+  it("disables the primary corpus build action until a candidate is included", () => {
+    const onBuildProjectCorpus = vi.fn();
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      state: {
+        ...baseOverview.state,
+        status: "candidates_pending",
+        quality_flags: ["candidates_need_confirmation"],
+      },
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={onBuildProjectCorpus}
+      />,
+    );
+
+    const primaryBuildButton = screen.getByRole("button", { name: "确认建库" });
+    expect(primaryBuildButton).toBeDisabled();
+
+    fireEvent.click(primaryBuildButton);
+    expect(onBuildProjectCorpus).not.toHaveBeenCalled();
+  });
+
+  it("renders non-patent source corpus flags as warning guidance", () => {
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      state: {
+        ...baseOverview.state,
+        status: "needs_supplemental_search",
+        quality_flags: ["non_patent_source"],
+      },
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/包含非专利来源/)).toBeInTheDocument();
+    expect(screen.getByText(/不能作为项目现有技术库就绪依据/)).toBeInTheDocument();
+  });
+
+  it("renders real provider warnings and source badges without fake success copy", () => {
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      latest_plan: {
+        ...baseOverview.latest_plan!,
+        warnings: ["Google Patents returned no parseable hits for query: 城市体检"],
+      },
+      candidates: [
+        {
+          ...baseOverview.candidates[0],
+          source: "google_patents",
+          publication_number: "CN112233445A",
+          title: "城市体检智能体调度方法",
+        },
+      ],
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Google Patents returned no parseable hits/)).toBeInTheDocument();
+    expect(screen.getByText(/google_patents/)).toBeInTheDocument();
+    expect(screen.queryByText(/fake/)).not.toBeInTheDocument();
   });
 
   it("regenerates a fresh plan for stale knowledge states", () => {

@@ -1242,6 +1242,63 @@ class SearchPlanStrategyGroup(BaseModel):
     sources: list[str] = Field(default_factory=list)
 
 
+class PatentSearchFilters(BaseModel):
+    jurisdictions: list[str] = Field(default_factory=list)
+    date_range: str = ""
+    ipc: list[str] = Field(default_factory=list)
+    cpc: list[str] = Field(default_factory=list)
+    negative_keywords: list[str] = Field(default_factory=list)
+
+
+class ProviderAttempt(BaseModel):
+    id: str
+    provider: str
+    query: str
+    filters: dict[str, Any] = Field(default_factory=dict)
+    status: str = Field(default="ok", pattern="^(ok|skipped|failed|timed_out|partial)$")
+    hit_count: int = 0
+    retained_count: int = 0
+    warnings: list[str] = Field(default_factory=list)
+    failure_reason: str = ""
+    started_at: str = ""
+    finished_at: str = ""
+
+
+class PatentSearchHit(BaseModel):
+    id: str
+    source: str
+    query: str
+    title: str
+    url: str
+    provider_attempt_id: str = ""
+    publication_number: str | None = None
+    application_number: str | None = None
+    applicant: str = ""
+    publication_date: str = ""
+    grant_date: str = ""
+    abstract: str | None = None
+    ipc: list[str] = Field(default_factory=list)
+    cpc: list[str] = Field(default_factory=list)
+    family_id: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    def to_candidate(
+        self,
+        *,
+        project_id: str,
+        plan_id: str,
+        strategy_group_id: str,
+    ) -> "PriorArtCandidate":
+        from backend.app.knowledge.patent_search import patent_hit_to_candidate
+
+        return patent_hit_to_candidate(
+            self,
+            project_id=project_id,
+            plan_id=plan_id,
+            strategy_group_id=strategy_group_id,
+        )
+
+
 class AgentSearchPlan(BaseModel):
     id: str
     project_id: str
@@ -1251,11 +1308,22 @@ class AgentSearchPlan(BaseModel):
     target_sources: list[str] = Field(default_factory=list)
     target_result_count: int = 50
     filters: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
     created_at: str = ""
     confirmed_at: str = ""
     run_started_at: str = ""
     run_finished_at: str = ""
+
+
+class ProjectSearchLedger(BaseModel):
+    id: str
+    project_id: str
+    plan_id: str
+    attempts: list[ProviderAttempt] = Field(default_factory=list)
+    retained_candidate_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    created_at: str = ""
 
 
 class PriorArtCandidate(BaseModel):
