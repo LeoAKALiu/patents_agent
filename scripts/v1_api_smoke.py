@@ -1072,7 +1072,7 @@ def _build_report(results: list[dict[str, Any]], failures: list[dict[str, str]])
 
 def _render_markdown_report(report: dict[str, Any]) -> str:
     lines = [
-        "# PatentAgent v1.1 deterministic quality gate",
+        "# GrantAtlas v1.1 deterministic quality gate",
         "",
         f"- passed: {str(report['passed']).lower()}",
         f"- deterministic: {str(report['deterministic']).lower()}",
@@ -1132,7 +1132,7 @@ def _write_report(report_dir: Path, report: dict[str, Any]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run deterministic PatentAgent v1.1 golden E2E quality gates.")
+    parser = argparse.ArgumentParser(description="Run deterministic GrantAtlas v1.1 golden E2E quality gates.")
     parser.add_argument("--report-dir", type=Path, help="Directory for v1.1 quality JSON/Markdown reports.")
     parser.add_argument("--json", action="store_true", help="Print the full report JSON to stdout.")
     args = parser.parse_args(argv)

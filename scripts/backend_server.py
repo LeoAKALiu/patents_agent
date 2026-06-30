@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Frozen backend entry point for the PatentAgent desktop bundle."""
+"""Frozen backend entry point for the GrantAtlas desktop bundle."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from backend.app.main import app
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the bundled PatentAgent backend.")
+    parser = argparse.ArgumentParser(description="Run the bundled GrantAtlas backend.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--log-level", default="warning")

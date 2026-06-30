@@ -204,7 +204,7 @@ export function StartChoiceScreen({ onSelect }: { onSelect: (choice: StartChoice
         <ShieldCheck size={18} aria-hidden="true" />
         <div>
           <strong>正式提交前请专业复核</strong>
-          <p>PatentAgent 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。</p>
+          <p>权衡 GrantAtlas 生成内容仅为专利撰写辅助材料，不替代专利代理师、律师或正式法律意见。</p>
         </div>
       </div>
     </section>

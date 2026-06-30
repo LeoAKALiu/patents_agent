@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "PatentAgent",
+  "productName": "GrantAtlas",
   "version": "1.1.0",
   "identifier": "xin.liubo.patentagent",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "PatentAgent",
+        "title": "权衡 GrantAtlas",
         "width": 1280,
         "height": 820,
         "minWidth": 960,

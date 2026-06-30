@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import Any
 
 
-APP_BUNDLE_NAME = "PatentAgent.app"
-APP_EXECUTABLE_RELATIVE = Path("Contents/MacOS/patentagent-tauri")
+APP_BUNDLE_NAME = "GrantAtlas.app"
+APP_EXECUTABLE_RELATIVE = Path("Contents/MacOS/grantatlas-tauri")
 CODE_SIGNATURE_RELATIVE = Path("Contents/_CodeSignature/CodeResources")
 BUNDLED_BACKEND_RELATIVE = Path("Contents/Resources/backend/app/main.py")
 BUNDLED_BACKEND_EXECUTABLE_RELATIVE = Path(
@@ -193,7 +193,7 @@ def _parse_pid_ppid(prefix: str) -> tuple[int, int] | None:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Smoke-test a local PatentAgent Tauri DMG on macOS."
+        description="Smoke-test a local GrantAtlas Tauri DMG on macOS."
     )
     parser.add_argument("dmg", type=Path, help="Path to the Tauri DMG artifact")
     parser.add_argument(
@@ -315,7 +315,7 @@ def validate_bundle_metadata(app_bundle: Path) -> BundleMetadataResult:
         errors.append(f"unexpected CFBundleExecutable: {executable_name!r}")
     if not executable.is_file():
         errors.append(f"bundle executable missing: {executable}")
-    if display_name != "PatentAgent":
+    if display_name != "GrantAtlas":
         errors.append(f"unexpected display name: {display_name!r}")
     if not bundle_identifier:
         errors.append("CFBundleIdentifier is missing")
@@ -513,7 +513,7 @@ def terminate_process(pid: int | None) -> None:
 
 def quit_app(smoke_dir: Path) -> subprocess.CompletedProcess[str]:
     return run_text_command(
-        ["osascript", "-e", 'tell application "PatentAgent" to quit'],
+        ["osascript", "-e", 'tell application "GrantAtlas" to quit'],
         smoke_dir / "osascript_quit.txt",
         check=False,
     )

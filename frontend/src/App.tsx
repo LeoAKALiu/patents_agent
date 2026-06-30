@@ -884,7 +884,7 @@ function App() {
         return;
       }
     }
-    const projectName = selectedProject.name || "PatentAgent";
+    const projectName = selectedProject.name || "权衡 GrantAtlas";
     const safeName = projectName.replace(/[\\/:*?"<>|]/g, "_");
     const option =
       format === "docx"

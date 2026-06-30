@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for the self-contained PatentAgent backend sidecar."""
+"""PyInstaller spec for the self-contained GrantAtlas backend sidecar."""
 
 from pathlib import Path
 

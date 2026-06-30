@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ══════════════════════════════════════════════════════════════════
-   PatentAgent stylesheet entry
+   GrantAtlas stylesheet entry
    ────────────────────────────────────────────────────────────────
    Token + base + glass layers live in src/styles/*.css. This file now
    holds only the Tailwind v4 `@theme` bridge (so utilities like
@@ -100,8 +100,14 @@
   background: color-mix(in oklch, var(--action-primary), transparent 82%);
   border: 1px solid color-mix(in oklch, var(--action-primary), var(--border-subtle) 50%);
   color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-weight: 800;
+  overflow: hidden;
+}
+
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .brand > span:not(.brand-mark) {

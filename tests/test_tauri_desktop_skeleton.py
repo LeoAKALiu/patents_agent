@@ -85,9 +85,9 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     assert "backend did not start with bundled backend or any Python interpreter" in main_rs
     assert "backend-startup-error.txt" in main_rs
     assert "backend-startup.log" in main_rs
-    assert "patentagent-tauri-startup.log" in main_rs
+    assert "grantatlas-tauri-startup.log" in main_rs
     assert "trying python:" in main_rs
-    assert "PatentAgent backend startup failed" in main_rs
+    assert "GrantAtlas backend startup failed" in main_rs
     assert "backend.app.main:app" in main_rs
     assert "python3" in main_rs
     assert "--host" in main_rs
@@ -107,6 +107,8 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
 def test_tauri_dom_smoke_is_env_gated_and_checks_real_renderer_root() -> None:
     main_rs = read(TAURI_DIR / "src" / "main.rs")
 
+    assert "GRANTATLAS_TAURI_DOM_SMOKE" in main_rs
+    assert "GRANTATLAS_TAURI_DOM_SMOKE_REPORT" in main_rs
     assert "PATENTAGENT_TAURI_DOM_SMOKE" in main_rs
     assert "PATENTAGENT_TAURI_DOM_SMOKE_REPORT" in main_rs
     assert "eval_with_callback" in main_rs

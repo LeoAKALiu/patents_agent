@@ -11,7 +11,9 @@ export interface ShellNavSection {
 export interface ShellSidebarProps {
   brandName?: string;
   brandSubtitle?: string;
-  brandMark?: string;
+  brandMark?: ReactNode;
+  brandLogoSrc?: string | null;
+  brandLogoAlt?: string;
   mainSections: ShellNavSection[];
   activeSectionId: string;
   onSelectSection: (id: string) => void;
@@ -22,9 +24,11 @@ export interface ShellSidebarProps {
 }
 
 export function ShellSidebar({
-  brandName = "PatentAgent",
-  brandSubtitle = "授权导向专利工程系统",
-  brandMark = "PA",
+  brandName = "权衡 GrantAtlas",
+  brandSubtitle = "国际专利授权工程系统",
+  brandMark,
+  brandLogoSrc = "/logo.svg",
+  brandLogoAlt = "权衡 GrantAtlas logo",
   mainSections,
   activeSectionId,
   onSelectSection,
@@ -35,7 +39,9 @@ export function ShellSidebar({
   return (
     <aside className="sidebar" aria-label="主导航">
       <div className="brand" aria-label={`${brandName} home`}>
-        <span className="brand-mark">{brandMark}</span>
+        <span className="brand-mark">
+          {brandMark ?? (brandLogoSrc ? <img className="brand-logo" src={brandLogoSrc} alt={brandLogoAlt} /> : null)}
+        </span>
         <span>
           <strong>{brandName}</strong>
           <span>{brandSubtitle}</span>

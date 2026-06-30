@@ -12,7 +12,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/package_dmg.sh [options]
 
-Build a local PatentAgent macOS DMG from the current checkout and write a
+Build a local GrantAtlas macOS DMG from the current checkout and write a
 single handoff report under .artifacts/dmg/.
 
 Options:
@@ -125,7 +125,7 @@ directory = Path(sys.argv[1])
 if not directory.is_dir():
     raise SystemExit(0)
 
-candidates = [path for path in directory.glob("PatentAgent_*.dmg") if path.is_file()]
+candidates = [path for path in directory.glob("GrantAtlas_*.dmg") if path.is_file()]
 if candidates:
     print(max(candidates, key=lambda path: path.stat().st_mtime))
 PY
@@ -152,8 +152,8 @@ printf '%s\n' "$DIFF_STAT" > "${ARTIFACT_DIR}/git-diff-stat.txt"
 
 VERSION="$(version_from_tauri_config)"
 ARCH="$(tauri_arch)"
-DEFAULT_DMG="${ROOT_DIR}/src-tauri/target/release/bundle/dmg/PatentAgent_${VERSION}_${ARCH}.dmg"
-IDENTITY_DMG="${ARTIFACT_DIR}/PatentAgent_${VERSION}_${SHORT_SHA}_${TIMESTAMP}_${ARCH}.dmg"
+DEFAULT_DMG="${ROOT_DIR}/src-tauri/target/release/bundle/dmg/GrantAtlas_${VERSION}_${ARCH}.dmg"
+IDENTITY_DMG="${ARTIFACT_DIR}/GrantAtlas_${VERSION}_${SHORT_SHA}_${TIMESTAMP}_${ARCH}.dmg"
 BUILD_RESULT="not-run"
 VERIFY_RESULT="not-run"
 SMOKE_RESULT="skipped"
@@ -174,18 +174,18 @@ if [[ "$RUN_FULL" == "1" ]]; then
   run scripts/v1_smoke.sh
 fi
 
-log "detaching stale /Volumes/PatentAgent if present"
-if hdiutil info | grep -q '/Volumes/PatentAgent'; then
-  if run hdiutil detach /Volumes/PatentAgent; then
-    log "detached stale /Volumes/PatentAgent"
-  elif run hdiutil detach -force /Volumes/PatentAgent; then
-    log "force-detached stale /Volumes/PatentAgent"
+log "detaching stale /Volumes/GrantAtlas if present"
+if hdiutil info | grep -q '/Volumes/GrantAtlas'; then
+  if run hdiutil detach /Volumes/GrantAtlas; then
+    log "detached stale /Volumes/GrantAtlas"
+  elif run hdiutil detach -force /Volumes/GrantAtlas; then
+    log "force-detached stale /Volumes/GrantAtlas"
   else
-    printf 'Unable to detach stale /Volumes/PatentAgent. Close any running PatentAgent app and retry.\n' >&2
+    printf 'Unable to detach stale /Volumes/GrantAtlas. Close any running GrantAtlas app and retry.\n' >&2
     exit 1
   fi
 else
-  log "no stale /Volumes/PatentAgent mount found"
+  log "no stale /Volumes/GrantAtlas mount found"
 fi
 
 TAURI_BUILD=(cargo tauri build --bundles dmg --ci)
@@ -202,11 +202,11 @@ else
   BUNDLE_SCRIPT="${ROOT_DIR}/src-tauri/target/release/bundle/dmg/bundle_dmg.sh"
   MACOS_BUNDLE_DIR="${ROOT_DIR}/src-tauri/target/release/bundle/macos"
   VOLICON="${ROOT_DIR}/src-tauri/target/release/bundle/dmg/icon.icns"
-  if [[ -f "$BUNDLE_SCRIPT" && -d "${MACOS_BUNDLE_DIR}/PatentAgent.app" ]]; then
+  if [[ -f "$BUNDLE_SCRIPT" && -d "${MACOS_BUNDLE_DIR}/GrantAtlas.app" ]]; then
     log "Tauri build returned non-zero; trying generated bundle_dmg.sh fallback"
     rm -f "$DEFAULT_DMG"
     run bash "$BUNDLE_SCRIPT" \
-      --volname PatentAgent \
+      --volname GrantAtlas \
       --volicon "$VOLICON" \
       --skip-jenkins \
       "$DEFAULT_DMG" \
@@ -243,13 +243,13 @@ if [[ "$SKIP_SMOKE" == "0" ]]; then
   SMOKE_DIR="$("$PYTHON_BIN" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("smoke_dir",""))' "$SMOKE_JSON")"
 
   if [[ "$SKIP_DOM_SMOKE" == "0" ]]; then
-    SMOKE_APP="${SMOKE_DIR}/PatentAgent.app"
-    SMOKE_EXECUTABLE="${SMOKE_APP}/Contents/MacOS/patentagent-tauri"
+    SMOKE_APP="${SMOKE_DIR}/GrantAtlas.app"
+    SMOKE_EXECUTABLE="${SMOKE_APP}/Contents/MacOS/grantatlas-tauri"
     if [[ -x "$SMOKE_EXECUTABLE" ]]; then
       log "running Tauri DOM smoke"
       run env \
-        PATENTAGENT_TAURI_DOM_SMOKE=1 \
-        PATENTAGENT_TAURI_DOM_SMOKE_REPORT="$DOM_SMOKE_REPORT" \
+        GRANTATLAS_TAURI_DOM_SMOKE=1 \
+        GRANTATLAS_TAURI_DOM_SMOKE_REPORT="$DOM_SMOKE_REPORT" \
         "$SMOKE_EXECUTABLE"
       DOM_SMOKE_RESULT="pass"
     else
@@ -260,7 +260,7 @@ if [[ "$SKIP_SMOKE" == "0" ]]; then
 fi
 
 cat > "$REPORT_FILE" <<EOF
-# PatentAgent DMG Handoff
+# GrantAtlas DMG Handoff
 
 - Source: ${BRANCH}@${SHORT_SHA}
 - Full SHA: ${FULL_SHA}

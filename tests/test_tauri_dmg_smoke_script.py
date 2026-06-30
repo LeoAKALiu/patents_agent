@@ -65,7 +65,7 @@ def test_parse_backend_process_accepts_bundled_backend_executable() -> None:
     smoke = load_smoke_script()
 
     parsed = smoke.parse_backend_process(
-        "12345 12344 /Applications/PatentAgent.app/Contents/Resources/"
+        "12345 12344 /Applications/GrantAtlas.app/Contents/Resources/"
         "patentagent-backend/patentagent-backend --host 127.0.0.1 --port 51002 "
         "--log-level warning"
     )
@@ -74,7 +74,7 @@ def test_parse_backend_process_accepts_bundled_backend_executable() -> None:
         pid=12345,
         ppid=12344,
         port=51002,
-        command="/Applications/PatentAgent.app/Contents/Resources/patentagent-backend/"
+        command="/Applications/GrantAtlas.app/Contents/Resources/patentagent-backend/"
         "patentagent-backend --host 127.0.0.1 --port 51002 --log-level warning",
     )
 
@@ -84,7 +84,7 @@ def test_spctl_rejection_is_classified_as_not_notarized() -> None:
 
     status = smoke.classify_spctl(
         3,
-        "/tmp/PatentAgent.app: rejected\nsource=no usable signature\n",
+        "/tmp/GrantAtlas.app: rejected\nsource=no usable signature\n",
     )
 
     assert status == "rejected-not-notarized"
@@ -95,7 +95,7 @@ def test_spctl_too_many_open_files_is_classified_as_assessment_tool_error() -> N
 
     status = smoke.classify_spctl(
         1,
-        "/tmp/PatentAgent.app: Too many open files\n",
+        "/tmp/GrantAtlas.app: Too many open files\n",
     )
 
     assert status == "assessment-tool-error-too-many-open-files"
@@ -106,7 +106,7 @@ def test_spctl_invalid_bundle_message_is_classified_as_assessment_tool_error() -
 
     status = smoke.classify_spctl(
         1,
-        "/tmp/PatentAgent.app: bundle format unrecognized, invalid, or unsuitable\n",
+        "/tmp/GrantAtlas.app: bundle format unrecognized, invalid, or unsuitable\n",
     )
 
     assert status == "assessment-tool-error-invalid-bundle"
@@ -117,7 +117,7 @@ def test_spctl_invalid_resource_directory_is_classified_as_assessment_tool_error
 
     status = smoke.classify_spctl(
         1,
-        "/tmp/PatentAgent.app: invalid resource directory (directory or signature have been modified)\n",
+        "/tmp/GrantAtlas.app: invalid resource directory (directory or signature have been modified)\n",
     )
 
     assert status == "assessment-tool-error-invalid-resource-directory"
@@ -148,7 +148,7 @@ def test_open_app_uses_launchpad_like_path_without_python_override(tmp_path: Pat
 
     smoke.run_text_command = runner
 
-    smoke.open_app(tmp_path / "PatentAgent.app", tmp_path)
+    smoke.open_app(tmp_path / "GrantAtlas.app", tmp_path)
 
     assert calls == [
         [
@@ -160,7 +160,7 @@ def test_open_app_uses_launchpad_like_path_without_python_override(tmp_path: Pat
             str(tmp_path / "app_stderr.txt"),
             "--env",
             f"PATH={smoke.LAUNCHPAD_PATH}",
-            str(tmp_path / "PatentAgent.app"),
+            str(tmp_path / "GrantAtlas.app"),
         ]
     ]
     assert not any("PATENTAGENT_PYTHON" in arg for arg in calls[0])
@@ -205,11 +205,11 @@ def test_detach_retries_with_force_and_reports_failure(tmp_path: Path) -> None:
         output_path.write_text("detach failed\n", encoding="utf-8")
         return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="busy")
 
-    result = smoke.detach_dmg(Path("/Volumes/PatentAgent"), tmp_path, runner=runner)
+    result = smoke.detach_dmg(Path("/Volumes/GrantAtlas"), tmp_path, runner=runner)
 
     assert calls == [
-        ["hdiutil", "detach", "/Volumes/PatentAgent"],
-        ["hdiutil", "detach", "-force", "/Volumes/PatentAgent"],
+        ["hdiutil", "detach", "/Volumes/GrantAtlas"],
+        ["hdiutil", "detach", "-force", "/Volumes/GrantAtlas"],
     ]
     assert result.ok is False
     assert result.forced is True
@@ -219,18 +219,18 @@ def test_detach_retries_with_force_and_reports_failure(tmp_path: Path) -> None:
 
 def test_bundle_metadata_validation_checks_executable_and_version(tmp_path: Path) -> None:
     smoke = load_smoke_script()
-    contents = tmp_path / "PatentAgent.app" / "Contents"
+    contents = tmp_path / "GrantAtlas.app" / "Contents"
     macos = contents / "MacOS"
     macos.mkdir(parents=True)
-    (macos / "patentagent-tauri").write_text("#!/bin/sh\n", encoding="utf-8")
+    (macos / "grantatlas-tauri").write_text("#!/bin/sh\n", encoding="utf-8")
     plist_path = contents / "Info.plist"
     plist_path.write_text(
         """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleDisplayName</key><string>PatentAgent</string>
-<key>CFBundleExecutable</key><string>patentagent-tauri</string>
+<key>CFBundleDisplayName</key><string>GrantAtlas</string>
+<key>CFBundleExecutable</key><string>grantatlas-tauri</string>
 <key>CFBundleIdentifier</key><string>xin.liubo.patentagent</string>
 <key>CFBundleShortVersionString</key><string>1.1.0</string>
 <key>CFBundleVersion</key><string>1.1.0</string>
@@ -239,11 +239,11 @@ def test_bundle_metadata_validation_checks_executable_and_version(tmp_path: Path
         encoding="utf-8",
     )
 
-    result = smoke.validate_bundle_metadata(tmp_path / "PatentAgent.app")
+    result = smoke.validate_bundle_metadata(tmp_path / "GrantAtlas.app")
 
     assert result.ok is True
     assert result.info_plist == str(plist_path)
-    assert result.executable == str(macos / "patentagent-tauri")
+    assert result.executable == str(macos / "grantatlas-tauri")
     assert result.version == "1.1.0"
 
 

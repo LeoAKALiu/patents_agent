@@ -146,7 +146,7 @@ fn main() {
         .setup(move |app| {
             let data_dir = app.path().app_data_dir().unwrap_or_else(|_| {
                 std::env::temp_dir()
-                    .join("PatentAgent")
+                    .join("GrantAtlas")
                     .join("backend-data")
             });
             fs::create_dir_all(&data_dir)?;
@@ -177,7 +177,7 @@ fn main() {
                 Err(err) => {
                     append_backend_startup_log(&data_dir, &format!("backend failed: {err}"));
                     write_backend_startup_error(&data_dir, &err);
-                    eprintln!("PatentAgent backend startup failed: {err}");
+                    eprintln!("GrantAtlas backend startup failed: {err}");
                 }
             }
             if dom_smoke_enabled() {
@@ -204,7 +204,7 @@ fn main() {
             open_folder,
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build PatentAgent Tauri app");
+        .expect("failed to build GrantAtlas Tauri app");
     app.run(|app_handle, event| match event {
         tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
             shutdown_backend(app_handle);
@@ -214,11 +214,14 @@ fn main() {
 }
 
 fn dom_smoke_enabled() -> bool {
-    std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE").is_some()
+    std::env::var_os("GRANTATLAS_TAURI_DOM_SMOKE").is_some()
+        || std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE").is_some()
 }
 
 fn dom_smoke_report_path() -> Option<PathBuf> {
-    std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE_REPORT").map(PathBuf::from)
+    std::env::var_os("GRANTATLAS_TAURI_DOM_SMOKE_REPORT")
+        .or_else(|| std::env::var_os("PATENTAGENT_TAURI_DOM_SMOKE_REPORT"))
+        .map(PathBuf::from)
 }
 
 fn start_dom_smoke_timeout(app_handle: AppHandle, done: Arc<AtomicBool>) {
@@ -775,7 +778,7 @@ fn write_backend_startup_error(data_dir: &Path, error: &str) {
 fn append_backend_startup_log(data_dir: &Path, message: &str) {
     for path in [
         data_dir.join("backend-startup.log"),
-        std::env::temp_dir().join("patentagent-tauri-startup.log"),
+        std::env::temp_dir().join("grantatlas-tauri-startup.log"),
     ] {
         if let Some(parent) = path.parent() {
             let _ = fs::create_dir_all(parent);
