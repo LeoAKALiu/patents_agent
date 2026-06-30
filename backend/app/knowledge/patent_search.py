@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Any, Protocol
 
 from backend.app.research.providers import sanitize_untrusted_text
 from backend.app.schemas import PatentSearchFilters, PatentSearchHit, PriorArtCandidate
@@ -35,7 +35,23 @@ class PatentSearchProvider(Protocol):
         *,
         filters: PatentSearchFilters,
         limit: int,
-    ) -> tuple[list[PatentSearchHit], list[str]]: ...
+        ) -> tuple[list[PatentSearchHit], list[str]]: ...
+
+
+def _sanitize_candidate_text(value: str | None) -> str:
+    return sanitize_untrusted_text(value) if value else ""
+
+
+def _sanitize_candidate_metadata(value: Any) -> Any:
+    if isinstance(value, str):
+        return _sanitize_candidate_text(value)
+    if isinstance(value, list):
+        return [_sanitize_candidate_metadata(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_sanitize_candidate_metadata(item) for item in value)
+    if isinstance(value, dict):
+        return {key: _sanitize_candidate_metadata(item) for key, item in value.items()}
+    return value
 
 
 def _dedupe_key(hit: PatentSearchHit) -> str:
@@ -55,7 +71,7 @@ def _merge_metadata(*values: dict[str, object]) -> dict[str, object]:
 
 def dedupe_patent_search_hits(hits: list[PatentSearchHit]) -> list[PatentSearchHit]:
     retained: list[PatentSearchHit] = []
-    by_key: dict[str, PatentSearchHit] = {}
+    by_key: dict[str, int] = {}
     for hit in hits:
         sanitized_hit = hit.model_copy(
             update={
@@ -65,7 +81,8 @@ def dedupe_patent_search_hits(hits: list[PatentSearchHit]) -> list[PatentSearchH
         )
         key = _dedupe_key(sanitized_hit)
         if key not in by_key:
-            by_key[key] = sanitized_hit.model_copy(
+            by_key[key] = len(retained)
+            retained_hit = sanitized_hit.model_copy(
                 update={
                     "metadata": {
                         **sanitized_hit.metadata,
@@ -76,10 +93,10 @@ def dedupe_patent_search_hits(hits: list[PatentSearchHit]) -> list[PatentSearchH
                     },
                 }
             )
-            retained.append(by_key[key])
+            retained.append(retained_hit)
             continue
 
-        existing = by_key[key]
+        existing = retained[by_key[key]]
         combined_sources = list(
             dict.fromkeys(
                 [
@@ -107,8 +124,7 @@ def dedupe_patent_search_hits(hits: list[PatentSearchHit]) -> list[PatentSearchH
                 )
             }
         )
-        by_key[key] = merged
-        retained[-1] = merged
+        retained[by_key[key]] = merged
     return retained
 
 
@@ -121,6 +137,14 @@ def patent_hit_to_candidate(
 ) -> PriorArtCandidate:
     normalized_pub = normalize_publication_number(hit.publication_number)
     matched_terms = hit.query.split()
+    sanitized_query = sanitize_untrusted_text(hit.query)
+    sanitized_metadata = _sanitize_candidate_metadata(hit.metadata)
+    if isinstance(sanitized_metadata, dict):
+        sanitized_metadata["source_attempt_ids"] = sanitized_metadata.get("source_attempt_ids") or (
+            [hit.provider_attempt_id] if hit.provider_attempt_id else []
+        )
+    else:
+        sanitized_metadata = {}
     return PriorArtCandidate(
         id=stable_id(project_id, plan_id, strategy_group_id, hit.source, normalized_pub or hit.url),
         project_id=project_id,
@@ -129,7 +153,7 @@ def patent_hit_to_candidate(
         title=sanitize_untrusted_text(hit.title, max_len=300) or hit.title,
         publication_number=normalized_pub or hit.publication_number,
         application_number=hit.application_number,
-        applicant=hit.applicant,
+        applicant=_sanitize_candidate_text(hit.applicant),
         publication_date=hit.publication_date,
         grant_date=hit.grant_date,
         abstract=sanitize_untrusted_text(hit.abstract) if hit.abstract else None,
@@ -143,8 +167,8 @@ def patent_hit_to_candidate(
         recommended_action="review",
         recommendation_reason="真实专利检索命中，等待全文与相关度复核。",
         metadata={
-            **hit.metadata,
-            "query": hit.query,
+            **sanitized_metadata,
+            "query": sanitized_query,
             "strategy_group": strategy_group_id,
             "normalized_publication_number": normalized_pub,
             "source_attempt_ids": hit.metadata.get("source_attempt_ids")
@@ -152,4 +176,3 @@ def patent_hit_to_candidate(
         },
         created_at=now_iso(),
     )
-
