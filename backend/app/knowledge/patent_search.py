@@ -317,7 +317,23 @@ def run_provider_chain(
     warnings: list[str] = []
 
     if not providers:
-        warnings.append("No patent search providers are configured for runtime search.")
+        message = "No patent search providers are configured for runtime search."
+        warnings.append(message)
+        for _strategy_group_id, query in queries:
+            timestamp = now_iso()
+            attempts.append(
+                ProviderAttempt(
+                    id=uuid.uuid4().hex,
+                    provider="provider_chain",
+                    query=query,
+                    filters=filters.model_dump(mode="json"),
+                    status="skipped",
+                    warnings=[message],
+                    failure_reason=message,
+                    started_at=timestamp,
+                    finished_at=timestamp,
+                )
+            )
 
     for strategy_group_id, query in queries:
         for provider in providers:
@@ -454,7 +470,7 @@ def patent_hit_to_candidate(
             "query": sanitized_query,
             "strategy_group": strategy_group_id,
             "normalized_publication_number": normalized_pub,
-            "source_attempt_ids": hit.metadata.get("source_attempt_ids")
+            "source_attempt_ids": sanitized_metadata.get("source_attempt_ids")
             or ([hit.provider_attempt_id] if hit.provider_attempt_id else []),
         },
         created_at=now_iso(),

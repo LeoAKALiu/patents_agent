@@ -82,6 +82,25 @@ def _static_provider() -> StaticPatentSearchProvider:
     )
 
 
+def _semantic_scholar_provider() -> StaticPatentSearchProvider:
+    return StaticPatentSearchProvider(
+        source_id="semantic_scholar",
+        hits=[
+            PatentSearchHit(
+                id="paper-1",
+                source="semantic_scholar",
+                query="城市体检 智能体",
+                title="面向城市体检的智能体任务编排研究",
+                publication_number="SS-2024-001",
+                url="https://example.com/semantic-scholar/paper-1",
+                applicant="示例作者",
+                publication_date="2024-01-01",
+                abstract="这是一篇论文而不是专利。",
+            ),
+        ],
+    )
+
+
 def test_project_knowledge_state_round_trips(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     state = ProjectKnowledgeState(
@@ -508,6 +527,33 @@ def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
     assert after_build.state.fulltext_coverage == 1.0
     assert after_build.latest_corpus_version.quality_report is not None
     assert after_build.latest_corpus_version.quality_report.failures == []
+
+
+def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_semantic_scholar_provider()])
+
+    assert after_run.candidates
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    assert after_build.state.status == "needs_supplemental_search"
+    assert after_build.state.quality_flags == ["non_patent_source"]
+    assert after_build.state.claim_coverage == 0.0
+    assert after_build.state.fulltext_coverage == 0.0
+    assert after_build.latest_corpus_version is not None
+    assert after_build.latest_corpus_version.status == "needs_supplemental_search"
+    assert after_build.latest_corpus_version.quality_report is not None
+    assert after_build.latest_corpus_version.quality_report.failures == [
+        {
+            "code": "non_patent_source",
+            "message": "Corpus includes non-patent sources: semantic_scholar",
+        }
+    ]
 
 
 def test_create_project_corpus_rejects_build_before_search(tmp_path):

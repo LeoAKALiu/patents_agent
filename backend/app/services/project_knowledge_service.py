@@ -30,6 +30,7 @@ from backend.app.storage import SQLiteStore
 
 ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通过", "以及", "进行", "生成"}
 PROJECT_PATENT_PROVIDER_SOURCES = ["cnipa_epub", "google_patents"]
+PROJECT_PATENT_PROVIDER_SOURCE_SET = frozenset(PROJECT_PATENT_PROVIDER_SOURCES)
 
 
 class ProjectKnowledgeConflictError(ValueError):
@@ -381,20 +382,6 @@ def run_patent_search_plan(
     return candidates, ledger
 
 
-def _replace_plan_candidates(
-    store: SQLiteStore,
-    project_id: str,
-    plan_id: str,
-    candidates: list[PriorArtCandidate],
-) -> list[PriorArtCandidate]:
-    with store.connection:
-        store.connection.execute(
-            "delete from prior_art_candidates where project_id = ? and plan_id = ?",
-            (project_id, plan_id),
-        )
-    return [store.upsert_prior_art_candidate(candidate) for candidate in candidates]
-
-
 def run_agent_search_plan(
     store: SQLiteStore,
     project_id: str,
@@ -406,12 +393,9 @@ def run_agent_search_plan(
     store.update_agent_search_plan(running)
     provider_chain = list(providers) if providers is not None else default_project_patent_providers()
     candidates, ledger = run_patent_search_plan(provider_chain, project_id, running)
-    store.create_project_search_ledger(ledger)
-    stored_candidates = _replace_plan_candidates(store, project_id, plan_id, candidates)
-    status = "completed" if stored_candidates else "failed"
     completed = running.model_copy(
         update={
-            "status": status,
+            "status": "completed" if candidates else "failed",
             "run_finished_at": _now(),
             "warnings": ledger.warnings,
             "metadata": {
@@ -420,17 +404,22 @@ def run_agent_search_plan(
             },
         }
     )
-    store.update_agent_search_plan(completed)
     state = ProjectKnowledgeState(
         project_id=project_id,
-        status="candidates_pending" if stored_candidates else "failed",
+        status="candidates_pending" if candidates else "failed",
         active_intent_id=completed.intent_id,
         active_plan_id=plan_id,
         last_search_at=_now(),
-        candidate_count=len(stored_candidates),
-        quality_flags=["candidates_need_confirmation"] if stored_candidates else ["no_hits"],
+        candidate_count=len(candidates),
+        quality_flags=["candidates_need_confirmation"] if candidates else ["no_hits"],
     )
-    store.upsert_project_knowledge_state(state)
+    stored_candidates, _stored_ledger = store.replace_agent_search_run(
+        project_id=project_id,
+        plan=completed,
+        candidates=candidates,
+        ledger=ledger,
+        state=state,
+    )
     return knowledge_overview(store, project_id)
 
 
@@ -454,16 +443,48 @@ def create_project_corpus_from_included_candidates(
         for candidate in candidate_pool
         if candidate.user_decision == "include"
     ]
-    all_synthetic = bool(included) and all(candidate.source == "fake" for candidate in included)
-    claim_coverage = 0.0 if all_synthetic else (1.0 if included else 0.0)
-    fulltext_coverage = 0.0 if all_synthetic else (1.0 if included else 0.0)
-    quality_flags = ["synthetic_evidence"] if all_synthetic else []
+    patent_included = [candidate for candidate in included if candidate.source in PROJECT_PATENT_PROVIDER_SOURCE_SET]
+    synthetic_included = [candidate for candidate in included if candidate.source == "fake"]
+    non_patent_included = [
+        candidate
+        for candidate in included
+        if candidate.source not in PROJECT_PATENT_PROVIDER_SOURCE_SET and candidate.source != "fake"
+    ]
+    all_synthetic = bool(included) and len(synthetic_included) == len(included)
+    includes_non_patent = bool(non_patent_included)
+    patent_ratio = (len(patent_included) / len(included)) if included else 0.0
+    if all_synthetic:
+        claim_coverage = 0.0
+        fulltext_coverage = 0.0
+        quality_flags = ["synthetic_evidence"]
+    elif includes_non_patent:
+        claim_coverage = patent_ratio
+        fulltext_coverage = patent_ratio
+        quality_flags = ["non_patent_source"]
+    else:
+        claim_coverage = 1.0 if included else 0.0
+        fulltext_coverage = 1.0 if included else 0.0
+        quality_flags = []
+    non_patent_sources = sorted({candidate.source for candidate in non_patent_included})
+    quality_failures: list[dict[str, str]] = []
+    if all_synthetic:
+        quality_failures.append(
+            {"code": "synthetic_evidence", "message": "Corpus built from synthetic fake-source candidates only."}
+        )
+    if includes_non_patent:
+        quality_failures.append(
+            {
+                "code": "non_patent_source",
+                "message": "Corpus includes non-patent sources: " + ", ".join(non_patent_sources),
+            }
+        )
+    corpus_status = "needs_supplemental_search" if (all_synthetic or includes_non_patent) else ("ready" if included else "failed")
     version = ProjectCorpusVersion(
         id=uuid.uuid4().hex,
         project_id=project_id,
         name=f"{project_id}-prior-art-v1",
         source_plan_id=plan_id,
-        status="needs_supplemental_search" if all_synthetic else ("ready" if included else "failed"),
+        status=corpus_status,
         document_count=len(included),
         chunk_count=len(included) * 3,
         claim_coverage=claim_coverage,
@@ -473,21 +494,23 @@ def create_project_corpus_from_included_candidates(
             processed_files=len(included),
             imported_documents=len(included),
             indexed_chunks=len(included) * 3,
-            fulltext_extractable_rate=0.0 if all_synthetic else (1.0 if included else 0.0),
+            fulltext_extractable_rate=fulltext_coverage,
             section_coverage={"claims": claim_coverage, "fulltext": fulltext_coverage},
-            low_quality_documents=[candidate.id for candidate in included] if all_synthetic else [],
-            failures=(
-                [{"code": "synthetic_evidence", "message": "Corpus built from synthetic fake-source candidates only."}]
+            low_quality_documents=(
+                [candidate.id for candidate in included]
                 if all_synthetic
-                else []
+                else [candidate.id for candidate in non_patent_included]
             ),
+            failures=quality_failures,
         ),
         created_at=_now(),
     )
     store.create_project_corpus_version(version)
-    state_status = "needs_supplemental_search" if all_synthetic or not included else "ready"
+    state_status = "needs_supplemental_search" if all_synthetic or includes_non_patent or not included else "ready"
     if all_synthetic:
         quality_flags = ["synthetic_evidence"]
+    elif includes_non_patent:
+        quality_flags = ["non_patent_source"]
     elif included:
         quality_flags = []
     else:
