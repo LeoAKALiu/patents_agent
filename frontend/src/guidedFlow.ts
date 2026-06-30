@@ -34,11 +34,12 @@ import type {
   ProjectMaterial,
   ProjectRecord,
 } from "./api";
-
-export type { PatentType };
+import { deliberationExpertSeatCount } from "./AgentProviderCards";
 import { canExportPackage, latestCompletedDeliberation } from "./domain";
 
-export type MainSectionId = "generate" | "utility" | "projects" | "expert" | "settings";
+export type { PatentType };
+
+export type MainSectionId = "workbench" | "projects" | "documents" | "knowledge" | "expert" | "export" | "settings";
 
 export type ExpertToolId =
   | "build"
@@ -172,7 +173,7 @@ export const v1StartChoices: Array<{
   },
 ];
 
-export const defaultMainSectionId: MainSectionId = "generate";
+export const defaultMainSectionId: MainSectionId = "workbench";
 export const defaultExpertToolId: ExpertToolId = "build";
 export const utilityModelModePrefix = "目标模式：实用新型轻量版。";
 
@@ -219,9 +220,39 @@ export function isUtilityModelProject(project: ProjectRecord | null | undefined)
   return draftText.includes(utilityModelModePrefix) || draftText.includes("专利类型：实用新型");
 }
 
+export function normalizeMainSectionId(
+  value: unknown,
+  activeExpertTool: ExpertToolId = defaultExpertToolId,
+): MainSectionId {
+  if (value === "expert") {
+    // Legacy persisted state: route old expert sub-tools to their new
+    // top-level destinations before accepting "expert" as the new section.
+    if (activeExpertTool === "build" || activeExpertTool === "corpus") return "knowledge";
+    if (activeExpertTool === "export") return "export";
+    return "expert";
+  }
+  if (
+    value === "workbench"
+    || value === "projects"
+    || value === "documents"
+    || value === "knowledge"
+    || value === "expert"
+    || value === "export"
+    || value === "settings"
+  ) {
+    return value;
+  }
+  if (value === "generate" || value === "utility") return "workbench";
+  return defaultMainSectionId;
+}
+
 export const mainSections: Array<NavEntry<MainSectionId>> = [
-  { id: "generate", label: "开始", description: "选择一种默认路径进入 v1.1.0 向导", icon: Wand2 },
+  { id: "workbench", label: "工作台", description: "选择一种默认路径进入 v1.1.0 向导", icon: Wand2 },
   { id: "projects", label: "项目", description: "查看历史项目和运行记录", icon: FolderKanban },
+  { id: "documents", label: "文稿与修复", description: "管理初稿、修复和正式稿处理", icon: ClipboardCheck },
+  { id: "knowledge", label: "知识库", description: "导入官方导出物并检索授权专利片段", icon: Database },
+  { id: "expert", label: "专家工具", description: "查看发明点与交底策略工具", icon: Gauge },
+  { id: "export", label: "导出", description: "导出正式稿和侧车文件", icon: Download },
   { id: "settings", label: "设置", description: "本机 LLM 服务参数与 API Key", icon: SettingsIcon },
 ];
 
@@ -283,6 +314,14 @@ export const guidedStepLabels = guidedStepDefinitions.map((step) => step.label);
 export type GuidedActionGate = {
   allowed: boolean;
   reason: string;
+};
+
+export type GuidedProgressActionState = {
+  kind: "next" | "return";
+  label: string;
+  disabled: boolean;
+  disabledReason: string;
+  title: string;
 };
 
 /** Whether the user may open this step in the guided navigator (view-only; does not advance workflow). */
@@ -357,7 +396,12 @@ export function resolveGuidedViewStep(
   workflowStepId: GuidedStepId,
   manualViewStepId: GuidedStepId | null,
   steps: GuidedStepState[],
+  initialIntakeMode: "idea" | "external" = "idea",
+  externalDraftIntakeComplete = false,
 ): GuidedStepId {
+  if (initialIntakeMode === "external" && !externalDraftIntakeComplete) {
+    return "idea";
+  }
   if (!manualViewStepId) {
     return workflowStepId;
   }
@@ -397,6 +441,58 @@ export function guidedNextActionDescription(stepId: GuidedStepId): string {
   if (stepId === "officialCompile") return "清除内部痕迹，生成只包含正式申请内容的提交包。";
   if (stepId === "postReview") return "正式提交前复核当前版本、权利要求质量并清理内部痕迹。";
   return "正式稿与内部稿分离导出；提交前仍需专业人员复核。";
+}
+
+export function guidedProgressActionState(input: {
+  busy: string;
+  currentStepId: GuidedStepId;
+  displayedStepId: GuidedStepId;
+  actionBlockReason?: string;
+}): GuidedProgressActionState {
+  if (input.displayedStepId !== input.currentStepId) {
+    return {
+      kind: "return",
+      label: "回到当前步骤",
+      disabled: false,
+      disabledReason: "",
+      title: "回到当前步骤继续流程。",
+    };
+  }
+
+  const label = `下一步：${guidedNextActionLabel(input.currentStepId)}`;
+  const disabledReason = input.busy
+    ? `${guidedBusyLabel(input.busy)}，完成后才能继续下一步。`
+    : input.actionBlockReason
+      ? input.actionBlockReason
+      : input.currentStepId === "idea"
+        ? "请先在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。"
+        : "";
+
+  return {
+    kind: "next",
+    label,
+    disabled: Boolean(disabledReason),
+    disabledReason,
+    title: disabledReason || guidedNextActionDescription(input.currentStepId),
+  };
+}
+
+export function guidedProgressActionBlockReason({
+  currentStepId,
+  selectedDeliberationProviders,
+}: {
+  currentStepId: GuidedStepId;
+  selectedDeliberationProviders: string[];
+}): string {
+  if (
+    (currentStepId === "deliberation" || currentStepId === "postReview")
+    && selectedDeliberationProviders.length < deliberationExpertSeatCount
+  ) {
+    return currentStepId === "postReview"
+      ? "至少需要 Codex 主席 + 2 个可用专家才能启动成稿会审。"
+      : "至少需要 Codex 主席 + 2 个可用专家才能启动会审。";
+  }
+  return "";
 }
 
 export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
@@ -487,13 +583,15 @@ export function deriveGuidedFlowState(input: GuidedFlowInput): GuidedFlowState {
 
 /**
  * Returns true when all three quality gates have been completed against
- * the current source draft.  When currentSourceDraftHash is provided, the
- * latest filing readiness report and the latest completion run must both
- * carry the same package hash — this prevents a stale quality gate from
- * unlocking official-compile after a chair revision changes the draft.
+ * the current source draft.  The current source hash must be known, and the
+ * latest filing readiness report, claim-defense worksheet, and completion
+ * run must all carry the same package hash — this prevents a stale or
+ * unverifiable quality gate from unlocking official-compile after a chair
+ * revision changes the draft.
  *
- * All three hashes (`filingReport.draft_package_hash`,
- * `completionRun.draft_package_hash`, and `currentSourceDraftHash`) are
+ * Artifact hashes (`filingReport.draft_package_hash`,
+ * `worksheet.draft_package_hash`, `completionRun.draft_package_hash`, and
+ * `currentSourceDraftHash`) are
  * `sha256(DraftPackage)` on the backend and are directly comparable.
  * `completionRun.snapshot_hash` is intentionally NOT compared — it is
  * `sha256(DraftPackage + points + materials)` and is used only for
@@ -519,16 +617,20 @@ function isQualityChecked(
       .sort((a, b) => createdAtTime(b.item) - createdAtTime(a.item) || a.index - b.index)
       .map((entry) => entry.item);
   const latestReport = byNewest(filingReports)[0];
+  const latestWorksheet = byNewest(worksheets)[0];
   const latestCompleted = byNewest(completionRuns).find((run) => run.status === "completed");
   if (!latestCompleted) {
     return false;
   }
   if (!currentSourceDraftHash) {
-    return true;
+    return false;
   }
   // draft_package_hash is sha256(package), the same formula as
   // currentSourceDraftHash — so both are authoritative freshness signals.
   if (latestReport.draft_package_hash !== currentSourceDraftHash) {
+    return false;
+  }
+  if (latestWorksheet.draft_package_hash !== currentSourceDraftHash) {
     return false;
   }
   if (latestCompleted.draft_package_hash !== currentSourceDraftHash) {
@@ -571,7 +673,10 @@ export function selectLatestMatchingPostDraftReview(
 }
 
 function hasReviewItems(items: unknown[] | undefined): boolean {
-  return Array.isArray(items) && items.some((item) => String(item).trim().length > 0);
+  if (!Array.isArray(items)) return false;
+  // String items count only when non-blank; object/other items count when present.
+  // (Guards against `String(obj)` always being truthy for object arrays.)
+  return items.some((item) => (typeof item === "string" ? item.trim().length > 0 : item != null));
 }
 
 function hasRepairablePostDraftReviewIssues(review: PostDraftReviewRun): boolean {
@@ -586,11 +691,12 @@ function hasRepairablePostDraftReviewIssues(review: PostDraftReviewRun): boolean
       || hasReviewItems(role.contamination_hits)
       || hasReviewItems(role.rewrite_suggestions)
     )
+    // `next_actions` is advisory follow-up, not blocking repair work, so a
+    // passed review with only next_actions must not surface the repair editor.
     || Boolean(chairResult && (
       hasReviewItems(chairResult.blocking_issues)
       || hasReviewItems(chairResult.contamination_hits)
       || hasReviewItems(chairResult.description_rewrite_tasks)
-      || hasReviewItems(chairResult.next_actions)
     ));
 }
 
@@ -630,6 +736,21 @@ export function selectCurrentOfficialCompileRun(
       && run.official_package_hash
       && (!currentSourceDraftHash || run.source_draft_hash === currentSourceDraftHash),
   ) ?? null;
+}
+
+export function selectLatestOfficialCompileAttemptForSource(
+  runs: OfficialCompileRun[],
+  currentSourceDraftHash?: string,
+): OfficialCompileRun | null {
+  const candidates = currentSourceDraftHash
+    ? runs.filter((run) => run.source_draft_hash === currentSourceDraftHash)
+    : runs;
+  return candidates.reduce<OfficialCompileRun | null>((latest, run) => {
+    if (!latest) {
+      return run;
+    }
+    return createdAtTime(run) > createdAtTime(latest) ? run : latest;
+  }, null);
 }
 
 function stepStatusForIndex(index: number, currentIndex: number, hasIdea: boolean): GuidedStepStatus {

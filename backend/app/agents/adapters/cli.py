@@ -289,6 +289,10 @@ def _loads_json_object(candidate: str) -> dict | None:
 
 
 def repair_suggestion_for_failure(reason: str, provider_id: str) -> str:
+    if provider_id == "claude" and reason == "process_error":
+        return "Claude Code 交互模式可用不代表非交互 print 模式可用；请运行 `claude -p 'Return ok'` 验证，并按 Claude Code 提示执行 `claude setup-token`、重新登录或修复 ANTHROPIC_API_KEY。"
+    if reason == "not_authenticated":
+        return f"{provider_id} CLI 认证未就绪；请按诊断信息完成登录、token 或 API key 配置后刷新运行状态。"
     if reason == "process_error":
         return f"检查 {provider_id} CLI 是否可直接运行、登录状态是否有效、后端是否以非沙箱权限启动，并查看 stderr 摘要。"
     if reason == "timeout":

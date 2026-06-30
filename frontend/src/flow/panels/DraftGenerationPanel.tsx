@@ -61,7 +61,7 @@ export function DraftGenerationPanel({
         <span>生成初稿</span>
       </Button>
       <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "generate"} />
-      {project?.package && <pre className="guided-preview">{project.package.claims.slice(0, 1200)}</pre>}
+      {project?.package && <pre className="guided-preview report-preview-pre">{project.package.claims.slice(0, 1200)}</pre>}
     </section>
   );
 }

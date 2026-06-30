@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -95,31 +95,16 @@ function mockInitialApi() {
 
 async function renderLoadedApp() {
   render(<App />);
-  await screen.findByRole("heading", { name: "开始撰写" });
+  await screen.findByRole("heading", { level: 2, name: "工作台" });
   await screen.findByRole("option", { name: existingProject.name });
 }
 
-function getAriaLabelledContainer(label: string): HTMLElement {
-  const element = document.querySelector(`[aria-label="${label}"]`);
-  expect(element).not.toBeNull();
-  return element as HTMLElement;
-}
-
-async function expectExternalDraftEntryBoundToSelectedProject() {
+async function expectWorkbenchBoundToSelectedProject() {
+  await screen.findByRole("heading", { level: 2, name: "工作台" });
   await waitFor(() => {
-    expect(screen.queryByRole("heading", { name: "开始撰写" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("当前项目")).toHaveValue(existingProject.id);
   });
-  expect(screen.getByText(/当前进度：/)).toBeInTheDocument();
-
-  const firstMileSummary = getAriaLabelledContainer("首 Mile 摘要");
-  expect(within(firstMileSummary).getByText(existingProject.name)).toBeInTheDocument();
-  expect(within(firstMileSummary).queryByText("未选择")).not.toBeInTheDocument();
-
-  await userEvent.click(screen.getByRole("tab", { name: "导入外部初稿" }));
-  await screen.findByRole("heading", { name: "保存外部初稿" });
-  const externalDraftSummary = getAriaLabelledContainer("外部初稿导入摘要");
-  expect(within(externalDraftSummary).getByText(existingProject.name)).toBeInTheDocument();
-  expect(within(externalDraftSummary).queryByText("未选择")).not.toBeInTheDocument();
+  expect(screen.getAllByText(existingProject.name).length).toBeGreaterThan(0);
 }
 
 describe("App existing project selection flow", () => {
@@ -132,25 +117,31 @@ describe("App existing project selection flow", () => {
     cleanup();
   });
 
-  it("opens the guided workbench with the selected existing project from the topbar selector", async () => {
+  it("binds the selected existing project from the topbar selector to the workbench", async () => {
     const user = userEvent.setup();
     await renderLoadedApp();
 
     await user.selectOptions(screen.getByLabelText("当前项目"), existingProject.id);
 
-    await expectExternalDraftEntryBoundToSelectedProject();
+    await expectWorkbenchBoundToSelectedProject();
     expect(apiMock.listProjectMaterials).toHaveBeenCalledWith(existingProject.id);
   });
 
-  it("opens the guided workbench with the selected existing project from the project list", async () => {
+  it("binds the selected existing project from the project list to the workbench", async () => {
     const user = userEvent.setup();
     await renderLoadedApp();
 
     await user.click(screen.getAllByRole("button", { name: "项目" })[0]);
     await screen.findByRole("heading", { name: "项目列表" });
-    await user.click(screen.getByRole("button", { name: "选择" }));
+    const selectButton = screen.queryByRole("button", { name: "选择" });
+    if (selectButton) {
+      await user.click(selectButton);
+    } else {
+      expect(screen.getAllByRole("button", { name: "当前项目" }).length).toBeGreaterThan(0);
+    }
+    await user.click(screen.getAllByRole("button", { name: "工作台" })[0]);
 
-    await expectExternalDraftEntryBoundToSelectedProject();
+    await expectWorkbenchBoundToSelectedProject();
     expect(apiMock.listProjectMaterials).toHaveBeenCalledWith(existingProject.id);
   });
 });

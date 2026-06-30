@@ -17,8 +17,6 @@ export interface ShellSidebarProps {
   mainSections: ShellNavSection[];
   activeSectionId: string;
   onSelectSection: (id: string) => void;
-  keySections?: ShellNavSection[];
-  onSelectKeySection?: (id: string) => void;
   /** Slot for the footer area (health, project info, etc.) */
   footer?: ReactNode;
 }
@@ -32,8 +30,6 @@ export function ShellSidebar({
   mainSections,
   activeSectionId,
   onSelectSection,
-  keySections,
-  onSelectKeySection,
   footer,
 }: ShellSidebarProps) {
   return (
@@ -49,7 +45,6 @@ export function ShellSidebar({
       </div>
 
       <nav className="nav-group" aria-label="主导航">
-        <div className="nav-label">Main</div>
         {mainSections.map((section) => (
           <Button
             key={section.id}
@@ -64,25 +59,6 @@ export function ShellSidebar({
           </Button>
         ))}
       </nav>
-
-      {keySections && keySections.length > 0 && (
-        <nav className="nav-group" aria-label="关键节点">
-          <div className="nav-label">关键节点</div>
-          {keySections.map((section) => (
-            <Button
-              key={section.id}
-              variant="ghost"
-              size="default"
-              className={`nav-link ${activeSectionId === section.id ? "is-active" : ""}`}
-              onClick={() => onSelectKeySection?.(section.id)}
-              title={section.description}
-            >
-              {section.icon}
-              <span>{section.label}</span>
-            </Button>
-          ))}
-        </nav>
-      )}
 
       {footer && <div className="sidebar-footer">{footer}</div>}
     </aside>

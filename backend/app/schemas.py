@@ -231,6 +231,7 @@ class PatentStrategyBrief(BaseModel):
 
 class DeliberationRunCreate(BaseModel):
     providers: list[str] | None = None
+    participant_providers: list[str] | None = None
     round_depth: str = "converged_two_round"
     trace: bool = False
     task_timeout_ms: int | None = None
@@ -248,6 +249,7 @@ class DeliberationRun(BaseModel):
     project_id: str
     status: str = Field(pattern="^(queued|running|completed|failed|interrupted)$")
     providers: list[str] = Field(default_factory=list)
+    participant_providers: list[str] = Field(default_factory=list)
     run_mode: str = Field(pattern="^(full|partial|minimal|blocked)$")
     round_depth: str = "converged_two_round"
     trace: bool = False
@@ -284,6 +286,22 @@ class DraftPackage(BaseModel):
     core_formula_summary: str | None = None
 
 
+class RevisionLedgerRecord(BaseModel):
+    id: str
+    project_id: str
+    revision_kind: str = Field(
+        pattern="^(material_merge|correction|protection_focus|post_draft_repair|official_cleanup|completion_patch)$"
+    )
+    baseline_artifact_hash: str
+    new_artifact_hash: str
+    user_intent_summary: str = ""
+    affected_sections: list[str] = Field(default_factory=list)
+    prior_art_changed: bool = False
+    protection_scope_changed: bool = False
+    artifact_refs: list[str] = Field(default_factory=list)
+    created_at: str = ""
+
+
 class OfficialFigurePlanItem(BaseModel):
     figure_no: str
     title: str
@@ -310,7 +328,7 @@ class OfficialCompileRunCreate(BaseModel):
 class OfficialCompileRun(BaseModel):
     id: str
     project_id: str
-    status: str = Field(pattern="^(completed|blocked|failed)$")
+    status: str = Field(pattern="^(queued|running|completed|blocked|failed)$")
     source_draft_hash: str = ""
     official_package_hash: str = ""
     official_package: OfficialDraftPackage | None = None
@@ -320,6 +338,16 @@ class OfficialCompileRun(BaseModel):
     logs: list[DeliberationLogEntry] = Field(default_factory=list)
     created_at: str = ""
     updated_at: str = ""
+
+
+class OfficialCompileCleanupResult(BaseModel):
+    project_id: str
+    compile_run_id: str
+    applied_count: int = 0
+    applied_actions: list[str] = Field(default_factory=list)
+    previous_draft_hash: str = ""
+    current_draft_hash: str = ""
+    package: DraftPackage
 
 
 class ProjectCreate(BaseModel):
@@ -420,6 +448,7 @@ class FeatureRecord(BaseModel):
 class ClaimDefenseWorksheet(BaseModel):
     id: str
     project_id: str
+    draft_package_hash: str = ""
     status: str = Field(default="draft", pattern="^(draft|reviewed|superseded)$")
     source: str = Field(default="draft", pattern="^(draft|disclosure|generated_package|manual)$")
     feature_records: list[FeatureRecord] = Field(default_factory=list)
@@ -518,6 +547,7 @@ class DraftCompletionRun(BaseModel):
     patches: list[ProposedPatch] = Field(default_factory=list)
     support_matrix: list[ClaimSupportMatrixRow] = Field(default_factory=list)
     scorecard: CompletionScoreCard
+    scorecard_baseline: CompletionScoreCard | None = None
     notes: list[str] = Field(default_factory=list)
     created_at: str = ""
 
@@ -688,6 +718,7 @@ class FormulaRun(BaseModel):
 
 class PostDraftReviewRunCreate(BaseModel):
     providers: list[str] | None = None
+    participant_providers: list[str] | None = None
     stage_timeout_ms: int | None = None
     run_timeout_ms: int | None = None
 
@@ -721,6 +752,7 @@ class PostDraftReviewRun(BaseModel):
     project_id: str
     status: str = Field(pattern="^(queued|running|completed|failed|interrupted)$")
     providers: list[str] = Field(default_factory=list)
+    participant_providers: list[str] = Field(default_factory=list)
     prompt_pack_version: str = "post-draft-review-v1"
     draft_package_hash: str = ""
     official_compile_run_id: str = ""
@@ -1161,6 +1193,204 @@ class CorpusImportJob(BaseModel):
     failed_documents: int = 0
     errors: list[str] = Field(default_factory=list)
     quality_report: CorpusQualityReport | None = None
+
+
+class ProjectKnowledgeState(BaseModel):
+    project_id: str
+    status: str = Field(
+        default="not_started",
+        pattern="^(not_started|search_plan_pending|search_running|candidates_pending|corpus_building|ready|needs_supplemental_search|stale|failed)$",
+    )
+    active_intent_id: str = ""
+    active_plan_id: str = ""
+    active_corpus_version_id: str = ""
+    last_search_at: str = ""
+    last_indexed_at: str = ""
+    staleness_reason: str = ""
+    document_count: int = 0
+    candidate_count: int = 0
+    claim_coverage: float = 0.0
+    fulltext_coverage: float = 0.0
+    quality_flags: list[str] = Field(default_factory=list)
+
+
+class SearchIntent(BaseModel):
+    id: str
+    project_id: str
+    source_project_hash: str = ""
+    technical_object: str = ""
+    technical_problem: str = ""
+    technical_means: str = ""
+    technical_effect: str = ""
+    keywords_zh: list[str] = Field(default_factory=list)
+    keywords_en: list[str] = Field(default_factory=list)
+    synonyms: list[str] = Field(default_factory=list)
+    negative_keywords: list[str] = Field(default_factory=list)
+    ipc_candidates: list[str] = Field(default_factory=list)
+    cpc_candidates: list[str] = Field(default_factory=list)
+    jurisdictions: list[str] = Field(default_factory=list)
+    date_range: str = ""
+    created_by: str = Field(default="agent", pattern="^(agent|user|system)$")
+    created_at: str = ""
+
+
+class SearchPlanStrategyGroup(BaseModel):
+    id: str
+    label: str
+    purpose: str
+    queries: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+
+
+class PatentSearchFilters(BaseModel):
+    jurisdictions: list[str] = Field(default_factory=list)
+    date_range: str = ""
+    ipc: list[str] = Field(default_factory=list)
+    cpc: list[str] = Field(default_factory=list)
+    negative_keywords: list[str] = Field(default_factory=list)
+
+
+class ProviderAttempt(BaseModel):
+    id: str
+    provider: str
+    query: str
+    filters: dict[str, Any] = Field(default_factory=dict)
+    status: str = Field(default="ok", pattern="^(ok|skipped|failed|timed_out|partial)$")
+    hit_count: int = 0
+    retained_count: int = 0
+    warnings: list[str] = Field(default_factory=list)
+    failure_reason: str = ""
+    started_at: str = ""
+    finished_at: str = ""
+
+
+class PatentSearchHit(BaseModel):
+    id: str
+    source: str
+    query: str
+    title: str
+    url: str
+    provider_attempt_id: str = ""
+    publication_number: str | None = None
+    application_number: str | None = None
+    applicant: str = ""
+    publication_date: str = ""
+    grant_date: str = ""
+    abstract: str | None = None
+    ipc: list[str] = Field(default_factory=list)
+    cpc: list[str] = Field(default_factory=list)
+    family_id: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    def to_candidate(
+        self,
+        *,
+        project_id: str,
+        plan_id: str,
+        strategy_group_id: str,
+    ) -> "PriorArtCandidate":
+        from backend.app.knowledge.patent_search import patent_hit_to_candidate
+
+        return patent_hit_to_candidate(
+            self,
+            project_id=project_id,
+            plan_id=plan_id,
+            strategy_group_id=strategy_group_id,
+        )
+
+
+class AgentSearchPlan(BaseModel):
+    id: str
+    project_id: str
+    intent_id: str
+    status: str = Field(default="draft", pattern="^(draft|confirmed|running|completed|failed)$")
+    strategy_groups: list[SearchPlanStrategyGroup] = Field(default_factory=list)
+    target_sources: list[str] = Field(default_factory=list)
+    target_result_count: int = 50
+    filters: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+    created_at: str = ""
+    confirmed_at: str = ""
+    run_started_at: str = ""
+    run_finished_at: str = ""
+
+
+class ProjectSearchLedger(BaseModel):
+    id: str
+    project_id: str
+    plan_id: str
+    attempts: list[ProviderAttempt] = Field(default_factory=list)
+    retained_candidate_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    created_at: str = ""
+
+
+class PriorArtCandidate(BaseModel):
+    id: str
+    project_id: str
+    plan_id: str
+    source: str
+    title: str
+    publication_number: str | None = None
+    application_number: str | None = None
+    applicant: str = ""
+    publication_date: str = ""
+    grant_date: str = ""
+    abstract: str | None = None
+    url: str
+    relevance_score: float = 0.0
+    matched_terms: list[str] = Field(default_factory=list)
+    ipc: list[str] = Field(default_factory=list)
+    cpc: list[str] = Field(default_factory=list)
+    family_id: str = ""
+    duplicate_of: str = ""
+    fulltext_status: str = Field(default="unknown", pattern="^(unknown|available|unavailable|failed)$")
+    recommended_action: str = Field(default="review", pattern="^(include|exclude|review)$")
+    recommendation_reason: str = ""
+    user_decision: str = Field(default="pending", pattern="^(pending|include|exclude)$")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: str = ""
+
+
+class ProjectCorpusVersion(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    source_plan_id: str = ""
+    candidate_set_id: str = ""
+    status: str = Field(
+        default="building",
+        pattern="^(building|ready|needs_supplemental_search|failed|superseded)$",
+    )
+    document_count: int = 0
+    chunk_count: int = 0
+    claim_coverage: float = 0.0
+    fulltext_coverage: float = 0.0
+    quality_report: CorpusQualityReport | None = None
+    created_at: str = ""
+    superseded_by: str = ""
+
+
+class ProjectKnowledgeOverview(BaseModel):
+    state: ProjectKnowledgeState
+    latest_intent: SearchIntent | None = None
+    latest_plan: AgentSearchPlan | None = None
+    candidates: list[PriorArtCandidate] = Field(default_factory=list)
+    latest_corpus_version: ProjectCorpusVersion | None = None
+
+
+class CandidateDecisionPatch(BaseModel):
+    user_decision: str = Field(pattern="^(include|exclude|pending)$")
+
+
+class CandidateBulkDecision(BaseModel):
+    candidate_ids: list[str]
+    user_decision: str = Field(pattern="^(include|exclude|pending)$")
+
+
+class BuildProjectCorpusRequest(BaseModel):
+    plan_id: str = Field(min_length=1)
 
 
 class DesktopConfigView(BaseModel):

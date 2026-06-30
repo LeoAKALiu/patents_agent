@@ -1,0 +1,825 @@
+from __future__ import annotations
+
+import textwrap
+
+import pytest
+
+from backend.app.knowledge.patent_search import (
+    CnipaEpubPatentProvider,
+    GooglePatentsProvider,
+    StaticPatentSearchProvider,
+)
+from backend.app.schemas import (
+    AgentSearchPlan,
+    PatentSearchHit,
+    PatentPointCandidate,
+    PatentType,
+    PriorArtCandidate,
+    ProjectCreate,
+    ProjectCorpusVersion,
+    ProjectKnowledgeState,
+    ProjectRecord,
+    SearchIntent,
+    SearchPlanStrategyGroup,
+)
+from backend.app.services.project_knowledge_service import (
+    ProjectKnowledgeConflictError,
+    bulk_update_project_candidate_decisions,
+    create_project_corpus_from_included_candidates,
+    ensure_project_knowledge_initialized,
+    knowledge_overview,
+    mark_stale_if_project_changed,
+    regenerate_project_knowledge,
+    run_agent_search_plan,
+    run_patent_search_plan,
+    update_project_candidate_decision,
+)
+from backend.app.services.project_service import build_project_record
+from backend.app.storage import SQLiteStore
+
+
+def _mark_candidates_as_real_sources(store: SQLiteStore, candidates: list[PriorArtCandidate]) -> None:
+    for candidate in candidates:
+        store.upsert_prior_art_candidate(candidate.model_copy(update={"source": "google_patents"}))
+
+
+def _project() -> ProjectRecord:
+    return build_project_record(
+        ProjectCreate(
+            name="一种城市体检智能体任务编排方法",
+            draft_text="通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        )
+    )
+
+
+def _static_provider() -> StaticPatentSearchProvider:
+    return StaticPatentSearchProvider(
+        source_id="google_patents",
+        hits=[
+            PatentSearchHit(
+                id="hit-1",
+                source="google_patents",
+                query="城市体检 智能体",
+                title="城市体检智能体调度方法",
+                publication_number="CN112233445A",
+                url="https://patents.google.com/patent/CN112233445A",
+                applicant="示例申请人甲",
+                publication_date="2024-01-01",
+                abstract="公开了一种城市体检调度方法。",
+            ),
+            PatentSearchHit(
+                id="hit-2",
+                source="google_patents",
+                query="任务编排 证据链",
+                title="基于证据链的任务编排复核方法",
+                publication_number="CN223344556A",
+                url="https://patents.google.com/patent/CN223344556A",
+                applicant="示例申请人乙",
+                publication_date="2023-05-20",
+                abstract="公开了一种基于证据链的任务编排复核方法。",
+            ),
+        ],
+    )
+
+
+def _semantic_scholar_provider() -> StaticPatentSearchProvider:
+    return StaticPatentSearchProvider(
+        source_id="semantic_scholar",
+        hits=[
+            PatentSearchHit(
+                id="paper-1",
+                source="semantic_scholar",
+                query="城市体检 智能体",
+                title="面向城市体检的智能体任务编排研究",
+                publication_number="SS-2024-001",
+                url="https://example.com/semantic-scholar/paper-1",
+                applicant="示例作者",
+                publication_date="2024-01-01",
+                abstract="这是一篇论文而不是专利。",
+            ),
+        ],
+    )
+
+
+def test_project_knowledge_state_round_trips(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    state = ProjectKnowledgeState(
+        project_id="project-1",
+        status="search_plan_pending",
+        active_plan_id="plan-1",
+        document_count=0,
+        candidate_count=0,
+        claim_coverage=0.0,
+        fulltext_coverage=0.0,
+        quality_flags=["needs_search"],
+    )
+
+    stored = store.upsert_project_knowledge_state(state)
+    loaded = store.get_project_knowledge_state("project-1")
+
+    assert stored.project_id == "project-1"
+    assert loaded == state
+
+
+def test_search_plan_candidates_and_corpus_version_round_trip(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    intent = SearchIntent(
+        id="intent-1",
+        project_id="project-1",
+        source_project_hash="hash-1",
+        technical_object="城市体检智能体",
+        technical_problem="任务拆解和结果复核不足",
+        technical_means="多智能体任务编排和证据链复核",
+        technical_effect="提高报告可信度",
+        keywords_zh=["城市体检", "智能体", "任务编排"],
+        keywords_en=["urban health", "agent", "task orchestration"],
+        synonyms=["城市诊断"],
+        negative_keywords=["医疗体检"],
+        ipc_candidates=["G06Q"],
+        cpc_candidates=["G06Q10/063"],
+        jurisdictions=["CN", "WO"],
+        date_range="2016-2026",
+        created_by="agent",
+    )
+    store.create_search_intent(intent)
+
+    plan = AgentSearchPlan(
+        id="plan-1",
+        project_id="project-1",
+        intent_id="intent-1",
+        status="draft",
+        strategy_groups=[
+            SearchPlanStrategyGroup(
+                id="broad-recall",
+                label="宽召回检索",
+                purpose="尽量找全相关城市体检和智能体编排专利",
+                queries=["城市体检 智能体 任务编排"],
+                sources=["fake"],
+            )
+        ],
+        target_sources=["fake"],
+        target_result_count=20,
+        filters={"jurisdictions": ["CN"]},
+    )
+    store.create_agent_search_plan(plan)
+
+    candidate = PriorArtCandidate(
+        id="candidate-1",
+        project_id="project-1",
+        plan_id="plan-1",
+        source="fake",
+        title="一种城市体检任务编排方法",
+        publication_number="CN100000001A",
+        abstract="公开了城市体检任务编排。",
+        url="https://patents.google.com/patent/CN100000001A",
+        relevance_score=0.87,
+        matched_terms=["城市体检", "任务编排"],
+        fulltext_status="available",
+        recommended_action="include",
+        recommendation_reason="命中核心技术对象和技术手段",
+    )
+    store.upsert_prior_art_candidate(candidate)
+    updated = store.update_prior_art_candidate_decision("project-1", "candidate-1", "include")
+
+    version = ProjectCorpusVersion(
+        id="version-1",
+        project_id="project-1",
+        name="project-1-prior-art-v1",
+        source_plan_id="plan-1",
+        status="ready",
+        document_count=1,
+        chunk_count=3,
+        claim_coverage=1.0,
+        fulltext_coverage=1.0,
+    )
+    store.create_project_corpus_version(version)
+
+    assert store.get_latest_search_intent("project-1") == intent
+    assert store.get_latest_agent_search_plan("project-1") == plan
+    assert updated is not None
+    assert updated.user_decision == "include"
+    assert store.list_prior_art_candidates("project-1") == [updated]
+    assert store.get_latest_project_corpus_version("project-1") == version
+
+
+def test_update_prior_art_candidate_decision_rejects_invalid_values(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    candidate = PriorArtCandidate(
+        id="candidate-1",
+        project_id="project-1",
+        plan_id="plan-1",
+        source="fake",
+        title="一种城市体检任务编排方法",
+        publication_number="CN100000001A",
+        abstract="公开了城市体检任务编排。",
+        url="https://patents.google.com/patent/CN100000001A",
+        relevance_score=0.87,
+        matched_terms=["城市体检", "任务编排"],
+        fulltext_status="available",
+        recommended_action="include",
+        recommendation_reason="命中核心技术对象和技术手段",
+    )
+    store.upsert_prior_art_candidate(candidate)
+
+    with pytest.raises(ValueError, match="invalid prior art candidate decision"):
+        store.update_prior_art_candidate_decision("project-1", "candidate-1", "bogus")
+
+    stored = store.list_prior_art_candidates("project-1")
+    assert len(stored) == 1
+    assert stored[0].user_decision == "pending"
+
+
+def test_knowledge_initialization_extracts_intent_and_plan(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(
+        ProjectCreate(
+            name="一种城市体检智能体任务编排方法",
+            draft_text="通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+            patent_type=PatentType.INVENTION,
+            technical_field="城市治理智能体",
+            innovation="任务 DAG 与证据链复核",
+        )
+    )
+    store.create_project(project)
+
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    assert overview.state.status == "search_plan_pending"
+    assert overview.latest_intent is not None
+    assert "城市体检" in overview.latest_intent.keywords_zh
+    assert "任务编排" in overview.latest_intent.keywords_zh
+    assert overview.latest_plan is not None
+    assert {group.id for group in overview.latest_plan.strategy_groups} >= {"broad-recall", "closest-prior-art"}
+
+
+def test_run_plan_creates_real_candidates_and_state(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(
+        ProjectCreate(
+            name="一种城市体检智能体任务编排方法",
+            draft_text="通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        )
+    )
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+
+    assert after_run.state.status == "candidates_pending"
+    assert len(after_run.candidates) >= 2
+    assert all(candidate.source == "google_patents" for candidate in after_run.candidates)
+
+
+def test_project_search_uses_real_provider_candidates(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+    provider = StaticPatentSearchProvider(
+        source_id="google_patents",
+        hits=[
+            PatentSearchHit(
+                id="hit-1",
+                source="google_patents",
+                query="城市体检 智能体",
+                title="城市体检智能体调度方法",
+                publication_number="CN112233445A",
+                url="https://patents.google.com/patent/CN112233445A",
+                abstract="公开了一种城市体检调度方法。",
+            )
+        ],
+    )
+
+    result = run_agent_search_plan(store, project.id, plan.id, providers=[provider])
+
+    assert result.state.status == "candidates_pending"
+    assert result.candidates[0].source == "google_patents"
+    assert result.candidates[0].publication_number == "CN112233445A"
+    assert all(candidate.source != "fake" for candidate in result.candidates)
+
+
+def test_project_search_all_providers_empty_fails_without_fake_candidates(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+    provider = StaticPatentSearchProvider(source_id="google_patents", hits=[], warnings=["no hits"])
+
+    result = run_agent_search_plan(store, project.id, plan.id, providers=[provider])
+
+    assert result.state.status == "failed"
+    assert result.state.candidate_count == 0
+    assert "no_hits" in result.state.quality_flags
+    assert result.candidates == []
+
+
+def test_run_patent_search_plan_records_skipped_and_successful_default_attempts(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    provider_chain = [
+        CnipaEpubPatentProvider(script_path=None),
+        GooglePatentsProvider(
+            http_get=lambda url, timeout: (
+                '<html><body><a href="/patent/CN112233445A/en">Urban inspection agent</a></body></html>'
+            )
+        ),
+    ]
+
+    candidates, ledger = run_patent_search_plan(provider_chain, project.id, plan)
+
+    assert candidates
+    assert ledger.attempts
+    assert any(attempt.provider == "cnipa_epub" and attempt.status == "skipped" for attempt in ledger.attempts)
+    assert any(attempt.provider == "google_patents" and attempt.status == "ok" for attempt in ledger.attempts)
+    assert any("CNIPA EPUB helper is not configured" in warning for warning in ledger.warnings)
+
+
+def test_run_agent_search_plan_keeps_provider_warnings_for_default_chain_attempts(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    providers = [
+        CnipaEpubPatentProvider(script_path=None),
+        GooglePatentsProvider(
+            http_get=lambda url, timeout: (
+                '<html><body><a href="/patent/CN112233445A/en">Urban inspection agent</a></body></html>'
+            )
+        ),
+    ]
+
+    result = run_agent_search_plan(store, project.id, plan.id, providers=providers)
+
+    assert result.state.status == "candidates_pending"
+    stored_plan = store.get_agent_search_plan(project.id, plan.id)
+    assert stored_plan is not None
+    assert stored_plan.warnings
+    assert any("CNIPA EPUB helper is not configured" in warning for warning in stored_plan.warnings)
+
+
+def test_run_patent_search_plan_marks_google_transport_failures(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    provider_chain = [
+        GooglePatentsProvider(
+            http_get=lambda url, timeout: (_ for _ in ()).throw(RuntimeError("network down"))
+        )
+    ]
+
+    candidates, ledger = run_patent_search_plan(provider_chain, project.id, plan)
+
+    assert candidates == []
+    assert ledger.attempts
+    assert all(attempt.status == "failed" for attempt in ledger.attempts)
+    assert all("network down" in attempt.failure_reason for attempt in ledger.attempts)
+
+
+def test_run_patent_search_plan_marks_cnipa_parse_failures(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    script = tmp_path / "fake_cnipa.py"
+    script.write_text(
+        textwrap.dedent(
+            """\
+            print("EPUB_HITS_JSON: [invalid]")
+            """
+        ),
+        encoding="utf-8",
+    )
+    provider_chain = [CnipaEpubPatentProvider(script_path=script)]
+
+    candidates, ledger = run_patent_search_plan(provider_chain, project.id, plan)
+
+    assert candidates == []
+    assert ledger.attempts
+    assert all(attempt.status == "failed" for attempt in ledger.attempts)
+    assert all("JSON parse failed" in attempt.failure_reason for attempt in ledger.attempts)
+
+
+def test_run_patent_search_plan_records_timeout_attempts_without_fake_candidates(tmp_path):
+    class TimeoutPatentSearchProvider:
+        name = "Timeout Patent Search"
+        source_id = "timeout_provider"
+
+        def available(self) -> tuple[bool, str | None]:
+            return True, None
+
+        def search(
+            self,
+            query: str,
+            *,
+            filters: PatentSearchFilters,
+            limit: int,
+        ) -> tuple[list[PatentSearchHit], list[str]]:
+            del query, filters, limit
+            raise TimeoutError("slow provider")
+
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    candidates, ledger = run_patent_search_plan([TimeoutPatentSearchProvider()], project.id, plan)
+
+    assert candidates == []
+    assert ledger.retained_candidate_ids == []
+    assert ledger.attempts
+    assert all(attempt.status == "timed_out" for attempt in ledger.attempts)
+    assert all(attempt.failure_reason and "slow provider" in attempt.failure_reason for attempt in ledger.attempts)
+    assert any("slow provider" in warning for warning in ledger.warnings)
+
+
+def test_run_agent_search_plan_persists_latest_search_ledger(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+
+    stored_plan = store.get_agent_search_plan(project.id, overview.latest_plan.id)
+    assert stored_plan is not None
+    ledger_id = stored_plan.metadata["latest_search_ledger_id"]
+    assert after_run.latest_plan is not None
+    assert after_run.latest_plan.metadata["latest_search_ledger_id"] == ledger_id
+
+    persisted = store.get_project_search_ledger(project.id, ledger_id)
+    latest = store.get_latest_project_search_ledger(project.id, overview.latest_plan.id)
+    assert persisted is not None
+    assert latest is not None
+    assert persisted.id == ledger_id
+    assert latest.id == ledger_id
+    assert persisted.retained_candidate_ids == [candidate.id for candidate in after_run.candidates]
+
+
+def test_run_plan_rerun_keeps_candidate_count_stable(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    first_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    second_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+
+    assert len(first_run.candidates) == len(second_run.candidates)
+    assert second_run.state.candidate_count == len(second_run.candidates)
+    assert [candidate.id for candidate in first_run.candidates] == [candidate.id for candidate in second_run.candidates]
+
+
+def test_create_project_corpus_requires_explicit_include_decision(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    assert after_build.state.status == "needs_supplemental_search"
+    assert after_build.latest_corpus_version is not None
+    assert after_build.latest_corpus_version.document_count == 0
+    assert after_build.latest_corpus_version.status == "failed"
+    assert after_build.state.document_count == 0
+
+
+def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    for candidate in after_run.candidates[:2]:
+        store.update_prior_art_candidate_decision(project.id, candidate.id, "include")
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    assert after_build.state.status == "ready"
+    assert after_build.latest_corpus_version is not None
+    assert after_build.latest_corpus_version.status == "ready"
+    assert after_build.latest_corpus_version.document_count == 2
+    assert after_build.state.document_count == 2
+    assert after_build.state.quality_flags == []
+    assert after_build.state.claim_coverage == 1.0
+    assert after_build.state.fulltext_coverage == 1.0
+    assert after_build.latest_corpus_version.quality_report is not None
+    assert after_build.latest_corpus_version.quality_report.failures == []
+
+
+def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_semantic_scholar_provider()])
+
+    assert after_run.candidates
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    assert after_build.state.status == "needs_supplemental_search"
+    assert after_build.state.quality_flags == ["non_patent_source"]
+    assert after_build.state.claim_coverage == 0.0
+    assert after_build.state.fulltext_coverage == 0.0
+    assert after_build.latest_corpus_version is not None
+    assert after_build.latest_corpus_version.status == "needs_supplemental_search"
+    assert after_build.latest_corpus_version.quality_report is not None
+    assert after_build.latest_corpus_version.quality_report.failures == [
+        {
+            "code": "non_patent_source",
+            "message": "Corpus includes non-patent sources: semantic_scholar",
+        }
+    ]
+
+
+def test_create_project_corpus_rejects_build_before_search(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="Run candidate search"):
+        create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    after = knowledge_overview(store, project.id)
+    assert after.state.status == "search_plan_pending"
+    assert after.state.active_corpus_version_id == ""
+    assert after.latest_corpus_version is None
+
+
+def test_create_project_corpus_preserves_active_intent_and_last_search_metadata(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+
+    before_build = knowledge_overview(store, project.id)
+    assert before_build.state.active_intent_id == overview.latest_intent.id
+    assert before_build.state.active_plan_id == overview.latest_plan.id
+    assert before_build.state.last_search_at
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    assert after_build.state.active_intent_id == before_build.state.active_intent_id
+    assert after_build.state.active_plan_id == before_build.state.active_plan_id
+    assert after_build.state.last_search_at == before_build.state.last_search_at
+    assert after_build.state.last_indexed_at
+    assert after_build.state.active_corpus_version_id == after_build.latest_corpus_version.id
+
+
+def test_candidate_decision_change_invalidates_active_ready_corpus_state(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    _mark_candidates_as_real_sources(store, after_run.candidates[:2])
+    for candidate in after_run.candidates[:2]:
+        store.update_prior_art_candidate_decision(project.id, candidate.id, "include")
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+    assert after_build.state.status == "ready"
+    assert after_build.state.active_corpus_version_id
+    assert after_build.latest_corpus_version is not None
+
+    before_state = after_build.state
+    changed = update_project_candidate_decision(store, project.id, after_run.candidates[0].id, "exclude")
+    after = knowledge_overview(store, project.id)
+
+    assert changed.user_decision == "exclude"
+    assert after.state.status == "candidates_pending"
+    assert after.state.active_corpus_version_id == ""
+    assert after.state.last_indexed_at == ""
+    assert after.state.document_count == 0
+    assert after.state.claim_coverage == 0.0
+    assert after.state.fulltext_coverage == 0.0
+    assert after.state.quality_flags == ["candidates_need_confirmation"]
+    assert after.state.active_intent_id == before_state.active_intent_id
+    assert after.state.active_plan_id == before_state.active_plan_id
+    assert after.state.last_search_at == before_state.last_search_at
+    assert after.state.candidate_count == before_state.candidate_count
+    assert after.latest_corpus_version is None
+
+
+def test_bulk_candidate_decision_change_invalidates_active_corpus_once(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    _mark_candidates_as_real_sources(store, after_run.candidates[:2])
+    for candidate in after_run.candidates[:2]:
+        store.update_prior_art_candidate_decision(project.id, candidate.id, "include")
+
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+    built_version_id = after_build.latest_corpus_version.id
+    before_state = after_build.state
+
+    updated = bulk_update_project_candidate_decisions(
+        store,
+        project.id,
+        [candidate.id for candidate in after_run.candidates[:2]],
+        "exclude",
+    )
+    after = knowledge_overview(store, project.id)
+
+    assert {candidate.user_decision for candidate in updated} == {"exclude"}
+    assert after.state.status == "candidates_pending"
+    assert after.state.active_corpus_version_id == ""
+    assert after.latest_corpus_version is None
+    assert after.state.active_plan_id == before_state.active_plan_id
+    assert after.state.active_intent_id == before_state.active_intent_id
+    assert after.state.last_search_at == before_state.last_search_at
+    assert after.state.candidate_count == before_state.candidate_count
+    assert store.get_latest_project_corpus_version(project.id).id == built_version_id
+
+
+def test_candidate_decisions_reject_superseded_or_stale_candidates_without_partial_mutation(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    initial = ensure_project_knowledge_initialized(store, project)
+    original_plan_id = initial.latest_plan.id
+    original_run = run_agent_search_plan(store, project.id, original_plan_id, providers=[_static_provider()])
+    original_candidate_ids = [candidate.id for candidate in original_run.candidates[:2]]
+
+    regenerated = regenerate_project_knowledge(store, project, [])
+    replacement_plan_id = regenerated.latest_plan.id
+    run_agent_search_plan(store, project.id, replacement_plan_id, providers=[_static_provider()])
+    replacement_candidates = store.list_prior_art_candidates(project.id, replacement_plan_id)
+    active_candidate_id = replacement_candidates[0].id
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="active search plan"):
+        update_project_candidate_decision(store, project.id, original_candidate_ids[0], "include")
+    assert store.list_prior_art_candidates(project.id, original_plan_id)[0].user_decision == "pending"
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="active search plan"):
+        bulk_update_project_candidate_decisions(
+            store,
+            project.id,
+            [active_candidate_id, original_candidate_ids[0]],
+            "include",
+        )
+    refreshed_active_candidates = {candidate.id: candidate for candidate in store.list_prior_art_candidates(project.id, replacement_plan_id)}
+    assert refreshed_active_candidates[active_candidate_id].user_decision == "pending"
+
+    mutated_project = project.model_copy(update={"draft_text": "改为桥梁裂缝检测和声学视觉复检。"})
+    mark_stale_if_project_changed(store, mutated_project, [])
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="stale"):
+        update_project_candidate_decision(store, project.id, active_candidate_id, "include")
+    assert store.list_prior_art_candidates(project.id, replacement_plan_id)[0].user_decision == "pending"
+
+
+def test_superseded_plan_cannot_run_or_build_and_does_not_reactivate(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    initial = ensure_project_knowledge_initialized(store, project)
+    original_plan_id = initial.latest_plan.id
+
+    run_agent_search_plan(store, project.id, original_plan_id, providers=[_static_provider()])
+    for candidate in store.list_prior_art_candidates(project.id, original_plan_id)[:1]:
+        store.update_prior_art_candidate_decision(project.id, candidate.id, "include")
+    build = create_project_corpus_from_included_candidates(store, project.id, original_plan_id)
+    assert build.state.active_corpus_version_id
+
+    regenerated = regenerate_project_knowledge(store, project, [])
+    replacement_plan_id = regenerated.latest_plan.id
+    assert replacement_plan_id != original_plan_id
+    assert regenerated.state.active_plan_id == replacement_plan_id
+    assert regenerated.state.active_corpus_version_id == ""
+
+    with pytest.raises(ProjectKnowledgeConflictError, match="no longer active"):
+        run_agent_search_plan(store, project.id, original_plan_id)
+    with pytest.raises(ProjectKnowledgeConflictError, match="no longer active"):
+        create_project_corpus_from_included_candidates(store, project.id, original_plan_id)
+
+    after = knowledge_overview(store, project.id)
+    assert after.state.active_plan_id == replacement_plan_id
+    assert after.state.active_corpus_version_id == ""
+    assert store.get_agent_search_plan(project.id, original_plan_id).status == "completed"
+
+
+def test_regeneration_hides_inactive_corpus_version_from_overview(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+    built_version_id = after_build.latest_corpus_version.id
+    assert after_build.state.active_corpus_version_id == built_version_id
+    assert store.get_latest_project_corpus_version(project.id).id == built_version_id
+
+    regenerated = regenerate_project_knowledge(store, project, [])
+
+    assert regenerated.state.active_corpus_version_id == ""
+    assert regenerated.latest_corpus_version is None
+    assert store.get_latest_project_corpus_version(project.id).id == built_version_id
+
+
+def test_project_change_marks_knowledge_stale(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+    built_version_id = after_build.latest_corpus_version.id
+    updated = project.model_copy(update={"draft_text": "改为桥梁裂缝检测和声学视觉复检。"})
+
+    state = mark_stale_if_project_changed(store, updated, [])
+    stale_overview = knowledge_overview(store, project.id)
+
+    assert state.status == "stale"
+    assert "项目技术描述已变化" in state.staleness_reason
+    assert state.active_plan_id == overview.latest_plan.id
+    assert state.active_corpus_version_id == ""
+    assert state.document_count == 0
+    assert state.claim_coverage == 0.0
+    assert state.fulltext_coverage == 0.0
+    assert stale_overview.latest_corpus_version is None
+    assert store.get_latest_project_corpus_version(project.id).id == built_version_id
+    with pytest.raises(ProjectKnowledgeConflictError, match="stale"):
+        run_agent_search_plan(store, project.id, overview.latest_plan.id)
+    with pytest.raises(ProjectKnowledgeConflictError, match="stale"):
+        create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+
+def test_selected_patent_points_mark_knowledge_stale_when_snapshot_changes(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    ensure_project_knowledge_initialized(store, project)
+
+    state = mark_stale_if_project_changed(
+        store,
+        project,
+        [
+            PatentPointCandidate(
+                id="point-1",
+                title="一种证据链复核机制",
+                technical_problem="复核过程不稳定",
+                innovation="增加多智能体共识评分",
+                technical_solution="按步骤回放审查证据",
+                selected=True,
+            )
+        ],
+    )
+
+    assert state.status == "stale"
+    assert "项目技术描述已变化" in state.staleness_reason
+
+
+def test_stale_overview_hides_active_corpus_for_legacy_state(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+    after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
+
+    legacy_stale = after_build.state.model_copy(
+        update={
+            "status": "stale",
+            "staleness_reason": "项目技术描述已变化，需要重新生成检索计划或补充检索。",
+            "quality_flags": ["stale_project_snapshot"],
+        }
+    )
+    store.upsert_project_knowledge_state(legacy_stale)
+
+    stale_overview = knowledge_overview(store, project.id)
+
+    assert stale_overview.state.active_corpus_version_id == after_build.latest_corpus_version.id
+    assert stale_overview.latest_corpus_version is None

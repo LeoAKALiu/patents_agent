@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 from backend.app.llm import LLMClient
@@ -37,7 +38,12 @@ class PatentDraftGenerator:
         system_prompt = _system_prompt(brief)
         llm = self.llm
         # claims must run first: description/drawings/mermaid all depend on it.
-        claims = llm.complete_stage("claims", system_prompt, _claims_prompt(brief, context, strategy_context, disclosure_context, formula_context))
+        claims_raw = llm.complete_stage(
+            "claims",
+            system_prompt,
+            _claims_prompt(brief, context, strategy_context, disclosure_context, formula_context),
+        )
+        claims = _clean_generated_stage_output("claims", claims_raw)
         # Step 2: description, drawings and mermaid only depend on claims (and
         # static inputs), so they are dispatched concurrently. Each task is a
         # blocking LLM call; a thread pool lets them overlap because the OpenAI
@@ -51,24 +57,24 @@ class PatentDraftGenerator:
             )
             drawings_future = pool.submit(llm.complete_stage, "drawings", system_prompt, _drawings_prompt(brief, claims))
             mermaid_future = pool.submit(llm.complete_stage, "diagram", system_prompt, _diagram_prompt(brief, claims))
-            description = description_future.result()
-            drawings = drawings_future.result()
-            mermaid = mermaid_future.result()
+            description = _clean_generated_stage_output("description", description_future.result())
+            drawings = _clean_generated_stage_output("drawings", drawings_future.result())
+            mermaid = _clean_generated_stage_output("diagram", mermaid_future.result())
         # Step 3: abstract (needs description) and image_prompt (needs mermaid)
         # are independent of each other, so they also run concurrently.
         with ThreadPoolExecutor(max_workers=2) as pool:
             abstract_future = pool.submit(llm.complete_stage, "abstract", system_prompt, _abstract_prompt(brief, claims, description))
             image_prompt_future = pool.submit(llm.complete_stage, "image_prompt", system_prompt, _image_prompt(brief, mermaid))
-            abstract = abstract_future.result()
-            image_prompt = image_prompt_future.result()
+            abstract = _clean_generated_stage_output("abstract", abstract_future.result())
+            image_prompt = _clean_generated_stage_output("image_prompt", image_prompt_future.result())
         return DraftPackage(
             title=brief.title,
-            abstract=abstract.strip(),
-            claims=claims.strip(),
-            description=description.strip(),
-            drawing_description=drawings.strip(),
-            mermaid=mermaid.strip(),
-            image_prompt=image_prompt.strip(),
+            abstract=abstract,
+            claims=claims,
+            description=description,
+            drawing_description=drawings,
+            mermaid=mermaid,
+            image_prompt=image_prompt,
             review_findings=[],
             citations=[
                 Citation(
@@ -180,6 +186,77 @@ def _format_formula(formula_package: CoreFormulaPackage | None) -> str:
     if not formula_package:
         return "无核心公式包。"
     return formula_package.model_dump_json(ensure_ascii=False, indent=2)
+
+
+CONTENT_START_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "claims": (
+        re.compile(r"^\s*\d+\s*[.、．]\s*.+"),
+        re.compile(r"^\s*[一二三四五六七八九十]+[、.．]\s*.+"),
+    ),
+    "description": (
+        re.compile(r"^\s*(技术领域|背景技术|发明内容|实用新型内容|附图说明|具体实施方式)\s*$"),
+        re.compile(r"^\s*(技术领域|背景技术|发明内容|实用新型内容|附图说明|具体实施方式)[：:].+"),
+    ),
+    "drawings": (re.compile(r"^\s*图\s*\d+\s*为.+"),),
+    "diagram": (
+        re.compile(r"^\s*(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie)\b"),
+    ),
+}
+ASSISTANT_PREFACE_RE = re.compile(
+    r"^\s*(?:好的|好|当然|可以|以下|下面|现)[,，。！!\s]*"
+    r"(?:以下(?:是|为)?|下面(?:是|为)?|根据|基于|我将|为您|撰写|整理|输出|生成).{0,260}"
+    r"(?:初稿|正文|如下|撰写|申请文件|文本)?[。.!！]?\s*$"
+)
+SECTION_LABELS: dict[str, tuple[str, ...]] = {
+    "claims": ("权利要求书", "权利要求"),
+    "description": ("说明书", "说明书正文"),
+    "drawings": ("附图说明",),
+}
+SEPARATOR_LINES = {"---", "——", "***", "___"}
+
+
+def _clean_generated_stage_output(stage: str, text: str) -> str:
+    cleaned = text.strip()
+    lines = cleaned.splitlines()
+    start_index = _content_start_index(stage, lines)
+    if start_index > 0 and any(_is_assistant_preface_line(line) for line in lines[:start_index]):
+        lines = lines[start_index:]
+    else:
+        lines = _drop_leading_noise_lines(stage, lines)
+    return "\n".join(lines).strip()
+
+
+def _content_start_index(stage: str, lines: list[str]) -> int:
+    patterns = CONTENT_START_PATTERNS.get(stage, ())
+    for index, line in enumerate(lines):
+        if any(pattern.search(line) for pattern in patterns):
+            return index
+    return -1
+
+
+def _drop_leading_noise_lines(stage: str, lines: list[str]) -> list[str]:
+    index = 0
+    while index < len(lines):
+        stripped = lines[index].strip()
+        if (
+            not stripped
+            or stripped in SEPARATOR_LINES
+            or _is_assistant_preface_line(stripped)
+            or _is_section_label(stage, stripped)
+        ):
+            index += 1
+            continue
+        break
+    return lines[index:]
+
+
+def _is_assistant_preface_line(line: str) -> bool:
+    return bool(ASSISTANT_PREFACE_RE.match(line))
+
+
+def _is_section_label(stage: str, line: str) -> bool:
+    normalized = re.sub(r"^[#\s]+", "", line).strip(" ：:。")
+    return normalized in SECTION_LABELS.get(stage, ())
 
 
 def _claims_prompt(brief: InventionBrief, context: str, strategy_context: str, disclosure_context: str, formula_context: str) -> str:

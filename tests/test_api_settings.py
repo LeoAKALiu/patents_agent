@@ -60,8 +60,20 @@ def test_app_reports_release_version(client: TestClient) -> None:
     assert client.app.version == "1.1.0"
 
 
-def test_cors_allows_renderer_origin_without_credentials(client: TestClient) -> None:
-    origin = "http://127.0.0.1:5173"
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:5174",
+        "http://localhost:5174",
+        "http://127.0.0.1:5175",
+        "http://localhost:5175",
+    ],
+)
+def test_cors_allows_dev_renderer_origins_without_credentials(
+    client: TestClient, origin: str
+) -> None:
     response = client.options(
         "/api/health",
         headers={
@@ -72,6 +84,29 @@ def test_cors_allows_renderer_origin_without_credentials(client: TestClient) -> 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == origin
     assert "access-control-allow-credentials" not in response.headers
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:5174",
+        "http://localhost:5174",
+        "http://127.0.0.1:5175",
+        "http://localhost:5175",
+    ],
+)
+def test_desktop_config_allows_dev_renderer_origins(
+    client: TestClient, origin: str
+) -> None:
+    response = client.patch(
+        "/api/desktop-config",
+        json={"model": "deepseek-dev-origin-test"},
+        headers={"Origin": origin},
+    )
+    assert response.status_code == 200
+    assert response.json()["model"] == "deepseek-dev-origin-test"
 
 
 @pytest.mark.parametrize(

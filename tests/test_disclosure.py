@@ -8,7 +8,7 @@ from docx import Document
 from fastapi.testclient import TestClient
 
 from backend.app.disclosure.exporter import export_disclosure_docx
-from backend.app.disclosure.generator import DisclosureGenerator
+from backend.app.disclosure.generator import DisclosureGenerator, _parse_terms
 from backend.app.disclosure.material_parser import read_project_material_text
 from backend.app.disclosure.prior_art import StaticPriorArtProvider, parse_cnipa_epub_html
 from backend.app.llm import FakeLLMClient
@@ -22,6 +22,7 @@ from backend.app.schemas import (
     PatentPointCandidate,
     PatentStrategyBrief,
     PriorArtHit,
+    ProjectMaterial,
     ProjectRecord,
 )
 
@@ -55,8 +56,20 @@ def test_project_material_parser_reads_text_docx_pptx_and_rejects_blank_pdf(tmp_
     pdf.new_page()
     pdf.save(blank_pdf)
     pdf.close()
-    with pytest.raises(ValueError, match="no text layer"):
+    with pytest.raises(ValueError, match="PDF 文件无法解析，请确认文件未损坏且包含可提取文本"):
         read_project_material_text(blank_pdf)
+
+
+def test_project_material_parser_rejects_empty_text_and_invalid_docx(tmp_path: Path):
+    empty_text = tmp_path / "empty.md"
+    empty_text.write_text(" \n\t", encoding="utf-8")
+    with pytest.raises(ValueError, match="empty|文件为空|文本为空|no extractable text"):
+        read_project_material_text(empty_text)
+
+    fake_docx = tmp_path / "fake.docx"
+    fake_docx.write_bytes(b"not a real docx archive")
+    with pytest.raises(ValueError, match="DOCX|docx|格式"):
+        read_project_material_text(fake_docx)
 
 
 def test_parse_cnipa_epub_html_extracts_abstract_and_dedupes():
@@ -118,6 +131,16 @@ def test_disclosure_research_prompts_include_structured_project_metadata():
     assert "夜间检测准确率提升" in prompts["prior_art_terms"]
 
 
+def test_disclosure_generator_parse_terms_keeps_single_valid_llm_term() -> None:
+    project = ProjectRecord(
+        id="p1",
+        name="图像缺陷识别",
+        draft_text="神经网络 实时反馈 闭环控制 采集调度 质量评估",
+    )
+
+    assert _parse_terms('["图像缺陷"]', project) == ["图像缺陷"]
+
+
 def test_disclosure_generator_runs_pipeline_and_records_prior_art():
     llm = _disclosure_llm()
     provider = StaticPriorArtProvider(hits=[_prior_art_hit()])
@@ -146,7 +169,7 @@ def test_disclosure_generator_runs_pipeline_and_records_prior_art():
     assert package.prior_art_hits[0].url == "https://patents.google.com/patent/CN123456789A"
     assert package.research_ledger["entries"][0]["provider"] == "static_prior_art"
     assert package.research_confidence == "medium"
-    assert stage_results[0]["phase"] == "project_scan"
+    assert [stage["phase"] for stage in stage_results[:2]] == ["deep_research_material_intake", "project_scan"]
     assert warnings == []
 
 
@@ -272,11 +295,112 @@ def test_disclosure_api_lifecycle_and_generation_injection(tmp_path: Path):
     export_response = client.get(f"/api/projects/{project_id}/disclosures/{run['id']}/export.md")
     assert export_response.status_code == 200
     assert "公开现有技术" in export_response.text
-    assert "检索来源台账" in export_response.text
-    assert "检索前" in export_response.text
-    assert "检索后" in export_response.text
-    assert "候选专利点" in export_response.text
-    assert "证据状态" in export_response.text
+    assert "检索来源台账" not in export_response.text
+    assert "候选专利点" not in export_response.text
+    assert "证据状态" not in export_response.text
+
+    sidecar_response = client.get(f"/api/projects/{project_id}/disclosures/{run['id']}/sidecar.md")
+    assert sidecar_response.status_code == 200
+    assert "检索来源台账" in sidecar_response.text
+    assert "检索前" in sidecar_response.text
+    assert "检索后" in sidecar_response.text
+    assert "候选专利点" in sidecar_response.text
+    assert "证据状态" in sidecar_response.text
+
+
+def test_project_material_upload_rejects_empty_text_and_invalid_docx_without_persisting(tmp_path: Path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=FakeLLMClient({}), load_env_file=False))
+    project_response = client.post(
+        "/api/projects",
+        json={"name": "异常材料项目", "draft_text": "一种基于传感器的检测方法。"},
+    )
+    project_id = project_response.json()["id"]
+
+    empty_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={"file": ("empty.md", b" \n\t", "text/markdown")},
+    )
+    assert empty_response.status_code == 422
+    assert "文件为空" in empty_response.json()["detail"]
+
+    fake_docx_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={
+            "file": (
+                "fake.docx",
+                b"not a real docx archive",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+    assert fake_docx_response.status_code == 422
+    assert "DOCX" in fake_docx_response.json()["detail"]
+
+    fitz = pytest.importorskip("fitz")
+    blank_pdf = tmp_path / "blank-material.pdf"
+    pdf = fitz.open()
+    pdf.new_page()
+    pdf.save(blank_pdf)
+    pdf.close()
+    pdf_response = client.post(
+        f"/api/projects/{project_id}/materials",
+        files={"file": ("blank.pdf", blank_pdf.read_bytes(), "application/pdf")},
+    )
+    assert pdf_response.status_code == 422
+    assert pdf_response.json()["detail"] == "PDF 文件无法解析，请确认文件未损坏且包含可提取文本。"
+
+    materials_response = client.get(f"/api/projects/{project_id}/materials")
+    assert materials_response.status_code == 200
+    assert materials_response.json()["materials"] == []
+
+
+def test_disclosure_generation_ignores_failed_project_materials(tmp_path: Path):
+    llm = _disclosure_llm()
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path,
+            llm_client=llm,
+            prior_art_provider=StaticPriorArtProvider(hits=[_prior_art_hit()]),
+            load_env_file=False,
+        )
+    )
+    project_response = client.post(
+        "/api/projects",
+        json={"name": "失败材料隔离", "draft_text": "一种基于图像采集的检测方法。"},
+    )
+    project_id = project_response.json()["id"]
+    client.app.state.store.add_project_material(
+        ProjectMaterial(
+            id="failed-material",
+            project_id=project_id,
+            file_name="unsupported-round5.xyz",
+            path=str(tmp_path / "unsupported-round5.xyz"),
+            file_type="xyz",
+            text="",
+            status="failed",
+            warnings=["Unsupported project material file type: .xyz"],
+        )
+    )
+    client.app.state.store.add_project_material(
+        ProjectMaterial(
+            id="processed-material",
+            project_id=project_id,
+            file_name="valid.md",
+            path=str(tmp_path / "valid.md"),
+            file_type="md",
+            text="有效材料：采集模块和缺陷定位模块协同工作。",
+            status="processed",
+            warnings=[],
+        )
+    )
+
+    run_response = client.post(f"/api/projects/{project_id}/disclosures", json={"trace": False})
+
+    assert run_response.status_code == 200
+    prompts = {call.stage: call.user_prompt for call in llm.calls}
+    assert "valid.md" in prompts["disclosure_scan"]
+    assert "unsupported-round5.xyz" not in prompts["disclosure_scan"]
+    assert "Unsupported project material file type" not in prompts["disclosure_scan"]
 
 
 def test_repeated_disclosure_docx_export_does_not_mutate_export_warnings(tmp_path: Path, monkeypatch):
@@ -314,11 +438,13 @@ def test_repeated_disclosure_docx_export_does_not_mutate_export_warnings(tmp_pat
     assert package.export_warnings == ["preexisting warning"]
     doc = Document(second_path)
     text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
-    assert text.count("Mermaid renderer unavailable or failed; DOCX keeps Mermaid code as text.") == 1
-    assert "护城河与证据状态" in text
-    assert "Claim Chart" in text
-    assert "遮挡洞口语义补全" in text
-    assert "写入从属权利要求。" in text
+    assert "技术方案正文" in text
+    assert "https://patents.google.com/patent/CN123456789A" in text
+    assert "Mermaid renderer unavailable or failed; DOCX keeps Mermaid code as text." not in text
+    assert "护城河与证据状态" not in text
+    assert "Claim Chart" not in text
+    assert "遮挡洞口语义补全" not in text
+    assert "写入从属权利要求。" not in text
 
 
 def test_disclosure_generation_fails_closed_without_llm(tmp_path: Path, monkeypatch):

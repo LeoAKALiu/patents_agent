@@ -16,7 +16,6 @@ import {
   Wand2,
 } from "lucide-react";
 
-import { AgentProviderCards } from "./AgentProviderCards";
 import {
   draftCompletionReportUrl,
   exportUrl,
@@ -47,9 +46,10 @@ import {
 } from "./api";
 import {
   deriveGuidedFlowState,
+  guidedProgressActionBlockReason,
   guidedOperationLog,
   guidedNextActionDescription,
-  guidedNextActionLabel,
+  guidedProgressActionState,
   guidedStepStatusLabel,
   ideaPatentGoalModes,
   officialCompileActionGate,
@@ -59,10 +59,12 @@ import {
   qualitySummaryFromRuns,
   resolveGuidedViewStep,
   selectCurrentOfficialCompileRun,
+  selectLatestOfficialCompileAttemptForSource,
   selectLatestMatchingPostDraftReview,
   selectLatestRepairablePostDraftReview,
   type GuidedActionGate,
   type GuidedFlowState,
+  type GuidedProgressActionState,
   type GuidedStepId,
   type GuidedStepState,
   type PatentGoalMode,
@@ -120,6 +122,7 @@ export type GuidedPatentFlowProps = {
   currentPackage: DraftPackage | null;
   agentDoctor: AgentDoctorReport | null;
   selectedDeliberationProviders: string[];
+  selectedDeliberationParticipantProviders: string[];
   selectedFormulaProviders: string[];
   filingReports: FilingReadinessReport[];
   worksheets: ClaimDefenseWorksheet[];
@@ -130,7 +133,21 @@ export type GuidedPatentFlowProps = {
   busyElapsedSeconds?: number;
   fixedGoalMode?: PatentGoalMode;
   initialIntakeMode?: Extract<StartChoiceId, "external"> | "idea";
-  onCreateIdeaProject: (payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) => Promise<void>;
+  onCreateIdeaProject: (payload: {
+    name: string;
+    idea: string;
+    mode: PatentGoalMode;
+    patentType: PatentType;
+    applicant?: string;
+    inventors?: string;
+    technical_field?: string;
+    background?: string;
+    pain_point?: string;
+    technical_solution?: string;
+    innovation?: string;
+    embodiments?: string;
+    beneficial_effects?: string;
+  }) => Promise<void>;
   onCreateExternalDraft: (payload: { text: string; fileName: string }) => Promise<void>;
   onUploadExternalDraft: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartExternalDraftIntake: (sourceId: string) => Promise<void>;
@@ -160,16 +177,19 @@ export type GuidedPatentFlowProps = {
   onStartOfficialCompile: () => void;
   onStartKimiLanguagePolish: () => void;
   onStartPostDraftReview: () => void;
+  onApplyOfficialCompileCleanup: (runId: string) => void;
   onApplyPostDraftSafePatches: (runId: string) => void;
   onSaveDraftPackage: (payload: DraftPackageManualUpdate) => void;
   onCancelPostDraftReviewRun: (runId: string) => void;
   onRetryPostDraftReviewRun: (runId: string) => void;
   onToggleDeliberationProvider: (providerId: string, enabled: boolean) => void;
+  onToggleDeliberationParticipantProvider: (providerId: string, enabled: boolean) => void;
   onToggleFormulaProvider: (providerId: string, enabled: boolean) => void;
   onGenerateDraft: () => void;
   onRunQualityChecks: () => void;
   onImproveScore: () => void;
   onAcceptPatch: (runId: string, patchId: string) => void;
+  onAcceptAllPatches: (runId: string) => void;
   onOpenExpertTool: (
     tool: "materials" | "moat" | "deliberate" | "readiness" | "claimDefense" | "completion" | "export",
   ) => void;
@@ -223,6 +243,8 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
     props.officialCompileRuns,
     props.currentSourceDraftHash,
   );
+  const displayOfficialCompileRun = latestOfficialCompileRun
+    ?? selectLatestOfficialCompileAttemptForSource(props.officialCompileRuns, props.currentSourceDraftHash);
   const latestMatchingPostDraftReview = selectLatestMatchingPostDraftReview(
     props.postDraftReviews,
     latestOfficialCompileRun,
@@ -237,10 +259,33 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
     setManualViewStepId(null);
   }, [state.currentStepId]);
 
-  const displayedStepId = resolveGuidedViewStep(state.currentStepId, manualViewStepId, state.steps);
+  const displayedStepId = resolveGuidedViewStep(
+    state.currentStepId,
+    manualViewStepId,
+    state.steps,
+    props.initialIntakeMode,
+    state.hasCompletedExternalDraftIntake || state.draftReady,
+  );
   const completedStepCount = state.steps.filter((step) => step.status === "done").length;
+  const progressActionBlockReason = guidedProgressActionBlockReason({
+    currentStepId: state.currentStepId,
+    selectedDeliberationProviders: props.selectedDeliberationProviders,
+  });
+  const progressAction = guidedProgressActionState({
+    busy: props.busy,
+    currentStepId: state.currentStepId,
+    displayedStepId,
+    actionBlockReason: progressActionBlockReason,
+  });
 
   function handleNextAction(): void {
+    if (progressAction.disabled) {
+      return;
+    }
+    if (progressAction.kind === "return") {
+      setManualViewStepId(null);
+      return;
+    }
     setManualViewStepId(null);
     if (state.currentStepId === "invention") {
       props.onStartDisclosure();
@@ -269,6 +314,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         state={state}
       />
       <GuidedProgressBanner
+        action={progressAction}
         busy={props.busy}
         completedStepCount={completedStepCount}
         currentStepId={state.currentStepId}
@@ -296,6 +342,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
       )}
       {displayedStepId === "invention" && (
         <InventionPointConfirmation
+          project={props.project}
           disclosure={latestDisclosure}
           disclosureRuns={props.disclosures}
           materials={props.materials}
@@ -330,12 +377,14 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           runs={props.deliberations}
           doctor={props.agentDoctor}
           selectedProviders={props.selectedDeliberationProviders}
+          participantProviders={props.selectedDeliberationParticipantProviders}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartDeliberation={props.onStartDeliberation}
           onCancelRun={props.onCancelDeliberationRun}
           onRetryRun={props.onRetryDeliberationRun}
           onToggleProvider={props.onToggleDeliberationProvider}
+          onToggleParticipantProvider={props.onToggleDeliberationParticipantProvider}
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
@@ -366,6 +415,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onRunQualityChecks={props.onRunQualityChecks}
           onImproveScore={props.onImproveScore}
           onAcceptPatch={props.onAcceptPatch}
+          onAcceptAllPatches={props.onAcceptAllPatches}
           onOpenExpertTool={props.onOpenExpertTool}
         />
       )}
@@ -373,12 +423,13 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
         <OfficialCompilePanel
           actionGate={officialCompileActionGate(state, state.currentStepId, displayedStepId)}
           project={props.project}
-          run={latestOfficialCompileRun}
+          run={displayOfficialCompileRun}
           runs={props.officialCompileRuns}
           currentSourceDraftHash={props.currentSourceDraftHash}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartOfficialCompile={props.onStartOfficialCompile}
+          onApplyCleanup={props.onApplyOfficialCompileCleanup}
         />
       )}
       {displayedStepId === "postReview" && (
@@ -393,6 +444,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           officialCompileRun={latestOfficialCompileRun}
           doctor={props.agentDoctor}
           selectedProviders={props.selectedDeliberationProviders}
+          participantProviders={props.selectedDeliberationParticipantProviders}
           busy={props.busy}
           busyElapsedSeconds={props.busyElapsedSeconds ?? 0}
           onStartPostDraftReview={props.onStartPostDraftReview}
@@ -402,6 +454,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
           onCancelRun={props.onCancelPostDraftReviewRun}
           onRetryRun={props.onRetryPostDraftReviewRun}
           onToggleProvider={props.onToggleDeliberationProvider}
+          onToggleParticipantProvider={props.onToggleDeliberationParticipantProvider}
         />
       )}
       {displayedStepId === "export" && (
@@ -420,6 +473,7 @@ export function GuidedPatentFlowView(props: GuidedPatentFlowProps) {
 }
 
 function GuidedProgressBanner({
+  action,
   busy,
   completedStepCount,
   currentStepId,
@@ -427,6 +481,7 @@ function GuidedProgressBanner({
   onNext,
   totalStepCount,
 }: {
+  action: GuidedProgressActionState;
   busy: string;
   completedStepCount: number;
   currentStepId: GuidedStepId;
@@ -435,8 +490,7 @@ function GuidedProgressBanner({
   totalStepCount: number;
 }) {
   const percent = Math.round((completedStepCount / totalStepCount) * 100);
-  const isBrowsingPastStep = displayedStepId !== currentStepId;
-  const actionIsFormOnly = currentStepId === "idea";
+  const actionIsFormOnly = action.disabled && currentStepId === "idea" && displayedStepId === currentStepId;
   return (
     <section className="guided-progress-banner" aria-label="流程进度和下一步">
       <div className="guided-progress-copy">
@@ -449,15 +503,22 @@ function GuidedProgressBanner({
       <div className="guided-progress-meter" aria-hidden="true">
         <span style={{ width: `${percent}%` }} />
       </div>
-      <button
-        className="btn btn-primary"
-        disabled={Boolean(busy) || actionIsFormOnly}
-        onClick={onNext}
-        type="button"
+      <span
+        className="guided-progress-action-wrap"
+        title={action.title}
       >
-        {busy ? <Loader2 className="spin" size={17} /> : <PlayCircle size={17} />}
-        <span>{isBrowsingPastStep ? "回到当前步骤" : guidedNextActionLabel(currentStepId)}</span>
-      </button>
+        <button
+          aria-label={action.label}
+          className="btn btn-primary"
+          disabled={action.disabled}
+          onClick={onNext}
+          title={action.title}
+          type="button"
+        >
+          {busy ? <Loader2 className="spin" size={17} /> : action.kind === "return" ? <RefreshCw size={17} /> : <PlayCircle size={17} />}
+          <span>{action.label}</span>
+        </button>
+      </span>
       {actionIsFormOnly && (
         <div className="callout guided-progress-callout">
           <AlertTriangle size={17} aria-hidden="true" />

@@ -31,6 +31,7 @@ from backend.app.schemas import (
     InventiveStepAttackCombo,
     NoveltyAttack,
     PatentPointCandidate,
+    ProjectKnowledgeState,
     PatentStrategyBrief,
     PriorArtHit,
 )
@@ -51,6 +52,7 @@ def generate_grantability_report(
     patent_points: list[PatentPointCandidate],
     strategy_brief: PatentStrategyBrief | None = None,
     deep_research_packets: list[DeepResearchPacket] | None = None,
+    project_knowledge_state: ProjectKnowledgeState | None = None,
 ) -> GrantabilityReport:
     """Produce a structured grantability analysis for one invention project.
 
@@ -88,6 +90,34 @@ def generate_grantability_report(
         low_evidence_flags.append("现有技术引用数量不足（<2），创造性攻击基础薄弱。")
         fail_closed = True
 
+    knowledge_status = project_knowledge_state.status if project_knowledge_state else None
+    knowledge_flags = set(project_knowledge_state.quality_flags if project_knowledge_state else [])
+
+    if project_knowledge_state is None:
+        low_evidence_flags.append("项目语料库未就绪，授权前景不能给出高置信结论。")
+        fail_closed = True
+    elif knowledge_status != "ready":
+        if knowledge_status == "stale":
+            low_evidence_flags.append("项目语料库已过期，需要补充检索后再确认授权前景。")
+        else:
+            low_evidence_flags.append(
+                f"项目语料库状态为{knowledge_status}，尚不能支撑高置信授权判断。"
+            )
+        fail_closed = True
+
+    if "synthetic_evidence" in knowledge_flags:
+        low_evidence_flags.append("项目语料库仅含合成或占位内容，不能支撑授权前景结论。")
+        fail_closed = True
+    if "empty_corpus" in knowledge_flags:
+        low_evidence_flags.append("项目语料库为空，现有技术证据不足。")
+        fail_closed = True
+    if "insufficient_corpus" in knowledge_flags:
+        low_evidence_flags.append("项目语料库证据不足，需补充检索和入库文献。")
+        fail_closed = True
+    if project_knowledge_state and project_knowledge_state.document_count < 2:
+        low_evidence_flags.append("项目语料库入库文献少于 2 件，现有技术证据不足。")
+        fail_closed = True
+
     # 5. Determine overall grantability status.
     status = _compute_overall_status(
         rows, novelty_attacks, inventive_step_attacks, fail_closed, evidence_quality
@@ -103,7 +133,7 @@ def generate_grantability_report(
         id=uuid.uuid4().hex,
         project_id=project_id,
         status=status,
-        overall_assessment=_build_overall_assessment(status, rows),
+        overall_assessment=_build_overall_assessment(status, rows, fail_closed, low_evidence_flags),
         closest_prior_art_summary=_closest_prior_art_summary(prior_art_hits),
         claim_chart=rows,
         novelty_attacks=novelty_attacks,
@@ -642,7 +672,12 @@ def _build_recommendation(
     return "\n".join(parts)
 
 
-def _build_overall_assessment(status: str, rows: list[GrantabilityClaimChartRow]) -> str:
+def _build_overall_assessment(
+    status: str,
+    rows: list[GrantabilityClaimChartRow],
+    fail_closed: bool,
+    low_evidence_flags: list[str],
+) -> str:
     """Build the overall assessment narrative."""
     independent = [r for r in rows if r.feature_placement == FeaturePlacement.INDEPENDENT_CLAIM_REQUIRED]
     dependent = [r for r in rows if r.feature_placement == FeaturePlacement.DEPENDENT_CLAIM_OPTIONAL]
@@ -657,6 +692,8 @@ def _build_overall_assessment(status: str, rows: list[GrantabilityClaimChartRow]
         f"说明书支撑特征：{len(desc_only)}个",
         f"建议删除特征：{len(to_delete)}个",
     ]
+    if fail_closed and low_evidence_flags:
+        lines.append("现有技术证据不足，当前仅能输出证据不足结论。")
     return "\n".join(lines)
 
 

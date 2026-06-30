@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
@@ -52,12 +53,19 @@ def generate_claim_defense_worksheet(
     return ClaimDefenseWorksheet(
         id=uuid.uuid4().hex,
         project_id=project_id,
+        draft_package_hash=_draft_package_hash(package),
         source="generated_package" if package else "draft",
         feature_records=feature_records,
         defense_recommendations=_defense_recommendations(feature_records),
         support_gaps=support_gaps,
         notes=notes,
     )
+
+
+def _draft_package_hash(package: DraftPackage | None) -> str:
+    if package is None:
+        return ""
+    return hashlib.sha256(package.model_dump_json().encode("utf-8")).hexdigest()
 
 
 def _try_llm_features(

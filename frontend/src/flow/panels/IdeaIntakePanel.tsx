@@ -83,7 +83,9 @@ export function IdeaIntakePanel({
   const [innovation, setInnovation] = useState(project?.innovation ?? "");
   const [embodiments, setEmbodiments] = useState(project?.embodiments ?? "");
   const [beneficialEffects, setBeneficialEffects] = useState(project?.beneficial_effects ?? "");
-  const canSubmit = Boolean(name.trim() && idea.trim() && !project);
+  const nameError = !project && !name.trim() ? "项目名称不能为空" : "";
+  const ideaError = !project && !idea.trim() ? "一句话想法不能为空" : "";
+  const canSubmit = Boolean(!nameError && !ideaError && !project);
   const effectiveMode = fixedGoalMode ?? mode;
   const effectivePatentType: PatentType = fixedGoalMode === "utility" ? "utility_model" : patentType;
   const intakeModeLabel = intakeMode === "idea" ? "从想法生成" : "导入外部初稿";
@@ -94,6 +96,8 @@ export function IdeaIntakePanel({
     ? "实用新型轻量版"
     : ideaPatentGoalModes.find((item) => item.id === mode)?.label ?? "授权稳健";
   const latestExternalRun = externalDraftIntakeRuns[0] ?? null;
+  const processedMaterialCount = materials.filter((material) => material.status === "processed").length;
+  const failedMaterialCount = materials.length - processedMaterialCount;
   const externalQueueLabel = latestExternalRun
     ? latestExternalRun.status === "needs_review"
       ? "待确认章节"
@@ -101,12 +105,21 @@ export function IdeaIntakePanel({
     : externalDraftSources.length
       ? `${externalDraftSources.length} 份待解析`
       : "暂无外部稿";
+  const materialSupportLabel =
+    processedMaterialCount > 0 && failedMaterialCount > 0
+      ? `${processedMaterialCount} 份可用，${failedMaterialCount} 份失败`
+      : processedMaterialCount > 0
+        ? `${processedMaterialCount} 份可用材料`
+        : failedMaterialCount > 0
+          ? `${failedMaterialCount} 份上传失败`
+          : "材料可选";
   const intakeSupportLabel = intakeMode === "idea"
-    ? materials.length > 0
-      ? `${materials.length} 份材料`
-      : "材料可选"
+    ? materialSupportLabel
     : externalQueueLabel;
   const projectDisplayName = project?.name ?? (name.trim() || "待创建");
+  const submitDisabledReason = project
+    ? "项目已创建，可继续下一步。"
+    : nameError || ideaError || "填写完成后可以创建项目。";
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -203,20 +216,42 @@ export function IdeaIntakePanel({
                 <strong>项目基础信息</strong>
                 <p>创建项目后，项目名称和首段技术想法会作为后续发明点提炼的输入。</p>
                 <div className="guided-field-grid">
-                  <label className="field">
-                    <span>项目名称</span>
-                    <input value={name} onChange={(event) => setName(event.target.value)} disabled={Boolean(project)} />
-                  </label>
-                  <label className="field field-wide">
-                    <span>一句话想法</span>
+                  <div className="field">
+                    <label htmlFor="guided-project-name">项目名称</label>
+                    <input
+                      aria-describedby={nameError ? "guided-project-name-error" : undefined}
+                      aria-invalid={Boolean(nameError)}
+                      id="guided-project-name"
+                      required
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      disabled={Boolean(project)}
+                    />
+                    {nameError && (
+                      <small className="settings-hint warn" id="guided-project-name-error" role="alert">
+                        {nameError}
+                      </small>
+                    )}
+                  </div>
+                  <div className="field field-wide">
+                    <label htmlFor="guided-project-idea">一句话想法</label>
                     <textarea
+                      aria-describedby={ideaError ? "guided-project-idea-error" : undefined}
+                      aria-invalid={Boolean(ideaError)}
                       className="idea-input"
+                      id="guided-project-idea"
                       value={idea}
                       onChange={(event) => setIdea(event.target.value)}
                       disabled={Boolean(project)}
                       placeholder="例如：通过点云和多视角影像自动生成外立面 IFC 模型，并回链工程量清单。"
+                      required
                     />
-                  </label>
+                    {ideaError && (
+                      <small className="settings-hint warn" id="guided-project-idea-error" role="alert">
+                        {ideaError}
+                      </small>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -378,11 +413,23 @@ export function IdeaIntakePanel({
               </div>
             )}
             <div className="action-dock">
-              <span className="meta">当前目标：{goalModeLabel}；创建后进入发明点/结构方案确认。</span>
-              <button className="btn btn-primary" disabled={!canSubmit || busy === "guided-create"} type="submit">
+              <span className="meta">
+                当前目标：{goalModeLabel}；{canSubmit ? "创建后进入发明点/结构方案确认。" : submitDisabledReason}
+              </span>
+              <button
+                aria-describedby={!canSubmit ? "guided-project-submit-reason" : undefined}
+                className="btn btn-primary"
+                disabled={!canSubmit || busy === "guided-create"}
+                type="submit"
+              >
                 <FileText size={17} />
                 <span>{project ? "已创建想法" : "创建并继续"}</span>
               </button>
+              {!canSubmit && (
+                <span className="sr-only" id="guided-project-submit-reason">
+                  {submitDisabledReason}
+                </span>
+              )}
             </div>
             <GuidedOperationConsole busy={busy} elapsedSeconds={busyElapsedSeconds} active={busy === "guided-create"} />
           </form>
@@ -394,12 +441,13 @@ export function IdeaIntakePanel({
                 </div>
                 <div className="info-card-body">
                   <strong>补充材料</strong>
-                  <p>上传 PDF、DOCX、PPT 或 Markdown，作为发明点提炼和说明书支撑材料。</p>
+                  <p>可一次上传多份 PDF、DOCX、PPT 或 Markdown，作为发明点提炼和说明书支撑材料。</p>
                   <input
                     id="project-material-file"
                     name="project-material-file"
                     type="file"
                     accept=".pdf,.docx,.pptx,.ppsx,.txt,.md,.markdown"
+                    multiple
                   />
                 </div>
                 <button className="btn btn-primary" disabled={busy === "material-upload"} type="submit">

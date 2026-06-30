@@ -279,15 +279,26 @@ export function isStrictCompletedDeliberation(run: {
   stage_results?: Array<{ phase?: string; label?: string; status?: string }>;
 }): boolean {
   if (run.status !== "completed" || !run.strategy_brief || (run.failures?.length ?? 0) > 0) return false;
-  const providers = new Set(run.providers ?? []);
-  const requiredProviders = ["codex", "deepseek", "claude"];
-  if (!requiredProviders.every((provider) => providers.has(provider))) return false;
+  const decisionProviders = Array.from(new Set(run.providers ?? [])).filter(Boolean);
+  if (decisionProviders.length < 3 || !decisionProviders.includes("codex")) return false;
   const completed = (run.stage_results ?? []).filter((stage) => stage.status === "completed");
-  const labels = new Set(completed.map((stage) => stage.label ?? ""));
-  if (!requiredProviders.map((provider) => `opening ${provider}`).every((label) => labels.has(label))) return false;
-  const pairLabels = requiredProviders.flatMap((provider, index) =>
-    requiredProviders.slice(index + 1).map((otherProvider) => `pair ${provider}-vs-${otherProvider}`),
+  const completedOpenings = new Set(
+    completed
+      .filter((stage) => stage.phase === "opening")
+      .map((stage) => stage.label ?? ""),
   );
-  if (!pairLabels.every((label) => labels.has(label))) return false;
+  if (!decisionProviders.every((provider) => completedOpenings.has(`opening ${provider}`))) return false;
+  const completedPairLabels = new Set(
+    completed
+      .filter((stage) => stage.phase === "pair")
+      .map((stage) => stage.label ?? ""),
+  );
+  for (let index = 0; index < decisionProviders.length; index += 1) {
+    for (let otherIndex = index + 1; otherIndex < decisionProviders.length; otherIndex += 1) {
+      if (!completedPairLabels.has(`pair ${decisionProviders[index]}-vs-${decisionProviders[otherIndex]}`)) {
+        return false;
+      }
+    }
+  }
   return completed.some((stage) => stage.phase === "chair" && stage.label === "chair synthesis");
 }

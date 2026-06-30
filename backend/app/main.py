@@ -5,13 +5,12 @@ import json
 import os
 import re
 import shutil
-import time
 import uuid
 from itertools import combinations
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import ValidationError
@@ -22,7 +21,13 @@ from backend.app.core_formula import assess_formula_need, formula_package_to_mar
 from backend.app.deliberation.doctor import inspect_agent_environment
 from backend.app.deliberation.orchestrator import DeliberationOrchestrator
 from backend.app.deliberation.providers import AgentProviderRunner, repair_suggestion_for_failure
-from backend.app.disclosure.exporter import disclosure_to_markdown, export_disclosure_docx, write_disclosure_artifacts
+from backend.app.disclosure.exporter import (
+    clean_disclosure_to_markdown,
+    disclosure_sidecar_to_markdown,
+    disclosure_to_markdown,
+    export_disclosure_docx,
+    write_disclosure_artifacts,
+)
 from backend.app.disclosure.generator import DisclosureGenerator
 from backend.app.disclosure.material_parser import read_project_material_text
 from backend.app.disclosure.prior_art import PublicPriorArtProvider
@@ -49,23 +54,22 @@ from backend.app.kimi_language_polish import run_kimi_language_polish
 from backend.app.desktop_config import (
     DesktopConfig,
     DesktopConfigError,
-    apply_update as apply_desktop_config_update,
-    effective_settings as effective_desktop_settings,
     load_desktop_config,
-    redacted_view as desktop_config_redacted_view,
-    save_desktop_config,
 )
-from backend.app.llm import ConfigError, DeepSeekLLMClient, LLMClient, MissingLLMClient
+from backend.app.llm import ConfigError, LLMClient, MissingLLMClient
 from backend.app.llm_cache import CachedStageLLMClient, clear_project_llm_cache
 from backend.app.moat import score_moat
 from backend.app.official_compile import (
     OfficialDraftCompiler,
+    clean_source_draft_for_official_compile,
     export_official_package_docx,
     official_compile_run_to_markdown,
     official_package_to_markdown,
     source_draft_hash,
 )
 from backend.app.agents.registry import (
+    DELIBERATION_CHAIR_PROVIDER,
+    DELIBERATION_EXPERT_SEAT_COUNT,
     STRICT_DELIBERATION_PROVIDERS,
     agent_provider_ids_for_role,
     selectable_agent_provider_ids,
@@ -78,6 +82,7 @@ from backend.app.post_draft_review import (
     post_draft_review_to_markdown,
     run_post_draft_review,
 )
+from backend.app.revision_ledger import create_revision_record
 from backend.app.post_draft_repair import (
     apply_section_patch,
     create_repair_patch_payload,
@@ -98,13 +103,11 @@ from backend.app.research.providers import ChainedResearchProvider, build_provid
 from backend.app.runtime import RuntimeCancelled, RuntimeContext, RuntimeTimeout
 from backend.app.schemas import (
     AgentFailure,
+    ClaimDefenseWorksheet,
     DeepResearchPacket,
     DeliberationRun,
     DeliberationLogEntry,
     DeliberationRunCreate,
-    DesktopConfigHealthResult,
-    DesktopConfigUpdate,
-    DesktopConfigView,
     DisclosurePackage,
     DisclosureRun,
     DisclosureRunCreate,
@@ -119,12 +122,14 @@ from backend.app.schemas import (
     DraftRepairPatchApplyResult,
     DraftReviewIssue,
     EvidenceBinding,
+    FilingReadinessReport,
     FormulaRun,
     FormulaRunCreate,
     GenerateRequest,
     InventionBrief,
     OfficialDraftPackage,
     OfficialCompileRunCreate,
+    OfficialCompileCleanupResult,
     OfficialCompileRun,
     PatentChunk,
     PatentPointCandidate,
@@ -141,40 +146,25 @@ from backend.app.schemas import (
     ProjectCreate,
     ProjectUpdate,
     ProjectRecord,
+    RevisionLedgerRecord,
     RuntimeFailure,
     SectionType,
+    CompletionScoreCard,
     ScoreImprovementRequest,
     ScoreImprovementResult,
 )
 from backend.app.settings import Settings, build_settings
 from backend.app.storage import SQLiteStore
 
+from backend.app.api.desktop_config import router as desktop_config_router
+from backend.app.api.system import router as system_router
+from backend.app.api.corpus import router as corpus_router
+from backend.app.api.project_knowledge import router as project_knowledge_router
+from backend.app.api.projects import router as projects_router
+from backend.app.services.desktop_config_service import LOCAL_RENDERER_ORIGINS
+from backend.app.services.llm_factory import build_llm
 
 APP_VERSION = "1.1.0"
-LOCAL_RENDERER_ORIGINS = frozenset(
-    {
-        "http://127.0.0.1:5173",
-        "http://localhost:5173",
-        "http://127.0.0.1:5174",
-        "http://localhost:5174",
-        "tauri://localhost",
-        "http://tauri.localhost",
-        "https://tauri.localhost",
-    }
-)
-
-
-def _enforce_desktop_config_origin(request: Request) -> None:
-    """Reject browser-originated config writes from non-renderer origins.
-
-    Tauri command invocations and backend tests do not send Origin, so absence
-    is allowed. Browser requests from arbitrary sites send Origin and must not
-    be able to read or mutate the local desktop LLM configuration.
-    """
-
-    origin = request.headers.get("origin")
-    if origin and origin not in LOCAL_RENDERER_ORIGINS:
-        raise HTTPException(status_code=403, detail="Forbidden desktop config origin.")
 
 
 def _ascii_download_filename(raw: str) -> str:
@@ -239,7 +229,7 @@ def create_app(
     if existing_chunks:
         index.add(existing_chunks)
     desktop_config = load_desktop_config(settings.data_dir)
-    llm = llm_client or _build_llm(settings, desktop_config)
+    llm = llm_client or build_llm(settings, desktop_config)
 
     app = FastAPI(title="Patents Agent", version=APP_VERSION)
     app.add_middleware(
@@ -249,6 +239,11 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.include_router(system_router)
+    app.include_router(desktop_config_router)
+    app.include_router(corpus_router)
+    app.include_router(projects_router)
+    app.include_router(project_knowledge_router)
     app.state.settings = settings
     app.state.store = store
     app.state.index = index
@@ -261,286 +256,6 @@ def create_app(
     app.state.research_search_provider = research_search_provider
     app.state.disclosure_inline = prior_art_provider is not None
     app.state.corpus_service = CorpusImportService(store=store, index=index, data_dir=settings.data_dir)
-
-    @app.get("/api/health")
-    def health() -> dict:
-        return {
-            "ok": True,
-            "llm_configured": not isinstance(app.state.llm, MissingLLMClient),
-            "data_dir": str(settings.data_dir),
-            "model": settings.llm_model,
-            "embedding_model": settings.embedding_model,
-        }
-
-    @app.get("/api/desktop-config", response_model=DesktopConfigView)
-    def get_desktop_config(request: Request) -> dict:
-        """Return the redacted desktop LLM configuration (no raw key)."""
-        _enforce_desktop_config_origin(request)
-        view = desktop_config_redacted_view(app.state.desktop_config)
-        effective = effective_desktop_settings(settings, app.state.desktop_config)
-        view["provider"] = effective["provider"]
-        view["base_url"] = effective["base_url"]
-        view["model"] = effective["model"]
-        view["api_key_source"] = effective["api_key_source"]
-        return view
-
-    @app.patch("/api/desktop-config", response_model=DesktopConfigView)
-    def patch_desktop_config(payload: DesktopConfigUpdate, request: Request) -> dict:
-        """Persist a desktop LLM configuration update on the local machine.
-
-        The raw API key is dropped from the response and from any log lines.
-        The ``.env`` file is never touched.
-        """
-        _enforce_desktop_config_origin(request)
-        try:
-            updated = apply_desktop_config_update(
-                app.state.desktop_config,
-                provider=payload.provider,
-                base_url=payload.base_url,
-                model=payload.model,
-                api_key=payload.api_key,
-                clear_api_key=payload.clear_api_key,
-            )
-        except DesktopConfigError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        saved = save_desktop_config(settings.data_dir, updated)
-        app.state.desktop_config = saved
-        # Rebuild the LLM so subsequent generation calls pick up the new key.
-        if not app.state.llm_client_override:
-            app.state.llm = _build_llm(settings, saved)
-        view = desktop_config_redacted_view(saved)
-        effective = effective_desktop_settings(settings, saved)
-        view["provider"] = effective["provider"]
-        view["base_url"] = effective["base_url"]
-        view["model"] = effective["model"]
-        view["api_key_source"] = effective["api_key_source"]
-        return view
-
-    @app.post("/api/desktop-config/health", response_model=DesktopConfigHealthResult)
-    def desktop_config_health(request: Request) -> dict:
-        """Probe the configured LLM with a tiny request without echoing the key."""
-        _enforce_desktop_config_origin(request)
-        effective = effective_desktop_settings(settings, app.state.desktop_config)
-        api_key = effective["api_key"]
-        model = effective["model"]
-        base_url = effective["base_url"]
-        result: dict = {
-            "ok": False,
-            "model": model,
-            "api_key_source": effective["api_key_source"],
-            "latency_ms": 0,
-            "status_code": 0,
-            "error": "",
-        }
-        if not api_key:
-            result["error"] = "no_api_key"
-            return result
-        # Lazy import: keep the module import order predictable.
-        from openai import OpenAI
-
-        client = OpenAI(api_key=api_key, base_url=base_url or None)
-        started = time.monotonic()
-        try:
-            completion = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "ping"},
-                    {"role": "user", "content": "ping"},
-                ],
-                max_tokens=1,
-                temperature=0,
-            )
-            latency_ms = int((time.monotonic() - started) * 1000)
-            result["ok"] = bool(completion.choices)
-            result["latency_ms"] = latency_ms
-            result["status_code"] = 200
-        except Exception as exc:  # noqa: BLE001 - report, do not raise
-            latency_ms = int((time.monotonic() - started) * 1000)
-            result["latency_ms"] = latency_ms
-            result["error"] = _redact_error(exc)
-            status = getattr(exc, "status_code", None) or 0
-            result["status_code"] = int(status) if isinstance(status, int) else 0
-        return result
-
-    @app.get("/api/agents/doctor")
-    def agent_doctor() -> dict:
-        return inspect_agent_environment().model_dump(mode="json")
-
-    @app.get("/api/corpus")
-    def list_corpus() -> dict:
-        documents = store.list_documents()
-        return {"documents": [document.model_dump(mode="json") for document in documents]}
-
-    @app.post("/api/corpus/jobs")
-    def create_corpus_job(payload: CorpusImportJobCreate) -> dict:
-        job = app.state.corpus_service.create_job(
-            source_type=payload.source_type,
-            source_name=payload.source_name,
-            query=payload.query,
-            domain=payload.domain,
-            version_name=payload.version_name,
-        )
-        return job.model_dump(mode="json")
-
-    @app.post("/api/corpus/jobs/{job_id}/files")
-    async def upload_corpus_job_file(job_id: str, file: UploadFile = File(...)) -> dict:
-        if not store.get_corpus_job(job_id):
-            raise HTTPException(status_code=404, detail="Corpus import job not found.")
-        upload_dir = settings.data_dir / "corpus-jobs" / job_id / "uploaded"
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file.filename or "corpus-upload").name
-        stored_path = upload_dir / safe_name
-        with stored_path.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
-        job = app.state.corpus_service.add_input(job_id, stored_path)
-        return {"job": job.model_dump(mode="json"), "file_count": len(job.input_paths)}
-
-    @app.post("/api/corpus/jobs/{job_id}/run")
-    def run_corpus_job(job_id: str) -> dict:
-        if not store.get_corpus_job(job_id):
-            raise HTTPException(status_code=404, detail="Corpus import job not found.")
-        job = app.state.corpus_service.run_job(job_id)
-        if job.status == "failed" and not job.imported_documents:
-            return job.model_dump(mode="json")
-        return job.model_dump(mode="json")
-
-    @app.get("/api/corpus/jobs/{job_id}")
-    def get_corpus_job(job_id: str) -> dict:
-        job = store.get_corpus_job(job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail="Corpus import job not found.")
-        return job.model_dump(mode="json")
-
-    @app.get("/api/corpus/versions")
-    def list_corpus_versions() -> dict:
-        return {"versions": [version.model_dump(mode="json") for version in store.list_corpus_versions()]}
-
-    @app.get("/api/corpus/stats")
-    def corpus_stats(version: str | None = None) -> dict:
-        return store.get_corpus_stats(version_name=version)
-
-    @app.get("/api/corpus/documents/{document_id}")
-    def get_corpus_document(document_id: str) -> dict:
-        document = store.get_document(document_id)
-        if not document:
-            raise HTTPException(status_code=404, detail="Corpus document not found.")
-        return document.model_dump(mode="json")
-
-    @app.post("/api/corpus/import")
-    async def import_corpus(file: UploadFile = File(...)) -> dict:
-        upload_dir = settings.data_dir / "uploads"
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file.filename or "patent.txt").name
-        stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-        with stored_path.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
-
-        try:
-            text = read_document_text(stored_path)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        document = make_patent_document(uuid.uuid4().hex, safe_name, text)
-        chunks = [PatentChunk(**chunk) for chunk in chunk_document(document)]
-        store.add_document(document, chunks)
-        index.add(chunks)
-        return {
-            "document": document.model_dump(mode="json"),
-            "chunks_count": len(chunks),
-            "warnings": [],
-        }
-
-    @app.get("/api/corpus/search")
-    def search_corpus(
-        q: str = Query(min_length=1),
-        section_type: SectionType | None = None,
-        limit: int = Query(default=5, ge=1, le=20),
-        version: str | None = None,
-    ) -> dict:
-        results = index.search(q, section_type=section_type, limit=limit, version_name=version)
-        return {"results": [result.model_dump(mode="json") for result in results]}
-
-    @app.get("/api/projects")
-    def list_projects() -> dict:
-        return {"projects": [project.model_dump(mode="json") for project in store.list_projects()]}
-
-    @app.post("/api/projects")
-    def create_project(payload: ProjectCreate) -> dict:
-        project = ProjectRecord(
-            id=uuid.uuid4().hex,
-            name=payload.name,
-            draft_text=payload.draft_text,
-            patent_type=payload.patent_type,
-            applicant=payload.applicant,
-            inventors=payload.inventors,
-            technical_field=payload.technical_field,
-            background=payload.background,
-            pain_point=payload.pain_point,
-            technical_solution=payload.technical_solution,
-            innovation=payload.innovation,
-            embodiments=payload.embodiments,
-            beneficial_effects=payload.beneficial_effects,
-        )
-        stored = store.create_project(project)
-        return stored.model_dump(mode="json")
-
-    @app.get("/api/projects/{project_id}")
-    def get_project(project_id: str) -> dict:
-        project = _require_project(store, project_id)
-        return project.model_dump(mode="json")
-
-    @app.put("/api/projects/{project_id}")
-    def update_project(project_id: str, payload: ProjectUpdate) -> dict:
-        project = _require_project(store, project_id)
-        updates = payload.model_dump(exclude_unset=True)
-        if not updates:
-            return project.model_dump(mode="json")
-        updated = store.update_project(project_id, updates)
-        if updated is None:
-            raise HTTPException(status_code=404, detail="Project not found.")
-        return updated.model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}")
-    def delete_project(project_id: str) -> dict:
-        deleted = store.delete_project(project_id)
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Project not found.")
-        return {"ok": True}
-
-    @app.post("/api/projects/{project_id}/materials")
-    async def upload_project_material(project_id: str, file: UploadFile = File(...)) -> dict:
-        _require_project(store, project_id)
-        upload_dir = settings.data_dir / "project-materials" / project_id
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file.filename or "material.txt").name
-        stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-        with stored_path.open("wb") as handle:
-            shutil.copyfileobj(file.file, handle)
-        warnings: list[str] = []
-        text = ""
-        status = "processed"
-        try:
-            text, warnings = read_project_material_text(stored_path)
-        except ValueError as exc:
-            status = "failed"
-            warnings = [str(exc)]
-        material = ProjectMaterial(
-            id=uuid.uuid4().hex,
-            project_id=project_id,
-            file_name=safe_name,
-            path=str(stored_path),
-            file_type=stored_path.suffix.lower().lstrip("."),
-            text=text,
-            status=status,
-            warnings=warnings,
-        )
-        store.add_project_material(material)
-        return material.model_dump(mode="json")
-
-    @app.get("/api/projects/{project_id}/materials")
-    def list_project_materials(project_id: str) -> dict:
-        _require_project(store, project_id)
-        return {"materials": [material.model_dump(mode="json") for material in store.list_project_materials(project_id)]}
 
     @app.post("/api/projects/{project_id}/external-drafts")
     def create_external_draft(project_id: str, payload: ExternalDraftSourceCreate) -> dict:
@@ -610,14 +325,31 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
     def create_external_draft_intake_run(project_id: str, source_id: str) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         source = store.get_external_draft_source(project_id, source_id)
         if not source:
             raise HTTPException(status_code=404, detail="External draft source not found.")
         run = parse_external_draft_source(project_id=project_id, source=source)
-        stored = store.create_external_draft_intake_run(run)
-        if stored.status == "completed" and stored.parsed_package:
-            store.update_project_package(project_id, stored.parsed_package)
+        if run.status == "completed" and run.parsed_package:
+            before_package = project.package
+            record = _external_draft_revision_record_for_event(
+                project_id=project_id,
+                before_package=before_package,
+                after_package=run.parsed_package,
+                artifact_ref=f"external-draft-intake:{run.id}",
+                user_intent_summary=(
+                    "Imported parsed external draft package into the working draft."
+                    if before_package
+                    else "Imported the first parsed external draft package into an empty working draft."
+                ),
+            )
+            stored = store.create_external_draft_intake_run_with_project_package_revision_record(
+                run,
+                run.parsed_package,
+                record,
+            )
+        else:
+            stored = store.create_external_draft_intake_run(run)
         return stored.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-drafts/{source_id}/intake-runs")
@@ -647,7 +379,7 @@ def create_app(
         run_id: str,
         payload: ExternalDraftIntakeConfirmRequest,
     ) -> dict:
-        _require_project(store, project_id)
+        project = _require_project(store, project_id)
         run = store.get_external_draft_intake_run(project_id, run_id)
         if not run:
             raise HTTPException(status_code=404, detail="External draft intake run not found.")
@@ -674,10 +406,25 @@ def create_app(
                 "working_draft_hash": working_draft_hash(package),
             }
         )
-        persisted = store.update_external_draft_intake_run(updated)
+        before_package = project.package
+        record = _external_draft_revision_record_for_event(
+            project_id=project_id,
+            before_package=before_package,
+            after_package=package,
+            artifact_ref=f"external-draft-intake:{run.id}",
+            user_intent_summary=(
+                "Confirmed external draft intake package and replaced the working draft."
+                if before_package
+                else "Confirmed the first external draft intake package into an empty working draft."
+            ),
+        )
+        persisted = store.update_external_draft_intake_run_with_project_package_revision_record(
+            updated,
+            package,
+            record,
+        )
         if not persisted:
             raise HTTPException(status_code=409, detail="External draft intake run update conflicted.")
-        store.update_project_package(project_id, package)
         return persisted.model_dump(mode="json")
 
     @app.get("/api/projects/{project_id}/external-draft-review-bundle/report.md")
@@ -716,63 +463,6 @@ def create_app(
             external_draft_review_bundle_to_markdown(bundle),
             media_type="text/markdown; charset=utf-8",
         )
-
-    @app.get("/api/projects/{project_id}/patent-points")
-    def list_project_patent_points(project_id: str) -> dict:
-        _require_project(store, project_id)
-        return {"points": [point.model_dump(mode="json") for point in store.list_project_patent_points(project_id)]}
-
-    @app.post("/api/projects/{project_id}/patent-points")
-    def create_project_patent_point(project_id: str, payload: PatentPointCreate) -> dict:
-        _require_project(store, project_id)
-        point: PatentPointCandidate = payload.to_candidate(payload.source_candidate_id or f"user-{uuid.uuid4().hex}")
-        stored = store.add_project_patent_point(project_id, point)
-        return stored.model_dump(mode="json")
-
-    @app.patch("/api/projects/{project_id}/patent-points/{point_id}")
-    def update_project_patent_point(project_id: str, point_id: str, payload: PatentPointUpdate) -> dict:
-        _require_project(store, project_id)
-        existing = store.get_project_patent_point(project_id, point_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Patent point not found.")
-        patch = payload.model_dump(exclude_unset=True)
-        null_fields = [field for field, value in patch.items() if value is None]
-        if null_fields:
-            raise HTTPException(status_code=422, detail=f"Null fields are not allowed in patent point patches: {', '.join(null_fields)}")
-        if "moat_scores" in patch:
-            patch["moat_scores"] = {
-                **existing.moat_scores.model_dump(mode="json"),
-                **patch["moat_scores"],
-            }
-        if patch.get("evidence_status") in {"feasible_unverified", "needs_experiment"} and not patch.get("support_gaps") and not existing.support_gaps:
-            patch["support_gaps"] = ["提交前需补充实验或工程样例。"]
-        try:
-            updated = PatentPointCandidate.model_validate({**existing.model_dump(mode="json"), **patch})
-        except ValidationError as exc:
-            raise HTTPException(status_code=422, detail=exc.errors()) from exc
-        stored = store.add_project_patent_point(project_id, updated)
-        return stored.model_dump(mode="json")
-
-    @app.delete("/api/projects/{project_id}/patent-points/{point_id}")
-    def delete_project_patent_point(project_id: str, point_id: str) -> dict:
-        _require_project(store, project_id)
-        deleted = store.delete_project_patent_point(project_id, point_id)
-        if not deleted:
-            raise HTTPException(status_code=404, detail="Patent point not found.")
-        return {"ok": True}
-
-    @app.post("/api/projects/{project_id}/patent-points/{point_id}/evaluate-moat")
-    def evaluate_patent_point_moat(project_id: str, point_id: str) -> dict:
-        project = _require_project(store, project_id)
-        if isinstance(app.state.llm, MissingLLMClient):
-            raise HTTPException(status_code=503, detail="LLM is not configured. Set DEEPSEEK_API_KEY before evaluating moat scores.")
-        existing = store.get_project_patent_point(project_id, point_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Patent point not found.")
-        scores, rationale = score_moat(llm=app.state.llm, project=project, point=existing)
-        updated = existing.model_copy(update={"moat_scores": scores, "moat_rationale": rationale})
-        stored = store.add_project_patent_point(project_id, updated)
-        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/disclosures")
     def create_disclosure(
@@ -904,65 +594,96 @@ def create_app(
         background_tasks: BackgroundTasks,
     ) -> dict:
         project = _require_project(store, project_id)
-        doctor = inspect_agent_environment()
-        requested = _agent_provider_ids_for_role(
-            doctor,
-            payload.providers or list(STRICT_DELIBERATION_PROVIDERS),
-            "deliberation",
-        )
-        available = set(doctor.active_provider_ids)
-        selectable = _selectable_agent_provider_ids(doctor)
         runtime_injected = app.state.provider_runner is not None or app.state.agent_runtime is not None
-        active_requested_count = (
-            len(requested)
-            if runtime_injected
-            else len([provider for provider in requested if provider in available])
-        )
+        if app.state.agent_runtime is not None:
+            requested = _dedupe_provider_ids(payload.providers or list(STRICT_DELIBERATION_PROVIDERS))
+            participants = [
+                provider
+                for provider in _dedupe_provider_ids(payload.participant_providers or [])
+                if provider not in requested
+            ]
+            seat_warnings: list[str] = []
+        else:
+            doctor = inspect_agent_environment()
+            requested, participants, seat_warnings = _deliberation_provider_plan(
+                doctor,
+                payload.providers,
+                payload.participant_providers,
+                auto_fill_missing=payload.providers is None,
+            )
+            requested_payload = _dedupe_provider_ids(payload.providers or list(STRICT_DELIBERATION_PROVIDERS))
+            if (
+                app.state.provider_runner is not None
+                and _has_required_deliberation_seats(requested_payload)
+                and not _has_required_deliberation_seats(requested)
+            ):
+                requested = requested_payload
+                participants = [
+                    provider
+                    for provider in _dedupe_provider_ids(payload.participant_providers or [])
+                    if provider not in requested
+                ]
+                seat_warnings = []
+        active_requested_count = len(requested)
         run_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / run_id
-        if not runtime_injected:
-            missing_providers = [provider for provider in requested if provider not in selectable]
-            if missing_providers:
-                failures = [
+        chair_missing = DELIBERATION_CHAIR_PROVIDER not in requested
+        if app.state.agent_runtime is None and (len(requested) < DELIBERATION_EXPERT_SEAT_COUNT or chair_missing):
+            block_reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+            block_message = (
+                "Codex chair is not available for deliberation."
+                if chair_missing
+                else "Not enough expert seats are ready for deliberation."
+            )
+            detail = (
+                f"Codex 主席不可用，无法启动会审；当前可用决策专家为 {len(requested)} 席：{', '.join(requested) or '无'}。"
+                if chair_missing
+                else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能启动会审；当前为 {len(requested)} 席：{', '.join(requested) or '无'}。"
+            )
+            if seat_warnings:
+                detail = f"{detail} {'；'.join(seat_warnings)}"
+            failed_run = DeliberationRun(
+                id=run_id,
+                project_id=project_id,
+                status="failed",
+                providers=requested,
+                participant_providers=participants,
+                run_mode="blocked",
+                round_depth=payload.round_depth,
+                trace=payload.trace,
+                run_dir=str(run_dir),
+                failures=[
                     AgentFailure(
-                        provider_id=provider,
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
                         phase="doctor",
-                        reason="provider_missing",
-                        message=f"{provider} provider is not available.",
+                        reason=block_reason,
+                        message=block_message,
                     )
-                    for provider in missing_providers
-                ]
-                logs = [
+                ],
+                events=[f"deliberation blocked: {block_reason}", *seat_warnings],
+                logs=[
                     DeliberationLogEntry(
                         level="error",
                         phase="doctor",
-                        provider_id=provider,
-                        message="provider missing",
-                        detail=f"{provider} CLI is not available in PATH or is not usable by the backend process.",
-                        repair_suggestion=repair_suggestion_for_failure("provider_missing", provider),
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
+                        message=block_reason.replace("_", " "),
+                        detail=detail,
+                        repair_suggestion=(
+                            "请先修复 Codex CLI 的安装或认证状态；Codex 是固定主席，不能由其他 agent 代替。"
+                            if chair_missing
+                            else "请在会审卡片中选择 Codex 主席之外的 2 个可用专家；Claude 不可用时可选择 DeepSeek、KimiCode、MimoCode 等已安装 agent。"
+                        ),
                     )
-                    for provider in missing_providers
-                ]
-                failed_run = DeliberationRun(
-                    id=run_id,
-                    project_id=project_id,
-                    status="failed",
-                    providers=requested,
-                    run_mode=_run_mode(active_requested_count),
-                    round_depth=payload.round_depth,
-                    trace=payload.trace,
-                    run_dir=str(run_dir),
-                    failures=failures,
-                    events=[f"provider missing: {provider}" for provider in missing_providers],
-                    logs=logs,
-                )
-                store.create_deliberation_run(failed_run)
-                return failed_run.model_dump(mode="json")
+                ],
+            )
+            store.create_deliberation_run(failed_run)
+            return failed_run.model_dump(mode="json")
         run = DeliberationRun(
             id=run_id,
             project_id=project_id,
             status="queued",
             providers=requested,
+            participant_providers=participants,
             run_mode=_run_mode(active_requested_count),
             round_depth=payload.round_depth,
             trace=payload.trace,
@@ -984,15 +705,15 @@ def create_app(
             return completed.model_dump(mode="json")
         background_tasks.add_task(
             _execute_deliberation,
-            store,
-            index,
-            app.state.provider_runner,
-            app.state.agent_runtime,
-            project,
-            run,
-            payload.trace,
-            payload.task_timeout_ms or 180_000,
-            payload.run_timeout_ms,
+            store=store,
+            index=index,
+            provider_runner=app.state.provider_runner,
+            agent_runtime=app.state.agent_runtime,
+            project=project,
+            run=run,
+            trace=payload.trace,
+            task_timeout_ms=payload.task_timeout_ms or 180_000,
+            run_timeout_ms=payload.run_timeout_ms,
         )
         return run.model_dump(mode="json")
 
@@ -1030,20 +751,107 @@ def create_app(
         previous = store.get_deliberation_run(project_id, run_id)
         if not previous:
             raise HTTPException(status_code=404, detail="Deliberation run not found.")
-        providers = _agent_provider_ids_for_role(inspect_agent_environment(), previous.providers, "deliberation")
+        runtime_injected = app.state.provider_runner is not None or app.state.agent_runtime is not None
+        if app.state.agent_runtime is not None:
+            providers = _dedupe_provider_ids(previous.providers or list(STRICT_DELIBERATION_PROVIDERS))
+            participants = [
+                provider
+                for provider in _dedupe_provider_ids(previous.participant_providers)
+                if provider not in providers
+            ]
+            seat_warnings: list[str] = []
+        else:
+            doctor = inspect_agent_environment()
+            providers, participants, seat_warnings = _deliberation_provider_plan(
+                doctor,
+                previous.providers,
+                previous.participant_providers,
+                auto_fill_missing=True,
+            )
+            previous_payload = _dedupe_provider_ids(previous.providers or list(STRICT_DELIBERATION_PROVIDERS))
+            if (
+                app.state.provider_runner is not None
+                and _has_required_deliberation_seats(previous_payload)
+                and not _has_required_deliberation_seats(providers)
+            ):
+                providers = previous_payload
+                participants = [
+                    provider
+                    for provider in _dedupe_provider_ids(previous.participant_providers)
+                    if provider not in providers
+                ]
+                seat_warnings = []
         retry_id = uuid.uuid4().hex
         run_dir = settings.data_dir / "deliberation-runs" / project_id / retry_id
+        chair_missing = DELIBERATION_CHAIR_PROVIDER not in providers
+        if app.state.agent_runtime is None and (len(providers) < DELIBERATION_EXPERT_SEAT_COUNT or chair_missing):
+            block_reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+            block_message = (
+                "Codex chair is not available for deliberation retry."
+                if chair_missing
+                else "Not enough expert seats are ready for deliberation retry."
+            )
+            detail = (
+                f"Codex 主席不可用，无法重试会审；当前可用决策专家为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+                if chair_missing
+                else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能重试会审；当前为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+            )
+            if seat_warnings:
+                detail = f"{detail} {'；'.join(seat_warnings)}"
+            retry_run = DeliberationRun(
+                id=retry_id,
+                project_id=project_id,
+                status="failed",
+                providers=providers,
+                participant_providers=participants,
+                run_mode="blocked",
+                round_depth=previous.round_depth,
+                trace=previous.trace,
+                run_dir=str(run_dir),
+                retry_of=previous.id,
+                failures=[
+                    AgentFailure(
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
+                        phase="doctor",
+                        reason=block_reason,
+                        message=block_message,
+                    )
+                ],
+                events=[f"retry requested for deliberation run {previous.id}", f"retry blocked: {block_reason}", *seat_warnings],
+                logs=[
+                    DeliberationLogEntry(
+                        level="error",
+                        phase="doctor",
+                        provider_id=DELIBERATION_CHAIR_PROVIDER,
+                        message=block_reason.replace("_", " "),
+                        detail=detail,
+                        repair_suggestion=(
+                            "请先修复 Codex CLI 的安装或认证状态；Codex 是固定主席，不能由其他 agent 代替。"
+                            if chair_missing
+                            else "请重新选择 Codex 主席之外的 2 个可用专家后再重试。"
+                        ),
+                    )
+                ],
+            )
+            store.create_deliberation_run(retry_run)
+            return retry_run.model_dump(mode="json")
         retry_run = DeliberationRun(
             id=retry_id,
             project_id=project_id,
             status="queued",
             providers=providers,
+            participant_providers=participants,
             run_mode=_run_mode(len(providers)),
             round_depth=previous.round_depth,
             trace=previous.trace,
             run_dir=str(run_dir),
             retry_of=previous.id,
-            events=[f"retry requested for deliberation run {previous.id}", f"providers normalized: {','.join(providers)}"],
+            events=[
+                f"retry requested for deliberation run {previous.id}",
+                f"providers normalized: {','.join(providers)}",
+                f"participants normalized: {','.join(participants)}",
+                *seat_warnings,
+            ],
         )
         store.create_deliberation_run(retry_run)
         if app.state.provider_runner is not None or app.state.agent_runtime is not None:
@@ -1061,15 +869,15 @@ def create_app(
             return completed.model_dump(mode="json")
         background_tasks.add_task(
             _execute_deliberation,
-            store,
-            index,
-            app.state.provider_runner,
-            app.state.agent_runtime,
-            project,
-            retry_run,
-            retry_run.trace,
-            180_000,
-            None,
+            store=store,
+            index=index,
+            provider_runner=app.state.provider_runner,
+            agent_runtime=app.state.agent_runtime,
+            project=project,
+            run=retry_run,
+            trace=retry_run.trace,
+            task_timeout_ms=180_000,
+            run_timeout_ms=None,
         )
         return retry_run.model_dump(mode="json")
 
@@ -1286,8 +1094,23 @@ def create_app(
         project = _require_project(store, project_id)
         package = _require_package(project)
         updated = package.model_copy(update=payload.model_dump())
-        store.update_project_package(project_id, updated)
+        _update_project_package_with_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=updated,
+            revision_kind="correction",
+            user_intent_summary="Manually updated the draft package.",
+            affected_sections=_changed_draft_sections(package, updated),
+            protection_scope_changed=package.claims != updated.claims,
+            artifact_refs=["manual-draft-package"],
+        )
         return updated.model_dump(mode="json")
+
+    @app.get("/api/projects/{project_id}/revision-ledger")
+    def list_revision_ledger(project_id: str) -> list[dict]:
+        _require_project(store, project_id)
+        return [record.model_dump(mode="json") for record in store.list_revision_ledger_records(project_id)]
 
     @app.post("/api/projects/{project_id}/filing-readiness")
     def create_filing_readiness_report(project_id: str) -> dict:
@@ -1328,6 +1151,7 @@ def create_app(
         disclosures = store.list_disclosure_runs(project_id)
         patent_points = store.list_project_patent_points(project_id)
         strategy_brief = _latest_strategy_brief(store, project_id)
+        knowledge_state = store.get_project_knowledge_state(project_id)
         report = generate_grantability_report(
             project_id=project_id,
             package=package,
@@ -1335,6 +1159,7 @@ def create_app(
             patent_points=patent_points,
             strategy_brief=strategy_brief,
             deep_research_packets=_deep_research_packets_from_disclosures(disclosures),
+            project_knowledge_state=knowledge_state,
         )
         stored = store.create_grantability_report(report)
         return stored.model_dump(mode="json")
@@ -1491,11 +1316,44 @@ def create_app(
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/{patch_id}/accept")
     def accept_completion_patch(project_id: str, run_id: str, patch_id: str) -> dict:
-        _require_project(store, project_id)
-        run = store.update_completion_patch_status(project_id, run_id, patch_id, "accepted")
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        existing_run = store.get_draft_completion_run(project_id, run_id)
+        if not existing_run:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        current_hash = source_draft_hash(package)
+        if existing_run.draft_package_hash and existing_run.draft_package_hash != current_hash:
+            raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
+        run = _completion_run_with_patch_status(existing_run, patch_id, "accepted")
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion patch not found.")
-        return run.model_dump(mode="json")
+        adjusted = _completion_run_with_progress_score(run)
+        patch = next((candidate for candidate in adjusted.patches if candidate.id == patch_id), None)
+        if patch:
+            updated_package = _apply_completion_patch(package, patch, run_draft_package_hash=adjusted.draft_package_hash)
+            if updated_package != package:
+                record = _revision_ledger_record_for_event(
+                    project_id=project_id,
+                    before_package=package,
+                    after_package=updated_package,
+                    revision_kind="completion_patch",
+                    user_intent_summary=patch.rationale,
+                    affected_sections=_completion_patch_affected_sections(patch),
+                    protection_scope_changed=patch.target_section == "claim",
+                    artifact_refs=[f"completion-run:{run_id}", f"completion-patch:{patch_id}"],
+                )
+                stored = store.update_draft_completion_run_with_project_package_revision_records(
+                    adjusted,
+                    updated_package,
+                    [record] if record is not None else [],
+                )
+                if not stored:
+                    raise HTTPException(status_code=404, detail="Draft completion run not found.")
+                return stored.model_dump(mode="json")
+        stored = store.update_draft_completion_run(adjusted)
+        if not stored:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/{patch_id}/reject")
     def reject_completion_patch(project_id: str, run_id: str, patch_id: str) -> dict:
@@ -1503,7 +1361,56 @@ def create_app(
         run = store.update_completion_patch_status(project_id, run_id, patch_id, "rejected")
         if not run:
             raise HTTPException(status_code=404, detail="Draft completion patch not found.")
-        return run.model_dump(mode="json")
+        adjusted = store.update_draft_completion_run(_completion_run_with_progress_score(run))
+        if not adjusted:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        return adjusted.model_dump(mode="json")
+
+    @app.post("/api/projects/{project_id}/completion-runs/{run_id}/patches/accept-all")
+    def accept_all_completion_patches(project_id: str, run_id: str) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        run = store.get_draft_completion_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        current_hash = source_draft_hash(package)
+        if run.draft_package_hash and run.draft_package_hash != current_hash:
+            raise HTTPException(status_code=409, detail="Completion run is stale for the current draft.")
+        current = run
+        current_package = package
+        records: list[RevisionLedgerRecord] = []
+        for patch in [patch for patch in run.patches if patch.status == "proposed"]:
+            updated = _completion_run_with_patch_status(current, patch.id, "accepted")
+            if not updated:
+                raise HTTPException(status_code=404, detail="Draft completion patch not found.")
+            current = updated
+            patched_package = _apply_completion_patch(current_package, patch)
+            if patched_package != current_package:
+                record = _revision_ledger_record_for_event(
+                    project_id=project_id,
+                    before_package=current_package,
+                    after_package=patched_package,
+                    revision_kind="completion_patch",
+                    user_intent_summary=patch.rationale,
+                    affected_sections=_completion_patch_affected_sections(patch),
+                    protection_scope_changed=patch.target_section == "claim",
+                    artifact_refs=[f"completion-run:{run_id}", f"completion-patch:{patch.id}"],
+                )
+                if record is not None:
+                    records.append(record)
+                current_package = patched_package
+        adjusted = _completion_run_with_progress_score(current)
+        if current_package != package:
+            stored = store.update_draft_completion_run_with_project_package_revision_records(
+                adjusted,
+                current_package,
+                records,
+            )
+        else:
+            stored = store.update_draft_completion_run(adjusted)
+        if not stored:
+            raise HTTPException(status_code=404, detail="Draft completion run not found.")
+        return stored.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/score-improvement")
     def improve_project_score(project_id: str, payload: ScoreImprovementRequest) -> dict:
@@ -1527,23 +1434,49 @@ def create_app(
                 break
             round_accepted = False
             for patch in safe_patches:
+                before_package = current_package
                 patched_package = _apply_completion_patch(
-                    current_package,
+                    before_package,
                     patch,
                     run_draft_package_hash=current_run.draft_package_hash,
                 )
-                if patched_package == current_package:
+                if patched_package == before_package:
                     logs.append(f"score-improvement: 补丁 {patch.id} 未通过安全检查，未应用")
                     continue
+                updated_run = _completion_run_with_patch_status(current_run, patch.id, "accepted")
+                if not updated_run:
+                    raise HTTPException(status_code=404, detail="Draft completion patch not found.")
+                record = _revision_ledger_record_for_event(
+                    project_id=project_id,
+                    before_package=before_package,
+                    after_package=patched_package,
+                    revision_kind="completion_patch",
+                    user_intent_summary=patch.rationale,
+                    affected_sections=_completion_patch_affected_sections(patch),
+                    protection_scope_changed=patch.target_section == "claim",
+                    artifact_refs=[f"completion-run:{current_run.id}", f"completion-patch:{patch.id}"],
+                )
+                stored_run = store.update_draft_completion_run_with_project_package_revision_records(
+                    updated_run,
+                    patched_package,
+                    [record] if record is not None else [],
+                )
+                if not stored_run:
+                    raise HTTPException(status_code=404, detail="Draft completion run not found.")
+                current_run = stored_run
                 current_package = patched_package
-                store.update_completion_patch_status(project_id, current_run.id, patch.id, "accepted")
                 accepted_patch_ids.append(patch.id)
                 round_accepted = True
                 logs.append(f"score-improvement: 已应用补丁 {patch.id} -> {patch.target_section}")
+                # Remaining patches in this batch were generated against the
+                # pre-patch draft hash and can no longer apply cleanly to the
+                # mutated package; stop and re-score so the next round
+                # regenerates patches against the new draft. (Without this the
+                # stale patches log a misleading "未通过安全检查" line.)
+                break
             if not round_accepted:
                 logs.append("score-improvement: 本轮没有补丁通过安全检查")
                 break
-            store.update_project_package(project_id, current_package)
             current_run = _run_quality_cycle(app, store, project_id)
             logs.append(f"score-improvement: 第 {round_index} 轮重新评分 {current_run.scorecard.overall}/100")
             if current_run.scorecard.overall >= payload.target_score:
@@ -1570,13 +1503,28 @@ def create_app(
         compile_run = _require_latest_completed_official_compile(store, project_id, package)
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
-        providers = list(payload.providers if payload and payload.providers else STRICT_DELIBERATION_PROVIDERS)
+        providers, participant_providers = _post_draft_review_provider_plan(
+            payload.providers if payload else None,
+            payload.participant_providers if payload else None,
+        )
+        blocked_run = _blocked_post_draft_review_for_seats(
+            store=store,
+            project_id=project_id,
+            package=compile_run.official_package,
+            providers=providers,
+            participant_providers=participant_providers,
+            official_compile_run_id=compile_run.id,
+            retry_of=None,
+        )
+        if blocked_run:
+            return blocked_run.model_dump(mode="json")
         run = _execute_post_draft_review(
             store=store,
             project_id=project_id,
             package=compile_run.official_package,
             llm=app.state.llm,
             providers=providers,
+            participant_providers=participant_providers,
             official_compile_run_id=compile_run.id,
             stage_timeout_ms=payload.stage_timeout_ms if payload else None,
             run_timeout_ms=payload.run_timeout_ms if payload else None,
@@ -1662,12 +1610,19 @@ def create_app(
         if payload.draft_package_hash and payload.draft_package_hash != current_hash:
             raise HTTPException(status_code=409, detail="Draft package has changed since the repair session was opened.")
 
+        target_section_text = getattr(package, _repair_section_attr(payload.target_section), "")
+        selected_text = _current_repair_selected_text(
+            issue=issue,
+            requested_selected_text=payload.selected_text,
+            section_text=target_section_text,
+        )
+
         patch_dict = create_repair_patch_payload(
             issue_id=payload.issue_id,
             target_section=payload.target_section,
             draft_package_hash=current_hash,
-            selected_text=payload.selected_text or _repair_issue_anchor_snippet(issue),
-            nearby_context=payload.nearby_context,
+            selected_text=selected_text,
+            nearby_context=target_section_text or payload.nearby_context,
             project_id=project_id,
             review_run_id=run_id,
             issue_message=str(issue.get("message") or ""),
@@ -1747,7 +1702,17 @@ def create_app(
                 ]
             }
         )
-        store.update_project_package(project_id, updated_package)
+        _update_project_package_with_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=updated_package,
+            revision_kind="post_draft_repair",
+            user_intent_summary=patch.diff_summary,
+            affected_sections=[patch.target_section],
+            protection_scope_changed=patch.target_section == "claims",
+            artifact_refs=[f"post-draft-review:{run_id}", f"repair-patch:{patch_id}"],
+        )
 
         # Mark the patch as applied so it can't be re-applied
         applied_patch = patch.model_copy(update={"status": "applied"})
@@ -1766,7 +1731,18 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         result = _apply_post_draft_safe_patches(project_id=project_id, package=package, run=run)
-        store.update_project_package(project_id, result.package)
+        changed_sections = _changed_draft_sections(package, result.package)
+        _update_project_package_with_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=result.package,
+            revision_kind="post_draft_repair",
+            user_intent_summary=f"Applied post-draft safe patches from run {run.id}",
+            affected_sections=changed_sections,
+            protection_scope_changed="claims" in changed_sections,
+            artifact_refs=[f"post-draft-review:{run_id}"],
+        )
         return result.model_dump(mode="json")
 
     @app.post("/api/projects/{project_id}/post-draft-reviews/{run_id}/cancel")
@@ -1788,12 +1764,28 @@ def create_app(
             raise HTTPException(status_code=404, detail="Post-draft review run not found.")
         if isinstance(app.state.llm, MissingLLMClient):
             raise HTTPException(status_code=503, detail="LLM is not configured for post-draft multi-agent review.")
+        providers, participant_providers = _post_draft_review_provider_plan(
+            previous.providers,
+            previous.participant_providers,
+        )
+        blocked_run = _blocked_post_draft_review_for_seats(
+            store=store,
+            project_id=project_id,
+            package=compile_run.official_package,
+            providers=providers,
+            participant_providers=participant_providers,
+            official_compile_run_id=compile_run.id,
+            retry_of=previous.id,
+        )
+        if blocked_run:
+            return blocked_run.model_dump(mode="json")
         run = _execute_post_draft_review(
             store=store,
             project_id=project_id,
             package=compile_run.official_package,
             llm=app.state.llm,
-            providers=list(previous.providers),
+            providers=providers,
+            participant_providers=participant_providers,
             official_compile_run_id=compile_run.id,
             stage_timeout_ms=None,
             run_timeout_ms=None,
@@ -1844,6 +1836,28 @@ def create_app(
             raise HTTPException(status_code=404, detail="Official compile run not found.")
         return PlainTextResponse(official_compile_run_to_markdown(run), media_type="text/markdown; charset=utf-8")
 
+    @app.post("/api/projects/{project_id}/official-compile-runs/{run_id}/apply-cleanup")
+    def apply_official_compile_cleanup(project_id: str, run_id: str) -> dict:
+        project = _require_project(store, project_id)
+        package = _require_package(project)
+        run = store.get_official_compile_run(project_id, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Official compile run not found.")
+        result = _apply_official_compile_cleanup(project_id=project_id, package=package, run=run)
+        changed_sections = _changed_draft_sections(package, result.package)
+        _update_project_package_with_revision_ledger_event(
+            store,
+            project_id=project_id,
+            before_package=package,
+            after_package=result.package,
+            revision_kind="official_cleanup",
+            user_intent_summary=f"Applied official compile cleanup from run {run.id}",
+            affected_sections=changed_sections,
+            protection_scope_changed="claims" in changed_sections,
+            artifact_refs=[f"official-compile:{run_id}"],
+        )
+        return result.model_dump(mode="json")
+
     @app.post("/api/projects/{project_id}/official-compile-runs/{run_id}/kimi-language-polish")
     async def create_kimi_language_polish_run(project_id: str, run_id: str) -> dict:
         _require_project(store, project_id)
@@ -1877,43 +1891,63 @@ def create_app(
             return {
                 "export_allowed": False,
                 "draft_required": True,
+                "quality_required": False,
                 "official_compile_required": False,
                 "post_draft_review_required": False,
                 "next_action": "generate_draft",
                 "reason": "请先生成专利初稿后再导出。",
             }
         current_source_hash = source_draft_hash(package)
-        compile_run = store.get_latest_completed_official_compile_run(project_id)
-        compile_current = (
-            compile_run
-            and compile_run.official_package
-            and compile_run.source_draft_hash == current_source_hash
-        )
-        if not compile_current:
+        quality_state = _current_quality_gate_state(store, project_id, current_source_hash)
+        if quality_state["quality_required"]:
             return {
                 "export_allowed": False,
                 "draft_required": False,
+                "quality_required": True,
+                "official_compile_required": False,
+                "post_draft_review_required": False,
+                "next_action": "run_quality_checks",
+                "reason": "当前初稿尚未完成质量检查。请先运行提交前质量检查和成稿完整度检查，再进入正式导出链路。",
+                "current_source_draft_hash": current_source_hash,
+                **quality_state,
+            }
+        latest_compile_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
+        compile_run = latest_compile_attempt
+        compile_current = _official_compile_export_ready(compile_run, current_source_hash)
+        if not compile_current:
+            compile_for_state = latest_compile_attempt
+            return {
+                "export_allowed": False,
+                "draft_required": False,
+                "quality_required": False,
                 "official_compile_required": True,
                 "post_draft_review_required": False,
                 "next_action": "run_official_compile",
                 "reason": "当前初稿尚未编译为正式稿。请先生成正式稿（清除内部痕迹后生成可提交版本）。",
                 "current_source_draft_hash": current_source_hash,
+                "has_compile_run": compile_for_state is not None,
+                "compile_run_id": compile_for_state.id if compile_for_state else None,
+                "compile_status": compile_for_state.status if compile_for_state else "missing",
+                "compile_artifact_state": _official_compile_artifact_state(
+                    compile_for_state,
+                    current_source_hash,
+                ),
+                "compile_blocked_items": compile_for_state.blocked_items if compile_for_state else [],
+                **quality_state,
             }
-        latest_matching_review = next(
-            (
-                run
-                for run in store.list_post_draft_review_runs(project_id)
-                if run.status == "completed"
-                and run.draft_package_hash == current_source_hash
-                and run.official_compile_run_id == compile_run.id
-                and run.official_package_hash == compile_run.official_package_hash
-            ),
-            None,
+        matching_review_attempt = _latest_matching_post_draft_review_attempt(
+            store, project_id, current_source_hash, compile_run
         )
-        if not latest_matching_review or not latest_matching_review.export_allowed:
+        latest_matching_review = _latest_completed_matching_post_draft_review(
+            store, project_id, current_source_hash, compile_run
+        )
+        review_ready = _post_draft_review_export_ready(matching_review_attempt)
+        if not review_ready:
+            review_for_state = matching_review_attempt or latest_matching_review
             return {
                 "export_allowed": False,
                 "draft_required": False,
+                "quality_required": False,
                 "official_compile_required": False,
                 "post_draft_review_required": True,
                 "next_action": "run_post_draft_review",
@@ -1921,18 +1955,25 @@ def create_app(
                 "compile_run_id": compile_run.id,
                 "official_package_hash": compile_run.official_package_hash,
                 "current_source_draft_hash": current_source_hash,
-                "has_review_run": latest_matching_review is not None,
-                "review_export_allowed": latest_matching_review.export_allowed if latest_matching_review else False,
+                "has_review_run": matching_review_attempt is not None,
+                "review_export_allowed": _post_draft_review_export_ready(review_for_state),
+                "review_run_id": review_for_state.id if review_for_state else None,
+                "review_status": review_for_state.status if review_for_state else "missing",
+                "review_gate_status": _post_draft_review_gate_status(review_for_state),
+                "review_blocking_issues": review_for_state.blocking_issues if review_for_state else [],
+                **quality_state,
             }
         return {
             "export_allowed": True,
             "draft_required": False,
+            "quality_required": False,
             "official_compile_required": False,
             "post_draft_review_required": False,
             "next_action": "export_ready",
             "reason": "正式导出已就绪。请专业人员最终复核后提交。",
             "compile_run_id": compile_run.id,
-            "review_run_id": latest_matching_review.id,
+            "review_run_id": matching_review_attempt.id,
+            **quality_state,
         }
 
     @app.get("/api/projects/{project_id}/official-export.docx")
@@ -2032,9 +2073,20 @@ def create_app(
         run = _require_disclosure_run(store, project_id, run_id)
         package = _require_disclosure_package(run)
         return PlainTextResponse(
-            disclosure_to_markdown(package),
+            clean_disclosure_to_markdown(package),
             media_type="text/markdown; charset=utf-8",
             headers=_content_disposition_header(f"{project.name}-技术交底书.md"),
+        )
+
+    @app.get("/api/projects/{project_id}/disclosures/{run_id}/sidecar.md")
+    def export_disclosure_run_sidecar(project_id: str, run_id: str) -> PlainTextResponse:
+        project = _require_project(store, project_id)
+        run = _require_disclosure_run(store, project_id, run_id)
+        package = _require_disclosure_package(run)
+        return PlainTextResponse(
+            disclosure_sidecar_to_markdown(package),
+            media_type="text/markdown; charset=utf-8",
+            headers=_content_disposition_header(f"{project.name}-交底书内部侧车.md"),
         )
 
     @app.get("/api/projects/{project_id}/disclosures/{run_id}/diagram.mmd")
@@ -2330,6 +2382,20 @@ def _execute_formula_run(
         return failed
     except Exception as exc:
         current = store.get_formula_run(project_id, run_id) or running
+        if current.cancel_requested:
+            failure_details = list(current.failure_details)
+            if not any(failure.reason == "cancelled" for failure in failure_details):
+                failure_details.append(runtime.cancelled_failure())
+            interrupted = current.model_copy(
+                update={
+                    "status": "interrupted",
+                    "cancel_requested": True,
+                    "failure_details": failure_details,
+                    "events": _with_event_once(list(current.events), "run cancelled"),
+                }
+            )
+            store.update_formula_run(interrupted)
+            return interrupted
         failure = runtime.failure(
             reason="exception",
             message=str(exc),
@@ -2355,6 +2421,7 @@ def _execute_post_draft_review(
     package: OfficialDraftPackage,
     llm: LLMClient,
     providers: list[str],
+    participant_providers: list[str],
     official_compile_run_id: str,
     stage_timeout_ms: int | None,
     run_timeout_ms: int | None,
@@ -2366,6 +2433,7 @@ def _execute_post_draft_review(
         project_id=project_id,
         status="running",
         providers=providers,
+        participant_providers=participant_providers,
         draft_package_hash=package.source_draft_hash,
         official_compile_run_id=official_compile_run_id,
         official_package_hash=package_hash_for_review(package),
@@ -2382,6 +2450,12 @@ def _execute_post_draft_review(
         if current.status in _TERMINAL_RUN_STATUSES:
             return
         store.update_post_draft_review_run(current.model_copy(update={"runtime_state": state}))
+
+    def persist_progress(progress: dict[str, object]) -> None:
+        current = store.get_post_draft_review_run(project_id, run_id) or running
+        if current.status in _TERMINAL_RUN_STATUSES:
+            return
+        store.update_post_draft_review_run(current.model_copy(update=progress))
 
     runtime = RuntimeContext(
         flow="post_draft_review",
@@ -2400,12 +2474,15 @@ def _execute_post_draft_review(
             llm=llm,
             prompt_pack_version="post-draft-review-v1",
         )
+        runtime_llm = _RuntimeCheckpointLLM(cached_llm, runtime=runtime)
         generated = run_post_draft_review(
             project_id=project_id,
             package=package,
-            llm=cached_llm,
+            llm=runtime_llm,
             providers=providers,
             official_compile_run_id=official_compile_run_id,
+            participant_providers=participant_providers,
+            on_progress=persist_progress,
         )
         state = runtime.complete_stage(
             partial_artifact_count=len(generated.role_results) + (1 if generated.chair_result else 0),
@@ -2507,7 +2584,7 @@ def _execute_disclosure(
         cancel_check=is_cancelled,
         on_update=persist_runtime,
     )
-    materials = store.list_project_materials(project.id)
+    materials = _processed_project_materials(store.list_project_materials(project.id))
     brief = _brief_from_draft(project)
     context = _retrieve_generation_context(index, brief)
 
@@ -2623,6 +2700,21 @@ def _execute_disclosure(
         return failed
     except Exception as exc:
         current = store.get_disclosure_run(project.id, run.id) or running
+        if current.cancel_requested:
+            failure_details = list(current.failure_details)
+            if not any(failure.reason == "cancelled" for failure in failure_details):
+                failure_details.append(runtime.cancelled_failure())
+            interrupted = current.model_copy(
+                update={
+                    "status": "interrupted",
+                    "stage_results": partial_stage_results or current.stage_results,
+                    "cancel_requested": True,
+                    "failure_details": failure_details,
+                    "events": _with_event_once(list(current.events), "run cancelled"),
+                }
+            )
+            store.update_disclosure_run(interrupted)
+            return interrupted
         failure = runtime.failure(
             reason="exception",
             message=str(exc),
@@ -2861,12 +2953,12 @@ def _execute_deliberation(
     store: SQLiteStore,
     index: LocalVectorIndex,
     provider_runner: object | None,
-    agent_runtime: object | None,
     project: ProjectRecord,
     run: DeliberationRun,
     trace: bool,
     task_timeout_ms: int,
     run_timeout_ms: int | None = None,
+    agent_runtime: object | None = None,
 ) -> DeliberationRun:
     running = run.model_copy(update={"status": "running", "events": [*run.events, "run started"]})
     store.update_deliberation_run(running)
@@ -2922,6 +3014,7 @@ def _execute_deliberation(
                 brief=brief,
                 context_chunks=context,
                 providers=run.providers,
+                participant_providers=run.participant_providers,
                 run_dir=Path(run.run_dir),
                 trace=trace,
                 task_timeout_ms=task_timeout_ms,
@@ -2978,6 +3071,20 @@ def _execute_deliberation(
         return failed
     except Exception as exc:
         current = store.get_deliberation_run(project.id, run.id) or running
+        if current.cancel_requested:
+            failure_details = list(current.failure_details)
+            if not any(failure.reason == "cancelled" for failure in failure_details):
+                failure_details.append(runtime.cancelled_failure())
+            interrupted = current.model_copy(
+                update={
+                    "status": "interrupted",
+                    "cancel_requested": True,
+                    "failure_details": failure_details,
+                    "events": _with_event_once(list(current.events), "run cancelled"),
+                }
+            )
+            store.update_deliberation_run(interrupted)
+            return interrupted
         failure = runtime.failure(
             reason="exception",
             message=str(exc),
@@ -3002,7 +3109,7 @@ def _build_evidence_bindings_for_project(store: SQLiteStore, project: ProjectRec
     list[FormulaRun],
     list[EvidenceBinding],
 ]:
-    materials = store.list_project_materials(project.id)
+    materials = _processed_project_materials(store.list_project_materials(project.id))
     disclosures = store.list_disclosure_runs(project.id)
     patent_points = store.list_project_patent_points(project.id)
     formula_runs = store.list_formula_runs(project.id)
@@ -3014,6 +3121,10 @@ def _build_evidence_bindings_for_project(store: SQLiteStore, project: ProjectRec
         formula_runs=formula_runs,
     )
     return materials, disclosures, patent_points, formula_runs, evidence_bindings
+
+
+def _processed_project_materials(materials: list[ProjectMaterial]) -> list[ProjectMaterial]:
+    return [material for material in materials if material.status == "processed"]
 
 
 def _deep_research_packets_from_disclosures(disclosures: list[DisclosureRun]) -> list[DeepResearchPacket]:
@@ -3075,6 +3186,34 @@ def _cached_llm(
         timeout_s=timeout_s,
         retries=1,
     )
+
+
+_RUNTIME_LLM_SUBTASK_LABELS = {
+    "post_draft_claims_reviewer": "post-draft claims review",
+    "post_draft_spec_cleaner": "post-draft specification cleanup",
+    "post_draft_technical_hardness": "post-draft technical hardness review",
+    "post_draft_chair_synthesis": "post-draft chair synthesis",
+}
+
+
+def _runtime_llm_subtask(stage: str) -> str:
+    return _RUNTIME_LLM_SUBTASK_LABELS.get(stage, stage)
+
+
+class _RuntimeCheckpointLLM:
+    def __init__(self, delegate: LLMClient, *, runtime: RuntimeContext) -> None:
+        self.delegate = delegate
+        self.runtime = runtime
+
+    def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
+        self.runtime.begin_stage(stage, provider="llm", subtask=_runtime_llm_subtask(stage))
+        try:
+            response = self.delegate.complete_stage(stage, system_prompt, user_prompt)
+        except Exception:
+            self.runtime.checkpoint()
+            raise
+        self.runtime.complete_stage()
+        return response
 
 
 def _hash_payload(payload: object) -> str:
@@ -3168,6 +3307,189 @@ def _apply_completion_patch(
     if patch.target_section == "drawing":
         return package.model_copy(update={"drawing_description": _insert_or_append(package.drawing_description, patch, "补充附图说明")})
     return package
+
+
+def _apply_official_compile_cleanup(
+    *,
+    project_id: str,
+    package: DraftPackage,
+    run: OfficialCompileRun,
+) -> OfficialCompileCleanupResult:
+    previous_hash = source_draft_hash(package)
+    if run.source_draft_hash and run.source_draft_hash != previous_hash:
+        raise HTTPException(
+            status_code=409,
+            detail="Official compile cleanup is stale for the current draft.",
+        )
+    if not run.contamination_removed:
+        raise HTTPException(status_code=409, detail="Official compile run did not record cleanup candidates.")
+
+    cleaned_package, contamination_removed, _sidecar_notes = clean_source_draft_for_official_compile(package)
+    applied_actions = [_official_compile_cleanup_action_label(item) for item in contamination_removed]
+    changed_sections = [
+        section
+        for section in ("title", "abstract", "claims", "description", "drawing_description")
+        if getattr(package, section) != getattr(cleaned_package, section)
+    ]
+    if not changed_sections:
+        raise HTTPException(status_code=409, detail="No official compile cleanup changed the current draft.")
+
+    cleaned_package = cleaned_package.model_copy(
+        update={
+            "generation_logs": [
+                *cleaned_package.generation_logs,
+                f"official_compile_cleanup: applied {len(applied_actions)} cleanup items from run {run.id}",
+            ]
+        }
+    )
+    return OfficialCompileCleanupResult(
+        project_id=project_id,
+        compile_run_id=run.id,
+        applied_count=len(applied_actions),
+        applied_actions=applied_actions,
+        previous_draft_hash=previous_hash,
+        current_draft_hash=source_draft_hash(cleaned_package),
+        package=cleaned_package,
+    )
+
+
+def _update_project_package_with_revision_ledger_event(
+    store: SQLiteStore,
+    *,
+    project_id: str,
+    before_package: DraftPackage,
+    after_package: DraftPackage,
+    revision_kind: str,
+    user_intent_summary: str,
+    affected_sections: list[str],
+    prior_art_changed: bool = False,
+    protection_scope_changed: bool = False,
+    artifact_refs: list[str] | None = None,
+) -> None:
+    record = _revision_ledger_record_for_event(
+        project_id=project_id,
+        before_package=before_package,
+        after_package=after_package,
+        revision_kind=revision_kind,
+        user_intent_summary=user_intent_summary,
+        affected_sections=affected_sections,
+        prior_art_changed=prior_art_changed,
+        protection_scope_changed=protection_scope_changed,
+        artifact_refs=artifact_refs,
+    )
+    if record is None:
+        store.update_project_package(project_id, after_package)
+        return
+    store.update_project_package_with_revision_record(project_id, after_package, record)
+
+
+def _revision_ledger_record_for_event(
+    *,
+    project_id: str,
+    before_package: DraftPackage,
+    after_package: DraftPackage,
+    revision_kind: str,
+    user_intent_summary: str,
+    affected_sections: list[str],
+    prior_art_changed: bool = False,
+    protection_scope_changed: bool = False,
+    artifact_refs: list[str] | None = None,
+) -> RevisionLedgerRecord | None:
+    if before_package == after_package:
+        return None
+    return create_revision_record(
+        project_id=project_id,
+        baseline_package=before_package,
+        updated_package=after_package,
+        revision_kind=revision_kind,
+        user_intent_summary=user_intent_summary,
+        affected_sections=affected_sections,
+        prior_art_changed=prior_art_changed,
+        protection_scope_changed=protection_scope_changed,
+        artifact_refs=artifact_refs,
+    )
+
+
+def _update_project_package_with_external_draft_revision_ledger_event(
+    store: SQLiteStore,
+    *,
+    project_id: str,
+    before_package: DraftPackage | None,
+    after_package: DraftPackage,
+    artifact_ref: str,
+    user_intent_summary: str,
+) -> None:
+    record = _external_draft_revision_record_for_event(
+        project_id=project_id,
+        before_package=before_package,
+        after_package=after_package,
+        artifact_ref=artifact_ref,
+        user_intent_summary=user_intent_summary,
+    )
+    if record is None:
+        store.update_project_package(project_id, after_package)
+        return
+    store.update_project_package_with_revision_record(project_id, after_package, record)
+
+
+def _external_draft_revision_record_for_event(
+    *,
+    project_id: str,
+    before_package: DraftPackage | None,
+    after_package: DraftPackage,
+    artifact_ref: str,
+    user_intent_summary: str,
+) -> RevisionLedgerRecord | None:
+    baseline_package = before_package or _empty_draft_package_baseline()
+    return _revision_ledger_record_for_event(
+        project_id=project_id,
+        before_package=baseline_package,
+        after_package=after_package,
+        revision_kind="material_merge",
+        user_intent_summary=user_intent_summary,
+        affected_sections=_changed_draft_sections(baseline_package, after_package),
+        protection_scope_changed=baseline_package.claims != after_package.claims,
+        artifact_refs=[artifact_ref],
+    )
+
+
+def _empty_draft_package_baseline() -> DraftPackage:
+    return DraftPackage(
+        title="",
+        abstract="",
+        claims="",
+        description="",
+        drawing_description="",
+        mermaid="",
+        image_prompt="",
+    )
+
+
+def _changed_draft_sections(before: DraftPackage, after: DraftPackage) -> list[str]:
+    return [
+        section
+        for section in ("title", "abstract", "claims", "description", "drawing_description")
+        if getattr(before, section) != getattr(after, section)
+    ]
+
+
+def _completion_patch_affected_sections(patch: ProposedPatch) -> list[str]:
+    if patch.target_section in {"description", "embodiment", "term"}:
+        return ["description"]
+    if patch.target_section == "claim":
+        return ["claims"]
+    if patch.target_section == "drawing":
+        return ["drawing_description"]
+    return []
+
+
+def _official_compile_cleanup_action_label(item: dict[str, str]) -> str:
+    section = item.get("section") or "unknown"
+    pattern = item.get("pattern") or item.get("category") or "cleanup"
+    text = (item.get("text") or "").strip()
+    if len(text) > 80:
+        text = f"{text[:77]}..."
+    return f"{section}: removed {pattern}" + (f" `{text}`" if text else "")
 
 
 def _apply_post_draft_safe_patches(
@@ -3280,10 +3602,40 @@ def _apply_post_draft_safe_patch(
     package: DraftPackage,
     payload: dict[str, object],
 ) -> tuple[DraftPackage, str]:
-    action = str(payload.get("action") or "").strip()
-    target = str(payload.get("target") or "").strip()
-    section = target.split()[0].strip().lower()
+    action = str(payload.get("action") or payload.get("operation") or "").strip().lower()
+    section = _post_draft_safe_patch_section(payload)
+    if not section:
+        return package, ""
     data = package.model_dump()
+
+    match_text = str(payload.get("match") or payload.get("original_clause") or "").strip()
+    replacement_text = str(
+        payload.get("replacement")
+        or payload.get("proposed_clause")
+        or payload.get("patched")
+        or ""
+    ).strip()
+    if match_text and action in {"delete", "remove"}:
+        current = str(data.get(section, "") or "")
+        updated, changed = _replace_post_draft_patch_text(current, match_text, "")
+        if changed:
+            data[section] = _squash_patch_blank_lines(updated)
+            return DraftPackage(**data), f"{section}: delete matched passage"
+    if match_text and (replacement_text or action == "replace"):
+        current = str(data.get(section, "") or "")
+        replacement = replacement_text or _patch_content(payload)
+        updated, changed = _replace_post_draft_patch_text(current, match_text, replacement)
+        if changed:
+            data[section] = updated
+            return DraftPackage(**data), f"{section}: replace matched passage"
+
+    instruction = str(payload.get("patch") or "").strip()
+    if instruction:
+        current = str(data.get(section, "") or "")
+        updated, action_label = _apply_post_draft_patch_instruction(current, instruction, section)
+        if action_label:
+            data[section] = updated
+            return DraftPackage(**data), action_label
 
     if section == "title":
         replacement = _patch_content(payload)
@@ -3316,6 +3668,166 @@ def _apply_post_draft_safe_patch(
                 return DraftPackage(**data), "description: replace"
 
     return package, ""
+
+
+def _post_draft_safe_patch_section(payload: dict[str, object]) -> str:
+    raw_target = str(payload.get("target") or payload.get("apply_to") or "").strip()
+    if not raw_target:
+        return ""
+    target = raw_target.lower().replace("-", "_")
+    first_token = re.split(r"[\s.:：,，/]+", target, maxsplit=1)[0]
+    if first_token in {"title", "abstract", "claims", "description", "drawing_description"}:
+        return first_token
+    if first_token in {"claim", "claims"} or "权利要求" in raw_target:
+        return "claims"
+    if "说明书" in raw_target or "description" in target:
+        return "description"
+    if "摘要" in raw_target or "abstract" in target:
+        return "abstract"
+    if "附图" in raw_target or "drawing" in target:
+        return "drawing_description"
+    if "标题" in raw_target or "title" in target:
+        return "title"
+    return ""
+
+
+def _replace_post_draft_patch_text(text: str, match_text: str, replacement: str) -> tuple[str, bool]:
+    if not match_text:
+        return text, False
+    if match_text in text:
+        return text.replace(match_text, replacement, 1), True
+    if ".*" not in match_text:
+        return text, False
+    try:
+        updated, count = re.subn(match_text, lambda _: replacement, text, count=1, flags=re.DOTALL)
+    except re.error:
+        return text, False
+    return updated, count > 0
+
+
+def _apply_post_draft_patch_instruction(text: str, instruction: str, section: str) -> tuple[str, str]:
+    if section == "description" and "删除" in instruction and (
+        "内部提示" in instruction or "补充材料" in instruction or "需补强" in instruction
+    ):
+        updated = _remove_post_draft_internal_blocks(
+            text,
+            ["为增强本申请的可授权性", "提交前", "需补强", "补充材料", "待实验验证"],
+        )
+        if updated != text:
+            return updated, "description: remove internal markers"
+
+    replacement = _patch_instruction_replacement(instruction)
+    if replacement:
+        original, patched = replacement
+        updated, changed = _replace_patch_instruction_original(text, original, patched)
+        if changed:
+            return updated, f"{section}: replace instructed passage"
+
+    supplement = _patch_instruction_supplement(instruction)
+    if supplement:
+        anchor, addition = supplement
+        updated = _insert_post_draft_patch_addition(text, anchor, addition)
+        if updated != text:
+            return updated, f"{section}: add instructed passage"
+
+    if section == "description" and "首次" in instruction and "改为" in instruction and "首次" in text:
+        return text.replace("首次", "", 1), "description: remove absolute wording"
+
+    return text, ""
+
+
+def _patch_instruction_replacement(instruction: str) -> tuple[str, str] | None:
+    quoted = re.search(
+        r"将[“\"'](?P<old>.+?)[”\"'](?:修改为|替换为|改为)[“\"'](?P<new>.+?)[”\"']",
+        instruction,
+    )
+    if not quoted:
+        quoted = re.search(r"将‘(?P<old>.+?)’(?:修改为|替换为|改为)‘(?P<new>.+?)’", instruction)
+    if quoted:
+        return quoted.group("old").strip(), quoted.group("new").strip()
+
+    plain = re.search(r"^将(?P<old>.+?)(?:修改为|替换为|改为)(?P<new>.+?)(?:，并(?P<tail>.+))?$", instruction)
+    if not plain:
+        return None
+    return plain.group("old").strip(), plain.group("new").strip().rstrip("。")
+
+
+def _patch_instruction_supplement(instruction: str) -> tuple[str, str] | None:
+    supplement = re.search(r"在(?P<anchor>.+?)后补充[‘“\"'](?P<addition>.+?)[’”\"']", instruction)
+    if not supplement:
+        return None
+    return supplement.group("anchor").strip(), supplement.group("addition").strip()
+
+
+def _replace_patch_instruction_original(text: str, original: str, patched: str) -> tuple[str, bool]:
+    if not original or not patched:
+        return text, False
+    if "…" in original:
+        prefix = original.split("…", 1)[0]
+        if prefix and prefix in text:
+            return text.replace(prefix, patched, 1), True
+        if "首次" in original and "首次" in text:
+            return text.replace("首次", "", 1), True
+        return text, False
+    if original in text:
+        return text.replace(original, patched, 1), True
+    formula_updated, formula_changed = _replace_patch_formula_alias(text, original, patched)
+    if formula_changed:
+        return formula_updated, True
+    return text, False
+
+
+def _replace_patch_formula_alias(text: str, original: str, patched: str) -> tuple[str, bool]:
+    normalized = re.sub(r"\s+", "", original)
+    if normalized != "C_det=P_class×IoU":
+        return text, False
+    patterns = (
+        r"!\[[^\]\n]*(?:C_\{\\text\{det\}\}|C_det)[^\]\n]*(?:\\text\{IoU\}|IoU)[^\]\n]*\]\([^\)\n]*\)",
+        r"C_\{\\text\{det\}\}\s*=\s*P_\{\\text\{class\}\}\s*\\times\s*\\text\{IoU\}",
+        r"C_\{det\}\s*=\s*P_\{class\}\s*\\times\s*IoU",
+        r"C_det\s*=\s*P_class\s*[×x]\s*IoU",
+    )
+    for pattern in patterns:
+        updated, count = re.subn(pattern, lambda _: patched, text, count=1)
+        if count:
+            return _replace_cdet_iou_definition(updated), True
+    return text, False
+
+
+def _replace_cdet_iou_definition(text: str) -> str:
+    replacement = (
+        "P_class为病害分类器输出的最大类别概率，"
+        "U_seg为病害分割掩膜的空间不确定性度量，"
+        "所述空间不确定性度量基于分割掩膜预测的熵或边界置信度获得；"
+    )
+    patterns = (
+        r"P_class为病害分类器输出的最大类别概率，IoU为病害分割掩膜的交并比；?",
+        r"P_class\s*为病害分类器输出的最大类别概率，\s*IoU\s*为病害分割掩膜的交并比；?",
+    )
+    updated = text
+    for pattern in patterns:
+        updated, count = re.subn(pattern, replacement, updated, count=1)
+        if count:
+            return updated
+    return updated
+
+
+def _insert_post_draft_patch_addition(text: str, anchor: str, addition: str) -> str:
+    if not addition or addition in text:
+        return text
+    if anchor and anchor in text:
+        return text.replace(anchor, f"{anchor}{addition}", 1)
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if ("CCI" in anchor or "CCI" in addition) and "CCI" in line:
+            separator = "" if line.rstrip().endswith(("；", ";", "。", ".")) else "；"
+            lines[index] = f"{line.rstrip()}{separator}{addition}"
+            return "\n".join(lines)
+    return f"{text.rstrip()}\n{addition}"
+
+
+def _squash_patch_blank_lines(text: str) -> str:
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 def _patch_content(payload: dict[str, object]) -> str:
@@ -3418,25 +3930,42 @@ def _repair_issue_anchor_snippet(issue: dict) -> str | None:
     return None
 
 
-def _build_llm(settings: Settings, desktop_config: DesktopConfig | None = None) -> LLMClient:
-    effective = effective_desktop_settings(settings, desktop_config or DesktopConfig())
-    api_key = effective["api_key"]
-    if not api_key:
-        return MissingLLMClient()
-    return DeepSeekLLMClient(
-        api_key=api_key,
-        base_url=effective["base_url"] or None,
-        model=effective["model"],
-    )
+def _repair_section_attr(section: str) -> str:
+    return {
+        "title": "title",
+        "abstract": "abstract",
+        "claims": "claims",
+        "description": "description",
+        "drawing_description": "drawing_description",
+    }.get(section, "")
 
 
-_API_KEY_REDACT_PATTERN = re.compile(r"(sk-[A-Za-z0-9_-]{6,})")
+def _current_repair_selected_text(
+    *,
+    issue: dict,
+    requested_selected_text: str | None,
+    section_text: str,
+) -> str | None:
+    selected = (requested_selected_text or "").strip()
+    if selected and any(term in selected for term in ('{"action"', '"patched"')):
+        return selected
+    if selected and selected in section_text:
+        return selected
 
+    anchor_snippet = _repair_issue_anchor_snippet(issue)
+    if anchor_snippet and anchor_snippet in section_text:
+        return anchor_snippet
 
-def _redact_error(exc: BaseException) -> str:
-    """Return a short, key-free description of ``exc`` for the health endpoint."""
-    text = f"{type(exc).__name__}: {exc}"
-    return _API_KEY_REDACT_PATTERN.sub("sk-…", text)[:512]
+    anchor = issue.get("anchor")
+    if isinstance(anchor, dict):
+        start = anchor.get("start")
+        end = anchor.get("end")
+        if isinstance(start, int) and isinstance(end, int) and 0 <= start < end <= len(section_text):
+            anchored_text = section_text[start:end].strip()
+            if anchored_text:
+                return anchored_text
+
+    return None
 
 
 def _require_project(store: SQLiteStore, project_id: str) -> ProjectRecord:
@@ -3462,21 +3991,243 @@ def _get_post_draft_review_or_404(store: SQLiteStore, project_id: str, run_id: s
 def _require_latest_completed_official_compile(
     store: SQLiteStore, project_id: str, package: DraftPackage
 ) -> OfficialCompileRun:
-    run = store.get_latest_completed_official_compile_run_for_hash(project_id, source_draft_hash(package))
-    if not run or not run.official_package:
+    current_source_hash = source_draft_hash(package)
+    latest_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
+    if latest_attempt and (
+        latest_attempt.status in {"queued", "running", "blocked", "failed"}
+        or (latest_attempt.status == "completed" and latest_attempt.blocked_items)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=_official_compile_gate_error_detail(latest_attempt).replace(
+                " before official export.", " before post-draft review."
+            ),
+        )
+    run = store.get_latest_completed_official_compile_run_for_hash(project_id, current_source_hash)
+    if not run:
         raise HTTPException(status_code=409, detail="Official draft compile is required before post-draft review.")
+    if not run.official_package:
+        raise HTTPException(
+            status_code=409,
+            detail="Current draft has an incomplete official compile: missing official package. Re-run official compile before post-draft review.",
+        )
+    if not run.official_package_hash:
+        raise HTTPException(
+            status_code=409,
+            detail="Current draft has an incomplete official compile: missing official package hash. Re-run official compile before post-draft review.",
+        )
     return run
 
 
-def _require_official_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> OfficialCompileRun:
-    current_source_hash = source_draft_hash(package)
-    compile_run = store.get_latest_completed_official_compile_run(project_id)
-    if not compile_run or not compile_run.official_package or compile_run.source_draft_hash != current_source_hash:
-        raise HTTPException(
-            status_code=409,
-            detail="Official draft compile is required for the current draft before official export.",
-        )
-    latest_matching_review = next(
+def _current_quality_artifacts(
+    store: SQLiteStore, project_id: str, current_source_hash: str
+) -> tuple[FilingReadinessReport | None, ClaimDefenseWorksheet | None]:
+    filing_report = next(
+        (
+            report
+            for report in store.list_filing_readiness_reports(project_id)
+            if report.draft_package_hash == current_source_hash
+        ),
+        None,
+    )
+    worksheet = next(
+        (
+            worksheet
+            for worksheet in store.list_claim_defense_worksheets(project_id)
+            if worksheet.draft_package_hash == current_source_hash and worksheet.status != "superseded"
+        ),
+        None,
+    )
+    return filing_report, worksheet
+
+
+def _current_quality_gate_state(store: SQLiteStore, project_id: str, current_source_hash: str) -> dict:
+    filing_report, worksheet = _current_quality_artifacts(store, project_id, current_source_hash)
+    completion_runs = store.list_draft_completion_runs(project_id)
+    latest_filing = next(iter(store.list_filing_readiness_reports(project_id)), None)
+    latest_worksheet = next(
+        (worksheet for worksheet in store.list_claim_defense_worksheets(project_id) if worksheet.status != "superseded"),
+        None,
+    )
+    latest_completion = next(
+        (run for run in completion_runs if run.status == "completed"),
+        None,
+    )
+    latest_current_completion = next(
+        (run for run in completion_runs if run.draft_package_hash == current_source_hash),
+        None,
+    )
+    current_completed_completion = (
+        latest_current_completion if latest_current_completion and latest_current_completion.status == "completed" else None
+    )
+    quality_check_states = {
+        "filing_readiness": _quality_artifact_state(
+            current=filing_report,
+            latest_hash=latest_filing.draft_package_hash if latest_filing else "",
+            latest_exists=latest_filing is not None,
+        ),
+        "claim_defense_worksheet": _quality_artifact_state(
+            current=worksheet,
+            latest_hash=latest_worksheet.draft_package_hash if latest_worksheet else "",
+            latest_exists=latest_worksheet is not None,
+        ),
+        "draft_completion": _quality_artifact_state(
+            current=current_completed_completion,
+            latest_hash=latest_completion.draft_package_hash if latest_completion else "",
+            latest_exists=latest_completion is not None,
+            failed_current=latest_current_completion if latest_current_completion and latest_current_completion.status == "failed" else None,
+        ),
+    }
+    missing = [name for name, state in quality_check_states.items() if state == "missing"]
+    stale = [name for name, state in quality_check_states.items() if state == "stale"]
+    failed = [name for name, state in quality_check_states.items() if state == "failed"]
+    unknown = [name for name, state in quality_check_states.items() if state == "unknown"]
+    return {
+        "quality_done": not missing and not stale and not failed and not unknown,
+        "quality_required": bool(missing or stale or failed or unknown),
+        "missing_quality_checks": missing,
+        "stale_quality_checks": stale,
+        "failed_quality_checks": failed,
+        "unknown_quality_checks": unknown,
+        "quality_check_states": quality_check_states,
+        "filing_readiness_report_id": filing_report.id if filing_report else "",
+        "claim_defense_worksheet_id": worksheet.id if worksheet else "",
+        "draft_completion_run_id": current_completed_completion.id if current_completed_completion else "",
+    }
+
+
+def _quality_artifact_state(
+    *,
+    current: object | None,
+    latest_hash: str,
+    latest_exists: bool,
+    failed_current: object | None = None,
+) -> str:
+    if current is not None:
+        return "current"
+    if failed_current is not None:
+        return "failed"
+    if latest_hash:
+        return "stale"
+    if latest_exists:
+        return "unknown"
+    return "missing"
+
+
+def _require_current_quality_gate(store: SQLiteStore, project_id: str, current_source_hash: str) -> None:
+    state = _current_quality_gate_state(store, project_id, current_source_hash)
+    if state["quality_done"]:
+        return
+    raise HTTPException(
+        status_code=409,
+        detail=_quality_gate_error_detail(state),
+    )
+
+
+def _quality_gate_error_detail(state: dict) -> str:
+    missing = ", ".join(state["missing_quality_checks"])
+    stale = ", ".join(state["stale_quality_checks"])
+    failed = ", ".join(state.get("failed_quality_checks", []))
+    unknown = ", ".join(state.get("unknown_quality_checks", []))
+    details = []
+    if missing:
+        details.append(f"missing quality checks: {missing}")
+    if stale:
+        details.append(f"stale quality checks: {stale}")
+    if failed:
+        details.append(f"failed quality checks: {failed}")
+    if unknown:
+        details.append(f"unknown-hash quality checks: {unknown}")
+    return f"Quality checks are required for the current draft before official export: {'; '.join(details)}."
+
+
+def _latest_official_compile_attempt_for_source(
+    store: SQLiteStore,
+    project_id: str,
+    current_source_hash: str,
+) -> OfficialCompileRun | None:
+    return next(
+        (
+            run
+            for run in store.list_official_compile_runs(project_id)
+            if run.source_draft_hash == current_source_hash
+        ),
+        None,
+    )
+
+
+def _official_compile_gate_error_detail(run: OfficialCompileRun | None) -> str:
+    if run and run.status == "queued":
+        return "Current draft has a queued official compile. Wait for it to finish or cancel and retry before official export."
+    if run and run.status == "running":
+        return "Current draft has a running official compile. Wait for it to finish or cancel and retry before official export."
+    if run and run.status == "blocked":
+        return "Current draft has a blocked official compile. Resolve the blocked compile items and re-run official compile before official export."
+    if run and run.status == "failed":
+        return "Current draft has a failed official compile. Re-run official compile before official export."
+    if run and run.status == "completed" and run.blocked_items:
+        return "Current draft has a blocked official compile. Resolve the blocked compile items and re-run official compile before official export."
+    if run and run.status == "completed" and not run.official_package:
+        return "Current draft has an incomplete official compile: missing official package. Re-run official compile before official export."
+    if run and run.status == "completed" and not run.official_package_hash:
+        return "Current draft has an incomplete official compile: missing official package hash. Re-run official compile before official export."
+    return "Official draft compile is required for the current draft before official export."
+
+
+def _official_compile_export_ready(run: OfficialCompileRun | None, current_source_hash: str) -> bool:
+    return bool(
+        run
+        and run.status == "completed"
+        and run.official_package
+        and run.official_package_hash
+        and run.source_draft_hash == current_source_hash
+        and not run.blocked_items
+    )
+
+
+def _official_compile_artifact_state(run: OfficialCompileRun | None, current_source_hash: str) -> str:
+    if run is None:
+        return "missing"
+    if run.source_draft_hash != current_source_hash:
+        return "stale"
+    if run.status in {"queued", "running"}:
+        return run.status
+    if run.status in {"blocked", "failed"}:
+        return run.status
+    if run.status == "completed" and run.blocked_items:
+        return "blocked"
+    if run.status == "completed" and not run.official_package:
+        return "missing_official_package"
+    if run.status == "completed" and not run.official_package_hash:
+        return "missing_official_package_hash"
+    return "current"
+
+
+def _latest_matching_post_draft_review_attempt(
+    store: SQLiteStore,
+    project_id: str,
+    current_source_hash: str,
+    compile_run: OfficialCompileRun,
+) -> PostDraftReviewRun | None:
+    return next(
+        (
+            run
+            for run in store.list_post_draft_review_runs(project_id)
+            if run.draft_package_hash == current_source_hash
+            and run.official_compile_run_id == compile_run.id
+            and run.official_package_hash == compile_run.official_package_hash
+        ),
+        None,
+    )
+
+
+def _latest_completed_matching_post_draft_review(
+    store: SQLiteStore,
+    project_id: str,
+    current_source_hash: str,
+    compile_run: OfficialCompileRun,
+) -> PostDraftReviewRun | None:
+    return next(
         (
             run
             for run in store.list_post_draft_review_runs(project_id)
@@ -3487,10 +4238,69 @@ def _require_official_export_gate(store: SQLiteStore, project_id: str, package: 
         ),
         None,
     )
-    if not latest_matching_review or not latest_matching_review.export_allowed:
+
+
+def _post_draft_review_gate_error_detail(review: PostDraftReviewRun | None) -> str:
+    if review and review.status == "queued":
+        return "Current official draft has a queued post-draft review. Wait for it to finish or cancel and retry before official export."
+    if review and review.status == "running":
+        return "Current official draft has a running post-draft review. Wait for it to finish or cancel and retry before official export."
+    if review and review.status == "failed":
+        return "Current official draft has a failed post-draft review. Re-run the post-draft multi-agent review before official export."
+    if review and review.status == "interrupted":
+        return "Current official draft has an interrupted post-draft review. Re-run the post-draft multi-agent review before official export."
+    if review and review.status == "completed" and not _post_draft_review_export_ready(review):
+        return "Current official draft has a blocked post-draft review. Resolve the review blocking issues and re-run post-draft review before official export."
+    return "Post-draft multi-agent review is required for the current official draft before official export."
+
+
+def _post_draft_review_export_ready(review: PostDraftReviewRun | None) -> bool:
+    return bool(
+        review
+        and review.status == "completed"
+        and review.export_allowed
+        and not review.blocking_issues
+    )
+
+
+def _post_draft_review_gate_status(review: PostDraftReviewRun | None) -> str:
+    if review is None:
+        return "missing"
+    if review.status != "completed":
+        return review.status
+    if _post_draft_review_export_ready(review):
+        return "passed"
+    if review.chair_result and review.chair_result.status:
+        return review.chair_result.status
+    return "blocked"
+
+
+def _require_official_export_gate(store: SQLiteStore, project_id: str, package: DraftPackage) -> OfficialCompileRun:
+    current_source_hash = source_draft_hash(package)
+    quality_state = _current_quality_gate_state(store, project_id, current_source_hash)
+    if quality_state["quality_required"]:
         raise HTTPException(
             status_code=409,
-            detail="Post-draft multi-agent review is required for the current official draft before official export.",
+            detail=_quality_gate_error_detail(quality_state),
+        )
+    latest_compile_attempt = _latest_official_compile_attempt_for_source(store, project_id, current_source_hash)
+    compile_run = latest_compile_attempt
+    if not _official_compile_export_ready(compile_run, current_source_hash):
+        raise HTTPException(
+            status_code=409,
+            detail=_official_compile_gate_error_detail(latest_compile_attempt),
+        )
+    matching_review_attempt = _latest_matching_post_draft_review_attempt(
+        store, project_id, current_source_hash, compile_run
+    )
+    latest_matching_review = _latest_completed_matching_post_draft_review(
+        store, project_id, current_source_hash, compile_run
+    )
+    review_ready = _post_draft_review_export_ready(matching_review_attempt)
+    if not review_ready:
+        raise HTTPException(
+            status_code=409,
+            detail=_post_draft_review_gate_error_detail(matching_review_attempt or latest_matching_review),
         )
     return compile_run
 
@@ -3525,13 +4335,15 @@ def _resolve_deliberation(store: SQLiteStore, project_id: str, run_id: str | Non
 def _is_strict_completed_deliberation(run: DeliberationRun) -> bool:
     if run.status != "completed" or run.strategy_brief is None or run.failures:
         return False
-    required = set(STRICT_DELIBERATION_PROVIDERS)
-    if not required.issubset(set(run.providers)):
+    decision_providers = list(dict.fromkeys(run.providers))
+    if len(decision_providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+        return False
+    if DELIBERATION_CHAIR_PROVIDER not in decision_providers:
         return False
     completed = {(stage.phase, stage.provider_id, stage.label) for stage in run.stage_results if stage.status == "completed"}
-    if not all(("opening", provider, f"opening {provider}") in completed for provider in required):
+    if not all(("opening", provider, f"opening {provider}") in completed for provider in decision_providers):
         return False
-    pair_labels = {f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(STRICT_DELIBERATION_PROVIDERS, 2)}
+    pair_labels = {f"pair {provider_a}-vs-{provider_b}" for provider_a, provider_b in combinations(decision_providers, 2)}
     if not pair_labels.issubset({label for phase, _provider, label in completed if phase == "pair"}):
         return False
     return any(phase == "chair" and label == "chair synthesis" for phase, _provider, label in completed)
@@ -3638,6 +4450,306 @@ def _selectable_agent_provider_ids(doctor: AgentDoctorReport) -> set[str]:
 
 def _agent_provider_ids_for_role(doctor: AgentDoctorReport, requested: list[str], role: str) -> list[str]:
     return agent_provider_ids_for_role(doctor, requested, role)
+
+
+def _agent_provider_unavailable_reason(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None or not status.installed:
+        return "provider_missing"
+    return status.auth_status or "provider_unavailable"
+
+
+def _agent_provider_unavailable_detail(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None:
+        return f"{provider_id} provider is not registered in the agent doctor report."
+    if status.diagnostic:
+        return status.diagnostic
+    if not status.installed:
+        return f"{provider_id} CLI is not available in PATH or is not usable by the backend process."
+    return f"{provider_id} CLI auth_status={status.auth_status}; it is not selectable for this run."
+
+
+def _agent_provider_repair_suggestion(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is not None and status.repair_suggestion:
+        return status.repair_suggestion
+    return repair_suggestion_for_failure(_agent_provider_unavailable_reason(doctor, provider_id), provider_id)
+
+
+def _deliberation_provider_plan(
+    doctor: AgentDoctorReport,
+    requested: list[str] | None,
+    participant_requested: list[str] | None,
+    *,
+    auto_fill_missing: bool = False,
+) -> tuple[list[str], list[str], list[str]]:
+    eligible = {
+        provider_id
+        for provider_id, status in doctor.commands.items()
+        if status.installed and status.selectable and ("deliberation" in status.roles or provider_id == DELIBERATION_CHAIR_PROVIDER)
+    }
+    ordered_candidates = [
+        provider_id
+        for provider_id, status in doctor.commands.items()
+        if ("deliberation" in status.roles or provider_id == DELIBERATION_CHAIR_PROVIDER) and status.installed
+    ]
+    requested_order = _dedupe_provider_ids(requested or ordered_candidates)
+    warnings: list[str] = []
+
+    providers: list[str] = []
+    if DELIBERATION_CHAIR_PROVIDER in eligible:
+        providers.append(DELIBERATION_CHAIR_PROVIDER)
+    else:
+        warnings.append(_provider_plan_warning(doctor, DELIBERATION_CHAIR_PROVIDER))
+
+    overflow: list[str] = []
+    for provider_id in requested_order:
+        if provider_id == DELIBERATION_CHAIR_PROVIDER:
+            continue
+        if provider_id not in ordered_candidates:
+            continue
+        if provider_id not in eligible:
+            warnings.append(_provider_plan_warning(doctor, provider_id))
+            continue
+        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+            providers.append(provider_id)
+        else:
+            overflow.append(provider_id)
+
+    if auto_fill_missing and len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+        for provider_id in ordered_candidates:
+            if provider_id == DELIBERATION_CHAIR_PROVIDER or provider_id in providers:
+                continue
+            if provider_id not in eligible:
+                continue
+            providers.append(provider_id)
+            if len(providers) >= DELIBERATION_EXPERT_SEAT_COUNT:
+                break
+
+    participant_source = _dedupe_provider_ids([*(participant_requested or []), *overflow])
+    participants: list[str] = []
+    for provider_id in participant_source:
+        if provider_id in providers or provider_id not in ordered_candidates:
+            continue
+        if provider_id not in eligible:
+            if participant_requested and provider_id in participant_requested:
+                warnings.append(_provider_plan_warning(doctor, provider_id))
+            continue
+        participants.append(provider_id)
+
+    return providers, participants, _dedupe_provider_ids(warnings)
+
+
+def _post_draft_review_provider_plan(
+    requested: list[str] | None,
+    participant_requested: list[str] | None,
+) -> tuple[list[str], list[str]]:
+    requested_order = _dedupe_provider_ids(list(requested or STRICT_DELIBERATION_PROVIDERS))
+    providers: list[str] = []
+    overflow: list[str] = []
+
+    if DELIBERATION_CHAIR_PROVIDER in requested_order:
+        providers.append(DELIBERATION_CHAIR_PROVIDER)
+
+    for provider_id in requested_order:
+        if provider_id == DELIBERATION_CHAIR_PROVIDER:
+            continue
+        if len(providers) < DELIBERATION_EXPERT_SEAT_COUNT:
+            providers.append(provider_id)
+        else:
+            overflow.append(provider_id)
+
+    participant_source = _dedupe_provider_ids([*(participant_requested or []), *overflow])
+    participants = [provider_id for provider_id in participant_source if provider_id not in providers]
+    return providers, participants
+
+
+def _blocked_post_draft_review_for_seats(
+    *,
+    store: SQLiteStore,
+    project_id: str,
+    package: OfficialDraftPackage,
+    providers: list[str],
+    participant_providers: list[str],
+    official_compile_run_id: str,
+    retry_of: str | None,
+) -> PostDraftReviewRun | None:
+    chair_missing = DELIBERATION_CHAIR_PROVIDER not in providers
+    if len(providers) >= DELIBERATION_EXPERT_SEAT_COUNT and not chair_missing:
+        return None
+
+    reason = "chair_unavailable" if chair_missing else "insufficient_experts"
+    message = (
+        "Codex chair is required for post-draft review."
+        if chair_missing
+        else "Not enough expert seats are ready for post-draft review."
+    )
+    detail = (
+        f"Codex 主席不可用，无法启动成稿会审；当前决策专家为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+        if chair_missing
+        else f"至少 {DELIBERATION_EXPERT_SEAT_COUNT} 席决策专家才能启动成稿会审；当前为 {len(providers)} 席：{', '.join(providers) or '无'}。"
+    )
+    repair_suggestion = (
+        "请在成稿会审卡片中保留 Codex 主席，并另外选择 2 个可用专家。"
+        if chair_missing
+        else "请在成稿会审卡片中选择 Codex 主席之外的 2 个可用专家。"
+    )
+    run = PostDraftReviewRun(
+        id=uuid.uuid4().hex,
+        project_id=project_id,
+        status="failed",
+        providers=providers,
+        participant_providers=participant_providers,
+        draft_package_hash=package.source_draft_hash,
+        official_compile_run_id=official_compile_run_id,
+        official_package_hash=package_hash_for_review(package),
+        blocking_issues=[detail],
+        logs=[
+            DeliberationLogEntry(
+                level="error",
+                phase="doctor",
+                provider_id=DELIBERATION_CHAIR_PROVIDER,
+                message=reason.replace("_", " "),
+                detail=detail,
+                repair_suggestion=repair_suggestion,
+            )
+        ],
+        failure_details=[
+            RuntimeFailure(
+                flow="post_draft_review",
+                stage="doctor",
+                provider=DELIBERATION_CHAIR_PROVIDER,
+                reason=reason,
+                message=message,
+                repair_suggestion=repair_suggestion,
+            )
+        ],
+        retry_of=retry_of,
+    )
+    return store.create_post_draft_review_run(run)
+
+
+def _provider_plan_warning(doctor: AgentDoctorReport, provider_id: str) -> str:
+    status = doctor.commands.get(provider_id)
+    if status is None:
+        return f"{provider_id} 未注册，已跳过。"
+    if status.diagnostic:
+        return f"{provider_id} 不可用于会审：{status.diagnostic}"
+    if not status.installed:
+        return f"{provider_id} 未安装，已跳过。"
+    return f"{provider_id} auth_status={status.auth_status}，已跳过。"
+
+
+def _dedupe_provider_ids(provider_ids: list[str]) -> list[str]:
+    deduped: list[str] = []
+    for provider_id in provider_ids:
+        if provider_id and provider_id not in deduped:
+            deduped.append(provider_id)
+    return deduped
+
+
+def _has_required_deliberation_seats(provider_ids: list[str]) -> bool:
+    return (
+        len(_dedupe_provider_ids(provider_ids)) >= DELIBERATION_EXPERT_SEAT_COUNT
+        and DELIBERATION_CHAIR_PROVIDER in provider_ids
+    )
+
+
+def _completion_run_with_patch_status(
+    run: DraftCompletionRun,
+    patch_id: str,
+    status: str,
+) -> DraftCompletionRun | None:
+    payload = run.model_dump(mode="json")
+    found = False
+    task_id = ""
+    for patch in payload["patches"]:
+        if patch["id"] == patch_id:
+            patch["status"] = status
+            task_id = patch["task_id"]
+            found = True
+            break
+    if not found:
+        return None
+    if status in {"accepted", "rejected"}:
+        for task in payload["tasks"]:
+            if task["id"] == task_id:
+                task["status"] = status
+                break
+    return DraftCompletionRun.model_validate(payload)
+
+
+def _completion_run_with_progress_score(run: DraftCompletionRun) -> DraftCompletionRun:
+    baseline = run.scorecard_baseline or run.scorecard
+    accepted_task_ids = {patch.task_id for patch in run.patches if patch.status == "accepted"}
+    accepted_issue_ids = {
+        task.issue_id
+        for task in run.tasks
+        if task.status == "accepted" or task.id in accepted_task_ids
+    }
+    resolved_issues = [issue for issue in run.issues if issue.id in accepted_issue_ids]
+    if not resolved_issues:
+        return run.model_copy(update={"scorecard": baseline, "scorecard_baseline": run.scorecard_baseline})
+
+    severity_weight = {"high": 3, "medium": 2, "low": 1}
+    total_weight = sum(severity_weight.get(issue.severity, 1) for issue in resolved_issues)
+    support_weight = sum(
+        severity_weight.get(issue.severity, 1)
+        for issue in resolved_issues
+        if issue.category in {"claim_support_gap", "specification_sufficiency_gap", "term_definition_gap"}
+    )
+    scope_weight = sum(
+        severity_weight.get(issue.severity, 1)
+        for issue in resolved_issues
+        if issue.category in {"claim_support_gap", "claim_scope_risk", "specification_sufficiency_gap"}
+    )
+    hygiene_weight = sum(
+        severity_weight.get(issue.severity, 1)
+        for issue in resolved_issues
+        if issue.category in {"format_pollution", "unfavorable_statement", "subject_matter_risk"}
+    )
+    prior_art_weight = sum(
+        severity_weight.get(issue.severity, 1)
+        for issue in resolved_issues
+        if issue.category == "prior_art_distinction_gap"
+    )
+
+    authorization = _bounded_score(baseline.authorization_stability + min(24, total_weight * 4))
+    protection = _bounded_score(baseline.protection_scope + min(24, max(scope_weight, support_weight, total_weight) * 3))
+    support = _bounded_score(baseline.support_strength + min(24, support_weight * 5))
+    hygiene = _bounded_score(baseline.official_hygiene + min(24, hygiene_weight * 6))
+    prior_art = _bounded_score(baseline.prior_art_distinction + min(18, prior_art_weight * 6))
+    filing = _bounded_score(round((authorization + support + hygiene) / 3))
+    overall = _bounded_score(round((authorization + protection + support + prior_art + filing + hygiene) / 6))
+    notes = _completion_progress_notes(run.notes)
+
+    return run.model_copy(
+        update={
+            "scorecard": CompletionScoreCard(
+                authorization_stability=authorization,
+                protection_scope=protection,
+                support_strength=support,
+                prior_art_distinction=prior_art,
+                filing_maturity=filing,
+                official_hygiene=hygiene,
+                overall=overall,
+            ),
+            "scorecard_baseline": baseline,
+            "notes": notes,
+        }
+    )
+
+
+def _completion_progress_notes(notes: list[str]) -> list[str]:
+    progress_note = "accepted completion patches update this run's scorecard; rerun quality checks for a full re-analysis."
+    if progress_note in notes:
+        return notes
+    return [*notes, progress_note]
+
+
+def _bounded_score(value: int) -> int:
+    return max(0, min(100, value))
 
 
 def _run_mode(active_count: int) -> str:

@@ -1,3 +1,5 @@
+import time
+
 from fastapi.testclient import TestClient
 from docx import Document
 
@@ -12,6 +14,7 @@ def test_post_draft_review_pass_unlocks_official_export(tmp_path):
         client,
         _package(drawing_description="图1为系统流程图。", image_prompt="黑白线稿。"),
     )
+    _run_quality_cycle(client, project_id)
 
     blocked = client.get(f"/api/projects/{project_id}/official-export.md")
     assert blocked.status_code == 409
@@ -53,27 +56,91 @@ def test_post_draft_review_pass_unlocks_official_export(tmp_path):
     assert "黑白线稿" not in docx_text
 
 
+def test_post_draft_review_records_advisory_participants(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews",
+        json={
+            "providers": ["codex", "deepseek", "kimicode"],
+            "participant_providers": ["mimo"],
+        },
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["providers"] == ["codex", "deepseek", "kimicode"]
+    assert run["participant_providers"] == ["mimo"]
+
+    report_response = client.get(f"/api/projects/{project_id}/post-draft-reviews/{run['id']}/report.md")
+    assert report_response.status_code == 200
+    assert "- participant_providers: mimo" in report_response.text
+
+
+def test_post_draft_review_blocks_without_codex_chair(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews",
+        json={"providers": ["deepseek", "kimicode", "mimo"]},
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "failed"
+    assert run["export_allowed"] is False
+    assert run["providers"] == ["deepseek", "kimicode", "mimo"]
+    assert run["role_results"] == []
+    assert run["failure_details"][0]["reason"] == "chair_unavailable"
+    assert "Codex 主席" in run["logs"][0]["detail"]
+
+
+def test_post_draft_review_blocks_with_fewer_than_three_expert_seats(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews",
+        json={"providers": ["codex", "deepseek"]},
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "failed"
+    assert run["export_allowed"] is False
+    assert run["providers"] == ["codex", "deepseek"]
+    assert run["role_results"] == []
+    assert run["failure_details"][0]["reason"] == "insufficient_experts"
+    assert "至少 3 席" in run["logs"][0]["detail"]
+
+
 def test_official_export_blocks_inline_prompt_after_passing_review(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(
         client,
         _package(drawing_description="图1为方法流程图。prompt: 黑白线稿"),
     )
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.json()["status"] == "blocked"
 
     review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     assert review_response.status_code == 409
-    assert "Official draft compile is required" in review_response.json()["detail"]
+    assert "blocked official compile" in review_response.json()["detail"]
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Official draft compile is required" in export_response.json()["detail"]
+    assert "blocked official compile" in export_response.json()["detail"]
 
     docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert docx_response.status_code == 409
-    assert "Official draft compile is required" in docx_response.json()["detail"]
+    assert "blocked official compile" in docx_response.json()["detail"]
 
 
 def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path):
@@ -82,21 +149,22 @@ def test_official_export_blocks_empty_json_wrapper_after_passing_review(tmp_path
         client,
         _package(drawing_description='{\n  "drawing_description": ""\n}'),
     )
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.json()["status"] == "blocked"
 
     review_response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
     assert review_response.status_code == 409
-    assert "Official draft compile is required" in review_response.json()["detail"]
+    assert "blocked official compile" in review_response.json()["detail"]
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Official draft compile is required" in export_response.json()["detail"]
+    assert "blocked official compile" in export_response.json()["detail"]
 
     docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert docx_response.status_code == 409
-    assert "Official draft compile is required" in docx_response.json()["detail"]
+    assert "blocked official compile" in docx_response.json()["detail"]
 
 
 def test_official_export_blocks_case_insensitive_internal_labels_before_review(tmp_path):
@@ -112,6 +180,7 @@ def test_official_export_blocks_case_insensitive_internal_labels_before_review(t
             drawing_description="图1为系统流程图。\nPrompt: 黑白线稿。",
         ),
     )
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
     assert compile_response.json()["status"] == "blocked"
@@ -119,16 +188,17 @@ def test_official_export_blocks_case_insensitive_internal_labels_before_review(t
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Official draft compile is required" in export_response.json()["detail"]
+    assert "blocked official compile" in export_response.json()["detail"]
 
     docx_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert docx_response.status_code == 409
-    assert "Official draft compile is required" in docx_response.json()["detail"]
+    assert "blocked official compile" in docx_response.json()["detail"]
 
 
 def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=False), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
 
@@ -142,7 +212,7 @@ def test_blocking_post_draft_review_prevents_official_export_and_reports(tmp_pat
 
     export_response = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert export_response.status_code == 409
-    assert "Post-draft multi-agent review is required" in export_response.json()["detail"]
+    assert "blocked post-draft review" in export_response.json()["detail"]
 
     report_response = client.get(f"/api/projects/{project_id}/post-draft-reviews/{run['id']}/report.md")
     assert report_response.status_code == 200
@@ -216,6 +286,7 @@ def test_apply_post_draft_safe_patches_rejects_unsafe_replacement_text(tmp_path)
 def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compile(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_review_llm(export_allowed=True), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
+    _run_quality_cycle(client, project_id)
     compile_response = client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
     assert compile_response.status_code == 200
 
@@ -232,7 +303,7 @@ def test_later_blocking_post_draft_review_invalidates_prior_pass_for_same_compil
     export_response = client.get(f"/api/projects/{project_id}/official-export.md")
 
     assert export_response.status_code == 409
-    assert "Post-draft multi-agent review is required" in export_response.json()["detail"]
+    assert "blocked post-draft review" in export_response.json()["detail"]
 
 
 def test_post_draft_review_hash_mismatch_invalidates_export_gate(tmp_path):
@@ -309,6 +380,49 @@ def test_invalid_json_post_draft_review_downgrades_role_and_completes(tmp_path):
     )
 
 
+def test_post_draft_review_stage_timeout_stops_after_slow_provider(tmp_path):
+    """A configured request timeout should stop the review at the provider
+    boundary instead of continuing through the remaining reviewers/chair."""
+    llm = _SlowStageReviewLLM(_review_llm(export_allowed=True).responses, slow_stage="post_draft_claims_reviewer")
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm, load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews",
+        json={"stage_timeout_ms": 1, "run_timeout_ms": 1_000},
+    )
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "failed"
+    assert run["export_allowed"] is False
+    assert run["failure_details"][0]["reason"] == "timeout"
+    assert run["runtime_state"]["subtask"] == "post-draft claims review"
+    assert [call.stage for call in llm.calls] == ["post_draft_claims_reviewer"]
+
+
+def test_post_draft_review_chair_failure_downgrades_to_blocked_completed_review(tmp_path):
+    base = _review_llm(export_allowed=True)
+    base.responses["post_draft_chair_synthesis"] = "not-json"
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=base, load_env_file=False))
+    project_id = _create_project_with_package(client, _package())
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={})
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["status"] == "completed"
+    assert run["export_allowed"] is False
+    assert run["chair_result"]["status"] == "blocked"
+    assert run["blocking_issues"]
+    assert any(
+        log["level"] == "error" and "chair synthesis failed" in log["message"] and log["provider_id"] == "chair"
+        for log in run["logs"]
+    )
+
+
 def test_post_draft_review_repairs_common_schema_drift_and_stays_fail_closed(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_schema_drift_llm(), load_env_file=False))
     project_id = _create_project_with_package(client, _package())
@@ -373,6 +487,12 @@ def _create_project_with_package(client: TestClient, package: DraftPackage) -> s
     ).json()["id"]
     client.app.state.store.update_project_package(project_id, package)
     return project_id
+
+
+def _run_quality_cycle(client: TestClient, project_id: str) -> None:
+    assert client.post(f"/api/projects/{project_id}/filing-readiness").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/claim-defense-worksheets").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/completion-runs").status_code == 200
 
 
 def _package(**overrides) -> DraftPackage:
@@ -451,6 +571,17 @@ def _review_llm(*, export_allowed: bool) -> FakeLLMClient:
     )
 
 
+class _SlowStageReviewLLM(FakeLLMClient):
+    def __init__(self, responses: dict[str, str], *, slow_stage: str) -> None:
+        super().__init__(responses)
+        self.slow_stage = slow_stage
+
+    def complete_stage(self, stage: str, system_prompt: str, user_prompt: str) -> str:
+        if stage == self.slow_stage:
+            time.sleep(0.005)
+        return super().complete_stage(stage, system_prompt, user_prompt)
+
+
 def _safe_patch_review_llm() -> FakeLLMClient:
     return FakeLLMClient(
         {
@@ -509,6 +640,106 @@ def _safe_patch_review_llm() -> FakeLLMClient:
 """,
         }
     )
+
+
+def _production_style_safe_patch_review_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": """
+{
+  "role": "claims_reviewer",
+  "status": "blocked",
+  "blocking_issues": ["权利要求需要主席安全补丁。"],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_spec_cleaner": """
+{
+  "role": "spec_cleaner",
+  "status": "blocked",
+  "blocking_issues": ["说明书含内部提示。"],
+  "contamination_hits": ["提交前需补强"],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_technical_hardness": """
+{
+  "role": "technical_hardness",
+  "status": "blocked",
+  "blocking_issues": ["C_det 和 CCI 需要修订。"],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}
+""",
+            "post_draft_chair_synthesis": """
+{
+  "status": "blocked",
+  "export_allowed": false,
+  "blocking_issues": ["需要应用主席安全补丁。"],
+  "contamination_hits": ["提交前需补强"],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [
+    "{\\"apply_to\\":\\"claims.1\\",\\"patch\\":\\"将“生成任务有向无环图”修改为“生成所述体检任务的任务有向无环图”\\",\\"priority\\":\\"high\\"}",
+    "{\\"apply_to\\":\\"claims.3\\",\\"patch\\":\\"将C_det = P_class × IoU替换为C_det = P_class × (1 - U_seg)，并增加U_seg的定义：病害分割掩膜的空间不确定性度量，基于分割掩膜预测的熵或边界置信度获得。\\",\\"priority\\":\\"critical\\"}",
+    "{\\"apply_to\\":\\"claims.7\\",\\"patch\\":\\"在CCI定义后补充‘当N_total = 0时，CCI = 1。’\\",\\"priority\\":\\"critical\\"}",
+    "{\\"apply_to\\":\\"description\\",\\"patch\\":\\"删除所有内部提示内容，包括说明书末尾的补充材料清单、S101中的‘提交前需补强的实验材料’等。\\",\\"priority\\":\\"critical\\"}",
+    "{\\"apply_to\\":\\"description\\",\\"patch\\":\\"将‘此为一个待实验验证的改进方向’改为‘作为另一种可选的实施方式’\\",\\"priority\\":\\"high\\"}",
+    "{\\"apply_to\\":\\"description\\",\\"patch\\":\\"将‘首次在巡检领域内建立了…’改为‘建立了…’\\",\\"priority\\":\\"high\\"}"
+  ],
+  "attorney_memo": [],
+  "next_actions": ["重新编译正式稿"]
+}
+""",
+        }
+    )
+
+
+def test_apply_post_draft_safe_patches_accepts_chair_apply_to_patch_format(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_production_style_safe_patch_review_llm(), load_env_file=False))
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            claims=(
+                "1. 一种方法，包括生成任务有向无环图。\n"
+                "3. C_{\\text{det}} = P_{\\text{class}} \\times \\text{IoU}。\n"
+                "P_class为病害分类器输出的最大类别概率，IoU为病害分割掩膜的交并比；\n"
+                "7. CCI定义为 CCI = N_compatible / N_total。"
+            ),
+            description=(
+                "步骤S101：提交前需补强的实验材料。\n\n"
+                "此为一个待实验验证的改进方向。\n\n"
+                "首次在巡检领域内建立了成本-方案闭环。"
+            ),
+        ),
+    )
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+    assert compile_run["status"] == "completed"
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+
+    response = client.post(f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/apply-safe-patches")
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["applied_count"] >= 5
+    package = result["package"]
+    assert "生成所述体检任务的任务有向无环图" in package["claims"]
+    assert "C_det = P_class × (1 - U_seg)" in package["claims"]
+    assert "IoU" not in package["claims"]
+    assert "U_seg为病害分割掩膜的空间不确定性度量" in package["claims"]
+    assert "当N_total = 0时，CCI = 1" in package["claims"]
+    assert "提交前需补强" not in package["description"]
+    assert "待实验验证" not in package["description"]
+    assert "首次" not in package["description"]
 
 
 def _unsafe_safe_patch_review_llm() -> FakeLLMClient:

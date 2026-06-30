@@ -258,13 +258,23 @@ def test_official_export_blocked_without_compile_and_review(tmp_path: Path):
     )
     project_id = _create_project_with_package(client)
 
-    # Without compile: blocked
+    # Without quality checks: blocked
     resp_md = client.get(f"/api/projects/{project_id}/official-export.md")
     assert resp_md.status_code == 409
-    assert "compile" in resp_md.json()["detail"].lower()
+    assert "quality checks" in resp_md.json()["detail"].lower()
 
     resp_docx = client.get(f"/api/projects/{project_id}/official-export.docx")
     assert resp_docx.status_code == 409
+    assert "quality checks" in resp_docx.json()["detail"].lower()
+
+    assert client.post(f"/api/projects/{project_id}/filing-readiness").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/claim-defense-worksheets").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/completion-runs").status_code == 200
+
+    # With quality checks but without compile: blocked
+    resp_md = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert resp_md.status_code == 409
+    assert "compile" in resp_md.json()["detail"].lower()
 
     # With compile but without post-draft review: still blocked
     compile_resp = client.post(
@@ -293,6 +303,9 @@ def test_official_export_content_disposition_after_gates(tmp_path: Path):
     }
     client = _minimal_app_with_llm(tmp_path, responses)
     project_id = _create_project_with_package(client)
+    assert client.post(f"/api/projects/{project_id}/filing-readiness").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/claim-defense-worksheets").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/completion-runs").status_code == 200
 
     # Compile
     compile_resp = client.post(

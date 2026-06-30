@@ -29,11 +29,14 @@ import { expertToolGroups, mainSections } from "./guidedFlow";
 describe("guided navigation", () => {
   it("keeps primary navigation focused and preserves expert tools as secondary", () => {
     expect(mainSections.map((section) => section.label)).toEqual([
-      "开始",
+      "工作台",
       "项目",
+      "文稿与修复",
+      "知识库",
+      "专家工具",
+      "导出",
       "设置",
     ]);
-    expect(mainSections.some((section) => section.id === "expert")).toBe(false);
     expect(expertToolGroups.flatMap((group) => group.tools.map((tool) => tool.label))).toEqual([
       "语料库建设",
       "知识库检索",

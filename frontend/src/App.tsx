@@ -18,7 +18,14 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { AgentProviderCards, normalizeAgentSelection, requiredAgentProviderIds } from "./AgentProviderCards";
+import { AppRoot } from "@/app/AppRoot";
+import {
+  AgentProviderCards,
+  normalizeAgentSelection,
+  normalizeDeliberationExpertSelection,
+  normalizeDeliberationParticipantSelection,
+  requiredAgentProviderIds,
+} from "./AgentProviderCards";
 import { ShellSidebar } from "./ui/ShellSidebar";
 import { ShellTopbar } from "./ui/ShellTopbar";
 import { SystemStatusPanel } from "./ui/SystemStatusPanel";
@@ -40,14 +47,18 @@ import {
   GrantabilityReport,
   Health,
   OfficialCompileRun,
+  type ExportReadiness,
   type OfficialDraftPackage,
   PatentPointCandidate,
   PatentPointCreatePayload,
   PatentDocument,
   PostDraftReviewRun,
+  PriorArtCandidate,
   ProjectMaterial,
+  ProjectKnowledgeOverview,
   PatentStrategyBrief,
   ProjectRecord,
+  ProjectUpdate,
   RuntimeFailure,
   RuntimeStageState,
   SearchResult,
@@ -55,8 +66,12 @@ import {
   type DraftCompletionRun,
   type ExternalDraftIntakeRun,
   type ExternalDraftSource,
+  type QualityCheckStates,
+  acceptAllCompletionPatches,
   acceptCompletionPatch,
+  applyOfficialCompileCleanup,
   applyPostDraftSafePatches,
+  buildProjectCorpusVersion,
   cancelFormulaRun,
   cancelPostDraftReview,
   cancelProjectDeliberation,
@@ -67,6 +82,7 @@ import {
   createDraftCompletionRun,
   createExternalDraftSource,
   createFilingReadinessReport,
+  createProjectSearchIntent,
   createGrantabilityReport,
   createProject,
   createProjectPatentPoint,
@@ -81,7 +97,9 @@ import {
   getFormulaRequirement,
   getAgentDoctor,
   getCorpusStats,
+  getExportReadiness,
   getHealth,
+  getProjectKnowledge,
   improveProjectScore,
   importPatent,
   listClaimDefenseWorksheets,
@@ -108,6 +126,7 @@ import {
   retryProjectDeliberation,
   retryProjectDisclosure,
   runCorpusJob,
+  runProjectSearchPlan,
   searchCorpus,
   startKimiOfficialLanguagePolish,
   startProjectDisclosure,
@@ -116,6 +135,7 @@ import {
   startFormulaRun,
   startOfficialCompileRun,
   startPostDraftReview,
+  updateProjectKnowledgeCandidate,
   updateProjectDraftPackage,
   updateProjectPatentPoint,
   uploadCorpusJobFile,
@@ -123,7 +143,13 @@ import {
   uploadProjectMaterial,
 } from "./api";
 import { GuidedPatentFlowView } from "./GuidedPatentFlow";
-import { runtimeDisplayElapsedMs, runtimeDisplayElapsedSeconds, useRuntimeNow } from "./runtimeDisplay";
+import {
+  runtimeDisplayElapsedMs,
+  runtimeDisplayElapsedSeconds,
+  useRuntimeNow,
+  userFacingAppErrorMessage,
+} from "./runtimeDisplay";
+import { uploadProjectMaterialBatch, type MaterialUploadFailure } from "./materialUploadBatch";
 import {
   loadPatentPoints as projectDataLoadPatentPoints,
   loadDeliberations as projectDataLoadDeliberations,
@@ -165,7 +191,6 @@ import {
   ProjectSelect,
   ProjectsOverview,
   CorpusView,
-  CreateProjectView,
 } from "./views/projectViews";
 import { ClaimDefenseView, GrantabilityView, ReviewView } from "./views/qualityViews";
 import { FilingReadinessView, DraftCompletionView } from "./views/filingViews";
@@ -200,6 +225,7 @@ import {
   guidedBusyLabel,
   guidedOperationLog,
   mainSections,
+  normalizeMainSectionId,
   projectGoalPrefix,
   selectCurrentOfficialCompileRun,
   selectLatestMatchingPostDraftReview,
@@ -269,6 +295,169 @@ type BusyTimer = {
   elapsedSeconds: number;
   startedAt: number | null;
 };
+
+export type BackendStatus = "unknown" | "online" | "offline";
+export type ProjectListStatus = "idle" | "loading" | "ready" | "failed";
+export type MaterialUploadOutcome = { level: "message" | "error"; text: string };
+
+export type PersistedAppState = {
+  selectedProjectId: string;
+  activeSection: MainSectionId;
+  activeExpertTool: ExpertToolId;
+  startChoice: StartChoiceId | null;
+  disclosureResearchMode: "standard" | "free_deep_research";
+};
+
+const APP_STATE_STORAGE_KEY = "patentagent.appState.v1";
+const APP_HISTORY_MARKER = "__patentAgentApp";
+
+const defaultPersistedAppState: PersistedAppState = {
+  selectedProjectId: "",
+  activeSection: defaultMainSectionId,
+  activeExpertTool: defaultExpertToolId,
+  startChoice: null,
+  disclosureResearchMode: "standard",
+};
+
+const validExpertToolIds = new Set<ExpertToolId>(
+  expertToolGroups.flatMap((group) => group.tools.map((tool) => tool.id)),
+);
+const validStartChoiceIds = new Set<StartChoiceId>(v1StartChoices.map((choice) => choice.id));
+
+function materialUploadFailureText(error: unknown): string {
+  if (error == null) return "未知错误";
+  const raw = error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
+  return raw.replace(/^材料上传失败：/, "").trim() || "未知错误";
+}
+
+export function summarizeMaterialUploadOutcome(
+  totalFileCount: number,
+  uploadedMaterials: ProjectMaterial[],
+  rejectedUploads: MaterialUploadFailure[],
+): MaterialUploadOutcome {
+  const processed = uploadedMaterials.filter((material) => material.status === "processed");
+  const parsedFailed = uploadedMaterials.filter((material) => material.status !== "processed");
+  const failedLabels = [
+    ...parsedFailed.map((material) => `${material.file_name}（${material.warnings[0] ?? "解析失败"}）`),
+    ...rejectedUploads.map((failure) => `${failure.fileName}（${materialUploadFailureText(failure.error)}）`),
+  ];
+  const failureCount = failedLabels.length;
+
+  if (totalFileCount === 1) {
+    const material = uploadedMaterials[0];
+    if (material) {
+      return {
+        level: material.status === "processed" ? "message" : "error",
+        text: material.status === "processed" ? `已上传材料：${material.file_name}` : `材料解析失败：${material.warnings[0] ?? "解析失败"}`,
+      };
+    }
+    const failure = rejectedUploads[0];
+    return {
+      level: "error",
+      text: `材料上传失败：${failure?.fileName ?? "所选文件"}：${materialUploadFailureText(failure?.error)}`,
+    };
+  }
+
+  if (failureCount > 0) {
+    const text = processed.length > 0
+      ? `已处理 ${totalFileCount} 份材料：${processed.length} 份可用，${failureCount} 份失败：${failedLabels.join("、")}`
+      : `${totalFileCount} 份材料均上传失败：${failedLabels.join("、")}`;
+    return { level: processed.length > 0 ? "message" : "error", text };
+  }
+
+  return {
+    level: "message",
+    text: `已上传 ${uploadedMaterials.length} 份材料：${uploadedMaterials.map((material) => material.file_name).join("、")}`,
+  };
+}
+
+export function sanitizePersistedAppState(value: unknown): PersistedAppState {
+  const record = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const selectedProjectId = typeof record.selectedProjectId === "string" ? record.selectedProjectId : "";
+  const rawActiveExpertTool = record.activeExpertTool;
+  const hasValidActiveExpertTool = validExpertToolIds.has(rawActiveExpertTool as ExpertToolId);
+  const activeExpertTool = hasValidActiveExpertTool
+    ? rawActiveExpertTool as ExpertToolId
+    : defaultExpertToolId;
+  // Stale tool ids should not be allowed to trigger legacy build/corpus/export section remaps.
+  const sectionMigrationExpertTool: ExpertToolId = hasValidActiveExpertTool
+    ? activeExpertTool
+    : "materials";
+  const activeSection = normalizeMainSectionId(record.activeSection, sectionMigrationExpertTool);
+  const startChoice = validStartChoiceIds.has(record.startChoice as StartChoiceId)
+    ? record.startChoice as StartChoiceId
+    : null;
+  const disclosureResearchMode = record.disclosureResearchMode === "free_deep_research"
+    ? "free_deep_research"
+    : "standard";
+  return {
+    selectedProjectId,
+    activeSection,
+    activeExpertTool,
+    startChoice,
+    disclosureResearchMode,
+  };
+}
+
+function loadPersistedAppState(): PersistedAppState {
+  if (typeof window === "undefined") return defaultPersistedAppState;
+  try {
+    const raw = window.localStorage.getItem(APP_STATE_STORAGE_KEY);
+    return raw ? sanitizePersistedAppState(JSON.parse(raw)) : defaultPersistedAppState;
+  } catch {
+    return defaultPersistedAppState;
+  }
+}
+
+function savePersistedAppState(state: PersistedAppState): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(sanitizePersistedAppState(state)));
+  } catch {
+    // localStorage can be unavailable in restricted browser contexts.
+  }
+}
+
+export function resolveRecoveredProjectSelection(
+  projects: ProjectRecord[],
+  preferredProjectId: string,
+): { selectedProjectId: string; clearedMissingProject: boolean } {
+  if (!preferredProjectId) {
+    return { selectedProjectId: "", clearedMissingProject: false };
+  }
+  if (projects.some((project) => project.id === preferredProjectId)) {
+    return { selectedProjectId: preferredProjectId, clearedMissingProject: false };
+  }
+  return { selectedProjectId: "", clearedMissingProject: true };
+}
+
+export function installAppHistoryGuard(win: Window = window, onRecover?: () => void): () => void {
+  const markState = (state: unknown) => ({
+    ...(state && typeof state === "object" ? state as Record<string, unknown> : {}),
+    [APP_HISTORY_MARKER]: true,
+  });
+  const ensureGuardEntry = () => {
+    if (!win.history.state?.[APP_HISTORY_MARKER]) {
+      win.history.replaceState(markState(win.history.state), "", win.location.href);
+    }
+    win.history.pushState(markState(win.history.state), "", win.location.href);
+  };
+  const handlePopState = () => {
+    ensureGuardEntry();
+    onRecover?.();
+  };
+  const handlePageShow = () => {
+    onRecover?.();
+  };
+
+  ensureGuardEntry();
+  win.addEventListener("popstate", handlePopState);
+  win.addEventListener("pageshow", handlePageShow);
+  return () => {
+    win.removeEventListener("popstate", handlePopState);
+    win.removeEventListener("pageshow", handlePageShow);
+  };
+}
 
 /**
  * PR7 (issue #21): contamination patterns the official compiler is supposed
@@ -379,16 +568,31 @@ function fileFromNativeDraft(
   });
 }
 
+function qualityCheckStateForDraftHash(
+  artifacts: Array<{ draft_package_hash?: string }>,
+  currentSourceDraftHash: string,
+): "missing" | "stale" | "current" {
+  if (!artifacts.length) return "missing";
+  if (!currentSourceDraftHash) return "stale";
+  return artifacts.some((artifact) => artifact.draft_package_hash === currentSourceDraftHash)
+    ? "current"
+    : "stale";
+}
+
 function App() {
-  const [activeSection, setActiveSection] = useState<MainSectionId>(defaultMainSectionId);
-  const [activeExpertTool, setActiveExpertTool] = useState<ExpertToolId>(defaultExpertToolId);
-  const [startChoice, setStartChoice] = useState<StartChoiceId | null>(null);
+  const initialAppState = useMemo(() => loadPersistedAppState(), []);
+  const [activeSection, setActiveSection] = useState<MainSectionId>(initialAppState.activeSection);
+  const [activeExpertTool, setActiveExpertTool] = useState<ExpertToolId>(initialAppState.activeExpertTool);
+  const [startChoice, setStartChoice] = useState<StartChoiceId | null>(initialAppState.startChoice);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>("unknown");
+  const [projectListStatus, setProjectListStatus] = useState<ProjectListStatus>("idle");
   const [health, setHealth] = useState<Health | null>(null);
   const [agentDoctor, setAgentDoctor] = useState<AgentDoctorReport | null>(null);
   const [documents, setDocuments] = useState<PatentDocument[]>([]);
   const [corpusVersions, setCorpusVersions] = useState<CorpusVersion[]>([]);
   const [corpusStats, setCorpusStats] = useState<CorpusStats | null>(null);
   const [corpusJob, setCorpusJob] = useState<CorpusImportJob | null>(null);
+  const [projectKnowledge, setProjectKnowledge] = useState<ProjectKnowledgeOverview | null>(null);
   const [corpusJobForm, setCorpusJobForm] = useState({
     source_type: "cnipa_export",
     source_name: "CNIPA",
@@ -406,11 +610,14 @@ function App() {
   const [officialCompileRuns, setOfficialCompileRuns] = useState<OfficialCompileRun[]>([]);
   const [currentSourceDraftHash, setCurrentSourceDraftHash] = useState("");
   const [postDraftReviews, setPostDraftReviews] = useState<PostDraftReviewRun[]>([]);
+  const [exportReadiness, setExportReadiness] = useState<ExportReadiness | null>(null);
   const [currentDraftHash, setCurrentDraftHash] = useState("");
   const [selectedDeliberationProviders, setSelectedDeliberationProviders] = useState<string[]>(requiredAgentProviderIds);
+  const [selectedDeliberationParticipantProviders, setSelectedDeliberationParticipantProviders] = useState<string[]>([]);
+  const deliberationExpertsUserEditedRef = useRef(false);
   const [selectedFormulaProviders, setSelectedFormulaProviders] = useState<string[]>(requiredAgentProviderIds);
   const [disclosureResearchMode, setDisclosureResearchMode] =
-    useState<"standard" | "free_deep_research">("standard");
+    useState<"standard" | "free_deep_research">(initialAppState.disclosureResearchMode);
   const [filingReports, setFilingReports] = useState<FilingReadinessReport[]>([]);
   const [grantabilityReports, setGrantabilityReports] = useState<GrantabilityReport[]>([]);
   const [worksheets, setWorksheets] = useState<ClaimDefenseWorksheet[]>([]);
@@ -418,12 +625,10 @@ function App() {
   const [externalDraftSources, setExternalDraftSources] = useState<ExternalDraftSource[]>([]);
   const [externalDraftIntakeRuns, setExternalDraftIntakeRuns] = useState<ExternalDraftIntakeRun[]>([]);
   const [patentPointsProjectId, setPatentPointsProjectId] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState(initialAppState.selectedProjectId);
   const [searchText, setSearchText] = useState("图像 神经网络 缺陷 方法");
   const [searchSection, setSearchSection] = useState<SectionType | "">("claims");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [projectName, setProjectName] = useState("");
-  const [draftText, setDraftText] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -472,6 +677,15 @@ function App() {
   const latestCompletionRun = completionRuns[0] ?? null;
   const latestOfficialCompileRun = selectCurrentOfficialCompileRun(officialCompileRuns, currentSourceDraftHash);
   const latestPostDraftReview = selectLatestMatchingPostDraftReview(postDraftReviews, latestOfficialCompileRun);
+  const currentQualityCheckStates = useMemo<QualityCheckStates>(() => ({
+    filing_readiness: qualityCheckStateForDraftHash(filingReports, currentSourceDraftHash),
+    claim_defense_worksheet: qualityCheckStateForDraftHash(worksheets, currentSourceDraftHash),
+    draft_completion: qualityCheckStateForDraftHash(
+      completionRuns.filter((run) => run.status === "completed"),
+      currentSourceDraftHash,
+    ),
+  }), [completionRuns, currentSourceDraftHash, filingReports, worksheets]);
+  const currentQualityChecked = Object.values(currentQualityCheckStates).every((state) => state === "current");
   const selectedProjectIdForRefresh = selectedProject?.id ?? "";
   const latestOfficialCompileRunId = latestOfficialCompileRun?.id ?? "";
   const latestPostDraftReviewId = latestPostDraftReview?.id ?? "";
@@ -483,9 +697,12 @@ function App() {
         lastExport.officialPackageHash ?? "",
       ].join(":")
     : "";
-  selectedProjectIdRef.current = selectedProject?.id ?? "";
+  selectedProjectIdRef.current = selectedProjectId;
 
   useEffect(() => {
+    if (selectedProjectIdForRefresh) {
+      void loadExportReadiness(selectedProjectIdForRefresh);
+    }
     void refreshAll();
   }, [
     selectedProjectIdForRefresh,
@@ -493,8 +710,28 @@ function App() {
     latestPostDraftReviewId,
     currentDraftHash,
     currentSourceDraftHash,
+    currentQualityChecked,
     lastExportRefreshKey,
   ]);
+
+  useEffect(() => installAppHistoryGuard(window, () => {
+    const recovered = loadPersistedAppState();
+    setSelectedProjectId(recovered.selectedProjectId);
+    setActiveSection(recovered.activeSection);
+    setActiveExpertTool(recovered.activeExpertTool);
+    setStartChoice(recovered.startChoice);
+    setDisclosureResearchMode(recovered.disclosureResearchMode);
+  }), []);
+
+  useEffect(() => {
+    savePersistedAppState({
+      selectedProjectId,
+      activeSection,
+      activeExpertTool,
+      startChoice,
+      disclosureResearchMode,
+    });
+  }, [activeExpertTool, activeSection, disclosureResearchMode, selectedProjectId, startChoice]);
 
   useEffect(() => {
     const desktop = (window as Window & DesktopMenuBridge).desktop;
@@ -526,7 +763,7 @@ function App() {
         action === "export-official-md" ||
         action === "export-official-sidecar"
       ) {
-        setActiveSection("expert");
+        setActiveSection("export");
         setActiveExpertTool("export");
         if (action === "export-official-docx") {
           void triggerNativeExport("docx");
@@ -540,24 +777,36 @@ function App() {
   }, []);
 
   useEffect(() => {
-    setSelectedDeliberationProviders((providers) => normalizeAgentSelection(agentDoctor, providers, "deliberation"));
+    setSelectedDeliberationProviders((providers) => {
+      const normalized = normalizeDeliberationExpertSelection(agentDoctor, providers, {
+        autoFillMissing: !deliberationExpertsUserEditedRef.current,
+      });
+      setSelectedDeliberationParticipantProviders((participants) =>
+        normalizeDeliberationParticipantSelection(agentDoctor, normalized, participants),
+      );
+      return normalized;
+    });
     setSelectedFormulaProviders((providers) => normalizeAgentSelection(agentDoctor, providers, "formula"));
   }, [agentDoctor]);
 
   useEffect(() => {
+    setProjectKnowledge(null);
     setOfficialCompileRuns([]);
     setCurrentSourceDraftHash("");
     setPostDraftReviews([]);
+    setExportReadiness(null);
     setCurrentDraftHash("");
     setExternalDraftSources([]);
     setExternalDraftIntakeRuns([]);
     if (selectedProject?.id) {
+      void loadProjectKnowledge(selectedProject.id);
       void loadDeliberations(selectedProject.id);
       void loadMaterials(selectedProject.id);
       void loadDisclosures(selectedProject.id);
       void loadFormulaState(selectedProject.id);
       void loadOfficialCompileRuns(selectedProject.id);
       void loadPostDraftReviews(selectedProject.id);
+      void loadExportReadiness(selectedProject.id);
       void refreshExternalDrafts(selectedProject.id);
       setPatentPoints([]);
       setPatentPointsProjectId("");
@@ -576,6 +825,8 @@ function App() {
       setDisclosureRuns([]);
       setFormulaRequirement(null);
       setFormulaRuns([]);
+      setProjectKnowledge(null);
+      setExportReadiness(null);
       setPatentPoints([]);
       setFilingReports([]);
       setGrantabilityReports([]);
@@ -610,6 +861,7 @@ function App() {
       void loadFormulaState(projectId);
       void loadOfficialCompileRuns(projectId);
       void loadPostDraftReviews(projectId);
+      void loadExportReadiness(projectId);
     }, 1000);
     return () => window.clearInterval(timer);
     // loadX functions are stable closures over setState only; they are not
@@ -620,19 +872,42 @@ function App() {
 
   async function refreshAll() {
     await withStatus("refresh", async () => {
-      const [healthData, doctorData, corpusData, projectsData] = await Promise.all([
-        getHealth(),
-        getAgentDoctor(),
-        listCorpus(),
-        listProjects(),
-      ]);
-      const [versionsData, statsData] = await Promise.all([listCorpusVersions(), getCorpusStats()]);
-      setHealth(healthData);
-      setAgentDoctor(doctorData);
-      setDocuments(corpusData);
-      setCorpusVersions(versionsData);
-      setCorpusStats(statsData);
-      setProjects(projectsData);
+      setProjectListStatus((current) => current === "ready" ? current : "loading");
+      try {
+        const [healthData, doctorData, corpusData, projectsData] = await Promise.all([
+          getHealth(),
+          getAgentDoctor(),
+          listCorpus(),
+          listProjects(),
+        ]);
+        const [versionsData, statsData] = await Promise.all([listCorpusVersions(), getCorpusStats()]);
+        const recoveredSelection = resolveRecoveredProjectSelection(projectsData, selectedProjectIdRef.current);
+        setBackendStatus("online");
+        setProjectListStatus("ready");
+        setHealth(healthData);
+        setAgentDoctor(doctorData);
+        setDocuments(corpusData);
+        setCorpusVersions(versionsData);
+        setCorpusStats(statsData);
+        setProjects(projectsData);
+        if (recoveredSelection.selectedProjectId === selectedProjectIdRef.current && recoveredSelection.selectedProjectId) {
+          await loadProjectKnowledge(recoveredSelection.selectedProjectId);
+        } else if (!recoveredSelection.selectedProjectId) {
+          setProjectKnowledge(null);
+        }
+        if (recoveredSelection.selectedProjectId !== selectedProjectIdRef.current) {
+          setSelectedProjectId(recoveredSelection.selectedProjectId);
+        }
+        if (recoveredSelection.clearedMissingProject) {
+          setMessage("上次选择的项目已不存在，请重新选择项目。");
+        }
+      } catch (err) {
+        setBackendStatus("offline");
+        setProjectListStatus("failed");
+        setHealth(null);
+        setAgentDoctor(null);
+        throw err;
+      }
     });
   }
 
@@ -664,6 +939,38 @@ function App() {
 
   async function loadOfficialCompileRuns(projectId: string): Promise<boolean> {
     return projectDataLoadOfficialCompileRuns(projectId, projectDataDeps);
+  }
+
+  async function loadExportReadiness(projectId: string): Promise<boolean> {
+    try {
+      const readiness = await getExportReadiness(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setExportReadiness(readiness);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setExportReadiness(null);
+      }
+      return false;
+    }
+  }
+
+  async function loadProjectKnowledge(projectId: string): Promise<boolean> {
+    try {
+      const overview = await getProjectKnowledge(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return false;
+      }
+      setProjectKnowledge(overview);
+      return true;
+    } catch {
+      if (selectedProjectIdRef.current === projectId) {
+        setProjectKnowledge(null);
+      }
+      return false;
+    }
   }
 
   async function loadPatentPoints(projectId: string): Promise<boolean> {
@@ -777,7 +1084,7 @@ function App() {
       setSelectedProjectId(projectId);
       return true;
     }
-    setSelectedProjectId(nextProjects[0]?.id ?? "");
+    setSelectedProjectId("");
     return false;
   }
 
@@ -788,7 +1095,7 @@ function App() {
     try {
       await task();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(userFacingAppErrorMessage(err));
     } finally {
       setBusy("");
     }
@@ -871,6 +1178,7 @@ function App() {
         latestOfficialCompileRun.status === "completed" &&
         latestOfficialCompileRun.official_package &&
         latestOfficialCompileRun.source_draft_hash === currentSourceDraftHash &&
+        currentQualityChecked &&
         latestPostDraftReview?.status === "completed" &&
         latestPostDraftReview.export_allowed &&
         latestPostDraftReview.draft_package_hash === latestOfficialCompileRun.source_draft_hash &&
@@ -879,7 +1187,7 @@ function App() {
       );
       if (!allowed) {
         setError(
-          "正式稿导出已锁定：需先通过针对当前正式稿的成稿会审。",
+          "正式稿导出已锁定：需先完成当前初稿质量检查，并通过针对当前正式稿的成稿会审。",
         );
         return;
       }
@@ -1006,29 +1314,106 @@ function App() {
     });
   }
 
-  async function handleCreateProject(event: FormEvent) {
-    event.preventDefault();
-    if (!projectName.trim() || !draftText.trim()) return;
-    await withStatus("create", async () => {
-      const project = await createProject(projectName.trim(), draftText.trim());
-      const nextProjects = await listProjects();
-      setProjects(nextProjects);
-      setSelectedProjectId(project.id);
-      setMessage(`已创建项目：${project.name}`);
-      setActiveExpertTool("materials");
-      setActiveSection("expert");
+  async function handleGenerateKnowledgePlan(): Promise<void> {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-plan", async () => {
+      const overview = await createProjectSearchIntent(projectId);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      setProjectKnowledge(overview);
+      setMessage("已生成 Agent 检索计划。");
     });
   }
 
-  async function handleCreateIdeaProject(payload: { name: string; idea: string; mode: PatentGoalMode; patentType: PatentType }) {
+  async function handleRunKnowledgeSearch(): Promise<void> {
+    const latestPlan = projectKnowledge?.latest_plan;
+    if (!selectedProject || !latestPlan) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-search", async () => {
+      const overview = await runProjectSearchPlan(projectId, latestPlan.id);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      setProjectKnowledge(overview);
+      setMessage(`已生成 ${overview.candidates.length} 条候选文献。`);
+    });
+  }
+
+  async function handleCandidateDecision(
+    candidateId: string,
+    decision: PriorArtCandidate["user_decision"],
+  ): Promise<void> {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-candidate", async () => {
+      await updateProjectKnowledgeCandidate(projectId, candidateId, decision);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      await loadProjectKnowledge(projectId);
+    });
+  }
+
+  async function handleBuildProjectCorpus(): Promise<void> {
+    const latestPlan = projectKnowledge?.latest_plan;
+    if (!selectedProject || !latestPlan) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-build", async () => {
+      const overview = await buildProjectCorpusVersion(projectId, latestPlan.id);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      setProjectKnowledge(overview);
+      if (overview.state.status === "ready") {
+        setMessage(`项目语料库已就绪：${overview.state.document_count} 件文献。`);
+        return;
+      }
+      if (overview.state.quality_flags.includes("synthetic_evidence")) {
+        setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献，但当前仅含 synthetic/fake 证据，仍需补充检索。`);
+        return;
+      }
+      if (overview.state.status === "needs_supplemental_search") {
+        setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献，但当前仍需补充检索。`);
+        return;
+      }
+      setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献。`);
+    });
+  }
+
+  async function handleCreateIdeaProject(payload: {
+    name: string;
+    idea: string;
+    mode: PatentGoalMode;
+    patentType: PatentType;
+    applicant?: string;
+    inventors?: string;
+    technical_field?: string;
+    background?: string;
+    pain_point?: string;
+    technical_solution?: string;
+    innovation?: string;
+    embodiments?: string;
+    beneficial_effects?: string;
+  }) {
     await withStatus("guided-create", async () => {
       const prefix = projectGoalPrefix(payload.mode);
-      const project = await createProject(payload.name, `${prefix}\n${payload.idea}`, payload.patentType);
+      const metadata: Partial<ProjectUpdate> = {
+        applicant: payload.applicant,
+        inventors: payload.inventors,
+        technical_field: payload.technical_field,
+        background: payload.background,
+        pain_point: payload.pain_point,
+        technical_solution: payload.technical_solution,
+        innovation: payload.innovation,
+        embodiments: payload.embodiments,
+        beneficial_effects: payload.beneficial_effects,
+      };
+      const project = await createProject(payload.name, `${prefix}\n${payload.idea}`, payload.patentType, metadata);
       const nextProjects = await listProjects();
       setProjects(nextProjects);
       setSelectedProjectId(project.id);
-      setProjectName("");
-      setDraftText("");
       setMessage(`已创建项目：${project.name}`);
     });
   }
@@ -1038,13 +1423,20 @@ function App() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     const input = event.currentTarget.elements.namedItem("project-material-file") as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) return;
     await withStatus("material-upload", async () => {
-      const material = await uploadProjectMaterial(projectId, file);
-      const stillSelected = await loadMaterials(projectId);
-      if (!stillSelected) return;
-      setMessage(material.status === "processed" ? `已上传材料：${material.file_name}` : `材料解析失败：${material.warnings[0]}`);
+      const { uploadedMaterials, rejectedUploads, refreshed } = await uploadProjectMaterialBatch(projectId, files, {
+        uploadProjectMaterial,
+        loadMaterials,
+      });
+      if (uploadedMaterials.length > 0 && !refreshed) return;
+      const outcome = summarizeMaterialUploadOutcome(files.length, uploadedMaterials, rejectedUploads);
+      if (outcome.level === "error") {
+        setError(outcome.text);
+      } else {
+        setMessage(outcome.text);
+      }
       input.value = "";
     });
   }
@@ -1153,7 +1545,7 @@ function App() {
     if (!selectedProject) return;
     const projectId = selectedProject.id;
     await withStatus("deliberate", async () => {
-      const run = await startProjectDeliberation(projectId, trace, selectedDeliberationProviders);
+      const run = await startProjectDeliberation(projectId, trace, selectedDeliberationProviders, selectedDeliberationParticipantProviders);
       const stillSelected = await loadDeliberations(projectId);
       if (!stillSelected) return;
       await loadFormulaState(projectId);
@@ -1176,7 +1568,7 @@ function App() {
     if (!selectedProject?.package) return;
     const projectId = selectedProject.id;
     await withStatus("post-draft-review", async () => {
-      const run = await startPostDraftReview(projectId, selectedDeliberationProviders);
+      const run = await startPostDraftReview(projectId, selectedDeliberationProviders, selectedDeliberationParticipantProviders);
       const stillSelected = await loadPostDraftReviews(projectId);
       if (!stillSelected) return;
       setMessage(
@@ -1205,6 +1597,24 @@ function App() {
     });
   }
 
+  async function handleApplyOfficialCompileCleanup(runId: string) {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("official-compile-cleanup", async () => {
+      const result = await applyOfficialCompileCleanup(projectId, runId);
+      const stillSelected = await refreshProjectsPreservingSelection(projectId);
+      if (!stillSelected) return;
+      setFilingReports([]);
+      setWorksheets([]);
+      setCompletionRuns([]);
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
+      setMessage(
+        `已清理 ${result.applied_count} 项正式稿阻断痕迹，当前源稿已变更。请重新运行质量检查、正式稿编译和成稿会审。`,
+      );
+    });
+  }
+
   async function handleSaveDraftPackage(payload: Pick<DraftPackage, "title" | "abstract" | "claims" | "description" | "drawing_description">) {
     if (!selectedProject?.package) return;
     const projectId = selectedProject.id;
@@ -1218,6 +1628,26 @@ function App() {
       await loadOfficialCompileRuns(projectId);
       await loadPostDraftReviews(projectId);
       setMessage("当前内部初稿已保存。请重新运行质量检查、正式稿编译和成稿会审。");
+    });
+  }
+
+  async function handleDraftRepairPatchApplied(issueId?: string) {
+    if (!selectedProject?.package) return;
+    const projectId = selectedProject.id;
+    await withStatus("draft-repair-patch", async () => {
+      const stillSelected = await refreshProjectsPreservingSelection(projectId);
+      if (!stillSelected) return;
+      setFilingReports([]);
+      setWorksheets([]);
+      setCompletionRuns([]);
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
+      await loadExportReadiness(projectId);
+      setMessage(
+        issueId
+          ? "AI 修正已写回当前初稿。请重新运行质量检查、正式稿编译和成稿会审。"
+          : "修复补丁已写回当前初稿。请重新运行质量检查、正式稿编译和成稿会审。",
+      );
     });
   }
 
@@ -1342,9 +1772,21 @@ function App() {
   }
 
   function handleToggleDeliberationProvider(providerId: string, enabled: boolean) {
+    deliberationExpertsUserEditedRef.current = true;
     setSelectedDeliberationProviders((providers) => {
       const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
-      return normalizeAgentSelection(agentDoctor, next, "deliberation");
+      const normalized = normalizeDeliberationExpertSelection(agentDoctor, next, { autoFillMissing: false });
+      setSelectedDeliberationParticipantProviders((participants) =>
+        normalizeDeliberationParticipantSelection(agentDoctor, normalized, participants.filter((id) => id !== providerId)),
+      );
+      return normalized;
+    });
+  }
+
+  function handleToggleDeliberationParticipantProvider(providerId: string, enabled: boolean) {
+    setSelectedDeliberationParticipantProviders((providers) => {
+      const next = enabled ? [...providers, providerId] : providers.filter((id) => id !== providerId);
+      return normalizeDeliberationParticipantSelection(agentDoctor, selectedDeliberationProviders, next);
     });
   }
 
@@ -1496,6 +1938,22 @@ function App() {
     });
   }
 
+  async function handleAcceptAllCompletionPatches(runId: string) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    const pendingCount = completionRuns
+      .find((run) => run.id === runId)
+      ?.patches.filter((patch) => patch.status === "proposed").length ?? 0;
+    await withStatus("completion-accept-all", async () => {
+      const run = await acceptAllCompletionPatches(projectId, runId);
+      if (selectedProjectIdRef.current !== projectId) return;
+      setCompletionRuns((current) => current.map((item) => (item.id === run.id ? run : item)));
+      await loadOfficialCompileRuns(projectId);
+      await loadPostDraftReviews(projectId);
+      setMessage(pendingCount > 0 ? `已一键接受 ${pendingCount} 条补强建议，评分已更新` : "暂无待接受补强建议");
+    });
+  }
+
   async function handleCreatePatentPoint(payload: PatentPointCreatePayload): Promise<boolean> {
     if (!selectedProject) return false;
     const projectId = selectedProject.id;
@@ -1504,6 +1962,7 @@ function App() {
       await createProjectPatentPoint(projectId, payload);
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
+      await loadProjectKnowledge(projectId);
       setMessage("已加入护城河专利点");
       succeeded = true;
     });
@@ -1528,6 +1987,7 @@ function App() {
       }
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
+      await loadProjectKnowledge(projectId);
       const backupCount = Math.max(0, payloads.length - 1);
       setMessage(`已选择主路线：${point.title}${backupCount ? `；已保存 ${backupCount} 条后备路线` : ""}`);
     });
@@ -1540,6 +2000,7 @@ function App() {
       await deleteProjectPatentPoint(projectId, point.id);
       const stillSelected = await loadPatentPoints(projectId);
       if (!stillSelected) return;
+      await loadProjectKnowledge(projectId);
       setMessage(`已删除专利点：${point.title}`);
     });
   }
@@ -1578,405 +2039,222 @@ function App() {
 
   function openExpertTool(tool: ExpertToolId) {
     setActiveExpertTool(tool);
-    setActiveSection("expert");
+    if (tool === "build" || tool === "corpus") {
+      setActiveSection("knowledge");
+    } else if (tool === "export") {
+      setActiveSection("export");
+    } else {
+      setActiveSection("expert");
+    }
   }
 
   function handleStartChoice(choice: StartChoiceId) {
     setStartChoice(choice);
-    setActiveSection("generate");
+    setActiveSection("workbench");
     if (choice === "external") {
       setActiveExpertTool("materials");
     }
   }
 
-  function selectProjectForWorkbench(projectId: string) {
-    setSelectedProjectId(projectId);
-    setStartChoice(null);
-    setMessage("");
-    setError("");
-    if (projectId) {
-      setActiveSection("generate");
-    }
-  }
-
   function returnToStartChoices() {
     setStartChoice(null);
-    setActiveSection("generate");
-  }
-
-  function renderExpertTool() {
-    switch (activeExpertTool) {
-      case "build":
-        return (
-          <CorpusBuildView
-            form={corpusJobForm}
-            job={corpusJob}
-            versions={corpusVersions}
-            stats={corpusStats}
-            busy={busy}
-            onFormChange={(patch) => setCorpusJobForm((current) => ({ ...current, ...patch }))}
-            onCreateJob={handleCreateCorpusJob}
-            onUploadFile={handleUploadCorpusJobFile}
-            onRunJob={handleRunCorpusJob}
-          />
-        );
-      case "corpus":
-        return (
-          <CorpusView
-            documents={documents}
-            searchText={searchText}
-            searchSection={searchSection}
-            searchResults={searchResults}
-            busy={busy}
-            onImport={handleImport}
-            onSearch={handleSearch}
-            onSearchText={setSearchText}
-            onSearchSection={setSearchSection}
-          />
-        );
-      case "moat":
-        return (
-          <MoatView
-            project={selectedProject}
-            points={visiblePatentPoints}
-            busy={busy}
-            onCreate={handleCreatePatentPoint}
-            onSelect={handleSelectPatentPoint}
-            onDelete={handleDeletePatentPoint}
-            onEvaluateMoat={handleEvaluatePatentPointMoat}
-          />
-        );
-      case "materials":
-        return (
-          <DisclosureView
-            project={selectedProject}
-            materials={projectMaterials}
-            runs={disclosureRuns}
-            busy={busy}
-            onUpload={handleUploadMaterial}
-            onStart={handleStartDisclosure}
-            onRefresh={() => selectedProject && loadDisclosures(selectedProject.id)}
-            onCancelRun={(runId) => void handleCancelDisclosureRun(runId)}
-            onRetryRun={(runId) => void handleRetryDisclosureRun(runId)}
-          />
-        );
-      case "deliberate":
-        return (
-          <DeliberationView
-            project={selectedProject}
-            doctor={agentDoctor}
-            runs={deliberationRuns}
-            disclosure={currentDisclosure}
-            selectedProviders={selectedDeliberationProviders}
-            busy={busy}
-            onStart={handleStartDeliberation}
-            onToggleProvider={handleToggleDeliberationProvider}
-            onRefresh={() => selectedProject && loadDeliberations(selectedProject.id)}
-            onCancelRun={(runId) => void handleCancelDeliberationRun(runId)}
-            onRetryRun={(runId) => void handleRetryDeliberationRun(runId)}
-          />
-        );
-      case "write":
-        return (
-          <WriteView
-            project={selectedProject}
-            deliberation={currentDeliberation}
-            disclosure={currentDisclosure}
-            formulaRequirement={formulaRequirement}
-            formulaRun={currentFormulaRun}
-            busy={busy}
-            onGenerate={handleGenerate}
-          />
-        );
-      case "readiness":
-        return (
-          <FilingReadinessView
-            project={selectedProject}
-            report={latestFilingReport}
-            reports={filingReports}
-            postDraftReview={latestPostDraftReview}
-            officialCompileRun={latestOfficialCompileRun}
-            currentDraftHash={currentDraftHash}
-            currentSourceDraftHash={currentSourceDraftHash}
-            busy={busy}
-            onRun={handleRunFilingReadiness}
-          />
-        );
-      case "grantability":
-        return (
-          <GrantabilityView
-            project={selectedProject}
-            report={latestGrantabilityReport}
-            reports={grantabilityReports}
-            busy={busy}
-            onGenerate={handleCreateGrantabilityReport}
-          />
-        );
-      case "claimDefense":
-        return (
-          <ClaimDefenseView
-            project={selectedProject}
-            worksheet={latestWorksheet}
-            worksheets={worksheets}
-            busy={busy}
-            onGenerate={handleCreateWorksheet}
-          />
-        );
-      case "completion":
-        return (
-          <DraftCompletionView
-            project={selectedProject}
-            run={latestCompletionRun}
-            runs={completionRuns}
-            busy={busy}
-            onRun={handleRunDraftCompletion}
-            onImprove={handleImproveScore}
-            onPatch={handleCompletionPatch}
-          />
-        );
-      case "review":
-        return <ReviewView project={selectedProject} busy={busy} onReview={handleReview} />;
-      case "export":
-        return (
-          <ExportView
-            project={selectedProject}
-            packageValue={currentPackage}
-            postDraftReview={latestPostDraftReview}
-            officialCompileRun={latestOfficialCompileRun}
-            currentDraftHash={currentDraftHash}
-            currentSourceDraftHash={currentSourceDraftHash}
-            lastExport={lastExport}
-            onNativeExport={(format) => {
-              void triggerNativeExport(format);
-            }}
-            onOpenExportFolder={() => {
-              void triggerOpenExportFolder();
-            }}
-            desktopDialogsAvailable={Boolean(
-              (window as Window & DesktopMenuBridge).desktop?.dialogs?.saveOfficial &&
-                (window as Window & DesktopMenuBridge).desktop?.dialogs?.openFolder,
-            )}
-          />
-        );
-    }
-  }
-
-  function handleKeySectionSelect(id: "idea" | "moat" | "deliberate") {
-    if (id === "idea") {
-      setActiveSection("generate");
-      return;
-    }
-    setActiveSection("expert");
-    setActiveExpertTool(id);
+    setActiveSection("workbench");
   }
 
   return (
-    <div className="app-shell">
-      <ShellSidebar
-        mainSections={mainSections.map((section) => ({
-          id: section.id,
-          label: section.label,
-          icon: <section.icon size={16} aria-hidden="true" />,
-          description: section.description,
-        }))}
-        activeSectionId={activeSection}
-        onSelectSection={(id) => setActiveSection(id as MainSectionId)}
-        keySections={
-          selectedProject
-            ? [
-                { id: "idea", label: "01 想法与材料", icon: <ClipboardList size={14} aria-hidden="true" /> },
-                { id: "moat", label: "02 发明点确认", icon: <Search size={14} aria-hidden="true" /> },
-                { id: "deliberate", label: "03 多智能体会审", icon: <UsersRound size={14} aria-hidden="true" /> },
-              ]
-            : undefined
-        }
-        onSelectKeySection={(id) => handleKeySectionSelect(id as "idea" | "moat" | "deliberate")}
-        footer={
-          <SystemStatusPanel
-            selectedProject={selectedProject}
-            health={health}
-            agentDoctor={agentDoctor}
-            agentRunModeLabel={agentRunModeLabel}
-            onRefresh={refreshAll}
-          />
-        }
-      />
-
-      <main className="main-area">
-        <ShellTopbar
-          onRefresh={refreshAll}
-          statusLabel={busy ? "处理中" : "空闲"}
-          statusVariant={busy ? "busy" : "idle"}
-          projectSelector={
-            <ProjectSelect
-              projects={projects}
-              selectedProjectId={selectedProject?.id ?? ""}
-              onChange={selectProjectForWorkbench}
-            />
-          }
-          actions={
-            <>
-              {!(activeSection === "generate" && !selectedProject && !startChoice) && (
-                <>
-                  {activeSection !== "expert" && (
-                    <Button
-                      variant="outline"
-                      className="topbar-action-button"
-                      onClick={() => setActiveSection("expert")}
-                      type="button"
-                    >
-                      <Gauge size={16} />
-                      <span>专家工具</span>
-                    </Button>
-                  )}
-                  {activeSection === "expert" && (
-                    <Button
-                      variant="outline"
-                      className="topbar-action-button"
-                      onClick={() => setActiveSection("generate")}
-                      type="button"
-                    >
-                      <Wand2 size={16} />
-                      <span>返回向导</span>
-                    </Button>
-                  )}
-                  {(startChoice || activeSection === "expert") && (
-                    <Button
-                      variant="outline"
-                      className="topbar-action-button"
-                      onClick={returnToStartChoices}
-                      type="button"
-                    >
-                      <ClipboardList size={16} />
-                      <span>返回三选一</span>
-                    </Button>
-                  )}
-                </>
-              )}
-            </>
-          }
-        />
-
-        {/* Mobile nav */}
-        <nav className="mobile-nav" aria-label="移动主导航">
-          {mainSections.map((section) => {
-            const Icon = section.icon;
-            return (
-              <button
-                className={activeSection === section.id ? "is-active" : ""}
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                type="button"
-                title={section.label}
-              >
-                <Icon size={16} />
-                <span>{section.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        {(busy || message || error) && (
-          <div className={error ? "notice error" : "notice"}>
-            {busy && <Loader2 className="animate-spin" size={16} />}
-            <span>{error || message || guidedBusyLabel(busy) || "处理中"}</span>
-            {!error && busy && <BusyOperationConsole log={guidedOperationLog(busy, busyTimer.elapsedSeconds)} />}
-          </div>
-        )}
-
-        <div className="workspace">
-
-        {(activeSection === "generate" || activeSection === "utility") && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-          {!selectedProject && !startChoice ? (
-            <StartChoiceScreen onSelect={handleStartChoice} />
-          ) : (
-            <GuidedPatentFlowView
-            project={selectedProject}
-            materials={projectMaterials}
-            disclosures={disclosureRuns}
-            deliberations={deliberationRuns}
-            patentPoints={visiblePatentPoints}
-            formulaRequirement={formulaRequirement}
-            formulaRuns={formulaRuns}
-            officialCompileRuns={officialCompileRuns}
-            currentSourceDraftHash={currentSourceDraftHash}
-            postDraftReviews={postDraftReviews}
-            currentDraftHash={currentDraftHash}
-            currentPackage={currentPackage}
-            agentDoctor={agentDoctor}
-            selectedDeliberationProviders={selectedDeliberationProviders}
-            selectedFormulaProviders={selectedFormulaProviders}
-            filingReports={filingReports}
-            worksheets={worksheets}
-            completionRuns={completionRuns}
-            externalDraftSources={externalDraftSources}
-            externalDraftIntakeRuns={externalDraftIntakeRuns}
-            busy={busy}
-            busyElapsedSeconds={busyTimer.elapsedSeconds}
-            fixedGoalMode={startChoice === "utility" || activeSection === "utility" ? "utility" : undefined}
-            initialIntakeMode={startChoice === "external" ? "external" : "idea"}
-            onCreateIdeaProject={handleCreateIdeaProject}
-            onCreateExternalDraft={handleCreateExternalDraft}
-            onUploadExternalDraft={handleUploadExternalDraft}
-            onStartExternalDraftIntake={handleStartExternalDraftIntake}
-            onConfirmExternalDraftIntake={handleConfirmExternalDraftIntake}
-            onUploadMaterial={handleUploadMaterial}
-            disclosureResearchMode={disclosureResearchMode}
-            onChangeDisclosureResearchMode={setDisclosureResearchMode}
-            onStartDisclosure={() => void handleStartDisclosure(false)}
-            onCancelDisclosureRun={(runId) => void handleCancelDisclosureRun(runId)}
-            onRetryDisclosureRun={(runId) => void handleRetryDisclosureRun(runId)}
-            onSelectPatentPoint={(point, candidates) => void handleSelectPatentPoint(point, candidates)}
-            onStartDeliberation={() => void handleStartDeliberation(false)}
-            onCancelDeliberationRun={(runId) => void handleCancelDeliberationRun(runId)}
-            onRetryDeliberationRun={(runId) => void handleRetryDeliberationRun(runId)}
-            onStartFormula={() => void handleStartFormula()}
-            onCancelFormulaRun={(runId) => void handleCancelFormulaRun(runId)}
-            onRetryFormulaRun={(runId) => void handleRetryFormulaRun(runId)}
-            onStartOfficialCompile={() => void handleStartOfficialCompile()}
-            onStartKimiLanguagePolish={() => void handleStartKimiLanguagePolish()}
-            onStartPostDraftReview={() => void handleStartPostDraftReview()}
-            onApplyPostDraftSafePatches={(runId) => void handleApplyPostDraftSafePatches(runId)}
-            onSaveDraftPackage={(payload) => void handleSaveDraftPackage(payload)}
-            onCancelPostDraftReviewRun={(runId) => void handleCancelPostDraftReviewRun(runId)}
-            onRetryPostDraftReviewRun={(runId) => void handleRetryPostDraftReviewRun(runId)}
-            onToggleDeliberationProvider={handleToggleDeliberationProvider}
-            onToggleFormulaProvider={handleToggleFormulaProvider}
-            onGenerateDraft={() => void handleGenerate()}
-            onRunQualityChecks={() => void handleRunGuidedQualityChecks()}
-            onImproveScore={() => void handleImproveScore()}
-            onAcceptPatch={(runId, patchId) => void handleCompletionPatch(runId, patchId, "accept")}
-            onOpenExpertTool={openExpertTool}
-            />
-          )}
-          </div>
-        )}
-        {activeSection === "projects" && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-            <ProjectsOverview
-              projects={projects}
-              selectedProjectId={selectedProject?.id ?? ""}
-              onSelect={selectProjectForWorkbench}
-              onDelete={(project) => void handleDeleteProject(project)}
-              busy={busy}
-            />
-          </div>
-        )}
-        {activeSection === "settings" && (
-          <div className="px-4 md:px-8 py-4 md:py-6">
-            <SettingsPanel theme={theme} onThemeChange={setTheme} />
-          </div>
-        )}
-        {activeSection === "expert" && (
-          <div className="flex flex-col gap-4">
-            <ExpertToolChooser activeToolId={activeExpertTool} onSelect={setActiveExpertTool} />
-            {renderExpertTool()}
-          </div>
-        )}
-      </div>
-    </main>
-  </div>
+    <AppRoot
+      activeSection={activeSection}
+      activeExpertTool={activeExpertTool}
+      startChoice={startChoice}
+      selectedProject={selectedProject}
+      projects={projects}
+      busy={busy}
+      busyElapsedSeconds={busyTimer.elapsedSeconds}
+      message={message}
+      error={error}
+      health={health}
+      agentDoctor={agentDoctor}
+      backendStatus={backendStatus}
+      projectListStatus={projectListStatus}
+      theme={theme}
+      onSelectSection={setActiveSection}
+      onSelectExpertTool={setActiveExpertTool}
+      onSelectProjectId={setSelectedProjectId}
+      onReturnToStartChoices={returnToStartChoices}
+      onChangeTheme={setTheme}
+      onRefresh={refreshAll}
+      projectState={{
+        startChoice,
+        selectedProject,
+        projects,
+        projectMaterials,
+        disclosureRuns,
+        deliberationRuns,
+        visiblePatentPoints,
+        formulaRequirement,
+        formulaRuns,
+        officialCompileRuns,
+        currentSourceDraftHash,
+        postDraftReviews,
+        currentDraftHash,
+        currentPackage,
+        agentDoctor,
+        selectedDeliberationProviders,
+        selectedDeliberationParticipantProviders,
+        selectedFormulaProviders,
+        filingReports,
+        worksheets,
+        completionRuns,
+        externalDraftSources,
+        externalDraftIntakeRuns,
+        busy,
+        busyElapsedSeconds: busyTimer.elapsedSeconds,
+        disclosureResearchMode,
+      }}
+      projectHandlers={{
+        onStartChoice: handleStartChoice,
+        onSelectProjectId: setSelectedProjectId,
+        onDeleteProject: handleDeleteProject,
+        onCreateIdeaProject: handleCreateIdeaProject,
+        onCreateExternalDraft: handleCreateExternalDraft,
+        onUploadExternalDraft: handleUploadExternalDraft,
+        onStartExternalDraftIntake: handleStartExternalDraftIntake,
+        onConfirmExternalDraftIntake: handleConfirmExternalDraftIntake,
+        onUploadMaterial: handleUploadMaterial,
+        onChangeDisclosureResearchMode: setDisclosureResearchMode,
+        onStartDisclosure: () => void handleStartDisclosure(false),
+        onCancelDisclosureRun: (runId) => void handleCancelDisclosureRun(runId),
+        onRetryDisclosureRun: (runId) => void handleRetryDisclosureRun(runId),
+        onSelectPatentPoint: (point, candidates) => void handleSelectPatentPoint(point, candidates),
+        onStartDeliberation: () => void handleStartDeliberation(false),
+        onCancelDeliberationRun: (runId) => void handleCancelDeliberationRun(runId),
+        onRetryDeliberationRun: (runId) => void handleRetryDeliberationRun(runId),
+        onStartFormula: () => void handleStartFormula(),
+        onCancelFormulaRun: (runId) => void handleCancelFormulaRun(runId),
+        onRetryFormulaRun: (runId) => void handleRetryFormulaRun(runId),
+        onStartOfficialCompile: () => void handleStartOfficialCompile(),
+        onStartKimiLanguagePolish: () => void handleStartKimiLanguagePolish(),
+        onStartPostDraftReview: () => void handleStartPostDraftReview(),
+        onApplyOfficialCompileCleanup: (runId) => void handleApplyOfficialCompileCleanup(runId),
+        onApplyPostDraftSafePatches: (runId) => void handleApplyPostDraftSafePatches(runId),
+        onSaveDraftPackage: (payload) => void handleSaveDraftPackage(payload),
+        onDraftRepairPatchApplied: (issueId) => void handleDraftRepairPatchApplied(issueId),
+        onCancelPostDraftReviewRun: (runId) => void handleCancelPostDraftReviewRun(runId),
+        onRetryPostDraftReviewRun: (runId) => void handleRetryPostDraftReviewRun(runId),
+        onToggleDeliberationProvider: handleToggleDeliberationProvider,
+        onToggleDeliberationParticipantProvider: handleToggleDeliberationParticipantProvider,
+        onToggleFormulaProvider: handleToggleFormulaProvider,
+        onGenerateDraft: () => void handleGenerate(),
+        onRunQualityChecks: () => void handleRunGuidedQualityChecks(),
+        onImproveScore: () => void handleImproveScore(),
+        onAcceptPatch: (runId, patchId) => void handleCompletionPatch(runId, patchId, "accept"),
+        onAcceptAllPatches: (runId) => void handleAcceptAllCompletionPatches(runId),
+        onOpenExpertTool: (tool) => openExpertTool(tool as ExpertToolId),
+      }}
+      corpusState={{
+        selectedProject,
+        projectKnowledge,
+        corpusJobForm,
+        corpusJob,
+        corpusVersions,
+        corpusStats,
+        documents,
+        searchText,
+        searchSection,
+        searchResults,
+        busy,
+      }}
+      corpusHandlers={{
+        onCorpusFormChange: (patch) => setCorpusJobForm((current) => ({ ...current, ...patch })),
+        onCreateCorpusJob: handleCreateCorpusJob,
+        onUploadCorpusJobFile: handleUploadCorpusJobFile,
+        onRunCorpusJob: handleRunCorpusJob,
+        onGenerateKnowledgePlan: handleGenerateKnowledgePlan,
+        onRunKnowledgeSearch: handleRunKnowledgeSearch,
+        onCandidateDecision: handleCandidateDecision,
+        onBuildProjectCorpus: handleBuildProjectCorpus,
+        onImport: handleImport,
+        onSearch: handleSearch,
+        onSearchText: setSearchText,
+        onSearchSection: setSearchSection,
+      }}
+      qualityState={{
+        selectedProject,
+        projectKnowledge,
+        filingReports,
+        latestFilingReport,
+        grantabilityReports,
+        latestGrantabilityReport,
+        worksheets,
+        latestWorksheet,
+        completionRuns,
+        latestCompletionRun,
+        latestOfficialCompileRun,
+        latestPostDraftReview,
+        currentDraftHash,
+        currentSourceDraftHash,
+        busy,
+      }}
+      qualityHandlers={{
+        onRunFilingReadiness: handleRunFilingReadiness,
+        onCreateGrantabilityReport: handleCreateGrantabilityReport,
+        onCreateWorksheet: handleCreateWorksheet,
+        onRunDraftCompletion: handleRunDraftCompletion,
+        onImproveScore: handleImproveScore,
+        onCompletionPatch: handleCompletionPatch,
+        onReview: handleReview,
+      }}
+      postDraftState={{
+        selectedProject,
+        agentDoctor,
+        visiblePatentPoints,
+        projectMaterials,
+        disclosureRuns,
+        deliberationRuns,
+        currentDisclosure,
+        currentDeliberation,
+        formulaRequirement,
+        currentFormulaRun,
+        currentPackage,
+        latestOfficialCompileRun,
+        latestPostDraftReview,
+        exportReadiness,
+        currentDraftHash,
+        currentSourceDraftHash,
+        currentQualityChecked,
+        qualityCheckStates: currentQualityCheckStates,
+        selectedDeliberationProviders,
+        lastExport,
+        busy,
+        desktopDialogsAvailable: Boolean(
+          (window as Window & DesktopMenuBridge).desktop?.dialogs?.saveOfficial &&
+            (window as Window & DesktopMenuBridge).desktop?.dialogs?.openFolder,
+        ),
+      }}
+      postDraftHandlers={{
+        onCreatePatentPoint: handleCreatePatentPoint,
+        onSelectPatentPoint: (point) => handleSelectPatentPoint(point),
+        onDeletePatentPoint: handleDeletePatentPoint,
+        onEvaluatePatentPointMoat: handleEvaluatePatentPointMoat,
+        onUploadMaterial: handleUploadMaterial,
+        onStartDisclosure: handleStartDisclosure,
+        onRefreshDisclosures: async () => {
+          if (selectedProject) await loadDisclosures(selectedProject.id);
+        },
+        onCancelDisclosureRun: handleCancelDisclosureRun,
+        onRetryDisclosureRun: handleRetryDisclosureRun,
+        onStartDeliberation: handleStartDeliberation,
+        onToggleDeliberationProvider: handleToggleDeliberationProvider,
+        onRefreshDeliberations: async () => {
+          if (selectedProject) await loadDeliberations(selectedProject.id);
+        },
+        onCancelDeliberationRun: handleCancelDeliberationRun,
+        onRetryDeliberationRun: handleRetryDeliberationRun,
+        onGenerate: handleGenerate,
+        onNativeExport: triggerNativeExport,
+        onOpenExportFolder: triggerOpenExportFolder,
+      }}
+    />
   );
 }
 

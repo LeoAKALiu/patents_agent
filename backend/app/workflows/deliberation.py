@@ -61,6 +61,7 @@ class DeliberationWorkflow:
         run_dir: Path,
         trace: bool,
         task_timeout_ms: int,
+        participant_providers: list[str] | None = None,
         on_update: Callable[[DeliberationRun], None] | None = None,
     ) -> DeliberationRun:
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -70,6 +71,9 @@ class DeliberationWorkflow:
         logs: list[DeliberationLogEntry] = []
         dossier = build_dossier(brief, context_chunks)
         openings: dict[str, dict] = {}
+        participant_openings: dict[str, dict] = {}
+        participant_providers = [provider for provider in (participant_providers or []) if provider not in providers]
+        opening_providers = [*providers, *participant_providers]
 
         def append_log(entry: DeliberationLogEntry) -> None:
             logs.append(entry)
@@ -79,6 +83,7 @@ class DeliberationWorkflow:
                 project_id=project_id,
                 status="running",
                 providers=providers,
+                participant_providers=participant_providers,
                 run_mode=_run_mode(len(openings)),
                 trace=trace,
                 run_dir=run_dir,
@@ -89,6 +94,7 @@ class DeliberationWorkflow:
                 logs=logs,
             )
 
+        # Opening phase: every provider can produce its opening independently.
         opening_outcomes = await asyncio.gather(
             *(
                 self._run_agent_task(
@@ -100,15 +106,17 @@ class DeliberationWorkflow:
                     task_timeout_ms=task_timeout_ms,
                     log_callback=append_log,
                 )
-                for provider_id in providers
+                for provider_id in opening_providers
             ),
             return_exceptions=True,
         )
-        for provider_id, outcome in zip(providers, opening_outcomes):
+        for provider_id, outcome in zip(opening_providers, opening_outcomes):
+            is_participant = provider_id in participant_providers
             if isinstance(outcome, AgentRuntimeFailure):
                 exc = outcome
                 failure = _failure(provider_id, "opening", exc)
-                failures.append(failure)
+                if not is_participant:
+                    failures.append(failure)
                 stage_results.append(
                     DeliberationStageResult(
                         phase="opening",
@@ -123,7 +131,10 @@ class DeliberationWorkflow:
                 append_log(_failure_log(provider_id, "opening", exc))
                 continue
             result = outcome
-            openings[provider_id] = result.payload
+            if is_participant:
+                participant_openings[provider_id] = result.payload
+            else:
+                openings[provider_id] = result.payload
             stage_results.append(
                 DeliberationStageResult(
                     phase="opening",
@@ -133,7 +144,7 @@ class DeliberationWorkflow:
                     status="completed",
                 )
             )
-            events.append(f"opening completed: {provider_id}")
+            events.append(f"{'participant ' if is_participant else ''}opening completed: {provider_id}")
             append_log(
                 DeliberationLogEntry(
                     level="info",
@@ -153,6 +164,7 @@ class DeliberationWorkflow:
                 project_id=project_id,
                 status="failed",
                 providers=providers,
+                participant_providers=participant_providers,
                 run_mode=_run_mode(len(openings)),
                 trace=trace,
                 run_dir=run_dir,
@@ -167,6 +179,7 @@ class DeliberationWorkflow:
         completed_providers = list(openings.keys())
         coordinator_provider = _coordinator_provider(completed_providers)
         pair_pairs = list(combinations(completed_providers, 2))
+        # Pair phase: each pair depends only on openings, so comparisons can run concurrently.
         pair_outcomes = await asyncio.gather(
             *(
                 self._run_agent_task(
@@ -238,6 +251,7 @@ class DeliberationWorkflow:
                 project_id=project_id,
                 status="failed",
                 providers=providers,
+                participant_providers=participant_providers,
                 run_mode=_run_mode(len(completed_providers)),
                 trace=trace,
                 run_dir=run_dir,
@@ -251,7 +265,7 @@ class DeliberationWorkflow:
         try:
             chair = await self._run_agent_task(
                 provider_id=coordinator_provider,
-                prompt=chair_prompt(dossier, openings, pair_results),
+                prompt=chair_prompt(dossier, openings, pair_results, participant_openings),
                 workdir=run_dir,
                 label="chair synthesis",
                 trace=trace,
@@ -282,6 +296,7 @@ class DeliberationWorkflow:
                 project_id=project_id,
                 status="failed",
                 providers=providers,
+                participant_providers=participant_providers,
                 run_mode=_run_mode(len(completed_providers)),
                 trace=trace,
                 run_dir=run_dir,
@@ -314,6 +329,7 @@ class DeliberationWorkflow:
             project_id=project_id,
             status="completed",
             providers=providers,
+            participant_providers=participant_providers,
             run_mode=run_mode,
             trace=trace,
             run_dir=str(run_dir),
@@ -380,12 +396,14 @@ def _build_run(
     failures: list[AgentFailure],
     events: list[str],
     logs: list[DeliberationLogEntry],
+    participant_providers: list[str] | None = None,
 ) -> DeliberationRun:
     return DeliberationRun(
         id=run_id,
         project_id=project_id,
         status=status,
         providers=providers,
+        participant_providers=participant_providers or [],
         run_mode=run_mode,
         trace=trace,
         run_dir=str(run_dir),

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.schemas import (
+    AgentSearchPlan,
     ClaimDefenseWorksheet,
     CorpusImportJob,
     CorpusQualityReport,
@@ -27,9 +28,15 @@ from backend.app.schemas import (
     PatentPointCandidate,
     PatentDocument,
     PatentType,
+    PriorArtCandidate,
     PostDraftReviewRun,
+    ProjectCorpusVersion,
+    ProjectKnowledgeState,
+    ProjectSearchLedger,
     ProjectMaterial,
     ProjectRecord,
+    RevisionLedgerRecord,
+    SearchIntent,
     SectionType,
 )
 
@@ -285,6 +292,330 @@ class SQLiteStore:
             "source_distribution": source_distribution,
         }
 
+    def upsert_project_knowledge_state(self, state: ProjectKnowledgeState) -> ProjectKnowledgeState:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into project_knowledge_states(project_id, state_json)
+                values (?, ?)
+                on conflict(project_id) do update set
+                    state_json = excluded.state_json,
+                    updated_at = current_timestamp
+                """,
+                (state.project_id, json.dumps(state.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return state
+
+    def get_project_knowledge_state(self, project_id: str) -> ProjectKnowledgeState | None:
+        row = self.connection.execute(
+            "select state_json from project_knowledge_states where project_id = ?",
+            (project_id,),
+        ).fetchone()
+        return ProjectKnowledgeState.model_validate(json.loads(row["state_json"])) if row else None
+
+    def create_search_intent(self, intent: SearchIntent) -> SearchIntent:
+        with self.connection:
+            self.connection.execute(
+                "insert into search_intents(id, project_id, intent_json) values (?, ?, ?)",
+                (intent.id, intent.project_id, json.dumps(intent.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return intent
+
+    def get_latest_search_intent(self, project_id: str) -> SearchIntent | None:
+        row = self.connection.execute(
+            """
+            select intent_json from search_intents
+            where project_id = ?
+            order by created_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return SearchIntent.model_validate(json.loads(row["intent_json"])) if row else None
+
+    def create_agent_search_plan(self, plan: AgentSearchPlan) -> AgentSearchPlan:
+        with self.connection:
+            self.connection.execute(
+                "insert into agent_search_plans(id, project_id, intent_id, plan_json) values (?, ?, ?, ?)",
+                (plan.id, plan.project_id, plan.intent_id, json.dumps(plan.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return plan
+
+    def update_agent_search_plan(self, plan: AgentSearchPlan) -> AgentSearchPlan:
+        with self.connection:
+            self.connection.execute(
+                """
+                update agent_search_plans
+                set plan_json = ?, updated_at = current_timestamp
+                where project_id = ? and id = ?
+                """,
+                (json.dumps(plan.model_dump(mode="json"), ensure_ascii=False), plan.project_id, plan.id),
+            )
+        return plan
+
+    def get_agent_search_plan(self, project_id: str, plan_id: str) -> AgentSearchPlan | None:
+        row = self.connection.execute(
+            "select plan_json from agent_search_plans where project_id = ? and id = ?",
+            (project_id, plan_id),
+        ).fetchone()
+        return AgentSearchPlan.model_validate(json.loads(row["plan_json"])) if row else None
+
+    def get_latest_agent_search_plan(self, project_id: str) -> AgentSearchPlan | None:
+        row = self.connection.execute(
+            """
+            select plan_json from agent_search_plans
+            where project_id = ?
+            order by updated_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return AgentSearchPlan.model_validate(json.loads(row["plan_json"])) if row else None
+
+    def create_project_search_ledger(self, ledger: ProjectSearchLedger) -> ProjectSearchLedger:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert or replace into project_search_ledgers(id, project_id, plan_id, ledger_json, created_at)
+                values (?, ?, ?, ?, ?)
+                """,
+                (
+                    ledger.id,
+                    ledger.project_id,
+                    ledger.plan_id,
+                    ledger.model_dump_json(),
+                    ledger.created_at,
+                ),
+            )
+        return ledger
+
+    def replace_agent_search_run(
+        self,
+        *,
+        project_id: str,
+        plan: AgentSearchPlan,
+        candidates: list[PriorArtCandidate],
+        ledger: ProjectSearchLedger,
+        state: ProjectKnowledgeState,
+    ) -> tuple[list[PriorArtCandidate], ProjectSearchLedger]:
+        with self.connection:
+            self.connection.execute(
+                "delete from prior_art_candidates where project_id = ? and plan_id = ?",
+                (project_id, plan.id),
+            )
+            self.connection.executemany(
+                """
+                insert into prior_art_candidates(id, project_id, plan_id, candidate_json)
+                values (?, ?, ?, ?)
+                on conflict(id) do update set
+                    candidate_json = excluded.candidate_json,
+                    updated_at = current_timestamp
+                """,
+                [
+                    (
+                        candidate.id,
+                        candidate.project_id,
+                        candidate.plan_id,
+                        json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False),
+                    )
+                    for candidate in candidates
+                ],
+            )
+            stored_candidates = self.list_prior_art_candidates(project_id, plan.id)
+            stored_ledger = ledger.model_copy(update={"retained_candidate_ids": [candidate.id for candidate in stored_candidates]})
+            self.connection.execute(
+                """
+                insert or replace into project_search_ledgers(id, project_id, plan_id, ledger_json, created_at)
+                values (?, ?, ?, ?, ?)
+                """,
+                (
+                    stored_ledger.id,
+                    stored_ledger.project_id,
+                    stored_ledger.plan_id,
+                    stored_ledger.model_dump_json(),
+                    stored_ledger.created_at,
+                ),
+            )
+            self.connection.execute(
+                """
+                update agent_search_plans
+                set plan_json = ?, updated_at = current_timestamp
+                where project_id = ? and id = ?
+                """,
+                (json.dumps(plan.model_dump(mode="json"), ensure_ascii=False), plan.project_id, plan.id),
+            )
+            self.connection.execute(
+                """
+                insert into project_knowledge_states(project_id, state_json)
+                values (?, ?)
+                on conflict(project_id) do update set
+                    state_json = excluded.state_json,
+                    updated_at = current_timestamp
+                """,
+                (state.project_id, json.dumps(state.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return stored_candidates, stored_ledger
+
+    def get_project_search_ledger(self, project_id: str, ledger_id: str) -> ProjectSearchLedger | None:
+        row = self.connection.execute(
+            """
+            select ledger_json from project_search_ledgers
+            where project_id = ? and id = ?
+            """,
+            (project_id, ledger_id),
+        ).fetchone()
+        return ProjectSearchLedger.model_validate_json(row["ledger_json"]) if row else None
+
+    def get_latest_project_search_ledger(
+        self,
+        project_id: str,
+        plan_id: str | None = None,
+    ) -> ProjectSearchLedger | None:
+        if plan_id is not None:
+            row = self.connection.execute(
+                """
+                select ledger_json from project_search_ledgers
+                where project_id = ? and plan_id = ?
+                order by created_at desc, rowid desc
+                limit 1
+                """,
+                (project_id, plan_id),
+            ).fetchone()
+        else:
+            row = self.connection.execute(
+                """
+                select ledger_json from project_search_ledgers
+                where project_id = ?
+                order by created_at desc, rowid desc
+                limit 1
+                """,
+                (project_id,),
+            ).fetchone()
+        return ProjectSearchLedger.model_validate_json(row["ledger_json"]) if row else None
+
+    def upsert_prior_art_candidate(self, candidate: PriorArtCandidate) -> PriorArtCandidate:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert into prior_art_candidates(id, project_id, plan_id, candidate_json)
+                values (?, ?, ?, ?)
+                on conflict(id) do update set
+                    candidate_json = excluded.candidate_json,
+                    updated_at = current_timestamp
+                """,
+                (
+                    candidate.id,
+                    candidate.project_id,
+                    candidate.plan_id,
+                    json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False),
+                ),
+            )
+        return candidate
+
+    def list_prior_art_candidates(self, project_id: str, plan_id: str | None = None) -> list[PriorArtCandidate]:
+        if plan_id:
+            rows = self.connection.execute(
+                """
+                select candidate_json from prior_art_candidates
+                where project_id = ? and plan_id = ?
+                order by created_at asc, rowid asc
+                """,
+                (project_id, plan_id),
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                """
+                select candidate_json from prior_art_candidates
+                where project_id = ?
+                order by created_at asc, rowid asc
+                """,
+                (project_id,),
+            ).fetchall()
+        return [PriorArtCandidate.model_validate(json.loads(row["candidate_json"])) for row in rows]
+
+    def update_prior_art_candidate_decision(
+        self,
+        project_id: str,
+        candidate_id: str,
+        decision: str,
+    ) -> PriorArtCandidate | None:
+        if decision not in {"pending", "include", "exclude"}:
+            raise ValueError(f"invalid prior art candidate decision: {decision!r}")
+        row = self.connection.execute(
+            "select candidate_json from prior_art_candidates where project_id = ? and id = ?",
+            (project_id, candidate_id),
+        ).fetchone()
+        if not row:
+            return None
+        candidate = PriorArtCandidate.model_validate(json.loads(row["candidate_json"]))
+        updated = candidate.model_copy(update={"user_decision": decision})
+        return self.upsert_prior_art_candidate(updated)
+
+    def apply_prior_art_candidate_updates(
+        self,
+        candidates: list[PriorArtCandidate],
+        state: ProjectKnowledgeState | None = None,
+    ) -> list[PriorArtCandidate]:
+        with self.connection:
+            for candidate in candidates:
+                self.connection.execute(
+                    """
+                    insert into prior_art_candidates(id, project_id, plan_id, candidate_json)
+                    values (?, ?, ?, ?)
+                    on conflict(id) do update set
+                        candidate_json = excluded.candidate_json,
+                        updated_at = current_timestamp
+                    """,
+                    (
+                        candidate.id,
+                        candidate.project_id,
+                        candidate.plan_id,
+                        json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False),
+                    ),
+                )
+            if state is not None:
+                self.connection.execute(
+                    """
+                    insert into project_knowledge_states(project_id, state_json)
+                    values (?, ?)
+                    on conflict(project_id) do update set
+                        state_json = excluded.state_json,
+                        updated_at = current_timestamp
+                    """,
+                    (state.project_id, json.dumps(state.model_dump(mode="json"), ensure_ascii=False)),
+                )
+        return candidates
+
+    def create_project_corpus_version(self, version: ProjectCorpusVersion) -> ProjectCorpusVersion:
+        with self.connection:
+            self.connection.execute(
+                "insert into project_corpus_versions(id, project_id, version_json) values (?, ?, ?)",
+                (version.id, version.project_id, json.dumps(version.model_dump(mode="json"), ensure_ascii=False)),
+            )
+        return version
+
+    def get_latest_project_corpus_version(self, project_id: str) -> ProjectCorpusVersion | None:
+        row = self.connection.execute(
+            """
+            select version_json from project_corpus_versions
+            where project_id = ?
+            order by created_at desc, rowid desc
+            limit 1
+            """,
+            (project_id,),
+        ).fetchone()
+        return ProjectCorpusVersion.model_validate(json.loads(row["version_json"])) if row else None
+
+    def get_project_corpus_version(self, project_id: str, version_id: str) -> ProjectCorpusVersion | None:
+        row = self.connection.execute(
+            """
+            select version_json from project_corpus_versions
+            where project_id = ? and id = ?
+            """,
+            (project_id, version_id),
+        ).fetchone()
+        return ProjectCorpusVersion.model_validate(json.loads(row["version_json"])) if row else None
+
     def create_project(self, project: ProjectRecord) -> ProjectRecord:
         with self.connection:
             self.connection.execute(
@@ -331,6 +662,7 @@ class SQLiteStore:
             for table in [
                 "project_materials",
                 "project_patent_points",
+                "revision_ledger_records",
                 "disclosure_runs",
                 "deliberation_runs",
                 "formula_runs",
@@ -342,6 +674,11 @@ class SQLiteStore:
                 "claim_defense_worksheets",
                 "draft_completion_runs",
                 "grantability_reports",
+                "project_knowledge_states",
+                "search_intents",
+                "agent_search_plans",
+                "prior_art_candidates",
+                "project_corpus_versions",
             ]:
                 self.connection.execute(f"delete from {table} where project_id = ?", (project_id,))
             cursor = self.connection.execute("delete from projects where id = ?", (project_id,))
@@ -387,14 +724,28 @@ class SQLiteStore:
 
     def update_project_package(self, project_id: str, package: DraftPackage) -> None:
         with self.connection:
-            self.connection.execute(
-                """
-                update projects
-                set package_json = ?, updated_at = current_timestamp
-                where id = ?
-                """,
-                (json.dumps(package.model_dump(mode="json"), ensure_ascii=False), project_id),
-            )
+            self._write_project_package(project_id, package)
+
+    def update_project_package_with_revision_record(
+        self,
+        project_id: str,
+        package: DraftPackage,
+        record: RevisionLedgerRecord,
+    ) -> RevisionLedgerRecord:
+        with self.connection:
+            self._write_project_package(project_id, package)
+            self._insert_revision_ledger_record(record)
+        return record
+
+    def _write_project_package(self, project_id: str, package: DraftPackage) -> None:
+        self.connection.execute(
+            """
+            update projects
+            set package_json = ?, updated_at = current_timestamp
+            where id = ?
+            """,
+            (json.dumps(package.model_dump(mode="json"), ensure_ascii=False), project_id),
+        )
 
     def create_external_draft_source(self, source: ExternalDraftSource) -> ExternalDraftSource:
         with self.connection:
@@ -434,18 +785,34 @@ class SQLiteStore:
 
     def create_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> ExternalDraftIntakeRun:
         with self.connection:
-            self.connection.execute(
-                """
-                insert into external_draft_intake_runs(
-                    id, project_id, source_id, status, parser_version, source_hash,
-                    parsed_package_json, section_confidence_json, intake_issues_json,
-                    unassigned_fragments_json, working_draft_hash, logs_json
-                )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                self._external_draft_intake_run_values(run),
-            )
+            self._insert_external_draft_intake_run(run)
         return self.get_external_draft_intake_run(run.project_id, run.id) or run
+
+    def create_external_draft_intake_run_with_project_package_revision_record(
+        self,
+        run: ExternalDraftIntakeRun,
+        package: DraftPackage,
+        record: RevisionLedgerRecord | None,
+    ) -> ExternalDraftIntakeRun:
+        with self.connection:
+            self._insert_external_draft_intake_run(run)
+            self._write_project_package(run.project_id, package)
+            if record is not None:
+                self._insert_revision_ledger_record(record)
+        return self.get_external_draft_intake_run(run.project_id, run.id) or run
+
+    def _insert_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> None:
+        self.connection.execute(
+            """
+            insert into external_draft_intake_runs(
+                id, project_id, source_id, status, parser_version, source_hash,
+                parsed_package_json, section_confidence_json, intake_issues_json,
+                unassigned_fragments_json, working_draft_hash, logs_json
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            self._external_draft_intake_run_values(run),
+        )
 
     def list_external_draft_intake_runs(
         self, project_id: str, source_id: str | None = None
@@ -475,35 +842,52 @@ class SQLiteStore:
 
     def update_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> ExternalDraftIntakeRun | None:
         with self.connection:
-            cursor = self.connection.execute(
-                """
-                update external_draft_intake_runs
-                set status = ?, parser_version = ?, source_hash = ?, parsed_package_json = ?,
-                    section_confidence_json = ?, intake_issues_json = ?, unassigned_fragments_json = ?,
-                    working_draft_hash = ?, logs_json = ?
-                where project_id = ? and id = ?
-                """,
-                (
-                    run.status,
-                    run.parser_version,
-                    run.source_hash,
-                    json.dumps(run.parsed_package.model_dump(mode="json"), ensure_ascii=False)
-                    if run.parsed_package
-                    else None,
-                    json.dumps(run.section_confidence.model_dump(mode="json"), ensure_ascii=False)
-                    if run.section_confidence
-                    else None,
-                    json.dumps([issue.model_dump(mode="json") for issue in run.intake_issues], ensure_ascii=False),
-                    json.dumps(run.unassigned_fragments, ensure_ascii=False),
-                    run.working_draft_hash,
-                    json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
-                    run.project_id,
-                    run.id,
-                ),
-            )
-            if cursor.rowcount == 0:
+            if self._update_external_draft_intake_run(run) == 0:
                 return None
         return self.get_external_draft_intake_run(run.project_id, run.id)
+
+    def update_external_draft_intake_run_with_project_package_revision_record(
+        self,
+        run: ExternalDraftIntakeRun,
+        package: DraftPackage,
+        record: RevisionLedgerRecord | None,
+    ) -> ExternalDraftIntakeRun | None:
+        with self.connection:
+            if self._update_external_draft_intake_run(run) == 0:
+                return None
+            self._write_project_package(run.project_id, package)
+            if record is not None:
+                self._insert_revision_ledger_record(record)
+        return self.get_external_draft_intake_run(run.project_id, run.id)
+
+    def _update_external_draft_intake_run(self, run: ExternalDraftIntakeRun) -> int:
+        cursor = self.connection.execute(
+            """
+            update external_draft_intake_runs
+            set status = ?, parser_version = ?, source_hash = ?, parsed_package_json = ?,
+                section_confidence_json = ?, intake_issues_json = ?, unassigned_fragments_json = ?,
+                working_draft_hash = ?, logs_json = ?
+            where project_id = ? and id = ?
+            """,
+            (
+                run.status,
+                run.parser_version,
+                run.source_hash,
+                json.dumps(run.parsed_package.model_dump(mode="json"), ensure_ascii=False)
+                if run.parsed_package
+                else None,
+                json.dumps(run.section_confidence.model_dump(mode="json"), ensure_ascii=False)
+                if run.section_confidence
+                else None,
+                json.dumps([issue.model_dump(mode="json") for issue in run.intake_issues], ensure_ascii=False),
+                json.dumps(run.unassigned_fragments, ensure_ascii=False),
+                run.working_draft_hash,
+                json.dumps([entry.model_dump(mode="json") for entry in run.logs], ensure_ascii=False),
+                run.project_id,
+                run.id,
+            ),
+        )
+        return cursor.rowcount
 
     def create_filing_readiness_report(self, report: FilingReadinessReport) -> FilingReadinessReport:
         with self.connection:
@@ -607,6 +991,37 @@ class SQLiteStore:
             )
         return run
 
+    def create_revision_ledger_record(self, record: RevisionLedgerRecord) -> RevisionLedgerRecord:
+        with self.connection:
+            self._insert_revision_ledger_record(record)
+        return record
+
+    def list_revision_ledger_records(self, project_id: str) -> list[RevisionLedgerRecord]:
+        rows = self.connection.execute(
+            """
+            select record_json from revision_ledger_records
+            where project_id = ?
+            order by created_at desc, rowid desc
+            """,
+            (project_id,),
+        ).fetchall()
+        return [RevisionLedgerRecord.model_validate(json.loads(row["record_json"])) for row in rows]
+
+    def _insert_revision_ledger_record(self, record: RevisionLedgerRecord) -> None:
+        self.connection.execute(
+            """
+            insert into revision_ledger_records(
+                id, project_id, record_json, created_at
+            ) values (?, ?, ?, ?)
+            """,
+            (
+                record.id,
+                record.project_id,
+                json.dumps(record.model_dump(mode="json"), ensure_ascii=False),
+                record.created_at,
+            ),
+        )
+
     def list_draft_completion_runs(self, project_id: str) -> list[DraftCompletionRun]:
         rows = self.connection.execute(
             "select * from draft_completion_runs where project_id = ? order by created_at desc, rowid desc",
@@ -623,21 +1038,39 @@ class SQLiteStore:
 
     def update_draft_completion_run(self, run: DraftCompletionRun) -> DraftCompletionRun | None:
         with self.connection:
-            cursor = self.connection.execute(
-                """
-                update draft_completion_runs
-                set run_json = ?
-                where project_id = ? and id = ?
-                """,
-                (
-                    json.dumps(run.model_dump(mode="json"), ensure_ascii=False),
-                    run.project_id,
-                    run.id,
-                ),
-            )
-        if cursor.rowcount == 0:
+            rowcount = self._update_draft_completion_run(run)
+        if rowcount == 0:
             return None
         return self.get_draft_completion_run(run.project_id, run.id) or run
+
+    def update_draft_completion_run_with_project_package_revision_records(
+        self,
+        run: DraftCompletionRun,
+        package: DraftPackage,
+        records: list[RevisionLedgerRecord],
+    ) -> DraftCompletionRun | None:
+        with self.connection:
+            if self._update_draft_completion_run(run) == 0:
+                return None
+            self._write_project_package(run.project_id, package)
+            for record in records:
+                self._insert_revision_ledger_record(record)
+        return self.get_draft_completion_run(run.project_id, run.id) or run
+
+    def _update_draft_completion_run(self, run: DraftCompletionRun) -> int:
+        cursor = self.connection.execute(
+            """
+            update draft_completion_runs
+            set run_json = ?
+            where project_id = ? and id = ?
+            """,
+            (
+                json.dumps(run.model_dump(mode="json"), ensure_ascii=False),
+                run.project_id,
+                run.id,
+            ),
+        )
+        return cursor.rowcount
 
     def get_llm_stage_cache(self, cache_key: str) -> dict[str, Any] | None:
         row = self.connection.execute(
@@ -769,12 +1202,12 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 insert into post_draft_review_runs(
-                    id, project_id, status, providers_json, prompt_pack_version, draft_package_hash,
+                    id, project_id, status, providers_json, participant_providers_json, prompt_pack_version, draft_package_hash,
                     official_compile_run_id, official_package_hash, role_results_json, chair_result_json,
                     export_allowed, blocking_issues_json, contamination_hits_json, logs_json,
                     runtime_state_json, failure_details_json, cancel_requested, retry_of
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._post_draft_review_run_values(run),
             )
@@ -785,7 +1218,7 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 update post_draft_review_runs
-                set status = ?, providers_json = ?, prompt_pack_version = ?, draft_package_hash = ?,
+                set status = ?, providers_json = ?, participant_providers_json = ?, prompt_pack_version = ?, draft_package_hash = ?,
                     official_compile_run_id = ?, official_package_hash = ?, role_results_json = ?,
                     chair_result_json = ?, export_allowed = ?, blocking_issues_json = ?,
                     contamination_hits_json = ?, logs_json = ?, runtime_state_json = ?,
@@ -796,6 +1229,7 @@ class SQLiteStore:
                 (
                     run.status,
                     json.dumps(run.providers, ensure_ascii=False),
+                    json.dumps(run.participant_providers, ensure_ascii=False),
                     run.prompt_pack_version,
                     run.draft_package_hash,
                     run.official_compile_run_id,
@@ -1107,11 +1541,11 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 insert into deliberation_runs(
-                    id, project_id, status, providers_json, run_mode, round_depth, trace,
+                    id, project_id, status, providers_json, participant_providers_json, run_mode, round_depth, trace,
                     run_dir, stage_results_json, strategy_brief_json, failures_json, events_json,
                     logs_json, runtime_state_json, failure_details_json, cancel_requested, retry_of
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._run_values(run),
             )
@@ -1122,7 +1556,7 @@ class SQLiteStore:
             self.connection.execute(
                 """
                 update deliberation_runs
-                set status = ?, providers_json = ?, run_mode = ?, round_depth = ?, trace = ?,
+                set status = ?, providers_json = ?, participant_providers_json = ?, run_mode = ?, round_depth = ?, trace = ?,
                     run_dir = ?, stage_results_json = ?, strategy_brief_json = ?,
                     failures_json = ?, events_json = ?, logs_json = ?, runtime_state_json = ?,
                     failure_details_json = ?, cancel_requested = ?, retry_of = ?,
@@ -1132,6 +1566,7 @@ class SQLiteStore:
                 (
                     run.status,
                     json.dumps(run.providers, ensure_ascii=False),
+                    json.dumps(run.participant_providers, ensure_ascii=False),
                     run.run_mode,
                     run.round_depth,
                     1 if run.trace else 0,
@@ -1228,6 +1663,7 @@ class SQLiteStore:
                     project_id text not null,
                     status text not null,
                     providers_json text not null,
+                    participant_providers_json text not null default '[]',
                     run_mode text not null,
                     round_depth text not null,
                     trace integer not null default 0,
@@ -1293,6 +1729,58 @@ class SQLiteStore:
                     metadata_json text not null,
                     created_at text not null default current_timestamp,
                     foreign key(job_id) references corpus_jobs(id)
+                );
+
+                create table if not exists project_knowledge_states (
+                    project_id text primary key,
+                    state_json text not null,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists search_intents (
+                    id text primary key,
+                    project_id text not null,
+                    intent_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists agent_search_plans (
+                    id text primary key,
+                    project_id text not null,
+                    intent_id text not null,
+                    plan_json text not null,
+                    created_at text not null default current_timestamp,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists prior_art_candidates (
+                    id text primary key,
+                    project_id text not null,
+                    plan_id text not null,
+                    candidate_json text not null,
+                    created_at text not null default current_timestamp,
+                    updated_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists project_search_ledgers (
+                    id text primary key,
+                    project_id text not null,
+                    plan_id text not null,
+                    ledger_json text not null,
+                    created_at text not null,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists project_corpus_versions (
+                    id text primary key,
+                    project_id text not null,
+                    version_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
                 );
 
                 create table if not exists project_materials (
@@ -1372,6 +1860,14 @@ class SQLiteStore:
                     foreign key(project_id) references projects(id)
                 );
 
+                create table if not exists revision_ledger_records (
+                    id text primary key,
+                    project_id text not null,
+                    record_json text not null,
+                    created_at text not null default current_timestamp,
+                    foreign key(project_id) references projects(id)
+                );
+
                 create table if not exists llm_stage_cache (
                     cache_key text primary key,
                     project_id text not null,
@@ -1410,6 +1906,7 @@ class SQLiteStore:
                     project_id text not null,
                     status text not null,
                     providers_json text not null default '[]',
+                    participant_providers_json text not null default '[]',
                     prompt_pack_version text not null,
                     draft_package_hash text not null,
                     official_compile_run_id text not null default '',
@@ -1490,6 +1987,7 @@ class SQLiteStore:
             self._ensure_column("projects", "innovation", "text not null default ''")
             self._ensure_column("projects", "embodiments", "text not null default ''")
             self._ensure_column("projects", "beneficial_effects", "text not null default ''")
+            self._ensure_column("deliberation_runs", "participant_providers_json", "text not null default '[]'")
             self._ensure_column("deliberation_runs", "logs_json", "text not null default '[]'")
             self._ensure_column("deliberation_runs", "runtime_state_json", "text")
             self._ensure_column("deliberation_runs", "failure_details_json", "text not null default '[]'")
@@ -1502,6 +2000,7 @@ class SQLiteStore:
             self._ensure_column("formula_runs", "retry_of", "text not null default ''")
             self._ensure_column("post_draft_review_runs", "official_compile_run_id", "text not null default ''")
             self._ensure_column("post_draft_review_runs", "official_package_hash", "text not null default ''")
+            self._ensure_column("post_draft_review_runs", "participant_providers_json", "text not null default '[]'")
             self._ensure_column("post_draft_review_runs", "runtime_state_json", "text")
             self._ensure_column("post_draft_review_runs", "failure_details_json", "text not null default '[]'")
             self._ensure_column("post_draft_review_runs", "cancel_requested", "integer not null default 0")
@@ -1727,6 +2226,7 @@ class SQLiteStore:
             run.project_id,
             run.status,
             json.dumps(run.providers, ensure_ascii=False),
+            json.dumps(run.participant_providers, ensure_ascii=False),
             run.prompt_pack_version,
             run.draft_package_hash,
             run.official_compile_run_id,
@@ -1749,6 +2249,7 @@ class SQLiteStore:
             project_id=row["project_id"],
             status=row["status"],
             providers=json.loads(row["providers_json"]),
+            participant_providers=json.loads(row["participant_providers_json"] if "participant_providers_json" in row.keys() else "[]"),
             prompt_pack_version=row["prompt_pack_version"],
             draft_package_hash=row["draft_package_hash"],
             official_compile_run_id=row["official_compile_run_id"] if "official_compile_run_id" in row.keys() else "",
@@ -1819,6 +2320,7 @@ class SQLiteStore:
             run.project_id,
             run.status,
             json.dumps(run.providers, ensure_ascii=False),
+            json.dumps(run.participant_providers, ensure_ascii=False),
             run.run_mode,
             run.round_depth,
             1 if run.trace else 0,
@@ -1841,6 +2343,7 @@ class SQLiteStore:
             project_id=row["project_id"],
             status=row["status"],
             providers=json.loads(row["providers_json"]),
+            participant_providers=json.loads(row["participant_providers_json"] if "participant_providers_json" in row.keys() else "[]"),
             run_mode=row["run_mode"],
             round_depth=row["round_depth"],
             trace=bool(row["trace"]),

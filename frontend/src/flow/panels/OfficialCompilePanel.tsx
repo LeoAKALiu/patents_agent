@@ -21,6 +21,7 @@ export interface OfficialCompilePanelProps {
   busy: string;
   busyElapsedSeconds: number;
   onStartOfficialCompile: () => void;
+  onApplyCleanup: (runId: string) => void;
 }
 
 export function OfficialCompilePanel({
@@ -32,9 +33,13 @@ export function OfficialCompilePanel({
   busy,
   busyElapsedSeconds,
   onStartOfficialCompile,
+  onApplyCleanup,
 }: OfficialCompilePanelProps) {
   const completed = Boolean(run?.status === "completed" && run.official_package);
   const blocked = Boolean(run?.status === "blocked");
+  const cleanupItems = run?.contamination_removed ?? [];
+  const visibleCleanupItems = cleanupItems.slice(0, 9);
+  const cleanupBusy = busy === "official-compile-cleanup";
   const statusText = completed ? "已完成" : blocked ? "已阻断" : run?.status === "failed" ? "失败" : "等待编译";
   const statusBadgeVariant = completed ? "success" : blocked || run?.status === "failed" ? "destructive" : "warning";
 
@@ -77,9 +82,45 @@ export function OfficialCompilePanel({
           <FileText size={18} aria-hidden="true" />
           <div>
             <strong>当前正式稿编译已阻断</strong>
-            <p>请查看编译报告并处理阻断项。</p>
+            <p>{cleanupItems.length > 0 ? "源稿中仍有过程文本或格式标记，请先清理源稿再重新编译。" : "请查看编译报告并处理阻断项。"}</p>
           </div>
         </div>
+      )}
+      {blocked && cleanupItems.length > 0 && run && (
+        <section className="official-cleanup-panel" aria-label="正式稿阻断清理建议">
+          <div className="official-cleanup-heading">
+            <div>
+              <strong>可自动清理的源稿痕迹</strong>
+              <p>以下片段来自当前阻断报告，清理后会更新源稿哈希，并要求重新运行质量检查。</p>
+            </div>
+            <Badge variant="destructive" className="text-xs">{cleanupItems.length} 项</Badge>
+          </div>
+          <ul className="official-cleanup-list">
+            {visibleCleanupItems.map((item, index) => (
+              <li key={`${item.section ?? "unknown"}-${item.pattern ?? "cleanup"}-${index}`}>
+                <div className="official-cleanup-meta">
+                  <span>{officialCleanupSectionLabel(item.section)}</span>
+                  <span>{officialCleanupPatternLabel(item.pattern ?? item.category)}</span>
+                </div>
+                <p>{officialCleanupText(item)}</p>
+              </li>
+            ))}
+          </ul>
+          {cleanupItems.length > visibleCleanupItems.length && (
+            <p className="workflow-hint">还有 {cleanupItems.length - visibleCleanupItems.length} 项会一并清理，完整列表可查看编译报告。</p>
+          )}
+          <div className="button-row">
+            <button
+              className="btn btn-secondary"
+              disabled={cleanupBusy}
+              onClick={() => onApplyCleanup(run.id)}
+              type="button"
+            >
+              {cleanupBusy ? <Loader2 className="spin" size={17} /> : <FileText size={17} />}
+              <span>清理源稿并回到质量检查</span>
+            </button>
+          </div>
+        </section>
       )}
       <ActionGateHint gate={actionGate} />
       <ActionDock meta="正式稿编译会生成新的官方稿哈希，并作为后续成稿会审的输入。">
@@ -119,4 +160,29 @@ export function OfficialCompilePanel({
       </SettingsGroup>
     </section>
   );
+}
+
+function officialCleanupSectionLabel(section?: string): string {
+  if (section === "title") return "标题";
+  if (section === "abstract") return "摘要";
+  if (section === "claims") return "权利要求书";
+  if (section === "description") return "说明书";
+  if (section === "drawing_description") return "附图说明";
+  return "源稿";
+}
+
+function officialCleanupPatternLabel(pattern?: string): string {
+  if (!pattern) return "内部痕迹";
+  if (pattern === "markdown_heading") return "Markdown 标题";
+  if (pattern === "markdown_fence") return "代码围栏";
+  if (pattern === "support_gap" || pattern === "support_gaps") return "支撑缺口过程文本";
+  if (pattern === "prompt" || pattern === "image_prompt") return "提示词";
+  if (pattern === "attorney_memo") return "代理备忘";
+  if (pattern === "system_trace" || pattern === "generation_logs") return "生成过程";
+  return pattern;
+}
+
+function officialCleanupText(item: Record<string, string>): string {
+  const text = (item.text || item.message || item.pattern || "未命名清理项").trim();
+  return text.length > 220 ? `${text.slice(0, 217)}...` : text;
 }

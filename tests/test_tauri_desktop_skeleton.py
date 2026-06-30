@@ -197,7 +197,9 @@ def test_tauri_smoke_is_the_desktop_release_gate() -> None:
     assert "scripts/build_backend_sidecar.sh" in smoke
     assert "cargo check" in smoke
     assert "cargo test" in smoke
-    assert smoke.index("scripts/build_backend_sidecar.sh") < smoke.index("cargo check")
+    sidecar_invocation = 'run env PYTHON="$PYTHON_BIN" scripts/build_backend_sidecar.sh'
+    assert sidecar_invocation in smoke
+    assert smoke.index(sidecar_invocation) < smoke.index("run cargo check --manifest-path src-tauri/Cargo.toml")
     assert "npm --prefix desktop" not in smoke
     assert "run_electron_smoke_if_feasible" not in smoke
 
@@ -226,6 +228,18 @@ def test_tauri_sidecar_builder_is_shared_by_tauri_smoke_and_packaging() -> None:
     assert smoke.index(sidecar_invocation) < smoke.index("run cargo check --manifest-path src-tauri/Cargo.toml")
     assert 'export PYTHON="$PYTHON_BIN"' in package
     assert package.index('export PYTHON="$PYTHON_BIN"') < package.index('if run "${TAURI_BUILD[@]}"')
+
+
+def test_v1_smoke_prepares_tauri_resource_placeholder_for_clean_worktrees() -> None:
+    smoke = read(ROOT / "scripts" / "v1_smoke.sh")
+
+    assert "ensure_tauri_resource_placeholders" in smoke
+    assert "build/backend/patentagent-backend" in smoke
+    assert "mkdir -p build/backend/patentagent-backend" not in smoke
+    assert 'mkdir -p "$(dirname "$sidecar_path")"' in smoke
+    assert 'touch "$sidecar_path"' in smoke
+    assert 'chmod +x "$sidecar_path"' in smoke
+    assert smoke.index("ensure_tauri_resource_placeholders") < smoke.index("cargo check")
 
 
 def test_tauri_cargo_checks_are_the_only_desktop_ci_gate() -> None:

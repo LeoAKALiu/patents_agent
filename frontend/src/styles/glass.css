@@ -40,11 +40,12 @@
 
 /* Tier: sidebar / topbar / modals — heavy frost, sticky surfaces */
 .glass-strong {
-  background: var(--glass-bg-heavy);
+  background: var(--glass-chrome-bg);
   -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
   backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.4);
+  border: var(--glass-chrome-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--glass-hairline), var(--glass-shadow-high);
+  box-shadow: var(--glass-hairline), var(--glass-chrome-shadow);
 }
 
 /* Sticky chrome (topbar/sidebar): squared on the canvas-facing edge,

@@ -28,6 +28,8 @@ jobs:
         run: python -m pytest -q
       - name: Run v1.1 deterministic quality gate
         run: python scripts/v1_api_smoke.py --report-dir .artifacts/v1.1.0-quality
+      - name: Run golden patent deterministic release gate
+        run: python scripts/golden_quality_gate.py --report-path .artifacts/golden-quality-gate.json
 
   frontend:
     name: Frontend tests and build

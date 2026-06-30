@@ -2,14 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from fastapi.testclient import TestClient
+
 from backend.app.evidence_binding import (
     bindings_by_label,
     build_evidence_bindings,
     evidence_refs_for_text,
 )
+from backend.app.llm import FakeLLMClient
+from backend.app.main import create_app
 from backend.app.schemas import (
     DisclosurePackage,
     DisclosureRun,
+    DraftPackage,
     EvidenceBinding,
     EvidenceBindingSourceType,
     EvidenceVerificationStatus,
@@ -210,3 +215,185 @@ def test_official_export_modules_do_not_import_evidence_bindings() -> None:
         content = module_path.read_text(encoding="utf-8")
         assert "backend.app.evidence_binding" not in content
         assert "EvidenceBinding" not in content
+
+
+def test_official_export_after_quality_checks_does_not_leak_evidence_metadata(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_post_draft_review_llm(), load_env_file=False))
+    project_id = client.post(
+        "/api/projects",
+        json={"name": "证据边界测试", "draft_text": "一种声学视觉融合巡检方法。"},
+    ).json()["id"]
+    client.app.state.store.update_project_package(project_id, _draft_package())
+    client.app.state.store.add_project_material(_material().model_copy(update={"project_id": project_id}))
+    client.app.state.store.create_disclosure_run(_disclosure_run().model_copy(update={"project_id": project_id}))
+    client.app.state.store.add_project_patent_point(
+        project_id,
+        _patent_point().model_copy(update={"evidence_status": "verified"}),
+    )
+
+    assert client.post(f"/api/projects/{project_id}/filing-readiness").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/claim-defense-worksheets").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/completion-runs").status_code == 200
+    assert client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()["status"] == "completed"
+    assert client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()["export_allowed"] is True
+
+    response = client.get(f"/api/projects/{project_id}/official-export.md")
+
+    assert response.status_code == 200
+    official_text = response.text
+    assert "权利要求书" in official_text
+    for forbidden in (
+        "E777",
+        "E001",
+        "CN111111A",
+        "CN222222A",
+        "Google Patents",
+        "https://patents.google.com",
+        "实验记录.md",
+        "research_ledger",
+        "evidence_id",
+        "patent_point",
+    ):
+        assert forbidden not in official_text
+
+
+def test_generated_draft_with_evidence_metadata_is_blocked_by_official_compile(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_generated_evidence_leaking_llm(), load_env_file=False))
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "声学视觉融合巡检结构",
+            "draft_text": "一种声学视觉融合巡检结构，包括声学采集模块、视觉复检模块和状态记录模块。",
+            "patent_type": "utility_model",
+        },
+    ).json()["id"]
+
+    generated = client.post(f"/api/projects/{project_id}/generate", json={}).json()
+    assert "evidence_id: E777" in generated["claims"]
+    assert "https://patents.google.com/patent/CN222222A" in generated["description"]
+
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+
+    assert compile_run["status"] == "blocked"
+    blocked_patterns = {item["pattern"] for item in compile_run["blocked_items"]}
+    assert {"evidence_id", "research_ledger", "patent_url"} <= blocked_patterns
+    blocked_export = client.get(f"/api/projects/{project_id}/official-export.md")
+    assert blocked_export.status_code == 409
+
+
+def test_generated_draft_with_inline_evidence_keys_is_blocked_by_official_compile(tmp_path) -> None:
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=_generated_inline_evidence_leaking_llm(), load_env_file=False))
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "声学视觉融合巡检结构",
+            "draft_text": "一种声学视觉融合巡检结构，包括声学采集模块、视觉复检模块和状态记录模块。",
+            "patent_type": "utility_model",
+        },
+    ).json()["id"]
+
+    generated = client.post(f"/api/projects/{project_id}/generate", json={}).json()
+    assert "source_id=CN222222A" in generated["claims"]
+    assert "source_label=实验记录.md" in generated["description"]
+
+    compile_run = client.post(f"/api/projects/{project_id}/official-compile-runs", json={}).json()
+
+    assert compile_run["status"] == "blocked"
+    blocked_patterns = {item["pattern"] for item in compile_run["blocked_items"]}
+    assert {"source_id", "source_label", "material_id"} <= blocked_patterns
+    assert client.get(f"/api/projects/{project_id}/official-export.md").status_code == 409
+
+
+def _draft_package() -> DraftPackage:
+    return DraftPackage(
+        title="一种声学视觉融合巡检方法",
+        abstract="本发明公开一种声学视觉融合巡检方法。",
+        claims="1. 一种声学视觉融合巡检方法，其特征在于，包括基于声学异常窗口触发视觉局部复检。",
+        description="本发明涉及巡检数据处理技术领域。系统基于声学异常窗口触发视觉局部复检。",
+        drawing_description="图1为声学视觉融合巡检方法流程图。",
+        mermaid="",
+        image_prompt="",
+        review_findings=[],
+        citations=[],
+        generation_logs=[],
+    )
+
+
+def _post_draft_review_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "post_draft_claims_reviewer": _role_response("claims_reviewer"),
+            "post_draft_spec_cleaner": _role_response("spec_cleaner"),
+            "post_draft_technical_hardness": _role_response("technical_hardness"),
+            "post_draft_chair_synthesis": """
+{
+  "status": "passed",
+  "export_allowed": true,
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "claim_1_rewrite": "",
+  "system_claim_rewrite": "",
+  "abstract_rewrite": "",
+  "description_rewrite_tasks": [],
+  "official_safe_patches": [],
+  "attorney_memo": [],
+  "next_actions": []
+}
+""",
+        }
+    )
+
+
+def _generated_evidence_leaking_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块。\n"
+                "evidence_id: E777\n"
+                "research_ledger: CN222222A"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块。\n"
+                "patent_url: https://patents.google.com/patent/CN222222A"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _generated_inline_evidence_leaking_llm() -> FakeLLMClient:
+    return FakeLLMClient(
+        {
+            "claims": (
+                "1. 一种声学视觉融合巡检结构，其特征在于，包括声学采集模块、视觉复检模块和状态记录模块，"
+                "并根据source_id=CN222222A确定模块连接关系。"
+            ),
+            "description": (
+                "技术领域\n本实用新型涉及巡检结构技术领域。\n"
+                "具体实施方式\n声学采集模块与视觉复检模块连接，并形成状态记录模块；"
+                "该方案的内部支撑为source_label=实验记录.md，material_id=material-1。"
+            ),
+            "abstract": "本实用新型公开一种声学视觉融合巡检结构。",
+            "drawings": "图1为声学视觉融合巡检结构示意图。",
+            "diagram": "flowchart TD\nA[声学采集模块] --> B[视觉复检模块]\nB --> C[状态记录模块]",
+            "image_prompt": "黑白线稿，展示声学采集模块、视觉复检模块和状态记录模块。",
+        }
+    )
+
+
+def _role_response(role: str) -> str:
+    return f"""
+{{
+  "role": "{role}",
+  "status": "passed",
+  "blocking_issues": [],
+  "contamination_hits": [],
+  "rewrite_suggestions": [],
+  "official_safe_patches": [],
+  "attorney_memo": []
+}}
+"""

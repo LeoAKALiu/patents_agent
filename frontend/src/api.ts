@@ -117,6 +117,26 @@ export type DraftPackageManualUpdate = Pick<
   "title" | "abstract" | "claims" | "description" | "drawing_description"
 >;
 
+export interface RevisionLedgerRecord {
+  id: string;
+  project_id: string;
+  revision_kind:
+    | "material_merge"
+    | "correction"
+    | "protection_focus"
+    | "post_draft_repair"
+    | "official_cleanup"
+    | "completion_patch";
+  baseline_artifact_hash: string;
+  new_artifact_hash: string;
+  user_intent_summary: string;
+  affected_sections: string[];
+  prior_art_changed: boolean;
+  protection_scope_changed: boolean;
+  artifact_refs: string[];
+  created_at: string;
+}
+
 export interface OfficialFigurePlanItem {
   figure_no: string;
   title: string;
@@ -139,7 +159,7 @@ export interface OfficialDraftPackage {
 export interface OfficialCompileRun {
   id: string;
   project_id: string;
-  status: "completed" | "blocked" | "failed";
+  status: "queued" | "running" | "completed" | "blocked" | "failed";
   source_draft_hash: string;
   official_package_hash: string;
   official_package: OfficialDraftPackage | null;
@@ -265,6 +285,7 @@ export interface EvidenceBinding {
 export interface ClaimDefenseWorksheet {
   id: string;
   project_id: string;
+  draft_package_hash: string;
   status: "draft" | "reviewed" | "superseded";
   source: "draft" | "disclosure" | "generated_package" | "manual";
   feature_records: FeatureRecord[];
@@ -352,6 +373,7 @@ export interface DraftCompletionRun {
   patches: ProposedPatch[];
   support_matrix: ClaimSupportMatrixRow[];
   scorecard: CompletionScoreCard;
+  scorecard_baseline?: CompletionScoreCard | null;
   notes: string[];
   created_at: string;
 }
@@ -608,19 +630,38 @@ export interface DisclosureRun {
   retry_of?: string | null;
 }
 
+export type QualityCheckState = "missing" | "stale" | "failed" | "unknown" | "current";
+export type QualityCheckStates = Record<string, QualityCheckState>;
+
 export interface ExportReadiness {
   export_allowed: boolean;
   draft_required: boolean;
+  quality_required: boolean;
   official_compile_required: boolean;
   post_draft_review_required: boolean;
-  next_action: "generate_draft" | "run_official_compile" | "run_post_draft_review" | "export_ready";
+  next_action: "generate_draft" | "run_quality_checks" | "run_official_compile" | "run_post_draft_review" | "export_ready";
   reason: string;
+  quality_done?: boolean;
+  missing_quality_checks?: string[];
+  stale_quality_checks?: string[];
+  failed_quality_checks?: string[];
+  unknown_quality_checks?: string[];
+  quality_check_states?: QualityCheckStates;
+  filing_readiness_report_id?: string;
+  claim_defense_worksheet_id?: string;
+  draft_completion_run_id?: string;
   compile_run_id?: string;
+  has_compile_run?: boolean;
+  compile_status?: "missing" | "queued" | "running" | "completed" | "blocked" | "failed";
+  compile_blocked_items?: Array<Record<string, string>>;
   review_run_id?: string;
   official_package_hash?: string;
   current_source_draft_hash?: string;
   has_review_run?: boolean;
   review_export_allowed?: boolean;
+  review_status?: "missing" | "queued" | "running" | "completed" | "failed" | "interrupted";
+  review_gate_status?: "missing" | "queued" | "running" | "passed" | "needs_revision" | "blocked" | "failed" | "interrupted";
+  review_blocking_issues?: string[];
 }
 
 export interface Health {
@@ -690,6 +731,7 @@ export interface DeliberationRun {
   project_id: string;
   status: "queued" | "running" | "completed" | "failed" | "interrupted";
   providers: string[];
+  participant_providers?: string[];
   run_mode: "full" | "partial" | "minimal" | "blocked";
   round_depth: string;
   trace: boolean;
@@ -805,6 +847,7 @@ export interface PostDraftReviewRun {
   project_id: string;
   status: "queued" | "running" | "completed" | "failed" | "interrupted";
   providers: string[];
+  participant_providers?: string[];
   prompt_pack_version: string;
   draft_package_hash: string;
   official_compile_run_id: string;
@@ -830,6 +873,16 @@ export interface PostDraftSafePatchApplyResult {
   skipped_count: number;
   applied_actions: string[];
   skipped_patches: string[];
+  previous_draft_hash: string;
+  current_draft_hash: string;
+  package: DraftPackage;
+}
+
+export interface OfficialCompileCleanupResult {
+  project_id: string;
+  compile_run_id: string;
+  applied_count: number;
+  applied_actions: string[];
   previous_draft_hash: string;
   current_draft_hash: string;
   package: DraftPackage;
@@ -876,8 +929,20 @@ export interface CorpusQualityReport {
   fulltext_extractable_rate: number;
   section_coverage: Record<string, number>;
   low_quality_documents: string[];
-  failures: Array<{ file: string; reason: string }>;
+  failures: Array<CorpusQualityFailure>;
 }
+
+export interface CorpusQualityFileFailure {
+  file: string;
+  reason: string;
+}
+
+export interface CorpusQualityCodeFailure {
+  code: string;
+  message: string;
+}
+
+export type CorpusQualityFailure = CorpusQualityFileFailure | CorpusQualityCodeFailure;
 
 export interface CorpusImportJob {
   id: string;
@@ -908,6 +973,129 @@ export interface CorpusVersion {
   document_count: number;
   chunk_count: number;
   quality_report: CorpusQualityReport | null;
+}
+
+export type ProjectKnowledgeStatus =
+  | "not_started"
+  | "search_plan_pending"
+  | "search_running"
+  | "candidates_pending"
+  | "corpus_building"
+  | "ready"
+  | "needs_supplemental_search"
+  | "stale"
+  | "failed";
+
+export interface ProjectKnowledgeState {
+  project_id: string;
+  status: ProjectKnowledgeStatus;
+  active_intent_id: string;
+  active_plan_id: string;
+  active_corpus_version_id: string;
+  last_search_at: string;
+  last_indexed_at: string;
+  staleness_reason: string;
+  document_count: number;
+  candidate_count: number;
+  claim_coverage: number;
+  fulltext_coverage: number;
+  quality_flags: string[];
+}
+
+export interface SearchIntent {
+  id: string;
+  project_id: string;
+  source_project_hash: string;
+  technical_object: string;
+  technical_problem: string;
+  technical_means: string;
+  technical_effect: string;
+  keywords_zh: string[];
+  keywords_en: string[];
+  synonyms: string[];
+  negative_keywords: string[];
+  ipc_candidates: string[];
+  cpc_candidates: string[];
+  jurisdictions: string[];
+  date_range: string;
+  created_by: "agent" | "user" | "system";
+  created_at: string;
+}
+
+export interface SearchPlanStrategyGroup {
+  id: string;
+  label: string;
+  purpose: string;
+  queries: string[];
+  sources: string[];
+}
+
+export interface AgentSearchPlan {
+  id: string;
+  project_id: string;
+  intent_id: string;
+  status: "draft" | "confirmed" | "running" | "completed" | "failed";
+  strategy_groups: SearchPlanStrategyGroup[];
+  target_sources: string[];
+  target_result_count: number;
+  filters: Record<string, unknown>;
+  warnings: string[];
+  metadata: Record<string, unknown>;
+  created_at: string;
+  confirmed_at: string;
+  run_started_at: string;
+  run_finished_at: string;
+}
+
+export interface PriorArtCandidate {
+  id: string;
+  project_id: string;
+  plan_id: string;
+  source: string;
+  title: string;
+  publication_number?: string | null;
+  application_number?: string | null;
+  applicant: string;
+  publication_date: string;
+  grant_date: string;
+  abstract?: string | null;
+  url: string;
+  relevance_score: number;
+  matched_terms: string[];
+  ipc: string[];
+  cpc: string[];
+  family_id: string;
+  duplicate_of: string;
+  fulltext_status: "unknown" | "available" | "unavailable" | "failed";
+  recommended_action: "include" | "exclude" | "review";
+  recommendation_reason: string;
+  user_decision: "pending" | "include" | "exclude";
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ProjectCorpusVersion {
+  id: string;
+  project_id: string;
+  name: string;
+  source_plan_id: string;
+  candidate_set_id: string;
+  status: "building" | "ready" | "needs_supplemental_search" | "failed" | "superseded";
+  document_count: number;
+  chunk_count: number;
+  claim_coverage: number;
+  fulltext_coverage: number;
+  quality_report: CorpusQualityReport | null;
+  created_at: string;
+  superseded_by: string;
+}
+
+export interface ProjectKnowledgeOverview {
+  state: ProjectKnowledgeState;
+  latest_intent: SearchIntent | null;
+  latest_plan: AgentSearchPlan | null;
+  candidates: PriorArtCandidate[];
+  latest_corpus_version: ProjectCorpusVersion | null;
 }
 
 export interface CorpusStats {
@@ -1025,6 +1213,47 @@ export async function searchCorpus(q: string, sectionType: SectionType | "", ver
   return data.results;
 }
 
+export async function getProjectKnowledge(projectId: string): Promise<ProjectKnowledgeOverview> {
+  return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge`);
+}
+
+export async function createProjectSearchIntent(projectId: string): Promise<ProjectKnowledgeOverview> {
+  return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge/search-intent`, {
+    method: "POST",
+  });
+}
+
+export async function runProjectSearchPlan(projectId: string, planId: string): Promise<ProjectKnowledgeOverview> {
+  return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge/search-plans/${planId}/run`, {
+    method: "POST",
+  });
+}
+
+export async function listProjectKnowledgeCandidates(projectId: string): Promise<PriorArtCandidate[]> {
+  const data = await request<{ candidates: PriorArtCandidate[] }>(`/api/projects/${projectId}/knowledge/candidates`);
+  return data.candidates;
+}
+
+export async function updateProjectKnowledgeCandidate(
+  projectId: string,
+  candidateId: string,
+  userDecision: PriorArtCandidate["user_decision"],
+): Promise<PriorArtCandidate> {
+  return request<PriorArtCandidate>(`/api/projects/${projectId}/knowledge/candidates/${candidateId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_decision: userDecision }),
+  });
+}
+
+export async function buildProjectCorpusVersion(projectId: string, planId: string): Promise<ProjectKnowledgeOverview> {
+  return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge/corpus-versions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan_id: planId }),
+  });
+}
+
 export async function listProjects(): Promise<ProjectRecord[]> {
   const data = await request<{ projects: ProjectRecord[] }>("/api/projects");
   return data.projects;
@@ -1073,7 +1302,20 @@ export async function deleteProject(projectId: string): Promise<{ ok: boolean }>
 export async function uploadProjectMaterial(projectId: string, file: File): Promise<ProjectMaterial> {
   const form = new FormData();
   form.append("file", file);
-  return request<ProjectMaterial>(`/api/projects/${projectId}/materials`, { method: "POST", body: form });
+  try {
+    return await request<ProjectMaterial>(
+      `/api/projects/${projectId}/materials`,
+      { method: "POST", body: form },
+      { fetchFailureMessage: "无法读取该文件，请检查文件权限或重新选择可读文件。" },
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const uploadDetail = message.match(/返回 (?:415|422)：(.+)$/);
+    if (uploadDetail?.[1]) {
+      throw new Error(`材料上传失败：${uploadDetail[1]}`);
+    }
+    throw err;
+  }
 }
 
 export async function listProjectMaterials(projectId: string): Promise<ProjectMaterial[]> {
@@ -1317,6 +1559,12 @@ export async function acceptCompletionPatch(
   });
 }
 
+export async function acceptAllCompletionPatches(projectId: string, runId: string): Promise<DraftCompletionRun> {
+  return request<DraftCompletionRun>(`/api/projects/${projectId}/completion-runs/${runId}/patches/accept-all`, {
+    method: "POST",
+  });
+}
+
 export async function rejectCompletionPatch(
   projectId: string,
   runId: string,
@@ -1414,11 +1662,29 @@ export function officialCompileReportUrl(projectId: string, runId: string): stri
   return `/api/projects/${projectId}/official-compile-runs/${runId}/report.md`;
 }
 
-export async function startPostDraftReview(projectId: string, providers?: string[]): Promise<PostDraftReviewRun> {
+export async function applyOfficialCompileCleanup(
+  projectId: string,
+  runId: string,
+): Promise<OfficialCompileCleanupResult> {
+  return request<OfficialCompileCleanupResult>(
+    `/api/projects/${projectId}/official-compile-runs/${runId}/apply-cleanup`,
+    { method: "POST" },
+  );
+}
+
+export async function listRevisionLedger(projectId: string): Promise<RevisionLedgerRecord[]> {
+  return request<RevisionLedgerRecord[]>(`/api/projects/${projectId}/revision-ledger`);
+}
+
+export async function startPostDraftReview(
+  projectId: string,
+  providers?: string[],
+  participantProviders?: string[],
+): Promise<PostDraftReviewRun> {
   return request<PostDraftReviewRun>(`/api/projects/${projectId}/post-draft-reviews`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ providers: providers ?? null }),
+    body: JSON.stringify({ providers: providers ?? null, participant_providers: participantProviders ?? null }),
   });
 }
 
@@ -1503,11 +1769,21 @@ export function postDraftReviewReportUrl(projectId: string, runId: string): stri
   return `/api/projects/${projectId}/post-draft-reviews/${runId}/report.md`;
 }
 
-export async function startProjectDeliberation(projectId: string, trace = false, providers?: string[]): Promise<DeliberationRun> {
+export async function startProjectDeliberation(
+  projectId: string,
+  trace = false,
+  providers?: string[],
+  participantProviders?: string[],
+): Promise<DeliberationRun> {
   return request<DeliberationRun>(`/api/projects/${projectId}/deliberations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ trace, round_depth: "converged_two_round", providers: providers ?? null }),
+    body: JSON.stringify({
+      trace,
+      round_depth: "converged_two_round",
+      providers: providers ?? null,
+      participant_providers: participantProviders ?? null,
+    }),
   });
 }
 
@@ -1525,10 +1801,11 @@ export function officialExportUrl(projectId: string, kind: "docx" | "md"): strin
 export function disclosureExportUrl(
   projectId: string,
   runId: string,
-  kind: "docx" | "md" | "mmd" | "prompt",
+  kind: "docx" | "md" | "mmd" | "prompt" | "sidecar",
 ): string {
   if (kind === "docx") return `/api/projects/${projectId}/disclosures/${runId}/export.docx`;
   if (kind === "md") return `/api/projects/${projectId}/disclosures/${runId}/export.md`;
+  if (kind === "sidecar") return `/api/projects/${projectId}/disclosures/${runId}/sidecar.md`;
   if (kind === "mmd") return `/api/projects/${projectId}/disclosures/${runId}/diagram.mmd`;
   return `/api/projects/${projectId}/disclosures/${runId}/image-prompt.md`;
 }
@@ -1567,7 +1844,7 @@ async function resolveApiUrl(url: string): Promise<string> {
   return backendBaseUrl ? `${backendBaseUrl}${url}` : url;
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+async function request<T>(url: string, init?: RequestInit, options?: { fetchFailureMessage?: string }): Promise<T> {
   const method = init?.method ?? "GET";
   const resolvedUrl = await resolveApiUrl(url);
   let response: Response;
@@ -1575,6 +1852,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     response = await fetch(resolvedUrl, init);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    if (options?.fetchFailureMessage) {
+      throw new Error(options.fetchFailureMessage);
+    }
     throw new Error(`${method} ${url} 请求失败：${message}`);
   }
   return parseResponse<T>(response, url, method);

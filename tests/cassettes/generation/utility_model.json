@@ -1,0 +1,47 @@
+{
+  "entries": {
+    "609686d0b2cf8fa9b0bd83855b7562634e10c60555183591fdeb19ae8cf016f6": {
+      "key": "609686d0b2cf8fa9b0bd83855b7562634e10c60555183591fdeb19ae8cf016f6",
+      "model": "deepseek-v4-pro",
+      "provider": "deepseek",
+      "response": "技术领域\n本实用新型涉及安装支架结构技术领域。\n背景技术\n现有安装支架调节角度后定位稳定性不足。\n实用新型内容\n本实用新型提供一种可调安装支架，通过底座、支撑臂和限位件形成稳定结构闭环。\n附图说明\n图1为可调安装支架整体结构示意图。\n具体实施方式\n底座用于固定于安装面，支撑臂通过转轴与底座连接，限位件限制支撑臂的转动角度并通过锁紧件固定。",
+      "stage": "description"
+    },
+    "9be459d567f0025fa0c45d61fc0ebd8e774bffc61498fb3d9853ed0b2f5aa0c5": {
+      "key": "9be459d567f0025fa0c45d61fc0ebd8e774bffc61498fb3d9853ed0b2f5aa0c5",
+      "model": "deepseek-v4-pro",
+      "provider": "deepseek",
+      "response": "flowchart TD\nA[底座] --> B[支撑臂]\nB --> C[限位件]\nC --> D[锁紧定位]",
+      "stage": "diagram"
+    },
+    "c45233056091b25d0b957d3d18f80de6bc8ae501c36690635844976108e797a9": {
+      "key": "c45233056091b25d0b957d3d18f80de6bc8ae501c36690635844976108e797a9",
+      "model": "deepseek-v4-pro",
+      "provider": "deepseek",
+      "response": "黑白线稿，展示底座、支撑臂、限位件和锁紧件的结构连接关系。",
+      "stage": "image_prompt"
+    },
+    "c68b814cfa12e5e773ac5f6017f55181ba9e21b6ea4e17beafa7d9cc9518e644": {
+      "key": "c68b814cfa12e5e773ac5f6017f55181ba9e21b6ea4e17beafa7d9cc9518e644",
+      "model": "deepseek-v4-pro",
+      "provider": "deepseek",
+      "response": "1. 一种可调安装支架，其特征在于，包括底座、支撑臂和限位件。\n2. 根据权利要求1所述的可调安装支架，其特征在于，所述支撑臂通过转轴与底座连接。\n3. 根据权利要求1所述的可调安装支架，其特征在于，所述限位件包括弧形限位槽和锁紧件。\n4. 根据权利要求1所述的可调安装支架，其特征在于，还包括用于采集支撑臂角度的角度传感器。",
+      "stage": "claims"
+    },
+    "f41d7868b216464f634c00c914a193a37e71f6b06ba6ecda90a8a7b7c5a3cfc1": {
+      "key": "f41d7868b216464f634c00c914a193a37e71f6b06ba6ecda90a8a7b7c5a3cfc1",
+      "model": "deepseek-v4-pro",
+      "provider": "deepseek",
+      "response": "图1为可调安装支架整体结构示意图。\n图2为限位件与支撑臂配合结构示意图。",
+      "stage": "drawings"
+    },
+    "ff1bc99f0ede2bdc6c2c5b35f20db7326b56ea7fe8b8375a432059b5015f1604": {
+      "key": "ff1bc99f0ede2bdc6c2c5b35f20db7326b56ea7fe8b8375a432059b5015f1604",
+      "model": "deepseek-v4-pro",
+      "provider": "deepseek",
+      "response": "本实用新型公开了一种可调安装支架，包括底座、支撑臂和限位件，支撑臂与底座可转动连接，限位件用于限制并固定支撑臂角度，从而提高安装角度调节后的结构稳定性。",
+      "stage": "abstract"
+    }
+  },
+  "version": 1
+}

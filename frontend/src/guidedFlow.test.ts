@@ -26,12 +26,14 @@ import {
   guidedBusyLabel,
   guidedNextActionDescription,
   guidedNextActionLabel,
+  guidedProgressActionState,
   guidedOperationLog,
   guidedStepLabels,
   guidedStepStatusLabel,
   ideaPatentGoalModes,
   isUtilityModelProject,
   mainSections,
+  normalizeMainSectionId,
   officialCompileActionGate,
   patentGoalModes,
   postDraftReviewActionGate,
@@ -148,6 +150,35 @@ const completedDeliberation: DeliberationRun = {
   logs: [],
 };
 
+const completedKimiDeliberation: DeliberationRun = {
+  ...completedDeliberation,
+  id: "dr-kimi",
+  providers: ["codex", "deepseek", "kimicode"],
+  stage_results: [
+    ...["codex", "deepseek", "kimicode"].map((provider) => ({
+      phase: "opening",
+      provider_id: provider,
+      label: `opening ${provider}`,
+      payload: {},
+      status: "completed" as const,
+    })),
+    ...["pair codex-vs-deepseek", "pair codex-vs-kimicode", "pair deepseek-vs-kimicode"].map((label) => ({
+      phase: "pair",
+      provider_id: "codex",
+      label,
+      payload: {},
+      status: "completed" as const,
+    })),
+    {
+      phase: "chair",
+      provider_id: "codex",
+      label: "chair synthesis",
+      payload: {},
+      status: "completed",
+    },
+  ],
+};
+
 const failedDeliberation: DeliberationRun = {
   ...completedDeliberation,
   id: "dr-failed",
@@ -226,6 +257,7 @@ function filingReport(status: FilingReadinessReport["status"]): FilingReadinessR
 const worksheet: ClaimDefenseWorksheet = {
   id: "w1",
   project_id: "p1",
+  draft_package_hash: "draft-hash",
   source: "generated_package",
   status: "reviewed",
   feature_records: [],
@@ -396,11 +428,14 @@ describe("guided flow navigation", () => {
     ]);
     expect(v1StartChoices).toHaveLength(3);
     expect(mainSections.map((item) => item.label)).toEqual([
-      "开始",
+      "工作台",
       "项目",
+      "文稿与修复",
+      "知识库",
+      "专家工具",
+      "导出",
       "设置",
     ]);
-    expect(mainSections.some((item) => item.id === "expert")).toBe(false);
     expect(expertToolGroups.map((group) => group.label)).toEqual(["知识库", "发明点", "交底与策略", "质检", "导出"]);
     expect(guidedStepLabels).toEqual([
       "想法与材料",
@@ -451,6 +486,51 @@ describe("guided step navigation helpers", () => {
     expect(resolveGuidedViewStep(state.currentStepId, "invention", state.steps)).toBe("invention");
     expect(resolveGuidedViewStep(state.currentStepId, "export", state.steps)).toBe(state.currentStepId);
     expect(state.steps.find((step) => step.id === "export")?.status).toBe("locked");
+  });
+
+  it("keeps external draft intake visible after selecting an existing project until intake completes", () => {
+    const state = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [],
+      disclosures: [],
+      deliberations: [],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(state.currentStepId).toBe("invention");
+    expect(resolveGuidedViewStep(state.currentStepId, null, state.steps, "external")).toBe("idea");
+    expect(resolveGuidedViewStep(state.currentStepId, null, state.steps, "idea")).toBe("invention");
+    expect(resolveGuidedViewStep(state.currentStepId, null, state.steps)).toBe("invention");
+  });
+
+  it("returns to the workflow step after external draft intake completes", () => {
+    const state = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [],
+      disclosures: [],
+      deliberations: [],
+      patentPoints: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+      externalDraftSources: [externalDraftSource],
+      externalDraftIntakeRuns: [completedExternalDraftIntakeRun],
+    });
+
+    expect(state.currentStepId).toBe("invention");
+    expect(state.hasCompletedExternalDraftIntake).toBe(true);
+    expect(
+      resolveGuidedViewStep(
+        state.currentStepId,
+        null,
+        state.steps,
+        "external",
+        state.hasCompletedExternalDraftIntake,
+      ),
+    ).toBe("invention");
   });
 
   it("labels step statuses for the navigator", () => {
@@ -504,6 +584,7 @@ describe("guided action gates", () => {
       filingReports: [filingReport("warning")],
       worksheets: [worksheet],
       completionRuns: [completionRun],
+      currentSourceDraftHash: "draft-hash",
     });
 
     expect(state.currentStepId).toBe("officialCompile");
@@ -532,13 +613,22 @@ describe("guided action gates", () => {
 
 describe("guided flow defaults", () => {
   it("opens on patent generation and keeps expert tools on knowledge import", () => {
-    expect(defaultMainSectionId).toBe("generate");
+    expect(defaultMainSectionId).toBe("workbench");
     expect(defaultExpertToolId).toBe("build");
   });
 
   it("keeps idea mode as the default main generation entry", () => {
     expect(guidedStepLabels[0]).toBe("想法与材料");
-    expect(defaultMainSectionId).toBe("generate");
+    expect(defaultMainSectionId).toBe("workbench");
+  });
+
+  it("normalizes legacy and expert-derived main sections", () => {
+    expect(normalizeMainSectionId("generate")).toBe("workbench");
+    expect(normalizeMainSectionId("utility")).toBe("workbench");
+    expect(normalizeMainSectionId("expert", "build")).toBe("knowledge");
+    expect(normalizeMainSectionId("expert", "corpus")).toBe("knowledge");
+    expect(normalizeMainSectionId("expert", "export")).toBe("export");
+    expect(normalizeMainSectionId("expert", "moat")).toBe("expert");
   });
 
   it("provides a visible next-action label for each guided step", () => {
@@ -546,6 +636,40 @@ describe("guided flow defaults", () => {
     expect(guidedNextActionLabel("quality")).toBe("运行质量检查");
     expect(guidedNextActionLabel("export")).toBe("打开导出工具");
     expect(guidedNextActionDescription("postReview")).toContain("正式提交前");
+  });
+
+  it("labels the progress action as an explicit next step and explains disabled blockers", () => {
+    const readyAction = guidedProgressActionState({
+      busy: "",
+      currentStepId: "draft",
+      displayedStepId: "draft",
+    });
+
+    expect(readyAction.label).toBe("下一步：生成专利初稿");
+    expect(readyAction.disabled).toBe(false);
+    expect(readyAction.disabledReason).toBe("");
+
+    const blockedAction = guidedProgressActionState({
+      busy: "",
+      currentStepId: "idea",
+      displayedStepId: "idea",
+    });
+
+    expect(blockedAction.label).toBe("下一步：填写并创建项目");
+    expect(blockedAction.disabled).toBe(true);
+    expect(blockedAction.disabledReason).toContain("填写项目名称");
+  });
+
+  it("uses the progress action as a return control while browsing a completed step", () => {
+    const action = guidedProgressActionState({
+      busy: "",
+      currentStepId: "draft",
+      displayedStepId: "deliberation",
+    });
+
+    expect(action.kind).toBe("return");
+    expect(action.label).toBe("回到当前步骤");
+    expect(action.disabled).toBe(false);
   });
 });
 
@@ -792,6 +916,25 @@ describe("deriveGuidedFlowState", () => {
     expect(readyForDraft.hasCompletedDeliberation).toBe(true);
   });
 
+  it("accepts a completed deliberation with KimiCode replacing an unavailable Claude expert", () => {
+    const selectedPoint = patentPoint(true);
+    const readyForDraft = deriveGuidedFlowState({
+      project: projectWithIdea,
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedKimiDeliberation],
+      patentPoints: [selectedPoint],
+      formulaRequirement: formulaNotRequired,
+      formulaRuns: [],
+      filingReports: [],
+      worksheets: [],
+      completionRuns: [],
+    });
+
+    expect(readyForDraft.currentStepId).toBe("draft");
+    expect(readyForDraft.hasCompletedDeliberation).toBe(true);
+  });
+
   it("skips deliberation and formula gates for utility model lite projects", () => {
     const selectedPoint = patentPoint(true);
     const state = deriveGuidedFlowState({
@@ -937,6 +1080,7 @@ describe("deriveGuidedFlowState", () => {
       filingReports: [filingReport("warning")],
       worksheets: [worksheet],
       completionRuns: [completionRun],
+      currentSourceDraftHash: "draft-hash",
     });
 
     expect(state.currentStepId).toBe("officialCompile");
@@ -969,6 +1113,7 @@ describe("deriveGuidedFlowState", () => {
       worksheets: [worksheet],
       completionRuns: [completionRun],
       officialCompileRuns: [blockedOfficialCompileRun],
+      currentSourceDraftHash: "draft-hash",
     });
 
     expect(state.currentStepId).toBe("officialCompile");
@@ -1001,6 +1146,7 @@ describe("deriveGuidedFlowState", () => {
       worksheets: [worksheet],
       completionRuns: [completionRun],
       officialCompileRuns: [completedOfficialCompileRun],
+      currentSourceDraftHash: "draft-hash",
     });
 
     expect(state.currentStepId).toBe("postReview");
@@ -1036,6 +1182,7 @@ describe("deriveGuidedFlowState", () => {
       completionRuns: [completionRun],
       officialCompileRuns: [completedOfficialCompileRun],
       postDraftReviews: [passedPostDraftReview],
+      currentSourceDraftHash: "draft-hash",
     });
 
     expect(passedState.currentStepId).toBe("export");
@@ -1132,6 +1279,7 @@ describe("deriveGuidedFlowState", () => {
           official_package_hash: "stale-official-hash",
         },
       ],
+      currentSourceDraftHash: "draft-hash",
     });
 
     expect(state.currentStepId).toBe("postReview");
@@ -1180,6 +1328,24 @@ describe("deriveGuidedFlowState", () => {
     ).toBe("review-for-stale-compile");
   });
 
+  it("does not treat a passed review with only advisory next_actions as repairable", () => {
+    const advisoryOnly = {
+      ...passedPostDraftReview,
+      id: "advisory-next-actions",
+      draft_package_hash: "draft-hash",
+      chair_result: {
+        ...passedPostDraftReview.chair_result!,
+        next_actions: ["提交前再次核对附图编号与说明书一致性"],
+      },
+      created_at: "2026-06-02T00:03:00Z",
+      updated_at: "2026-06-02T00:03:00Z",
+    };
+
+    expect(
+      selectLatestRepairablePostDraftReview([advisoryOnly], "draft-hash"),
+    ).toBeNull();
+  });
+
   it("uses the latest matching post-draft review instead of an older pass", () => {
     const state = deriveGuidedFlowState({
       project: {
@@ -1221,6 +1387,7 @@ describe("deriveGuidedFlowState", () => {
           updated_at: "2026-06-02T00:01:00Z",
         },
       ],
+      currentSourceDraftHash: "draft-hash",
     });
 
     expect(state.currentStepId).toBe("postReview");
@@ -1254,6 +1421,7 @@ describe("deriveGuidedFlowState", () => {
       completionRuns: [completionRun],
       officialCompileRuns: [completedOfficialCompileRun],
       postDraftReviews: [{ ...passedPostDraftReview, id: "blocked", export_allowed: false }],
+      currentSourceDraftHash: "draft-hash",
     });
 
     expect(state.currentStepId).toBe("postReview");
@@ -1292,6 +1460,40 @@ describe("deriveGuidedFlowState", () => {
     // Quality checks ran against "draft-hash" but the current source draft
     // is "new-draft-hash" (e.g., after a chair revision).  The gate should
     // reset to quality so the user re-runs quality checks before recompiling.
+    expect(state.qualityChecked).toBe(false);
+    expect(state.currentStepId).toBe("quality");
+    expect(state.exportReady).toBe(false);
+  });
+
+  it("does not trust legacy quality artifacts until the current source hash is known", () => {
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        package: {
+          title: "一种外立面逆建模方法",
+          abstract: "摘要",
+          claims: "1. 一种方法。",
+          description: "说明书",
+          drawing_description: "附图说明",
+          mermaid: "flowchart TD",
+          image_prompt: "黑白线稿",
+          review_findings: [],
+          citations: [],
+          generation_logs: [],
+        },
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [{ ...filingReport("warning"), draft_package_hash: "draft-hash" }],
+      worksheets: [worksheet],
+      completionRuns: [completionRun],
+      officialCompileRuns: [completedOfficialCompileRun],
+      postDraftReviews: [passedPostDraftReview],
+      currentSourceDraftHash: "",
+    });
+
     expect(state.qualityChecked).toBe(false);
     expect(state.currentStepId).toBe("quality");
     expect(state.exportReady).toBe(false);
@@ -1379,6 +1581,40 @@ describe("deriveGuidedFlowState", () => {
     expect(state.exportReady).toBe(false);
   });
 
+  it("resets to quality when the latest claim-defense worksheet is stale", () => {
+    const state = deriveGuidedFlowState({
+      project: {
+        ...projectWithIdea,
+        package: {
+          title: "一种外立面逆建模方法",
+          abstract: "摘要",
+          claims: "1. 一种方法。",
+          description: "说明书",
+          drawing_description: "附图说明",
+          mermaid: "flowchart TD",
+          image_prompt: "黑白线稿",
+          review_findings: [],
+          citations: [],
+          generation_logs: [],
+        },
+      },
+      materials: [processedMaterial],
+      disclosures: [completedDisclosure],
+      deliberations: [completedDeliberation],
+      patentPoints: [],
+      filingReports: [{ ...filingReport("warning"), draft_package_hash: "new-draft-hash" }],
+      worksheets: [{ ...worksheet, draft_package_hash: "old-draft-hash" }],
+      completionRuns: [{ ...completionRun, draft_package_hash: "new-draft-hash" }],
+      officialCompileRuns: [completedOfficialCompileRun],
+      postDraftReviews: [passedPostDraftReview],
+      currentSourceDraftHash: "new-draft-hash",
+    });
+
+    expect(state.qualityChecked).toBe(false);
+    expect(state.currentStepId).toBe("quality");
+    expect(state.exportReady).toBe(false);
+  });
+
   it("does not advance to export when post-draft review belongs to a different official compile", () => {
     const state = deriveGuidedFlowState({
       project: {
@@ -1413,6 +1649,7 @@ describe("deriveGuidedFlowState", () => {
           official_package_hash: "stale-official-hash",
         },
       ],
+      currentSourceDraftHash: "draft-hash",
     });
 
     expect(state.currentStepId).toBe("postReview");

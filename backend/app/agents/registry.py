@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from backend.app.schemas import AgentDoctorReport
 
+DELIBERATION_CHAIR_PROVIDER = "codex"
+DELIBERATION_EXPERT_SEAT_COUNT = 3
 STRICT_DELIBERATION_PROVIDERS = ("codex", "deepseek", "claude")
 
 

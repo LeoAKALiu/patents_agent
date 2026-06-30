@@ -9,7 +9,7 @@ describe("App refresh effect dependencies", () => {
     expect(source).toContain("const latestPostDraftReviewId = latestPostDraftReview?.id ?? \"\"");
     expect(source).toContain("const lastExportRefreshKey = lastExport");
 
-    const refreshEffect = source.match(/useEffect\(\(\) => \{\n\s+void refreshAll\(\);\n\s+\}, \[([\s\S]*?)\]\);/);
+    const refreshEffect = source.match(/useEffect\(\(\) => \{[\s\S]*?void refreshAll\(\);[\s\S]*?\}, \[([\s\S]*?)\]\);/);
     expect(refreshEffect?.[1]).toBeDefined();
     const dependencies = refreshEffect?.[1] ?? "";
 
@@ -32,5 +32,39 @@ describe("App refresh effect dependencies", () => {
       .join("\n");
     // Reject #rgb / #rrggbb / #rrggbbaa anywhere in code.
     expect(code).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it("refreshes project knowledge after patent-point mutations reload the selected project", () => {
+    expect(source).toMatch(
+      /async function handleCreatePatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
+    );
+    expect(source).toMatch(
+      /async function handleSelectPatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
+    );
+    expect(source).toMatch(
+      /async function handleDeletePatentPoint[\s\S]*const stillSelected = await loadPatentPoints\(projectId\);[\s\S]*if \(!stillSelected\) return;[\s\S]*await loadProjectKnowledge\(projectId\);/,
+    );
+  });
+
+  it("announces gated synthetic-only corpus builds without the ready toast", () => {
+    expect(source).toContain('if (overview.state.quality_flags.includes("synthetic_evidence"))');
+    expect(source).toContain("项目证据库建库完成：");
+    expect(source).toContain("仍需补充检索");
+  });
+
+  it("refreshes stale draft and gate state after an embedded repair patch is applied", () => {
+    const handler = source.match(/async function handleDraftRepairPatchApplied[\s\S]*?^  async function handleStartOfficialCompile/m);
+    expect(handler?.[0]).toBeDefined();
+    const body = handler?.[0] ?? "";
+
+    expect(body).toContain("refreshProjectsPreservingSelection(projectId)");
+    expect(body).toContain("setFilingReports([])");
+    expect(body).toContain("setWorksheets([])");
+    expect(body).toContain("setCompletionRuns([])");
+    expect(body).toContain("await loadOfficialCompileRuns(projectId)");
+    expect(body).toContain("await loadPostDraftReviews(projectId)");
+    expect(body).toContain("await loadExportReadiness(projectId)");
+    expect(body).not.toContain("updateProjectDraftPackage");
+    expect(source).toContain("onDraftRepairPatchApplied: (issueId) => void handleDraftRepairPatchApplied(issueId)");
   });
 });

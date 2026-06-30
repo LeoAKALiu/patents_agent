@@ -14,6 +14,7 @@ export interface AnnotatedDraftSectionProps {
   value: string;
   selected: boolean;
   anchorIssue: DraftReviewIssue | null;
+  patchActivity?: "applying" | "applied" | null;
   onChange: (value: string) => void;
 }
 
@@ -23,6 +24,7 @@ export function AnnotatedDraftSection({
   value,
   selected,
   anchorIssue,
+  patchActivity,
   onChange,
 }: AnnotatedDraftSectionProps) {
   const hasTextAnchor = anchorIssue?.anchor.type === "text";
@@ -48,12 +50,23 @@ export function AnnotatedDraftSection({
         )}
       </span>
       <textarea
-        className="draft-editor-textarea"
+        className={`draft-editor-textarea ${
+          patchActivity === "applying"
+            ? "patch-applying"
+            : patchActivity === "applied"
+              ? "patch-applied"
+              : ""
+        }`}
         value={cappedValue}
         onChange={(event) => onChange(event.currentTarget.value)}
         aria-label={label}
         rows={sectionKey === "description" ? 8 : sectionKey === "claims" ? 6 : sectionKey === "drawing_description" ? 3 : 2}
       />
+      {patchActivity && (
+        <p className="annotated-draft-patch-status" aria-live="polite">
+          正文状态：{patchActivity === "applying" ? "正在应用" : "已写回"} AI 修正到{label}
+        </p>
+      )}
       {anchorIssue?.snippet && (
         <p className="annotated-draft-snippet" aria-live="polite">
           片段：{anchorIssue.snippet}

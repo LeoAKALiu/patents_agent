@@ -56,6 +56,83 @@ def test_generator_runs_ordered_pipeline_and_records_citations():
     assert package.citations[0].chunk_id == "c1"
 
 
+def test_generator_strips_assistant_prefaces_from_generated_sections():
+    llm = FakeLLMClient(
+        {
+            "claims": (
+                "好的,以下是根据您提供的技术交底材料、多智能体会审策略和核心公式包撰写的"
+                "中国发明专利申请权利要求书初稿。\n"
+                "---\n\n"
+                "1. 一种城市体检智能体的任务编排与可信复核方法，其特征在于，包括任务编排。"
+            ),
+            "description": (
+                "好的,基于您提供的技术交底书、权利要求书、多智能体会审策略以及核心公式包,"
+                "我将为您撰写一份符合中国发明专利撰写规范的说明书正文初稿。\n\n"
+                "技术领域\n"
+                "本发明涉及城市体检智能体任务编排技术领域。"
+            ),
+            "abstract": "本发明公开一种城市体检智能体的任务编排与可信复核方法。",
+            "drawings": "图1为任务编排流程图。",
+            "diagram": "flowchart TD\nA[任务编排] --> B[可信复核]",
+            "image_prompt": "黑白线稿，展示任务编排和可信复核流程。",
+        }
+    )
+    generator = PatentDraftGenerator(llm)
+    brief = InventionBrief(
+        title="城市体检智能体",
+        technical_field="AI软件",
+        technical_problem="任务编排可信性不足",
+        technical_solution="对任务进行编排并执行可信复核",
+        beneficial_effects=["提升复核可信度"],
+        key_steps=["任务编排", "可信复核"],
+    )
+
+    package = generator.generate(brief, [])
+
+    assert package.claims.startswith("1. 一种城市体检智能体")
+    assert package.description.startswith("技术领域")
+    assert "好的" not in package.claims
+    assert "好的" not in package.description
+    assert "---" not in package.claims
+
+
+def test_generator_reuses_cleaned_claims_for_dependent_prompts():
+    llm = FakeLLMClient(
+        {
+            "claims": (
+                "好的，下面撰写权利要求书。\n"
+                "---\n"
+                "1. 一种城市体检智能体的任务编排方法，其特征在于，包括生成任务包。"
+            ),
+            "description": "技术领域\n本发明涉及城市体检智能体任务编排技术领域。",
+            "abstract": "本发明公开一种城市体检智能体的任务编排方法。",
+            "drawings": "图1为任务编排流程图。",
+            "diagram": "flowchart TD\nA[生成任务包] --> B[执行复核]",
+            "image_prompt": "黑白线稿，展示任务包生成流程。",
+        }
+    )
+    generator = PatentDraftGenerator(llm)
+    brief = InventionBrief(
+        title="城市体检智能体",
+        technical_field="AI软件",
+        technical_problem="任务编排可信性不足",
+        technical_solution="生成任务包并执行复核",
+        beneficial_effects=["提升复核可信度"],
+        key_steps=["生成任务包"],
+    )
+
+    generator.generate(brief, [])
+
+    dependent_prompts = [
+        call.user_prompt
+        for call in llm.calls
+        if call.stage in {"description", "drawings", "diagram"}
+    ]
+    assert dependent_prompts
+    assert all("好的" not in prompt for prompt in dependent_prompts)
+    assert all("1. 一种城市体检智能体" in prompt for prompt in dependent_prompts)
+
+
 def test_generator_fails_closed_when_llm_is_not_configured():
     generator = PatentDraftGenerator(MissingLLMClient())
     brief = InventionBrief(

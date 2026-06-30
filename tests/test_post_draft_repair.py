@@ -624,6 +624,57 @@ def test_repair_patch_endpoint_uses_configured_llm_for_narrow_patch(tmp_path):
     assert "权利要求1含内部引导语" in repair_call.user_prompt
 
 
+def test_repair_patch_create_ignores_selected_text_not_present_in_target_section(tmp_path):
+    """Stale issue text should not become the patch original for section-level repairs."""
+    llm = _repair_session_llm()
+    llm.responses["post_draft_repair_patch"] = json.dumps(
+        {
+            "patched": "1. 一种方法，包括根据城市体检指标置信度增益生成无人机任务包。",
+            "diff_summary": "清理权利要求内部问题描述",
+            "risk_notes": [],
+        },
+        ensure_ascii=False,
+    )
+    client = TestClient(create_app(data_dir=tmp_path, llm_client=llm, load_env_file=False))
+    claims_text = "1. 一种方法，包括根据城市体检指标置信度增益生成无人机任务包。"
+    project_id = _create_project_with_package(
+        client,
+        _package(
+            title="一种路径规划方法",
+            claims=claims_text,
+            description="本发明涉及路径规划。",
+        ),
+    )
+    client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
+    review = client.post(f"/api/projects/{project_id}/post-draft-reviews", json={}).json()
+    session = client.get(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-session"
+    ).json()
+    issue = next(i for i in session["issues"] if i["target_section"] == "claims")
+
+    payload = DraftRepairPatchCreate(
+        issue_id=issue["id"],
+        draft_package_hash=session["current_draft_hash"],
+        target_section="claims",
+        selected_text="权利要求1含内部引导语 好的，根据",
+        nearby_context=claims_text,
+    )
+    patch_response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches",
+        json=payload.model_dump(),
+    )
+
+    assert patch_response.status_code == 200
+    patch = patch_response.json()
+    assert patch["original"] == claims_text
+
+    apply_response = client.post(
+        f"/api/projects/{project_id}/post-draft-reviews/{review['id']}/repair-patches/{patch['id']}/apply",
+    )
+    assert apply_response.status_code == 200
+    assert apply_response.json()["package"]["claims"] == claims_text
+
+
 def test_repair_patch_create_422_for_unsafe_text(tmp_path):
     """POST repair-patches returns 422 when selected_text is contaminated beyond cleaning."""
     client = TestClient(create_app(data_dir=tmp_path, llm_client=_repair_session_llm(), load_env_file=False))
@@ -668,7 +719,7 @@ def test_repair_patch_create_409_when_review_run_is_stale_even_with_current_hash
         client,
         _package(
             title="一种基于城市体检指标置信度的无人机主动采集方法方法",
-            claims="好的，根据交底书撰写权利要求。",
+            claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
         ),
     )
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
@@ -677,7 +728,7 @@ def test_repair_patch_create_409_when_review_run_is_stale_even_with_current_hash
     mutated = _package(
         title="一种基于城市体检指标置信度的无人机主动采集方法方法",
         abstract="本发明公开了一种已经人工修改过的摘要。",
-        claims="好的，根据交底书撰写权利要求。",
+        claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
     )
     client.app.state.store.update_project_package(project_id, mutated)
 
@@ -711,7 +762,7 @@ def test_repair_patch_apply_409_when_stale(tmp_path):
         client,
         _package(
             title="一种基于城市体检指标置信度的无人机主动采集方法方法",
-            claims="好的，根据交底书撰写权利要求。",
+            claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
         ),
     )
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
@@ -758,7 +809,7 @@ def test_repair_patch_apply_409_when_review_run_is_stale_even_with_current_hash_
         client,
         _package(
             title="一种基于城市体检指标置信度的无人机主动采集方法方法",
-            claims="好的，根据交底书撰写权利要求。",
+            claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
         ),
     )
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})
@@ -767,7 +818,7 @@ def test_repair_patch_apply_409_when_review_run_is_stale_even_with_current_hash_
     mutated = _package(
         title="一种基于城市体检指标置信度的无人机主动采集方法方法",
         abstract="本发明公开了一种已经人工修改过的摘要。",
-        claims="好的，根据交底书撰写权利要求。",
+        claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
     )
     client.app.state.store.update_project_package(project_id, mutated)
     current_hash = client.get(f"/api/projects/{project_id}/post-draft-reviews").json()["current_draft_hash"]
@@ -802,7 +853,7 @@ def test_repair_patch_apply_writes_through_package(tmp_path):
         client,
         _package(
             title="一种基于城市体检指标置信度的无人机主动采集方法方法",
-            claims="好的，根据交底书撰写权利要求。",
+            claims="好的，根据交底书撰写权利要求。\n1. 一种城市体检指标驱动无人机采集方法。",
         ),
     )
     client.post(f"/api/projects/{project_id}/official-compile-runs", json={})

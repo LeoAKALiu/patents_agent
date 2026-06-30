@@ -3,11 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import ValidationError
 
 from backend.app.llm import LLMClient
+from backend.app.runtime import RuntimeCancelled, RuntimeTimeout
 from backend.app.schemas import (
     DeliberationLogEntry,
     OfficialDraftPackage,
@@ -89,10 +91,13 @@ def run_post_draft_review(
     llm: LLMClient,
     providers: list[str],
     official_compile_run_id: str,
+    participant_providers: list[str] | None = None,
+    on_progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> PostDraftReviewRun:
     run_id = uuid.uuid4().hex
     package_hash = package_hash_for_review(package)
     source_hash = package.source_draft_hash
+    participant_providers = participant_providers or []
     logs: list[DeliberationLogEntry] = []
     role_results: list[PostDraftReviewRoleResult] = []
     current_stage = "post_draft_review"
@@ -106,6 +111,8 @@ def run_post_draft_review(
                 if repair_notes:
                     logs.append(_schema_repair_log(provider_id=role, notes=repair_notes))
                 result = PostDraftReviewRoleResult.model_validate(payload)
+            except (RuntimeCancelled, RuntimeTimeout):
+                raise
             except Exception as role_exc:
                 # A single reviewer that errors at any point — LLM call failure
                 # (ConfigError/RuntimeError/timeout), unparseable JSON, or a
@@ -136,17 +143,20 @@ def run_post_draft_review(
                     detail=json.dumps(result.model_dump(mode="json"), ensure_ascii=False)[:1200],
                 )
             )
+            _publish_progress(on_progress, role_results=role_results, logs=logs)
         current_stage = "post_draft_chair_synthesis"
         try:
             chair_raw = llm.complete_stage(
                 "post_draft_chair_synthesis",
                 SYSTEM_PROMPT,
-                _chair_prompt(package, providers, role_results),
+                _chair_prompt(package, providers, participant_providers, role_results),
             )
             chair_payload, repair_notes = _repair_chair_payload(_extract_json(chair_raw))
             if repair_notes:
                 logs.append(_schema_repair_log(provider_id="chair", notes=repair_notes))
             chair = PostDraftReviewChairResult.model_validate(chair_payload)
+        except (RuntimeCancelled, RuntimeTimeout):
+            raise
         except Exception as chair_exc:
             # Chair synthesis is guarded the same way as reviewer roles: an LLM
             # error, unparseable JSON, or schema mismatch downgrades to a blocked
@@ -176,6 +186,7 @@ def run_post_draft_review(
             project_id=project_id,
             status="completed",
             providers=providers,
+            participant_providers=participant_providers,
             prompt_pack_version=PROMPT_PACK_VERSION,
             draft_package_hash=source_hash,
             official_compile_run_id=official_compile_run_id,
@@ -187,6 +198,8 @@ def run_post_draft_review(
             contamination_hits=contamination_hits,
             logs=logs,
         )
+    except (RuntimeCancelled, RuntimeTimeout):
+        raise
     except Exception as exc:
         logs.append(
             DeliberationLogEntry(
@@ -203,6 +216,7 @@ def run_post_draft_review(
             project_id=project_id,
             status="failed",
             providers=providers,
+            participant_providers=participant_providers,
             prompt_pack_version=PROMPT_PACK_VERSION,
             draft_package_hash=source_hash,
             official_compile_run_id=official_compile_run_id,
@@ -210,6 +224,24 @@ def run_post_draft_review(
             export_allowed=False,
             logs=logs,
         )
+
+
+def _publish_progress(
+    callback: Callable[[dict[str, Any]], None] | None,
+    *,
+    role_results: list[PostDraftReviewRoleResult],
+    logs: list[DeliberationLogEntry],
+    chair_result: PostDraftReviewChairResult | None = None,
+) -> None:
+    if callback is None:
+        return
+    progress: dict[str, Any] = {
+        "role_results": list(role_results),
+        "logs": list(logs),
+    }
+    if chair_result is not None:
+        progress["chair_result"] = chair_result
+    callback(progress)
 
 
 def post_draft_review_to_markdown(run: PostDraftReviewRun) -> str:
@@ -223,6 +255,7 @@ def post_draft_review_to_markdown(run: PostDraftReviewRun) -> str:
         f"- prompt_pack_version: {run.prompt_pack_version}",
         f"- draft_package_hash: {run.draft_package_hash}",
         f"- providers: {', '.join(run.providers) or 'default'}",
+        f"- participant_providers: {', '.join(run.participant_providers) or 'none'}",
         "",
         "## Blocking Issues",
         "",
@@ -290,13 +323,19 @@ def _role_prompt(role: str, package: OfficialDraftPackage, providers: list[str])
 """
 
 
-def _chair_prompt(package: OfficialDraftPackage, providers: list[str], role_results: list[PostDraftReviewRoleResult]) -> str:
+def _chair_prompt(
+    package: OfficialDraftPackage,
+    providers: list[str],
+    participant_providers: list[str],
+    role_results: list[PostDraftReviewRoleResult],
+) -> str:
     return f"""
 你是成稿后会审主席，只综合角色 JSON，不重新发散。
 如任一角色存在 blocking_issues，除非有明确反证，否则 export_allowed=false。
 只输出 JSON，字段必须包含 status, export_allowed, blocking_issues, contamination_hits, claim_1_rewrite, system_claim_rewrite, abstract_rewrite, description_rewrite_tasks, official_safe_patches, attorney_memo, next_actions。
 
-本轮启用 agent：{json.dumps(providers, ensure_ascii=False)}
+本轮决策专家：{json.dumps(providers, ensure_ascii=False)}
+本轮参会专家：{json.dumps(participant_providers, ensure_ascii=False)}
 
 当前正式稿：
 {package.model_dump_json(ensure_ascii=False, indent=2)}

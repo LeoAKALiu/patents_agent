@@ -1,90 +1,156 @@
-import { RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { ProjectRecord, Health, AgentDoctorReport } from "@/api";
 
 export interface SystemStatusPanelProps {
   selectedProject?: ProjectRecord | null;
   health?: Health | null;
   agentDoctor?: AgentDoctorReport | null;
+  backendStatus?: "unknown" | "online" | "offline";
+  projectListStatus?: "idle" | "loading" | "ready" | "failed";
   agentRunModeLabel?: (mode: string) => string;
   onRefresh?: () => void;
 }
 
 function StatusRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex h-10 min-w-0 items-center justify-between gap-3">
-      <span className="min-w-0 flex-1 truncate text-xs text-app-muted">{label}</span>
-      <div className="flex min-w-0 max-w-[7.25rem] shrink-0 justify-end overflow-hidden [&>*]:min-w-0 [&>*]:max-w-full [&>*]:truncate">
+    <div className="system-status-row">
+      <span>{label}</span>
+      <div>
         {children}
       </div>
     </div>
   );
 }
 
+type SystemStatusVariant = "success" | "warning" | "secondary" | "destructive";
+
+function modelStatus(
+  health: Health | null | undefined,
+  backendStatus: "unknown" | "online" | "offline",
+): { label: string; variant: Exclude<SystemStatusVariant, "warning"> } {
+  if (backendStatus === "offline") return { label: "离线", variant: "destructive" };
+  if (!health) return { label: "检测中", variant: "secondary" };
+  if (health.llm_configured) return { label: "可用", variant: "success" };
+  return { label: "未配置", variant: "destructive" };
+}
+
+function agentStatus(
+  agentDoctor: AgentDoctorReport | null | undefined,
+  backendStatus: "unknown" | "online" | "offline",
+  agentRunModeLabel: (mode: string) => string,
+): { label: string; variant: SystemStatusVariant } {
+  if (backendStatus === "offline") return { label: "离线", variant: "destructive" };
+  if (!agentDoctor) return { label: "检测中", variant: "secondary" };
+  if (agentDoctor.status === "ready") return { label: "可用", variant: "success" };
+  if (agentDoctor.status === "degraded") {
+    return { label: agentRunModeLabel(agentDoctor.run_mode), variant: "warning" };
+  }
+  return { label: "离线", variant: "destructive" };
+}
+
+function backendLabel(
+  backendStatus: "unknown" | "online" | "offline",
+): { label: string; variant: Exclude<SystemStatusVariant, "warning"> } {
+  if (backendStatus === "online") return { label: "在线", variant: "success" };
+  if (backendStatus === "offline") return { label: "离线", variant: "destructive" };
+  return { label: "检测中", variant: "secondary" };
+}
+
+function projectListLabel(projectListStatus: "idle" | "loading" | "ready" | "failed"): string {
+  if (projectListStatus === "failed") return "加载失败";
+  if (projectListStatus === "loading") return "加载中";
+  if (projectListStatus === "idle") return "未加载";
+  return "正常";
+}
+
 export function SystemStatusPanel({
-  selectedProject,
   health,
   agentDoctor,
+  backendStatus = "unknown",
   agentRunModeLabel = (mode) => mode,
-  onRefresh,
 }: SystemStatusPanelProps) {
+  const model = modelStatus(health, backendStatus);
+  const agents = agentStatus(agentDoctor, backendStatus, agentRunModeLabel);
+  const backend = backendLabel(backendStatus);
   return (
-    <div className="grid min-w-0 max-w-full gap-2.5 overflow-hidden">
-      <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-app-border bg-app-surface p-3">
-        <h3 className="text-xs font-semibold text-app-muted mb-1">当前项目</h3>
-        <StatusRow label={selectedProject?.name ?? "未选择"}>
-          {selectedProject?.package ? (
-            <Badge variant="info" className="min-w-[4.5em] justify-center">
-              已有初稿
-            </Badge>
-          ) : (
-            <Badge variant="secondary" className="min-w-[4.5em] justify-center">
-              新建中
-            </Badge>
-          )}
-        </StatusRow>
-      </div>
-
-      <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-app-border bg-app-surface p-3">
-        <h3 className="text-xs font-semibold text-app-muted mb-1">模型与智能体</h3>
-        <div className="grid min-w-0">
-          <StatusRow label="基础模型">
-            {health?.llm_configured ? (
-              <Badge variant="success" className="min-w-[4.5em] justify-center">
-                可用
-              </Badge>
-            ) : (
-              <Badge variant="destructive" className="min-w-[4.5em] justify-center">
-                未配置
-              </Badge>
-            )}
-          </StatusRow>
-          <StatusRow label="智能体">
-            {agentDoctor?.status === "blocked" ? (
-              <Badge variant="warning" className="min-w-[4.5em] justify-center">
-                {agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}
-              </Badge>
-            ) : (
-              <Badge variant="success" className="min-w-[4.5em] justify-center">
-                {agentRunModeLabel(agentDoctor?.run_mode ?? "unknown")}
-              </Badge>
-            )}
-          </StatusRow>
-          <StatusRow label="内部痕迹检查">
-            <Badge variant="success" className="min-w-[4.5em] justify-center">
-              可用
-            </Badge>
-          </StatusRow>
-        </div>
-      </div>
-
-      {onRefresh && (
-        <Button variant="outline" onClick={onRefresh} type="button" className="w-full">
-          <RefreshCw size={14} />
-          <span>刷新运行状态</span>
-        </Button>
-      )}
+    <div className="system-status-compact">
+      <StatusRow label="模型">
+        <Badge className="system-status-chip" data-status={model.variant} variant={model.variant}>
+          {model.label}
+        </Badge>
+      </StatusRow>
+      <StatusRow label="智能体">
+        <Badge className="system-status-chip" data-status={agents.variant} variant={agents.variant}>
+          {agents.label}
+        </Badge>
+      </StatusRow>
+      <StatusRow label="后端">
+        <Badge
+          aria-label={`后端${backend.label}`}
+          className="system-status-chip"
+          data-status={backend.variant}
+          variant={backend.variant}
+        >
+          {backend.label}
+        </Badge>
+      </StatusRow>
     </div>
+  );
+}
+
+export interface SystemDiagnosticsDialogProps extends SystemStatusPanelProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function SystemDiagnosticsDialog({
+  open,
+  onOpenChange,
+  health,
+  agentDoctor,
+  backendStatus = "unknown",
+  projectListStatus = "idle",
+  agentRunModeLabel = (mode) => mode,
+}: SystemDiagnosticsDialogProps) {
+  const backend = backendLabel(backendStatus);
+  const agents = agentStatus(agentDoctor, backendStatus, agentRunModeLabel);
+  const agentMode = agentDoctor ? agentRunModeLabel(agentDoctor.run_mode) : "未检测";
+  const rows = [
+    ["后端状态", backend.label],
+    ["项目列表", projectListLabel(projectListStatus)],
+    ["模型名称", health?.model || "未检测"],
+    ["向量模型", health?.embedding_model || "未检测"],
+    ["数据目录", health?.data_dir || "未检测"],
+    ["智能体状态", agents.label],
+  ];
+
+  if (agentMode !== agents.label) {
+    rows.push(["智能体模式", agentMode]);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="system-diagnostics-dialog">
+        <DialogHeader>
+          <DialogTitle>后端诊断</DialogTitle>
+          <DialogDescription>当前后端连接、模型配置与智能体运行摘要。</DialogDescription>
+        </DialogHeader>
+        <dl className="system-diagnostics-list">
+          {rows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </DialogContent>
+    </Dialog>
   );
 }
