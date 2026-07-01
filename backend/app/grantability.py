@@ -114,6 +114,11 @@ def generate_grantability_report(
     if "insufficient_corpus" in knowledge_flags:
         low_evidence_flags.append("项目语料库证据不足，需补充检索和入库文献。")
         fail_closed = True
+    if any(flag.startswith("cnipa_export_") for flag in knowledge_flags):
+        low_evidence_flags.append(
+            "CNIPA 官方导出文献已入库，但全文或权利要求覆盖不足，需补充导出全文后再确认授权前景。"
+        )
+        fail_closed = True
     if project_knowledge_state and project_knowledge_state.document_count < 2:
         low_evidence_flags.append("项目语料库入库文献少于 2 件，现有技术证据不足。")
         fail_closed = True

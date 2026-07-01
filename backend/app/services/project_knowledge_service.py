@@ -61,6 +61,23 @@ def _validate_candidate_decision(decision: str) -> None:
         raise ValueError(f"invalid prior art candidate decision: {decision!r}")
 
 
+def _candidate_has_claims(candidate: PriorArtCandidate) -> bool:
+    return bool(str(candidate.metadata.get("claims") or "").strip())
+
+
+def _candidate_has_fulltext(candidate: PriorArtCandidate) -> bool:
+    return bool(
+        candidate.fulltext_status == "available"
+        or candidate.abstract
+        or str(candidate.metadata.get("description") or "").strip()
+        or str(candidate.metadata.get("claims") or "").strip()
+    )
+
+
+def _ratio(count: int, total: int) -> float:
+    return count / total if total else 0.0
+
+
 def project_snapshot_hash(project: ProjectRecord, patent_points: list[PatentPointCandidate] | None = None) -> str:
     parts = [
         project.name,
@@ -578,9 +595,32 @@ def create_project_corpus_from_included_candidates(
         fulltext_coverage = patent_ratio
         quality_flags = ["non_patent_source"]
     else:
-        claim_coverage = 1.0 if included else 0.0
-        fulltext_coverage = 1.0 if included else 0.0
+        claim_covered_count = sum(
+            1
+            for candidate in patent_included
+            if candidate.source != CNIPA_OFFICIAL_EXPORT_SOURCE or _candidate_has_claims(candidate)
+        )
+        fulltext_covered_count = sum(
+            1
+            for candidate in patent_included
+            if candidate.source != CNIPA_OFFICIAL_EXPORT_SOURCE or _candidate_has_fulltext(candidate)
+        )
+        claim_coverage = _ratio(
+            claim_covered_count,
+            len(included),
+        )
+        fulltext_coverage = _ratio(
+            fulltext_covered_count,
+            len(included),
+        )
         quality_flags = []
+        cnipa_included = [candidate for candidate in patent_included if candidate.source == CNIPA_OFFICIAL_EXPORT_SOURCE]
+        if cnipa_included and fulltext_coverage == 0.0:
+            quality_flags.append("cnipa_export_metadata_only")
+        elif cnipa_included and fulltext_coverage < 1.0:
+            quality_flags.append("cnipa_export_partial_fulltext")
+        if cnipa_included and claim_coverage < 1.0:
+            quality_flags.append("cnipa_export_missing_claims")
     non_patent_sources = sorted({candidate.source for candidate in non_patent_included})
     quality_failures: list[dict[str, str]] = []
     if all_synthetic:
@@ -594,7 +634,12 @@ def create_project_corpus_from_included_candidates(
                 "message": "Corpus includes non-patent sources: " + ", ".join(non_patent_sources),
             }
         )
-    corpus_status = "needs_supplemental_search" if (all_synthetic or includes_non_patent) else ("ready" if included else "failed")
+    partial_cnipa = any(flag.startswith("cnipa_export_") for flag in quality_flags)
+    corpus_status = (
+        "needs_supplemental_search"
+        if (all_synthetic or includes_non_patent or partial_cnipa)
+        else ("ready" if included else "failed")
+    )
     version = ProjectCorpusVersion(
         id=uuid.uuid4().hex,
         project_id=project_id,
@@ -622,14 +667,16 @@ def create_project_corpus_from_included_candidates(
         created_at=_now(),
     )
     store.create_project_corpus_version(version)
-    state_status = "needs_supplemental_search" if all_synthetic or includes_non_patent or not included else "ready"
+    state_status = (
+        "needs_supplemental_search"
+        if all_synthetic or includes_non_patent or partial_cnipa or not included
+        else "ready"
+    )
     if all_synthetic:
         quality_flags = ["synthetic_evidence"]
     elif includes_non_patent:
         quality_flags = ["non_patent_source"]
-    elif included:
-        quality_flags = []
-    else:
+    elif not included:
         quality_flags = ["empty_corpus"]
     updated_state = state.model_copy(
         update={

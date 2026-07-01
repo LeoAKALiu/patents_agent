@@ -566,6 +566,26 @@ def test_grantability_fail_closed_when_project_corpus_needs_supplemental_search(
     )
 
 
+def test_grantability_fails_closed_for_partial_cnipa_export_state():
+    report = generate_grantability_report(
+        project_id="proj-cnipa-partial",
+        package=_sample_package(),
+        disclosures=[_sample_disclosure()],
+        patent_points=_sample_patent_points(),
+        project_knowledge_state=ProjectKnowledgeState(
+            project_id="proj-cnipa-partial",
+            status="needs_supplemental_search",
+            document_count=2,
+            claim_coverage=0.0,
+            fulltext_coverage=0.5,
+            quality_flags=["cnipa_export_missing_claims"],
+        ),
+    )
+
+    assert report.fail_closed is True
+    assert any("CNIPA 官方导出文献已入库" in flag for flag in report.low_evidence_flags)
+
+
 # ---------------------------------------------------------------------------
 # Tests: low-evidence fail-closed behavior
 # ---------------------------------------------------------------------------
