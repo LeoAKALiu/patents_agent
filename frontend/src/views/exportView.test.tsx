@@ -410,4 +410,128 @@ describe("ExportView quality gate copy", () => {
     expect(screen.getByText("导出解锁前隐藏申请文本预览")).toBeInTheDocument();
     expect(screen.queryByText(/说明书长文本。说明书长文本。/)).toBeNull();
   });
+
+  it("hides the long package preview when backend readiness still locks export", () => {
+    const View = ExportView as any;
+
+    render(
+      <View
+        project={{ id: "p-1", name: "输入数据处理", draft_text: "draft", package: packageValue }}
+        packageValue={{
+          ...packageValue,
+          description: "说明书长文本。".repeat(120),
+        }}
+        postDraftReview={{
+          id: "review-1",
+          project_id: "p-1",
+          status: "completed",
+          providers: [],
+          prompt_pack_version: "post-draft-v1",
+          draft_package_hash: "source-hash",
+          official_compile_run_id: "compile-1",
+          official_package_hash: "official-hash",
+          role_results: [],
+          chair_result: null,
+          export_allowed: true,
+          blocking_issues: [],
+          contamination_hits: [],
+          logs: [],
+          created_at: "2026-06-28T00:00:00Z",
+          updated_at: "2026-06-28T00:00:00Z",
+        }}
+        officialCompileRun={{
+          id: "compile-1",
+          project_id: "p-1",
+          status: "completed",
+          source_draft_hash: "source-hash",
+          official_package_hash: "official-hash",
+          official_package: {
+            title: "一种输入数据处理方法",
+            abstract: "摘要",
+            claims: "1. 一种方法。",
+            description: "说明书",
+            drawing_description: "图1为流程图。",
+            figure_plan: [],
+            compile_warnings: [],
+            source_draft_hash: "source-hash",
+            official_package_hash: "official-hash",
+          },
+          contamination_removed: [],
+          blocked_items: [],
+          sidecar_notes: [],
+          logs: [],
+          created_at: "2026-06-28T00:00:00Z",
+          updated_at: "2026-06-28T00:00:00Z",
+        }}
+        exportReadiness={{
+          export_allowed: false,
+          draft_required: false,
+          quality_required: true,
+          official_compile_required: false,
+          post_draft_review_required: false,
+          next_action: "run_quality_checks",
+          reason: "quality_required",
+          quality_done: false,
+          compile_status: "completed",
+          review_gate_status: "passed",
+        }}
+        currentDraftHash="draft-hash"
+        currentSourceDraftHash="source-hash"
+        currentQualityChecked={true}
+        qualityCheckStates={{
+          filing_readiness: "current",
+          claim_defense_worksheet: "current",
+          draft_completion: "current",
+        }}
+        lastExport={null}
+        onNativeExport={vi.fn()}
+        onOpenExportFolder={vi.fn()}
+        desktopDialogsAvailable={false}
+      />,
+    );
+
+    expect(screen.getByText("导出解锁前隐藏申请文本预览")).toBeInTheDocument();
+    expect(screen.queryByText(/说明书长文本。说明书长文本。/)).toBeNull();
+  });
+
+  it("shows the package preview when backend readiness marks export ready", () => {
+    const View = ExportView as any;
+
+    render(
+      <View
+        project={{ id: "p-1", name: "输入数据处理", draft_text: "draft", package: packageValue }}
+        packageValue={{
+          ...packageValue,
+          claims: "1. 一种方法。".repeat(6),
+        }}
+        postDraftReview={null}
+        officialCompileRun={null}
+        exportReadiness={{
+          export_allowed: true,
+          draft_required: false,
+          quality_required: false,
+          official_compile_required: false,
+          post_draft_review_required: false,
+          next_action: "export_ready",
+          reason: "ready",
+          quality_done: true,
+        }}
+        currentDraftHash="draft-hash"
+        currentSourceDraftHash="source-hash"
+        currentQualityChecked={false}
+        qualityCheckStates={{
+          filing_readiness: "unknown",
+          claim_defense_worksheet: "unknown",
+          draft_completion: "unknown",
+        }}
+        lastExport={null}
+        onNativeExport={vi.fn()}
+        onOpenExportFolder={vi.fn()}
+        desktopDialogsAvailable={false}
+      />,
+    );
+
+    expect(screen.queryByText("导出解锁前隐藏申请文本预览")).toBeNull();
+    expect(screen.getByText(/1\. 一种方法。1\. 一种方法。/)).toBeInTheDocument();
+  });
 });

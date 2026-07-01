@@ -249,6 +249,9 @@ export function ExportView({
       && postDraftReview.official_compile_run_id === officialCompileRun?.id
       && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
+  const previewAllowed = exportReadiness
+    ? exportReadiness.export_allowed === true || exportReadiness.next_action === "export_ready"
+    : officialAllowed;
   // PR7 (issue #21): scan the official package text for residual internal
   // markers (log lines, prompt fragments, review memos, mermaid fences, etc.).
   // The backend already strips these at compile time and the gate refuses to
@@ -476,7 +479,7 @@ export function ExportView({
           </button>
         </div>
       )}
-      {officialAllowed ? (
+      {previewAllowed ? (
         <div className="report-preview-pane">
           <PackagePreview packageValue={packageValue} compact />
         </div>
