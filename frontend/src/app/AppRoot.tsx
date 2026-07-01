@@ -131,20 +131,25 @@ function mobileNav(props: AppRootProps): React.ReactNode {
 }
 
 function noticeBar(props: AppRootProps): React.ReactNode {
-  if (!props.busy && !props.message && !props.error) return null;
+  const visibleError = shouldDemoteWorkbenchHealthError(props) ? "" : props.error;
+  if (!props.busy && !props.message && !visibleError) return null;
   return (
-    <div className={props.error ? "notice error" : "notice"}>
+    <div className={visibleError ? "notice error" : "notice"}>
       {props.busy && <Loader2 className="animate-spin" size={16} />}
       <span>
-        {props.error || props.message || guidedBusyLabel(props.busy) || "处理中"}
+        {visibleError || props.message || guidedBusyLabel(props.busy) || "处理中"}
       </span>
-      {!props.error && props.busy && (
+      {!visibleError && props.busy && (
         <BusyOperationConsole
           log={guidedOperationLog(props.busy, props.busyElapsedSeconds)}
         />
       )}
     </div>
   );
+}
+
+function shouldDemoteWorkbenchHealthError(props: AppRootProps): boolean {
+  return props.activeSection === "workbench" && props.error.includes("/api/health");
 }
 
 function exportStatus(props: AppRootProps): {

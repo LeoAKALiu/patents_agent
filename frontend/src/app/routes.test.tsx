@@ -384,6 +384,21 @@ describe("AppRoot routes", () => {
     expect(screen.queryByRole("button", { name: "返回向导" })).not.toBeInTheDocument();
   });
 
+  it("demotes workbench health-check failures into the diagnostics queue", () => {
+    render(
+      <AppRoot
+        {...makeRootProps()}
+        activeSection="workbench"
+        backendStatus="offline"
+        error="服务器操作失败:GET /api/health 返回 500:"
+      />,
+    );
+
+    expect(screen.queryByText(/GET \/api\/health/)).not.toBeInTheDocument();
+    expect(screen.getByText("后端诊断")).toBeInTheDocument();
+    expect(screen.getByText("后端离线")).toBeInTheDocument();
+  });
+
   it("keeps return-to-start-choice recovery only when the workbench start path is active", () => {
     render(<AppRoot {...makeRootProps()} activeSection="workbench" startChoice="invention" />);
 

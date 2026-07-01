@@ -127,6 +127,17 @@ describe("WorkbenchWorkspace", () => {
     expect(screen.queryByText(/generation_logs|official_safe_patches/)).toBeNull();
   });
 
+  it("renders the optimized command-center panels from the latest OD design", () => {
+    render(<WorkbenchWorkspace state={makeState()} handlers={makeHandlers()} onNavigate={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: "状态覆盖" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "项目与工作队列" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "运营与证据面板" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "证据矩阵" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "文稿预览" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "诊断队列" })).toBeInTheDocument();
+  });
+
   it("navigates blocked review work to documents", async () => {
     const navigate = vi.fn();
     render(<WorkbenchWorkspace state={makeState()} handlers={makeHandlers()} onNavigate={navigate} />);
@@ -205,6 +216,42 @@ describe("WorkbenchWorkspace", () => {
     );
 
     expect(handlers.onStartChoice).toHaveBeenCalledWith("invention");
+  });
+
+  it("keeps no-project diagnostics visible without blocking the start paths", async () => {
+    const handlers = makeHandlers();
+    render(
+      <WorkbenchWorkspace
+        state={makeState({
+          hasProject: false,
+          projectName: "未选择项目",
+          currentStepId: "idea",
+          nextAction: { label: "创建项目", description: "选择起步路径。" },
+          primaryTarget: "workbench-start",
+          riskSummary: {
+            blockingCount: 0,
+            issueCount: 0,
+            exportLocked: false,
+            exportReady: false,
+          },
+        })}
+        handlers={handlers}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    const diagnostics = screen.getByRole("region", { name: "诊断队列" });
+
+    expect(within(diagnostics).getByText("后端诊断")).toBeInTheDocument();
+    expect(screen.getByText("错误降级")).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /导入已有稿件进行润色提升/,
+      }),
+    );
+
+    expect(handlers.onStartChoice).toHaveBeenCalledWith("external");
   });
 
   it("keeps secondary workspaces behind an other-actions disclosure", async () => {
