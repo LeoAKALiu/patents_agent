@@ -534,4 +534,78 @@ describe("ExportView quality gate copy", () => {
     expect(screen.queryByText("导出解锁前隐藏申请文本预览")).toBeNull();
     expect(screen.getByText(/1\. 一种方法。1\. 一种方法。/)).toBeInTheDocument();
   });
+
+  it("unlocks formal export actions from backend readiness even when local compile state is stale", () => {
+    const View = ExportView as any;
+
+    render(
+      <View
+        project={{ id: "p-1", name: "输入数据处理", draft_text: "draft", package: packageValue }}
+        packageValue={packageValue}
+        postDraftReview={null}
+        officialCompileRun={{
+          id: "compile-stale",
+          project_id: "p-1",
+          status: "completed",
+          source_draft_hash: "stale-source-hash",
+          official_package_hash: "official-ready-hash",
+          official_package: {
+            title: "一种输入数据处理方法",
+            abstract: "摘要",
+            claims: "1. 一种方法。",
+            description: "说明书",
+            drawing_description: "图1为流程图。",
+            figure_plan: [],
+            compile_warnings: [],
+            source_draft_hash: "stale-source-hash",
+            official_package_hash: "official-ready-hash",
+          },
+          contamination_removed: [],
+          blocked_items: [],
+          sidecar_notes: [],
+          logs: [],
+          created_at: "2026-06-28T00:00:00Z",
+          updated_at: "2026-06-28T00:00:00Z",
+        }}
+        exportReadiness={{
+          export_allowed: true,
+          draft_required: false,
+          quality_required: false,
+          official_compile_required: false,
+          post_draft_review_required: false,
+          next_action: "export_ready",
+          reason: "ready",
+          quality_done: true,
+          compile_status: "completed",
+          official_package_hash: "official-ready-hash",
+          current_source_draft_hash: "source-hash",
+          review_gate_status: "passed",
+        }}
+        currentDraftHash="draft-hash"
+        currentSourceDraftHash="source-hash"
+        currentQualityChecked={false}
+        qualityCheckStates={{
+          filing_readiness: "unknown",
+          claim_defense_worksheet: "unknown",
+          draft_completion: "unknown",
+        }}
+        lastExport={null}
+        onNativeExport={vi.fn()}
+        onOpenExportFolder={vi.fn()}
+        desktopDialogsAvailable={true}
+      />,
+    );
+
+    expect(screen.getByText("正式稿已通过质量检查和成稿会审")).toBeInTheDocument();
+
+    const docxLink = screen.getByRole("link", { name: "正式提交稿 DOCX" });
+    const mdLink = screen.getByRole("link", { name: "正式提交稿 MD" });
+    expect(docxLink).toHaveAttribute("href", "/api/projects/p-1/official-export.docx");
+    expect(docxLink).toHaveAttribute("aria-disabled", "false");
+    expect(mdLink).toHaveAttribute("href", "/api/projects/p-1/official-export.md");
+    expect(mdLink).toHaveAttribute("aria-disabled", "false");
+
+    expect(screen.getByRole("button", { name: "原生保存 DOCX…" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "原生保存 Markdown…" })).toBeEnabled();
+  });
 });

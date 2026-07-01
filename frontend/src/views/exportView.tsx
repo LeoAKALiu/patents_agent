@@ -237,7 +237,7 @@ export function ExportView({
   desktopDialogsAvailable: boolean;
 }) {
   const enabled = canExportPackage(packageValue);
-  const officialAllowed = Boolean(
+  const fallbackOfficialAllowed = Boolean(
     enabled
       && currentQualityChecked
       && officialCompileRun?.status === "completed"
@@ -249,9 +249,11 @@ export function ExportView({
       && postDraftReview.official_compile_run_id === officialCompileRun?.id
       && postDraftReview.official_package_hash === officialCompileRun?.official_package_hash,
   );
-  const previewAllowed = exportReadiness
+  const readinessAllowed = exportReadiness
     ? exportReadiness.export_allowed === true || exportReadiness.next_action === "export_ready"
-    : officialAllowed;
+    : undefined;
+  const officialAllowed = readinessAllowed ?? fallbackOfficialAllowed;
+  const previewAllowed = officialAllowed;
   // PR7 (issue #21): scan the official package text for residual internal
   // markers (log lines, prompt fragments, review memos, mermaid fences, etc.).
   // The backend already strips these at compile time and the gate refuses to
@@ -279,6 +281,7 @@ export function ExportView({
     : lockedGateDetail({ exportReadiness, officialCompileRun, postDraftReview });
   const lockedGateLines = showQualityGateDetails ? qualityGateLines : gateDetail?.lines ?? [];
   const lockedGateTitle = showQualityGateDetails ? "质量检查未完成" : gateDetail?.title ?? "正式稿入口已锁定";
+  const unlockedOfficialHash = exportReadiness?.official_package_hash ?? officialCompileRun?.official_package_hash;
   return (
     <section className="col-span-full grid gap-5">
       <StatusStrip
@@ -286,7 +289,7 @@ export function ExportView({
         items={[
           { label: "正式稿状态", value: officialAllowed ? "已解锁" : lockedStatusLabel(currentQualityChecked, gateDetail) },
           { label: "源稿哈希", value: currentSourceDraftHash ? currentSourceDraftHash.slice(0, 12) : "未生成" },
-          { label: "正式稿哈希", value: officialCompileRun?.official_package_hash?.slice(0, 12) ?? "未编译" },
+          { label: "正式稿哈希", value: unlockedOfficialHash?.slice(0, 12) ?? "未编译" },
           { label: "最近导出", value: lastExport && lastExportMatchesHash ? lastExport.format.toUpperCase() : "无有效导出" },
         ]}
       />
@@ -321,7 +324,7 @@ export function ExportView({
           title={officialAllowed ? "正式稿已通过质量检查和成稿会审" : lockedGateTitle}
           description={
             officialAllowed
-              ? `当前正式稿可导出：${officialCompileRun?.official_package_hash.slice(0, 12)}`
+              ? `当前正式稿可导出：${unlockedOfficialHash?.slice(0, 12) ?? "以后端门禁为准"}`
               : lockedGateLines.length > 0
                 ? (
                     <>
