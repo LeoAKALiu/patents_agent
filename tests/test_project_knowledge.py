@@ -9,6 +9,7 @@ from backend.app.knowledge.patent_search import (
     CnipaEpubPatentProvider,
     GooglePatentsProvider,
     StaticPatentSearchProvider,
+    patent_hit_to_candidate,
 )
 from backend.app.schemas import (
     AgentSearchPlan,
@@ -20,6 +21,7 @@ from backend.app.schemas import (
     ProjectCorpusVersion,
     ProjectKnowledgeState,
     ProjectRecord,
+    ProjectSearchLedger,
     SearchIntent,
     SearchPlanStrategyGroup,
 )
@@ -253,6 +255,16 @@ def test_knowledge_initialization_extracts_intent_and_plan(tmp_path):
     assert "任务编排" in overview.latest_intent.keywords_zh
     assert overview.latest_plan is not None
     assert {group.id for group in overview.latest_plan.strategy_groups} >= {"broad-recall", "closest-prior-art"}
+
+
+def test_knowledge_overview_includes_evidence_source_statuses(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    store.create_project(project)
+
+    overview = knowledge_overview(store, project.id, source_statuses=[])
+
+    assert overview.source_statuses == []
 
 
 def test_project_knowledge_cnipa_query_pack_uses_latest_plan(tmp_path):
@@ -1058,7 +1070,7 @@ def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tm
     after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
 
     assert after_build.state.status == "needs_supplemental_search"
-    assert after_build.state.quality_flags == ["non_patent_source"]
+    assert after_build.state.quality_flags == ["non_patent_only"]
     assert after_build.state.claim_coverage == 0.0
     assert after_build.state.fulltext_coverage == 0.0
     assert after_build.latest_corpus_version is not None
@@ -1070,6 +1082,53 @@ def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tm
             "message": "Corpus includes non-patent sources: semantic_scholar",
         }
     ]
+
+
+def test_non_patent_only_included_candidates_do_not_make_project_ready(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    store.create_project(project)
+    state = ProjectKnowledgeState(
+        project_id=project.id,
+        status="candidates_pending",
+        active_plan_id="plan-1",
+        last_search_at="2026-07-01T00:00:00Z",
+        candidate_count=1,
+    )
+    store.upsert_project_knowledge_state(state)
+    candidate = PriorArtCandidate(
+        id="wanfang-candidate-1",
+        project_id=project.id,
+        plan_id="plan-1",
+        source="wanfang_api",
+        title="城市体检智能体任务编排研究",
+        url="https://apps.wanfangdata.com.cn/example",
+        user_decision="include",
+        evidence_kind="non_patent_literature",
+        can_satisfy_patent_gate=False,
+    )
+    store.replace_agent_search_run(
+        project_id=project.id,
+        plan=store.create_agent_search_plan(
+            AgentSearchPlan(
+                id="plan-1",
+                project_id=project.id,
+                intent_id="intent-1",
+                status="completed",
+            )
+        ),
+        candidates=[candidate],
+        ledger=ProjectSearchLedger(id="ledger-1", project_id=project.id, plan_id="plan-1"),
+        state=state,
+    )
+
+    overview = create_project_corpus_from_included_candidates(store, project.id, "plan-1")
+
+    assert overview.state.status == "needs_supplemental_search"
+    assert overview.state.document_count == 1
+    assert overview.state.patent_document_count == 0
+    assert overview.state.non_patent_document_count == 1
+    assert "non_patent_only" in overview.state.quality_flags
 
 
 def test_create_project_corpus_preserves_non_patent_and_cnipa_quality_flags_in_mixed_corpus(tmp_path):
@@ -1124,9 +1183,7 @@ def test_create_project_corpus_preserves_non_patent_and_cnipa_quality_flags_in_m
     assert result.state.status == "needs_supplemental_search"
     assert result.state.claim_coverage == 0.5
     assert result.state.fulltext_coverage == 0.0
-    assert "non_patent_source" in result.state.quality_flags
-    assert "cnipa_export_partial_fulltext" in result.state.quality_flags
-    assert "cnipa_export_missing_claims" not in result.state.quality_flags
+    assert result.state.quality_flags == ["non_patent_source"]
     assert result.latest_corpus_version is not None
     assert result.latest_corpus_version.quality_report is not None
     assert result.latest_corpus_version.quality_report.failures == [
@@ -1139,6 +1196,23 @@ def test_create_project_corpus_preserves_non_patent_and_cnipa_quality_flags_in_m
             "message": "CNIPA official export corpus is missing fulltext coverage for one or more included records.",
         },
     ]
+
+
+def test_patent_candidate_sets_patent_gate_fields(tmp_path):
+    project = _project()
+    hit = PatentSearchHit(
+        id="hit-1",
+        source="patsnap_api",
+        query="城市体检 智能体",
+        title="城市体检智能体调度方法",
+        publication_number="CN112233445A",
+        url="https://example.com/patent/CN112233445A",
+    )
+
+    candidate = patent_hit_to_candidate(hit, project_id=project.id, plan_id="plan-1", strategy_group_id="broad")
+
+    assert candidate.evidence_kind == "patent"
+    assert candidate.can_satisfy_patent_gate is True
 
 
 def test_create_project_corpus_rejects_build_before_search(tmp_path):

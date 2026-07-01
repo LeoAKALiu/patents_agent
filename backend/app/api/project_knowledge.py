@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi import File, Form, UploadFile
 
 from backend.app.api.deps import get_project_repository, require_project
+from backend.app.evidence_sources import evidence_source_views
 from backend.app.knowledge.patent_sources import list_patent_source_capabilities
 from backend.app.schemas import (
     BuildProjectCorpusRequest,
@@ -36,6 +37,12 @@ def _resolve_patent_search_providers(request: Request, project_id: str, plan_id:
     if callable(providers):
         return providers(project_id=project_id, plan_id=plan_id)
     return providers
+
+
+def _overview_with_source_statuses(request: Request, overview):
+    return overview.model_copy(
+        update={"source_statuses": evidence_source_views(request.app.state.settings.data_dir)}
+    )
 
 
 async def _stream_cnipa_export_upload(file: UploadFile, destination: Path) -> None:
@@ -71,7 +78,8 @@ def list_patent_sources() -> dict:
 def get_project_knowledge(project_id: str, request: Request) -> dict:
     repo = get_project_repository(request)
     require_project(project_id, repo)
-    return knowledge_overview(request.app.state.store, project_id).model_dump(mode="json")
+    source_statuses = evidence_source_views(request.app.state.settings.data_dir)
+    return knowledge_overview(request.app.state.store, project_id, source_statuses=source_statuses).model_dump(mode="json")
 
 
 @router.post("/api/projects/{project_id}/knowledge/search-intent")
@@ -79,7 +87,8 @@ def create_project_search_intent(project_id: str, request: Request) -> dict:
     repo = get_project_repository(request)
     project = require_project(project_id, repo)
     patent_points = repo.list_patent_points(project_id)
-    return regenerate_project_knowledge(request.app.state.store, project, patent_points).model_dump(mode="json")
+    overview = regenerate_project_knowledge(request.app.state.store, project, patent_points)
+    return _overview_with_source_statuses(request, overview).model_dump(mode="json")
 
 
 @router.get("/api/projects/{project_id}/knowledge/cnipa-query-pack")
@@ -99,12 +108,13 @@ def run_project_search_plan(project_id: str, plan_id: str, request: Request) -> 
             project_id,
             plan_id,
             providers=_resolve_patent_search_providers(request, project_id, plan_id),
+            data_dir=request.app.state.settings.data_dir,
         )
     except ProjectKnowledgeConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return overview.model_dump(mode="json")
+    return _overview_with_source_statuses(request, overview).model_dump(mode="json")
 
 
 @router.get("/api/projects/{project_id}/knowledge/search-ledger/{ledger_id}")
@@ -150,7 +160,7 @@ async def import_project_cnipa_export(
         stored_path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail="Failed to import CNIPA export.") from exc
     ledgers = request.app.state.store.list_project_knowledge_import_ledgers(project_id, plan_id)
-    return {"overview": overview.model_dump(mode="json"), "ledger": ledgers[0].model_dump(mode="json")}
+    return {"overview": _overview_with_source_statuses(request, overview).model_dump(mode="json"), "ledger": ledgers[0].model_dump(mode="json")}
 
 
 @router.get("/api/projects/{project_id}/knowledge/import-ledgers")
@@ -234,4 +244,4 @@ def create_project_corpus_version(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return overview.model_dump(mode="json")
+    return _overview_with_source_statuses(request, overview).model_dump(mode="json")

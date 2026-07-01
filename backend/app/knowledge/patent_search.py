@@ -668,6 +668,14 @@ def patent_hit_to_candidate(
         cpc=hit.cpc,
         family_id=hit.family_id,
         fulltext_status="unknown",
+        evidence_kind="patent",
+        can_satisfy_patent_gate=hit.source in {
+            "patsnap_api",
+            "cnipa_official_export",
+            "cnipa_epub",
+            "wipo_patentscope",
+            "google_patents",
+        },
         recommended_action="review",
         recommendation_reason="真实专利检索命中，等待全文与相关度复核。",
         metadata={

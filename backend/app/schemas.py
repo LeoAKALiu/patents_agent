@@ -1208,6 +1208,8 @@ class ProjectKnowledgeState(BaseModel):
     last_indexed_at: str = ""
     staleness_reason: str = ""
     document_count: int = 0
+    patent_document_count: int = 0
+    non_patent_document_count: int = 0
     candidate_count: int = 0
     claim_coverage: float = 0.0
     fulltext_coverage: float = 0.0
@@ -1419,11 +1421,27 @@ class PriorArtCandidate(BaseModel):
     family_id: str = ""
     duplicate_of: str = ""
     fulltext_status: str = Field(default="unknown", pattern="^(unknown|available|unavailable|failed)$")
+    evidence_kind: str = Field(default="patent", pattern="^(patent|non_patent_literature|web_discovery)$")
+    can_satisfy_patent_gate: bool = True
     recommended_action: str = Field(default="review", pattern="^(include|exclude|review)$")
     recommendation_reason: str = ""
     user_decision: str = Field(default="pending", pattern="^(pending|include|exclude)$")
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: str = ""
+
+    @model_validator(mode="after")
+    def _apply_source_gate_defaults(self) -> "PriorArtCandidate":
+        non_patent_sources = {"semantic_scholar", "wanfang_api"}
+        discovery_sources = {"tavily", "exa"}
+        if self.source in non_patent_sources:
+            if self.evidence_kind == "patent":
+                self.evidence_kind = "non_patent_literature"
+            self.can_satisfy_patent_gate = False
+        elif self.source in discovery_sources:
+            if self.evidence_kind == "patent":
+                self.evidence_kind = "web_discovery"
+            self.can_satisfy_patent_gate = False
+        return self
 
 
 class ProjectCorpusVersion(BaseModel):
@@ -1451,6 +1469,7 @@ class ProjectKnowledgeOverview(BaseModel):
     latest_plan: AgentSearchPlan | None = None
     candidates: list[PriorArtCandidate] = Field(default_factory=list)
     latest_corpus_version: ProjectCorpusVersion | None = None
+    source_statuses: list[EvidenceSourceConfig] = Field(default_factory=list)
 
 
 class CnipaExportImportResponse(BaseModel):

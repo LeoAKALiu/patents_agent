@@ -24,6 +24,7 @@ from backend.app.schemas import (
     AgentSearchPlan,
     CnipaQueryPack,
     CorpusQualityReport,
+    EvidenceSourceConfig,
     PatentPointCandidate,
     PatentSearchFilters,
     PriorArtCandidate,
@@ -40,11 +41,17 @@ from backend.app.storage import SQLiteStore
 
 
 ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通过", "以及", "进行", "生成"}
-PROJECT_PATENT_PROVIDER_SOURCES = [CNIPA_OFFICIAL_EXPORT_SOURCE, WIPO_PATENTSCOPE_SOURCE]
-PROJECT_PATENT_CORPUS_SOURCES = [*PROJECT_PATENT_PROVIDER_SOURCES, "cnipa_epub", "google_patents"]
-PROJECT_PATENT_PROVIDER_SOURCE_SET = frozenset(PROJECT_PATENT_CORPUS_SOURCES)
+PROJECT_PRIMARY_PATENT_PROVIDER_SOURCES = [
+    "patsnap_api",
+    "cnipa_official_export",
+    "cnipa_epub",
+    "wipo_patentscope",
+    "google_patents",
+]
+PROJECT_SUPPLEMENTAL_LITERATURE_SOURCES = ["wanfang_api"]
+PROJECT_PATENT_PROVIDER_SOURCE_SET = frozenset(PROJECT_PRIMARY_PATENT_PROVIDER_SOURCES)
 LIVE_PROJECT_PATENT_PROVIDER_SOURCES = frozenset(
-    {CNIPA_LEGACY_EPUB_SOURCE, WIPO_PATENTSCOPE_SOURCE, GOOGLE_PATENTS_SOURCE}
+    {"patsnap_api", CNIPA_LEGACY_EPUB_SOURCE, WIPO_PATENTSCOPE_SOURCE, GOOGLE_PATENTS_SOURCE}
 )
 
 
@@ -220,19 +227,31 @@ def _build_plan(intent: SearchIntent) -> AgentSearchPlan:
                 label="宽召回检索",
                 purpose="尽量找全相关技术方向的公开和授权专利。",
                 queries=[core_query],
-                sources=list(PROJECT_PATENT_PROVIDER_SOURCES),
+                sources=list(PROJECT_PRIMARY_PATENT_PROVIDER_SOURCES),
             ),
             SearchPlanStrategyGroup(
                 id="closest-prior-art",
                 label="最接近现有技术检索",
                 purpose="寻找可用于新颖性和创造性对比的高相关文献。",
                 queries=[closest_query or core_query],
-                sources=list(PROJECT_PATENT_PROVIDER_SOURCES),
+                sources=list(PROJECT_PRIMARY_PATENT_PROVIDER_SOURCES),
+            ),
+            SearchPlanStrategyGroup(
+                id="supplemental-literature",
+                label="非专利文献补强",
+                purpose="补充论文、期刊、会议和科技文献线索，用于背景技术和创造性论证补强。",
+                queries=[core_query],
+                sources=list(PROJECT_SUPPLEMENTAL_LITERATURE_SOURCES),
             ),
         ],
-        target_sources=list(PROJECT_PATENT_PROVIDER_SOURCES),
+        target_sources=[*PROJECT_PRIMARY_PATENT_PROVIDER_SOURCES, *PROJECT_SUPPLEMENTAL_LITERATURE_SOURCES],
         target_result_count=20,
         filters={"jurisdictions": intent.jurisdictions, "date_range": intent.date_range},
+        metadata={
+            "primary_patent_sources": PROJECT_PRIMARY_PATENT_PROVIDER_SOURCES,
+            "supplemental_literature_sources": PROJECT_SUPPLEMENTAL_LITERATURE_SOURCES,
+            "fallback_sources": ["cnipa_official_export", "cnipa_epub", "wipo_patentscope", "google_patents"],
+        },
         created_at=_now(),
     )
 
@@ -305,6 +324,8 @@ def _candidate_mutation_followup_state(
             "last_indexed_at": "",
             "staleness_reason": "",
             "document_count": 0,
+            "patent_document_count": 0,
+            "non_patent_document_count": 0,
             "candidate_count": candidate_count,
             "claim_coverage": 0.0,
             "fulltext_coverage": 0.0,
@@ -350,7 +371,11 @@ def bulk_update_project_candidate_decisions(
     return updated
 
 
-def knowledge_overview(store: SQLiteStore, project_id: str) -> ProjectKnowledgeOverview:
+def knowledge_overview(
+    store: SQLiteStore,
+    project_id: str,
+    source_statuses: list[EvidenceSourceConfig] | None = None,
+) -> ProjectKnowledgeOverview:
     state = store.get_project_knowledge_state(project_id) or ProjectKnowledgeState(project_id=project_id)
     latest_plan = store.get_latest_agent_search_plan(project_id)
     candidates = store.list_prior_art_candidates(project_id, latest_plan.id if latest_plan else None)
@@ -363,6 +388,7 @@ def knowledge_overview(store: SQLiteStore, project_id: str) -> ProjectKnowledgeO
         latest_plan=latest_plan,
         candidates=candidates,
         latest_corpus_version=latest_corpus_version,
+        source_statuses=source_statuses or [],
     )
 
 
@@ -390,6 +416,8 @@ def regenerate_project_knowledge(
             "last_indexed_at": "",
             "staleness_reason": "",
             "document_count": 0,
+            "patent_document_count": 0,
+            "non_patent_document_count": 0,
             "candidate_count": 0,
             "claim_coverage": 0.0,
             "fulltext_coverage": 0.0,
@@ -460,7 +488,19 @@ def _planned_provider_source_ids(plan: AgentSearchPlan) -> set[str]:
 
 
 def _default_provider_chain_for_plan(plan: AgentSearchPlan) -> list[PatentSearchProvider]:
-    provider_chain = default_project_patent_providers()
+    return _default_provider_chain_for_plan_with_data_dir(plan, data_dir=None)
+
+
+def _default_provider_chain_for_plan_with_data_dir(
+    plan: AgentSearchPlan,
+    *,
+    data_dir: str | Path | None,
+) -> list[PatentSearchProvider]:
+    provider_chain = (
+        default_project_patent_providers()
+        if data_dir is None
+        else default_project_patent_providers(data_dir=data_dir)
+    )
     planned_sources = _planned_source_ids(plan)
     if not planned_sources:
         return provider_chain
@@ -473,11 +513,16 @@ def run_agent_search_plan(
     project_id: str,
     plan_id: str,
     providers: list[PatentSearchProvider] | None = None,
+    data_dir: str | Path | None = None,
 ) -> ProjectKnowledgeOverview:
     _state, plan = _get_active_plan(store, project_id, plan_id)
     running = plan.model_copy(update={"status": "running", "run_started_at": _now()})
     store.update_agent_search_plan(running)
-    provider_chain = list(providers) if providers is not None else _default_provider_chain_for_plan(running)
+    provider_chain = (
+        list(providers)
+        if providers is not None
+        else _default_provider_chain_for_plan_with_data_dir(running, data_dir=data_dir)
+    )
     candidates, ledger = run_patent_search_plan(provider_chain, project_id, running)
     completed = running.model_copy(
         update={
@@ -609,14 +654,19 @@ def create_project_corpus_from_included_candidates(
         for candidate in candidate_pool
         if candidate.user_decision == "include"
     ]
-    patent_included = [candidate for candidate in included if candidate.source in PROJECT_PATENT_PROVIDER_SOURCE_SET]
+    patent_included = [
+        candidate
+        for candidate in included
+        if candidate.can_satisfy_patent_gate and candidate.evidence_kind == "patent"
+    ]
     synthetic_included = [candidate for candidate in included if candidate.source == "fake"]
     non_patent_included = [
         candidate
         for candidate in included
-        if candidate.source not in PROJECT_PATENT_PROVIDER_SOURCE_SET and candidate.source != "fake"
+        if candidate.evidence_kind == "non_patent_literature" or not candidate.can_satisfy_patent_gate
     ]
     all_synthetic = bool(included) and len(synthetic_included) == len(included)
+    non_patent_only = bool(non_patent_included) and not patent_included
     includes_non_patent = bool(non_patent_included)
     if all_synthetic:
         claim_coverage = 0.0
@@ -720,13 +770,21 @@ def create_project_corpus_from_included_candidates(
         created_at=_now(),
     )
     store.create_project_corpus_version(version)
-    state_status = (
-        "needs_supplemental_search"
-        if all_synthetic or includes_non_patent or partial_cnipa or not included
-        else "ready"
-    )
-    if not included:
-        quality_flags = ["empty_corpus"]
+    if all_synthetic:
+        state_quality_flags = ["synthetic_evidence"]
+        state_status = "needs_supplemental_search"
+    elif non_patent_only:
+        state_quality_flags = ["non_patent_only"]
+        state_status = "needs_supplemental_search"
+    elif non_patent_included:
+        state_quality_flags = ["non_patent_source"]
+        state_status = "needs_supplemental_search"
+    elif patent_included:
+        state_quality_flags = quality_flags
+        state_status = "needs_supplemental_search" if all_synthetic or partial_cnipa else "ready"
+    else:
+        state_quality_flags = ["empty_corpus"]
+        state_status = "needs_supplemental_search"
     updated_state = state.model_copy(
         update={
             "status": state_status,
@@ -734,10 +792,12 @@ def create_project_corpus_from_included_candidates(
             "active_corpus_version_id": version.id,
             "last_indexed_at": _now(),
             "document_count": version.document_count,
+            "patent_document_count": len(patent_included),
+            "non_patent_document_count": len(non_patent_included),
             "candidate_count": len(candidate_pool),
             "claim_coverage": version.claim_coverage,
             "fulltext_coverage": version.fulltext_coverage,
-            "quality_flags": quality_flags,
+            "quality_flags": state_quality_flags,
         }
     )
     store.upsert_project_knowledge_state(updated_state)
@@ -762,6 +822,8 @@ def mark_stale_if_project_changed(
             "active_corpus_version_id": "",
             "staleness_reason": "项目技术描述已变化，需要重新生成检索计划或补充检索。",
             "document_count": 0,
+            "patent_document_count": 0,
+            "non_patent_document_count": 0,
             "claim_coverage": 0.0,
             "fulltext_coverage": 0.0,
             "quality_flags": sorted(set([*state.quality_flags, "stale_project_snapshot"])),
