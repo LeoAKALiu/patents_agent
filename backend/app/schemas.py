@@ -1350,6 +1350,7 @@ class CnipaExportImportResult(BaseModel):
     row_count: int = 0
     parsed_count: int = 0
     hits: list[PatentSearchHit] = Field(default_factory=list)
+    attachments: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     failures: list[CnipaExportImportFailure] = Field(default_factory=list)
 

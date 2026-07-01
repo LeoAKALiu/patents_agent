@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import re
 import tempfile
 import zipfile
 from dataclasses import dataclass
@@ -66,6 +67,11 @@ FIELD_ALIASES: dict[str, str] = {
 LIST_FIELDS = {"ipc", "cpc"}
 TABLE_SUFFIXES = {".csv", ".txt", ".xlsx", ".xlsm"}
 ATTACHMENT_SUFFIXES = {".pdf", ".xml"}
+MAX_ZIP_MEMBER_COUNT = 100
+MAX_ZIP_MEMBER_BYTES = 10 * 1024 * 1024
+MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES = 25 * 1024 * 1024
+CN_PUBLICATION_NUMBER_PATTERN = re.compile(r"^CN\d{8,12}[A-Z]\d?$")
+CN_APPLICATION_NUMBER_PATTERN = re.compile(r"^(?:CN)?(?:\d{8}|\d{12})(?:\.\d)?$")
 
 
 @dataclass(frozen=True)
@@ -95,17 +101,85 @@ def _parse_zip(path: Path, *, context: CnipaExportImportContext, raw_file_hash: 
     warnings: list[str] = []
     failures: list[CnipaExportImportFailure] = []
     hits: list[PatentSearchHit] = []
+    attachments: list[str] = []
+    seen_attachments: set[str] = set()
     row_count = 0
     with tempfile.TemporaryDirectory() as tmpdir:
         with zipfile.ZipFile(path) as archive:
-            for member in sorted(archive.infolist(), key=lambda item: item.filename):
+            members = [member for member in sorted(archive.infolist(), key=lambda item: item.filename) if not member.is_dir()]
+            if len(members) > MAX_ZIP_MEMBER_COUNT:
+                failures.append(
+                    CnipaExportImportFailure(
+                        source_file_name=path.name,
+                        code="zip_member_limit_exceeded",
+                        message=(
+                            f"ZIP contains {len(members)} files; only the first {MAX_ZIP_MEMBER_COUNT} are inspected."
+                        ),
+                    )
+                )
+                members = members[:MAX_ZIP_MEMBER_COUNT]
+            total_uncompressed_bytes = 0
+            for member in members:
                 if member.is_dir():
                     continue
                 member_name = Path(member.filename).name
                 suffix = Path(member_name).suffix.lower()
+                if not member_name:
+                    failures.append(
+                        CnipaExportImportFailure(
+                            source_file_name=path.name,
+                            code="unsafe_zip_member_name",
+                            message=f"ZIP member {member.filename!r} does not have a safe basename.",
+                        )
+                    )
+                    continue
+                if member.file_size > MAX_ZIP_MEMBER_BYTES:
+                    failures.append(
+                        CnipaExportImportFailure(
+                            source_file_name=member_name,
+                            code="zip_member_too_large",
+                            message=(
+                                f"{member_name} exceeds the {MAX_ZIP_MEMBER_BYTES} byte ZIP member limit and was skipped."
+                            ),
+                        )
+                    )
+                    if suffix in ATTACHMENT_SUFFIXES:
+                        _append_attachment(attachments, seen_attachments, member_name)
+                        warnings.append(
+                            f"{member_name} 附件已识别但因大小限制被跳过；结果仅返回附件文件名，未生成候选。"
+                        )
+                    continue
+                if total_uncompressed_bytes + member.file_size > MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES:
+                    failures.append(
+                        CnipaExportImportFailure(
+                            source_file_name=member_name,
+                            code="zip_total_size_limit_exceeded",
+                            message=(
+                                f"Skipping {member_name} because extracting it would exceed the "
+                                f"{MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES} byte ZIP size limit."
+                            ),
+                        )
+                    )
+                    if suffix in ATTACHMENT_SUFFIXES:
+                        _append_attachment(attachments, seen_attachments, member_name)
+                        warnings.append(
+                            f"{member_name} 附件已识别但因大小限制被跳过；结果仅返回附件文件名，未生成候选。"
+                        )
+                    continue
+                total_uncompressed_bytes += member.file_size
                 if suffix in TABLE_SUFFIXES:
                     child = Path(tmpdir) / f"{uuid4().hex}-{member_name}"
-                    child.write_bytes(archive.read(member))
+                    try:
+                        child.write_bytes(_read_zip_member_bytes(archive, member))
+                    except ValueError as exc:
+                        failures.append(
+                            CnipaExportImportFailure(
+                                source_file_name=member_name,
+                                code="zip_member_too_large",
+                                message=str(exc),
+                            )
+                        )
+                        continue
                     partial = _rows_to_result(
                         _parse_table(child),
                         context=context,
@@ -118,7 +192,8 @@ def _parse_zip(path: Path, *, context: CnipaExportImportContext, raw_file_hash: 
                     warnings.extend(partial.warnings)
                     failures.extend(partial.failures)
                 elif suffix in ATTACHMENT_SUFFIXES:
-                    warnings.append(f"{member_name} 已作为附件保留；未从该文件生成候选。")
+                    _append_attachment(attachments, seen_attachments, member_name)
+                    warnings.append(f"{member_name} 附件已识别；结果仅返回附件文件名，未生成候选。")
     deduped = dedupe_patent_search_hits(hits)
     return CnipaExportImportResult(
         import_ledger_id=context.import_ledger_id,
@@ -127,6 +202,7 @@ def _parse_zip(path: Path, *, context: CnipaExportImportContext, raw_file_hash: 
         row_count=row_count,
         parsed_count=len(deduped),
         hits=deduped,
+        attachments=attachments,
         warnings=warnings,
         failures=failures,
     )
@@ -177,17 +253,35 @@ def _rows_to_result(
     hits: list[PatentSearchHit] = []
     failures: list[CnipaExportImportFailure] = []
     for index, row in enumerate(rows, start=2):
-        publication_number = normalize_publication_number(str(row.get("publication_number") or ""))
-        application_number = normalize_publication_number(str(row.get("application_number") or ""))
+        raw_publication_number = str(row.get("publication_number") or "")
+        raw_application_number = str(row.get("application_number") or "")
+        publication_number = _plausible_cn_publication_number(raw_publication_number)
+        application_number = _plausible_cn_application_number(raw_application_number)
         title = sanitize_untrusted_text(str(row.get("title") or ""), max_len=300)
         abstract = sanitize_untrusted_text(str(row.get("abstract") or "")) or None
-        if not (publication_number or application_number) or not (title or abstract):
+        if not (title or abstract):
             failures.append(
                 CnipaExportImportFailure(
                     source_file_name=source_file_name,
                     row_number=index,
                     code="missing_required_fields",
-                    message="CNIPA export row requires publication/application number and title/abstract.",
+                    message="CNIPA export row requires title or abstract.",
+                )
+            )
+            continue
+        if not (publication_number or application_number):
+            code = "invalid_cn_identifier" if (raw_publication_number or raw_application_number) else "missing_required_fields"
+            message = (
+                "CNIPA export row requires a plausible CN publication/application identifier."
+                if code == "invalid_cn_identifier"
+                else "CNIPA export row requires publication/application number."
+            )
+            failures.append(
+                CnipaExportImportFailure(
+                    source_file_name=source_file_name,
+                    row_number=index,
+                    code=code,
+                    message=message,
                 )
             )
             continue
@@ -229,6 +323,30 @@ def _rows_to_result(
         hits=deduped,
         failures=failures,
     )
+
+
+def _plausible_cn_publication_number(value: str) -> str:
+    normalized = normalize_publication_number(value)
+    return normalized if CN_PUBLICATION_NUMBER_PATTERN.match(normalized) else ""
+
+
+def _plausible_cn_application_number(value: str) -> str:
+    normalized = normalize_publication_number(value)
+    return normalized if CN_APPLICATION_NUMBER_PATTERN.match(normalized) else ""
+
+
+def _append_attachment(attachments: list[str], seen_attachments: set[str], member_name: str) -> None:
+    if member_name not in seen_attachments:
+        attachments.append(member_name)
+        seen_attachments.add(member_name)
+
+
+def _read_zip_member_bytes(archive: zipfile.ZipFile, member: zipfile.ZipInfo) -> bytes:
+    with archive.open(member) as handle:
+        data = handle.read(MAX_ZIP_MEMBER_BYTES + 1)
+    if len(data) > MAX_ZIP_MEMBER_BYTES:
+        raise ValueError(f"{member.filename} exceeds the ZIP member size limit during extraction.")
+    return data
 
 
 def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:

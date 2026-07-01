@@ -3,6 +3,7 @@ from zipfile import ZipFile
 
 from openpyxl import Workbook
 
+from backend.app.knowledge import cnipa_export
 from backend.app.knowledge.cnipa_export import (
     CnipaExportImportContext,
     parse_cnipa_official_export_file,
@@ -76,7 +77,8 @@ def test_parse_cnipa_zip_export_reads_nested_tables_and_warns_on_pdf(tmp_path: P
     assert result.row_count == 1
     assert result.parsed_count == 1
     assert result.hits[0].application_number == "CN202410000001"
-    assert any("scan.pdf" in warning for warning in result.warnings)
+    assert result.attachments == ["scan.pdf"]
+    assert result.warnings == ["scan.pdf 附件已识别；结果仅返回附件文件名，未生成候选。"]
 
 
 def test_parse_cnipa_export_rejects_rows_without_identifier_or_title(tmp_path: Path):
@@ -87,3 +89,56 @@ def test_parse_cnipa_export_rejects_rows_without_identifier_or_title(tmp_path: P
 
     assert result.parsed_count == 0
     assert result.failures[0].code == "missing_required_fields"
+
+
+def test_parse_cnipa_export_rejects_non_cn_identifiers(tmp_path: Path):
+    path = tmp_path / "bad-id.csv"
+    path.write_text(
+        "公开公告号,专利名称,摘要\nWO2024000123A1,城市体检智能体任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+
+    result = parse_cnipa_official_export_file(path, context=_context())
+
+    assert result.parsed_count == 0
+    assert result.failures[0].code == "invalid_cn_identifier"
+    assert result.hits == []
+
+
+def test_parse_cnipa_zip_export_skips_oversized_members_and_excess_member_count(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(cnipa_export, "MAX_ZIP_MEMBER_COUNT", 2)
+    monkeypatch.setattr(cnipa_export, "MAX_ZIP_MEMBER_BYTES", 160)
+    monkeypatch.setattr(cnipa_export, "MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES", 240)
+
+    small_csv = tmp_path / "small.csv"
+    small_csv.write_text(
+        "申请号,题名,摘要\nCN202410000001,城市体检证据链方法,公开了一种证据链复核方法。\n",
+        encoding="utf-8",
+    )
+    large_csv = tmp_path / "large.csv"
+    large_csv.write_text(
+        "申请号,题名,摘要\nCN202410000002,城市体检证据链方法,"
+        + ("公开了一种证据链复核方法。" * 20)
+        + "\n",
+        encoding="utf-8",
+    )
+    ignored_csv = tmp_path / "ignored.csv"
+    ignored_csv.write_text(
+        "申请号,题名,摘要\nCN202410000003,不应处理的额外成员,公开了一种证据链复核方法。\n",
+        encoding="utf-8",
+    )
+    zip_path = tmp_path / "unsafe.zip"
+    with ZipFile(zip_path, "w") as archive:
+        archive.write(large_csv, "a-large.csv")
+        archive.write(small_csv, "b-small.csv")
+        archive.write(ignored_csv, "c-ignored.csv")
+
+    result = parse_cnipa_official_export_file(zip_path, context=_context())
+
+    assert result.parsed_count == 1
+    assert result.hits[0].application_number == "CN202410000001"
+    assert {failure.code for failure in result.failures} == {
+        "zip_member_limit_exceeded",
+        "zip_member_too_large",
+    }
+    assert all(hit.application_number != "CN202410000003" for hit in result.hits)
