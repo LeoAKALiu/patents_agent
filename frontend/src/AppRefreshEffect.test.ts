@@ -67,4 +67,10 @@ describe("App refresh effect dependencies", () => {
     expect(body).not.toContain("updateProjectDraftPackage");
     expect(source).toContain("onDraftRepairPatchApplied: (issueId) => void handleDraftRepairPatchApplied(issueId)");
   });
+
+  it("keeps the main knowledge overview loaded when CNIPA supplemental fetches fail", () => {
+    expect(source).toMatch(
+      /async function loadProjectKnowledge\(projectId: string\): Promise<boolean> \{[\s\S]*const overview = await getProjectKnowledge\(projectId\);[\s\S]*setProjectKnowledge\(overview\);[\s\S]*try \{[\s\S]*const queryPack = await getProjectCnipaQueryPack\(projectId\);[\s\S]*setCnipaQueryPack\(queryPack\);[\s\S]*\} catch \{[\s\S]*setCnipaQueryPack\(null\);[\s\S]*\}[\s\S]*if \(!overview\.latest_plan\) \{[\s\S]*setProjectKnowledgeImportLedgers\(\[\]\);[\s\S]*return true;[\s\S]*\}[\s\S]*try \{[\s\S]*const ledgers = await listProjectKnowledgeImportLedgers\(projectId, overview\.latest_plan\.id\);[\s\S]*setProjectKnowledgeImportLedgers\(ledgers\);[\s\S]*\} catch \{[\s\S]*setProjectKnowledgeImportLedgers\(\[\]\);[\s\S]*\}[\s\S]*return true;[\s\S]*catch \{[\s\S]*setProjectKnowledge\(null\);[\s\S]*setCnipaQueryPack\(null\);[\s\S]*setProjectKnowledgeImportLedgers\(\[\]\);[\s\S]*return false;[\s\S]*\}/,
+    );
+  });
 });

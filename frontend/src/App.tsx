@@ -970,23 +970,36 @@ function App() {
 
   async function loadProjectKnowledge(projectId: string): Promise<boolean> {
     try {
-      const [overview, queryPack] = await Promise.all([
-        getProjectKnowledge(projectId),
-        getProjectCnipaQueryPack(projectId),
-      ]);
+      const overview = await getProjectKnowledge(projectId);
       if (selectedProjectIdRef.current !== projectId) {
         return false;
       }
       setProjectKnowledge(overview);
-      setCnipaQueryPack(queryPack);
-      if (overview.latest_plan) {
+      try {
+        const queryPack = await getProjectCnipaQueryPack(projectId);
+        if (selectedProjectIdRef.current !== projectId) {
+          return false;
+        }
+        setCnipaQueryPack(queryPack);
+      } catch {
+        if (selectedProjectIdRef.current === projectId) {
+          setCnipaQueryPack(null);
+        }
+      }
+      if (!overview.latest_plan) {
+        setProjectKnowledgeImportLedgers([]);
+        return true;
+      }
+      try {
         const ledgers = await listProjectKnowledgeImportLedgers(projectId, overview.latest_plan.id);
         if (selectedProjectIdRef.current !== projectId) {
           return false;
         }
         setProjectKnowledgeImportLedgers(ledgers);
-      } else {
-        setProjectKnowledgeImportLedgers([]);
+      } catch {
+        if (selectedProjectIdRef.current === projectId) {
+          setProjectKnowledgeImportLedgers([]);
+        }
       }
       return true;
     } catch {

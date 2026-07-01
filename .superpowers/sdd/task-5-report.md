@@ -116,6 +116,27 @@ Files changed for Task 5:
 Concerns:
 - None.
 
+Task 5 reviewer fix 2 report:
+- Source identity verified before edits:
+  - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+  - Branch: `codex/cnipa-official-export-design`
+  - Short SHA: `5d96e539`
+  - Dirty status: dirty from pre-existing `.superpowers/sdd/progress.md`, `task-1-report.md`, `task-2-report.md`, and `task-3-report.md`
+- Tightened the CNIPA official-export picker UI to advertise only the supported formats for this phase: `.csv`, `.xlsx`, and `.zip`.
+- Changed per-strategy CNIPA copy actions to copy only the clicked strategy's queries, and updated the button label to `复制该策略检索式`.
+- Refactored `loadProjectKnowledge()` so the main project knowledge overview loads first and remains visible if CNIPA query-pack or import-ledger fetches fail; supplemental failures now reset only CNIPA supplemental state.
+- Added regression coverage for:
+  - restricted file-picker accepted formats
+  - per-strategy CNIPA copy behavior
+  - source-level guard on the isolated supplemental-failure loading flow
+
+Reviewer fix 2 verification:
+- `npm --prefix frontend test -- --run src/api.test.ts src/projectKnowledgeView.test.tsx src/features/corpus/CorpusWorkspace.test.tsx src/AppRefreshEffect.test.ts`: passed, 4 files / 27 tests
+- `npm --prefix frontend run build`: passed
+
+Concerns:
+- None.
+
 Task 5 reviewer fix report:
 - Source identity verified before edits:
   - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`

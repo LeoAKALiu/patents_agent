@@ -51,8 +51,8 @@ function formatDate(value: string): string {
   return parsed.toLocaleString("zh-CN", { hour12: false });
 }
 
-function joinStrategyQueries(queryPack: CnipaQueryPack | null | undefined): string {
-  return (queryPack?.strategies ?? []).flatMap((strategy) => strategy.queries).join("\n\n");
+function joinQueries(queries: string[]): string {
+  return queries.join("\n\n");
 }
 
 function skippedCount(ledger: ProjectKnowledgeImportLedger): number | null {
@@ -239,9 +239,8 @@ export function ProjectKnowledgeView({
     includedCandidates.length > 0 && canDecideCandidates;
   const qualityFlags = Array.from(new Set(state?.quality_flags ?? []));
   const guidanceCards = qualityFlags.map((flag) => ({ flag, ...qualityFlagCopy(flag, state?.staleness_reason ?? "") }));
-  const cnipaQueryText = joinStrategyQueries(cnipaQueryPack);
-
-  const handleCopyCnipaQuery = async () => {
+  const handleCopyCnipaQuery = async (queries: string[]) => {
+    const cnipaQueryText = joinQueries(queries);
     if (!cnipaQueryText) return;
     try {
       if (navigator?.clipboard?.writeText) {
@@ -358,7 +357,7 @@ export function ProjectKnowledgeView({
                 event.currentTarget.reset();
               }}
             >
-              <input accept=".csv,.txt,.xlsx,.xlsm,.zip" className="text-sm" name="file" type="file" />
+              <input accept=".csv,.xlsx,.zip" className="text-sm" name="file" type="file" />
               <button
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-sm font-medium"
                 disabled={busy.startsWith("knowledge") || !onImportCnipaExport}
@@ -381,11 +380,11 @@ export function ProjectKnowledgeView({
                   <div className="mt-2 flex flex-col gap-2">
                     <button
                       className="inline-flex w-fit items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium"
-                      onClick={handleCopyCnipaQuery}
+                      onClick={() => void handleCopyCnipaQuery(strategy.queries)}
                       type="button"
                     >
                       <RefreshCw size={14} />
-                      <span>复制 CNIPA 检索式</span>
+                      <span>复制该策略检索式</span>
                     </button>
                     <p className="text-xs text-[var(--text-primary)]/70">{strategy.queries.join(" / ")}</p>
                   </div>

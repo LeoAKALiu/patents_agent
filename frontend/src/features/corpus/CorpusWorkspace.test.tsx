@@ -131,10 +131,11 @@ function buildProps(): CorpusWorkspaceProps {
 
 describe("CorpusWorkspace", () => {
   it("defaults build tab to ProjectKnowledgeView and exposes the manual fallback", () => {
-    render(<CorpusWorkspace {...buildProps()} />);
+    const { container } = render(<CorpusWorkspace {...buildProps()} />);
 
     expect(screen.getByText("项目现有技术库")).toBeInTheDocument();
     expect(screen.getByText("导入 CNIPA 官方导出物")).toBeInTheDocument();
+    expect(container.querySelector('input[type="file"]')).toHaveAttribute("accept", ".csv,.xlsx,.zip");
     expect(screen.getByText("官方导出物批量建库")).not.toBeVisible();
 
     fireEvent.click(screen.getByText("从本地文件补充语料"));

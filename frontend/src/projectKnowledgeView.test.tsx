@@ -126,7 +126,7 @@ describe("ProjectKnowledgeView", () => {
     const onRunKnowledgeSearch = vi.fn();
     const onCandidateDecision = vi.fn();
 
-    render(
+    const { container } = render(
       <ProjectKnowledgeView
         selectedProject={project}
         knowledge={baseOverview}
@@ -291,7 +291,7 @@ describe("ProjectKnowledgeView", () => {
   });
 
   it("renders CNIPA official export workflow instead of helper configuration", () => {
-    render(
+    const { container } = render(
       <ProjectKnowledgeView
         selectedProject={project}
         knowledge={baseOverview}
@@ -322,7 +322,8 @@ describe("ProjectKnowledgeView", () => {
 
     expect(screen.getByText("导入 CNIPA 官方导出物")).toBeInTheDocument();
     expect(screen.getByText("城市体检 智能体")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "复制 CNIPA 检索式" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复制该策略检索式" })).toBeInTheDocument();
+    expect(container.querySelector('input[type="file"]')).toHaveAttribute("accept", ".csv,.xlsx,.zip");
     expect(screen.queryByText(/CNIPA_EPUB_SEARCH_SCRIPT/)).not.toBeInTheDocument();
   });
 
@@ -351,7 +352,10 @@ describe("ProjectKnowledgeView", () => {
           ipc_candidates: ["G06Q"],
           cpc_candidates: [],
           date_range: "2016-2026",
-          strategies: [{ strategy_group_id: "broad", label: "宽召回检索", purpose: "找全相关专利", queries: ["城市体检 智能体", "任务编排 复核"] }],
+          strategies: [
+            { strategy_group_id: "broad", label: "宽召回检索", purpose: "找全相关专利", queries: ["城市体检 智能体"] },
+            { strategy_group_id: "focused", label: "精准检索", purpose: "聚焦复核链路", queries: ["任务编排 复核", "证据链 智能体"] },
+          ],
         }}
         importLedgers={[]}
         onGenerateKnowledgePlan={vi.fn()}
@@ -362,9 +366,9 @@ describe("ProjectKnowledgeView", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "复制 CNIPA 检索式" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "复制该策略检索式" })[1]);
 
-    expect(writeText).toHaveBeenCalledWith("城市体检 智能体\n\n任务编排 复核");
+    expect(writeText).toHaveBeenCalledWith("任务编排 复核\n\n证据链 智能体");
     expect(await screen.findByText("已复制检索式。")).toBeInTheDocument();
 
     Object.defineProperty(globalThis.navigator, "clipboard", {
@@ -401,7 +405,7 @@ describe("ProjectKnowledgeView", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "复制 CNIPA 检索式" }));
+    fireEvent.click(screen.getByRole("button", { name: "复制该策略检索式" }));
 
     expect(await screen.findByText("当前环境不支持自动复制，请手动复制下方检索式。")).toBeInTheDocument();
     expect(screen.getByText("城市体检 智能体")).toBeInTheDocument();
