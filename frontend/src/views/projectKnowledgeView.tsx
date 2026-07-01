@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import type {
   CnipaQueryPack,
@@ -49,6 +49,16 @@ function formatDate(value: string): string {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString("zh-CN", { hour12: false });
+}
+
+function joinStrategyQueries(queryPack: CnipaQueryPack | null | undefined): string {
+  return (queryPack?.strategies ?? []).flatMap((strategy) => strategy.queries).join("\n\n");
+}
+
+function skippedCount(ledger: ProjectKnowledgeImportLedger): number | null {
+  if (typeof ledger.row_count !== "number" || typeof ledger.parsed_count !== "number") return null;
+  const delta = ledger.row_count - ledger.parsed_count;
+  return delta >= 0 ? delta : null;
 }
 
 function candidateDecisionLabel(decision: PriorArtCandidate["user_decision"]): string {
@@ -201,6 +211,8 @@ export function ProjectKnowledgeView({
   onImportCnipaExport?: (file: File) => void;
   advancedFallback?: ReactNode;
 }) {
+  const [copyFeedback, setCopyFeedback] = useState("");
+
   if (!selectedProject) {
     return (
       <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-6">
@@ -227,6 +239,21 @@ export function ProjectKnowledgeView({
     includedCandidates.length > 0 && canDecideCandidates;
   const qualityFlags = Array.from(new Set(state?.quality_flags ?? []));
   const guidanceCards = qualityFlags.map((flag) => ({ flag, ...qualityFlagCopy(flag, state?.staleness_reason ?? "") }));
+  const cnipaQueryText = joinStrategyQueries(cnipaQueryPack);
+
+  const handleCopyCnipaQuery = async () => {
+    if (!cnipaQueryText) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(cnipaQueryText);
+        setCopyFeedback("已复制检索式。");
+        return;
+      }
+    } catch {
+      // Fall through to manual-copy guidance below.
+    }
+    setCopyFeedback("当前环境不支持自动复制，请手动复制下方检索式。");
+  };
 
   let primaryAction = {
     icon: Wand2,
@@ -351,14 +378,81 @@ export function ProjectKnowledgeView({
                 >
                   <p className="font-semibold">{strategy.label}</p>
                   <p className="text-sm text-[var(--text-primary)]/65">{strategy.purpose}</p>
-                  <p className="mt-2 text-xs text-[var(--text-primary)]/70">{strategy.queries.join(" / ")}</p>
+                  <div className="mt-2 flex flex-col gap-2">
+                    <button
+                      className="inline-flex w-fit items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium"
+                      onClick={handleCopyCnipaQuery}
+                      type="button"
+                    >
+                      <RefreshCw size={14} />
+                      <span>复制 CNIPA 检索式</span>
+                    </button>
+                    <p className="text-xs text-[var(--text-primary)]/70">{strategy.queries.join(" / ")}</p>
+                  </div>
                 </article>
               ))}
             </div>
           ) : null}
+          {copyFeedback ? (
+            <p className="mt-3 text-xs text-[var(--text-primary)]/65">{copyFeedback}</p>
+          ) : null}
           {importLedgers?.length ? (
-            <div className="mt-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-3 text-sm">
-              最近导入：{importLedgers[0].source_file_name}，解析 {importLedgers[0].parsed_count} 条候选。
+            <div className="mt-4 flex flex-col gap-3">
+              {importLedgers.map((ledger) => {
+                const derivedSkippedCount = skippedCount(ledger);
+                return (
+                  <article
+                    className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-3 text-sm"
+                    key={ledger.id}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <p className="font-medium">导入文件：{ledger.source_file_name}</p>
+                      <p className="text-xs text-[var(--text-primary)]/60">
+                        导入时间：{formatDate(ledger.created_at)}
+                      </p>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+                      <StatusPill label="原始行数" value={String(ledger.row_count ?? 0)} />
+                      <StatusPill label="解析候选" value={String(ledger.parsed_count ?? 0)} />
+                      <StatusPill
+                        label="跳过/重复"
+                        value={derivedSkippedCount === null ? "未记录" : String(derivedSkippedCount)}
+                      />
+                      <StatusPill label="失败行数" value={String(ledger.failures?.length ?? 0)} />
+                    </div>
+                    {ledger.warnings?.length ? (
+                      <div className="mt-3 rounded-lg border border-[var(--warning,#d97706)]/30 bg-[var(--warning,#d97706)]/10 px-3 py-2">
+                        <p className="text-xs font-medium">导入提醒</p>
+                        <ul className="mt-1 list-disc pl-5 text-xs text-[var(--text-primary)]/75">
+                          {ledger.warnings.map((warning, index) => (
+                            <li key={`${ledger.id}-warning-${index}`}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {ledger.failures?.length ? (
+                      <div className="mt-3 rounded-lg border border-[var(--danger)]/25 bg-[var(--danger)]/8 px-3 py-2">
+                        <p className="text-xs font-medium">失败明细</p>
+                        <div className="mt-2 flex flex-col gap-2">
+                          {ledger.failures.map((failure, index) => (
+                            <div
+                              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-3 py-2 text-xs"
+                              key={`${ledger.id}-failure-${index}`}
+                            >
+                              <p>
+                                {failure.source_file_name} 第 {failure.row_number} 行
+                              </p>
+                              <p className="text-[var(--text-primary)]/70">
+                                {failure.code} · {failure.message}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           ) : null}
         </section>

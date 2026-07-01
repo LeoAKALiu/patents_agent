@@ -115,3 +115,23 @@ Files changed for Task 5:
 
 Concerns:
 - None.
+
+Task 5 reviewer fix report:
+- Source identity verified before edits:
+  - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+  - Branch: `codex/cnipa-official-export-design`
+  - Short SHA: `2a66ce95`
+  - Dirty status: dirty from pre-existing `.superpowers/sdd/progress.md`, `task-1-report.md`, `task-2-report.md`, and `task-3-report.md`
+- Updated `frontend/src/views/projectKnowledgeView.tsx` to add a `复制 CNIPA 检索式` action that uses `navigator.clipboard.writeText(...)` when available and falls back to manual-copy guidance while still rendering the query text inline.
+- Expanded CNIPA import ledger diagnostics in the same view to show import time, row count, parsed count, derived skipped/duplicate-ish count, warnings, and row-level failures with file name, row number, code, and message.
+- Added focused frontend regression coverage in `frontend/src/projectKnowledgeView.test.tsx` for:
+  - CNIPA query-pack copy action success and fallback paths
+  - import ledger warning/failure diagnostics
+  - official-export quality flag guidance copy
+
+Reviewer fix verification:
+- `npm --prefix frontend test -- --run src/api.test.ts src/projectKnowledgeView.test.tsx src/features/corpus/CorpusWorkspace.test.tsx`: passed, 3 files / 21 tests
+- `npm --prefix frontend run build`: passed
+
+Concerns:
+- None.

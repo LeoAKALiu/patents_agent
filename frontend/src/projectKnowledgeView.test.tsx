@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ProjectKnowledgeOverview, ProjectRecord } from "./api";
 import { ProjectKnowledgeView } from "./views/projectKnowledgeView";
@@ -114,6 +114,14 @@ const baseOverview: ProjectKnowledgeOverview = {
 };
 
 describe("ProjectKnowledgeView", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("renders candidate recommendation and include/exclude decisions", () => {
     const onRunKnowledgeSearch = vi.fn();
     const onCandidateDecision = vi.fn();
@@ -314,7 +322,89 @@ describe("ProjectKnowledgeView", () => {
 
     expect(screen.getByText("导入 CNIPA 官方导出物")).toBeInTheDocument();
     expect(screen.getByText("城市体检 智能体")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复制 CNIPA 检索式" })).toBeInTheDocument();
     expect(screen.queryByText(/CNIPA_EPUB_SEARCH_SCRIPT/)).not.toBeInTheDocument();
+  });
+
+  it("copies CNIPA query text with clipboard support and falls back to manual guidance", async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    const { rerender } = render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={baseOverview}
+        busy=""
+        cnipaQueryPack={{
+          project_id: "p-1",
+          plan_id: "plan-1",
+          intent_id: "intent-1",
+          source_id: "cnipa_official_export",
+          technical_object: "城市体检智能体",
+          technical_problem: "任务编排缺少可信复核",
+          technical_means: "多智能体任务编排",
+          keywords_zh: ["城市体检", "智能体"],
+          negative_keywords: ["医疗体检"],
+          ipc_candidates: ["G06Q"],
+          cpc_candidates: [],
+          date_range: "2016-2026",
+          strategies: [{ strategy_group_id: "broad", label: "宽召回检索", purpose: "找全相关专利", queries: ["城市体检 智能体", "任务编排 复核"] }],
+        }}
+        importLedgers={[]}
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+        onImportCnipaExport={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "复制 CNIPA 检索式" }));
+
+    expect(writeText).toHaveBeenCalledWith("城市体检 智能体\n\n任务编排 复核");
+    expect(await screen.findByText("已复制检索式。")).toBeInTheDocument();
+
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: undefined,
+    });
+
+    rerender(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={baseOverview}
+        busy=""
+        cnipaQueryPack={{
+          project_id: "p-1",
+          plan_id: "plan-1",
+          intent_id: "intent-1",
+          source_id: "cnipa_official_export",
+          technical_object: "城市体检智能体",
+          technical_problem: "任务编排缺少可信复核",
+          technical_means: "多智能体任务编排",
+          keywords_zh: ["城市体检", "智能体"],
+          negative_keywords: ["医疗体检"],
+          ipc_candidates: ["G06Q"],
+          cpc_candidates: [],
+          date_range: "2016-2026",
+          strategies: [{ strategy_group_id: "broad", label: "宽召回检索", purpose: "找全相关专利", queries: ["城市体检 智能体"] }],
+        }}
+        importLedgers={[]}
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+        onImportCnipaExport={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "复制 CNIPA 检索式" }));
+
+    expect(await screen.findByText("当前环境不支持自动复制，请手动复制下方检索式。")).toBeInTheDocument();
+    expect(screen.getByText("城市体检 智能体")).toBeInTheDocument();
   });
 
   it("labels imported CNIPA candidates as official export", () => {
@@ -410,6 +500,105 @@ describe("ProjectKnowledgeView", () => {
     expect(screen.getByText(/CERTIFICATE_VERIFY_FAILED/)).toBeInTheDocument();
     expect(screen.queryByText(/CNIPA_EPUB_SEARCH_SCRIPT/)).not.toBeInTheDocument();
     expect(screen.queryByText("质量信号：no_hits")).not.toBeInTheDocument();
+  });
+
+  it("shows import ledger diagnostics including warnings and row failures", () => {
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={baseOverview}
+        busy=""
+        cnipaQueryPack={{
+          project_id: "p-1",
+          plan_id: "plan-1",
+          intent_id: "intent-1",
+          source_id: "cnipa_official_export",
+          technical_object: "城市体检智能体",
+          technical_problem: "任务编排缺少可信复核",
+          technical_means: "多智能体任务编排",
+          keywords_zh: ["城市体检", "智能体"],
+          negative_keywords: ["医疗体检"],
+          ipc_candidates: ["G06Q"],
+          cpc_candidates: [],
+          date_range: "2016-2026",
+          strategies: [{ strategy_group_id: "broad", label: "宽召回检索", purpose: "找全相关专利", queries: ["城市体检 智能体"] }],
+        }}
+        importLedgers={[
+          {
+            id: "ledger-1",
+            project_id: "p-1",
+            plan_id: "plan-1",
+            source_id: "cnipa_official_export",
+            source_file_name: "cnipa-export.csv",
+            raw_file_hash: "hash-1",
+            detected_schema: "cnipa_csv",
+            row_count: 8,
+            parsed_count: 5,
+            retained_candidate_ids: ["c-1"],
+            warnings: ["第 3 列摘要为空，已按题录导入。"],
+            failures: [
+              {
+                source_file_name: "cnipa-export.csv",
+                row_number: 6,
+                code: "missing_publication_number",
+                message: "公开公告号为空。",
+              },
+            ],
+            created_at: "2026-07-01T08:00:00Z",
+          },
+        ]}
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+        onImportCnipaExport={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("导入文件：cnipa-export.csv")).toBeInTheDocument();
+    expect(screen.getByText("原始行数")).toBeInTheDocument();
+    expect(screen.getByText("8")).toBeInTheDocument();
+    expect(screen.getByText("解析候选")).toBeInTheDocument();
+    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.getByText("跳过/重复")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("导入提醒")).toBeInTheDocument();
+    expect(screen.getByText("第 3 列摘要为空，已按题录导入。")).toBeInTheDocument();
+    expect(screen.getByText("失败明细")).toBeInTheDocument();
+    expect(screen.getByText("cnipa-export.csv 第 6 行")).toBeInTheDocument();
+    expect(screen.getByText("missing_publication_number · 公开公告号为空。")).toBeInTheDocument();
+  });
+
+  it("renders official-export quality flags with action-oriented copy", () => {
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      state: {
+        ...baseOverview.state,
+        status: "needs_supplemental_search",
+        quality_flags: [
+          "cnipa_export_missing_provenance",
+          "cnipa_export_missing_claims",
+          "cnipa_export_parse_warnings",
+        ],
+      },
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/缺少原始导出链路/)).toBeInTheDocument();
+    expect(screen.getByText(/缺少权利要求内容/)).toBeInTheDocument();
+    expect(screen.getByText(/解析提醒/)).toBeInTheDocument();
+    expect(screen.queryByText("质量信号：cnipa_export_missing_claims")).not.toBeInTheDocument();
   });
 
   it("regenerates a fresh plan for stale knowledge states", () => {
