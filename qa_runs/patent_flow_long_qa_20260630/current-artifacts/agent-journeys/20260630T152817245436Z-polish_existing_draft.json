@@ -1,0 +1,95 @@
+{
+  "artifacts": {
+    "api_payloads": [
+      "GET /api/projects/a2fd5fe6291544a4944e95951d406336/export-readiness",
+      "GET /api/projects/a2fd5fe6291544a4944e95951d406336/official-export.md"
+    ],
+    "logs": [],
+    "screenshots": []
+  },
+  "execution": {
+    "data_dir": "ephemeral:/var/folders/g4/s06gtz5d7svbfvj7s823rn9w0000gn/T/patentagent-polish_existing_draft-wq5t_cg3",
+    "finished_at": "2026-06-30T15:28:17.245407+00:00",
+    "journey_id": "polish_existing_draft",
+    "llm_mode": "fake",
+    "mode": "api",
+    "started_at": "2026-06-30T15:28:17.117253+00:00",
+    "status": "passed",
+    "test_target": "api_testclient"
+  },
+  "failures": [],
+  "gates": {
+    "official_compile": "current",
+    "post_draft_review": "current",
+    "quality": "current"
+  },
+  "hashes": {
+    "current_source_draft_hash": "ebb416f540ed697eb4b018d7abf409a4e3c835fed04331a747335962fcb1ceff",
+    "latest_official_package_hash": "aa994a8dcd9936149049ca747d3350498a5b9f3b935e5c309a32080ecd46efc2",
+    "latest_official_source_hash": "ebb416f540ed697eb4b018d7abf409a4e3c835fed04331a747335962fcb1ceff",
+    "latest_review_draft_hash": "ebb416f540ed697eb4b018d7abf409a4e3c835fed04331a747335962fcb1ceff",
+    "latest_review_official_package_hash": "aa994a8dcd9936149049ca747d3350498a5b9f3b935e5c309a32080ecd46efc2",
+    "latest_worksheet_draft_hash": "ebb416f540ed697eb4b018d7abf409a4e3c835fed04331a747335962fcb1ceff"
+  },
+  "schema_version": 1,
+  "source_identity": {
+    "branch": "codex/grantatlas-readme-branding",
+    "dirty_files_summary": [
+      ".github/workflows/ci.yml",
+      "backend/app/api/projects.py",
+      "backend/app/services/project_service.py",
+      "scripts/golden_quality_gate.py",
+      "scripts/v1_smoke.sh",
+      "tests/test_golden_release_gate.py",
+      "tests/test_projects_api_router.py",
+      "tests/test_tauri_desktop_skeleton.py",
+      "output/playwright/grantatlas-brand-sidebar.png",
+      "output/playwright/patentagent-logo-sidebar.png",
+      "qa_runs/"
+    ],
+    "dirty_status": "dirty",
+    "git_top_level": "/Users/leo/Projects/patents_agent",
+    "short_sha": "f566fc09",
+    "worktree_path": "/Users/leo/Projects/patents_agent"
+  },
+  "steps": [
+    {
+      "actual": "一种输入数据处理方法",
+      "evidence": [],
+      "expected": "package present",
+      "id": "external_draft_intake",
+      "input_summary": "pasted existing draft",
+      "status": "passed"
+    },
+    {
+      "actual": "True",
+      "evidence": [],
+      "expected": "export_allowed true",
+      "id": "post_draft_review",
+      "input_summary": "review polished draft",
+      "status": "passed"
+    },
+    {
+      "actual": "True",
+      "evidence": [],
+      "expected": "ok true",
+      "id": "official_export",
+      "input_summary": "export official markdown",
+      "status": "passed"
+    },
+    {
+      "actual": "export_allowed=False next_action=run_quality_checks quality=stale official_compile=stale post_draft_review=stale export_blocked=True",
+      "evidence": [
+        "api:GET /api/projects/a2fd5fe6291544a4944e95951d406336/export-readiness",
+        "api:GET /api/projects/a2fd5fe6291544a4944e95951d406336/official-export.md",
+        "current_source_draft_hash:bcef6b8e18547d2d9c537cfb9fbaaf5497a17393ff2db77a3adbaa77e16bfbe8",
+        "latest_official_source_hash:6d5866c75873831590611725c0dbc985cfc6c51a82d46319917e5494245ad56b",
+        "latest_review_draft_hash:6d5866c75873831590611725c0dbc985cfc6c51a82d46319917e5494245ad56b"
+      ],
+      "expected": "official export remains blocked and prior gates become stale",
+      "id": "hash_drift_export_gate",
+      "input_summary": "edit source draft after quality, official compile, and post-draft review pass",
+      "status": "passed"
+    }
+  ]
+}

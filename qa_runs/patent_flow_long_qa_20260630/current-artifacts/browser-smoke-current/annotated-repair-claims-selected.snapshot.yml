@@ -1,0 +1,180 @@
+- generic [ref=f2e2]:
+  - generic [ref=f2e3]:
+    - complementary "主导航" [ref=f2e4]:
+      - generic "权衡 GrantAtlas home" [ref=f2e5]:
+        - img "权衡 GrantAtlas logo" [ref=f2e7]
+        - generic [ref=f2e8]:
+          - strong [ref=f2e9]: 权衡 GrantAtlas
+          - generic [ref=f2e10]: 国际专利授权工程系统
+      - navigation "主导航" [ref=f2e11]:
+        - button "工作台" [ref=f2e12] [cursor=pointer]:
+          - img
+          - generic [ref=f2e13]: 工作台
+        - button "项目" [ref=f2e14] [cursor=pointer]:
+          - img
+          - generic [ref=f2e15]: 项目
+        - button "文稿与修复" [ref=f2e16] [cursor=pointer]:
+          - img
+          - generic [ref=f2e17]: 文稿与修复
+        - button "知识库" [ref=f2e18] [cursor=pointer]:
+          - img
+          - generic [ref=f2e19]: 知识库
+        - button "专家工具" [ref=f2e20] [cursor=pointer]:
+          - img
+          - generic [ref=f2e21]: 专家工具
+        - button "导出" [ref=f2e22] [cursor=pointer]:
+          - img
+          - generic [ref=f2e23]: 导出
+        - button "设置" [ref=f2e24] [cursor=pointer]:
+          - img
+          - generic [ref=f2e25]: 设置
+      - generic [ref=f2e27]:
+        - generic [ref=f2e28]:
+          - generic [ref=f2e29]: 模型
+          - generic [ref=f2e31]: 可用
+        - generic [ref=f2e32]:
+          - generic [ref=f2e33]: 智能体
+          - generic [ref=f2e35]: 部分可用
+        - generic [ref=f2e36]:
+          - generic [ref=f2e37]: 后端
+          - generic "后端在线" [ref=f2e224]: 在线
+    - main [ref=f2e40]:
+      - generic [ref=f2e41]:
+        - generic [ref=f2e42]:
+          - heading "文稿与修复" [level=1] [ref=f2e43]
+          - paragraph [ref=f2e44]: 处理当前项目的正文、问题和版本链路
+        - generic [ref=f2e46]:
+          - generic [ref=f2e47]:
+            - generic [ref=f2e48]: 当前项目
+            - combobox "当前项目" [ref=f2e49]:
+              - option "新建项目"
+              - option "QA 标注修复证据项目" [selected]
+          - generic [ref=f2e50]:
+            - img [ref=f2e51]
+            - generic [ref=f2e54]: 导出锁定
+          - generic [ref=f2e55]:
+            - img [ref=f2e296]
+            - generic [ref=f2e58]: 空闲
+          - button "后端在线" [ref=f2e227] [cursor=pointer]:
+            - img
+            - generic [ref=f2e60]: 后端在线
+          - button "刷新运行状态" [ref=f2e61] [cursor=pointer]:
+            - img
+      - region "文稿与修复" [ref=f2e69]:
+        - generic [ref=f2e71]:
+          - paragraph [ref=f2e72]: 文稿与修复
+          - heading "文稿与修复" [level=2] [ref=f2e73]
+          - paragraph [ref=f2e74]: 管理内部初稿、正式稿、问题修复和导出门禁。
+        - tablist "文稿与修复标签" [ref=f2e75]:
+          - tab "总览" [ref=f2e76] [cursor=pointer]
+          - tab "编辑" [ref=f2e77] [cursor=pointer]
+          - tab "问题" [ref=f2e78] [cursor=pointer]
+          - tab "标注修复" [selected] [ref=f2e79] [cursor=pointer]
+          - tab "版本" [ref=f2e80] [cursor=pointer]
+        - tabpanel "标注修复" [ref=f2e298]:
+          - generic "标注式修复编辑器" [ref=f2e511]:
+            - generic [ref=f2e512]:
+              - generic [ref=f2e514]:
+                - heading "标注式修复编辑器" [level=3] [ref=f2e515]
+                - paragraph [ref=f2e516]: 手动修订各段落，保存后请重新编译正式稿并重新成稿会审。
+              - generic [ref=f2e517]:
+                - navigation "标注式修复问题导航" [ref=f2e518]:
+                  - generic [ref=f2e519]:
+                    - heading "问题队列" [level=4] [ref=f2e520]
+                    - generic [ref=f2e521]: 9 项
+                  - generic [ref=f2e522]:
+                    - generic [ref=f2e523]:
+                      - generic [ref=f2e524]:
+                        - generic [ref=f2e525]: 阻断
+                        - generic [ref=f2e526]: "2"
+                      - button "严重 标题存在重复词汇方法方法" [ref=f2e527] [cursor=pointer]:
+                        - generic [ref=f2e528]: 严重
+                        - generic [ref=f2e529]: 标题存在重复词汇方法方法
+                      - button "严重 权利要求1含内部引导语 好的，根据" [active] [ref=f2e530] [cursor=pointer]:
+                        - generic [ref=f2e531]: 严重
+                        - generic [ref=f2e532]: 权利要求1含内部引导语 好的，根据
+                    - generic [ref=f2e533]:
+                      - generic [ref=f2e534]:
+                        - generic [ref=f2e535]: 命中
+                        - generic [ref=f2e536]: "3"
+                      - button "高 好的，根据" [ref=f2e537] [cursor=pointer]:
+                        - generic [ref=f2e538]: 高
+                        - generic [ref=f2e539]: 好的，根据
+                      - button "高 方法方法" [ref=f2e540] [cursor=pointer]:
+                        - generic [ref=f2e541]: 高
+                        - generic [ref=f2e542]: 方法方法
+                      - button "高 注：内部备注" [ref=f2e543] [cursor=pointer]:
+                        - generic [ref=f2e544]: 高
+                        - generic [ref=f2e545]: 注：内部备注
+                    - generic [ref=f2e546]:
+                      - generic [ref=f2e547]:
+                        - generic [ref=f2e548]: 建议
+                        - generic [ref=f2e549]: "4"
+                      - button "中 替换为干净权利要求。" [ref=f2e550] [cursor=pointer]:
+                        - generic [ref=f2e551]: 中
+                        - generic [ref=f2e552]: 替换为干净权利要求。
+                      - button "中 删除重复词汇。" [ref=f2e553] [cursor=pointer]:
+                        - generic [ref=f2e554]: 中
+                        - generic [ref=f2e555]: 删除重复词汇。
+                      - button "中 补充量化实施例。" [ref=f2e556] [cursor=pointer]:
+                        - generic [ref=f2e557]: 中
+                        - generic [ref=f2e558]: 补充量化实施例。
+                      - button "中 修复 blocking 后重新会审。" [ref=f2e559] [cursor=pointer]:
+                        - generic [ref=f2e560]: 中
+                        - generic [ref=f2e561]: 修复 blocking 后重新会审。
+                - generic [ref=f2e562]:
+                  - generic [ref=f2e563]:
+                    - heading "正文定位" [level=4] [ref=f2e564]
+                    - paragraph [ref=f2e565]: 按问题定位段落并直接修改当前初稿内容。
+                  - generic [ref=f2e566]:
+                    - generic [ref=f2e567]:
+                      - text: 标题
+                      - generic [ref=f2e568]: 段落定位
+                    - textbox "标题" [ref=f2e569]: 一种QA 标注修复证据项目结构
+                  - generic [ref=f2e570]:
+                    - generic [ref=f2e571]: 摘要
+                    - textbox "摘要" [ref=f2e572]: 本发明公开一种按置信度主动采集的方法。
+                  - generic [ref=f2e573]:
+                    - generic [ref=f2e574]:
+                      - text: 权利要求书
+                      - generic [ref=f2e575]: 文本定位
+                    - textbox "权利要求书" [ref=f2e576]: "*(注：内部备注)**"
+                  - generic [ref=f2e577]:
+                    - generic [ref=f2e578]: 说明书
+                    - textbox "说明书" [ref=f2e579]: 本发明颠覆了固定航线模式，并通过置信度热力图生成无人机采集任务。
+                  - generic [ref=f2e580]:
+                    - generic [ref=f2e581]: 附图说明
+                    - textbox "附图说明" [ref=f2e582]: 图1为系统流程图。
+                - complementary "标注式修复详情面板" [ref=f2e583]:
+                  - generic [ref=f2e584]:
+                    - heading "修复面板" [level=4] [ref=f2e585]
+                    - generic [ref=f2e586]: 阻断
+                  - generic [ref=f2e587]:
+                    - region "当前问题摘要" [ref=f2e588]:
+                      - generic [ref=f2e589]:
+                        - generic [ref=f2e590]: 严重
+                        - generic [ref=f2e591]: 权利要求书
+                        - generic [ref=f2e592]: 文本匹配
+                      - paragraph [ref=f2e593]: 权利要求1含内部引导语 好的，根据
+                    - region "问题定位上下文" [ref=f2e594]:
+                      - generic [ref=f2e595]:
+                        - generic [ref=f2e596]: 命中文本
+                        - generic [ref=f2e597]: 权利要求书
+                      - paragraph [ref=f2e598]: 注：
+                      - paragraph [ref=f2e617]:
+                        - text: "*("
+                        - mark [ref=f2e618]: 注：
+                        - text: 内部备注)**
+                    - generic [ref=f2e599]:
+                      - button "人工修正" [ref=f2e600] [cursor=pointer]:
+                        - img [ref=f2e601]
+                        - generic [ref=f2e603]: 人工修正
+                      - button "生成 AI 修正" [ref=f2e604] [cursor=pointer]:
+                        - img [ref=f2e605]
+                        - generic [ref=f2e608]: 生成 AI 修正
+              - generic [ref=f2e609]:
+                - generic [ref=f2e610]: 保存后请重新编译正式稿并重新成稿会审。
+                - button "保存当前初稿" [ref=f2e611] [cursor=pointer]:
+                  - img [ref=f2e612]
+                  - generic [ref=f2e616]: 保存当前初稿
+  - region "Notifications alt+T"

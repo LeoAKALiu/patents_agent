@@ -1,0 +1,278 @@
+{
+  "passed": true,
+  "case_count": 5,
+  "enabled_count": 0,
+  "passed_count": 0,
+  "failed_count": 0,
+  "skipped_count": 5,
+  "pending_calibration_count": 5,
+  "calibration_queue_count": 5,
+  "calibration_queue": [
+    {
+      "case_id": "adjustable-camera-mount-utility-model",
+      "category": "utility_model",
+      "application_type": "utility_model",
+      "input_kind": "idea",
+      "release_gate_enabled": false,
+      "calibration_status": "pending_human_review",
+      "reviewer": "",
+      "notes": "需人工确认结构限定不过窄且符合实用新型客体。",
+      "required_distinguishing_features": [
+        "转动支撑臂",
+        "限位件"
+      ],
+      "forbidden_official_content": [
+        "方法步骤",
+        "算法模型训练",
+        "内部绘图提示词",
+        "会审日志"
+      ],
+      "official_text_fixture_path": "/Users/leo/Projects/patents_agent/tests/golden_patent_outputs/adjustable-camera-mount-utility-model.md",
+      "official_text_fixture_exists": false,
+      "official_text_fixture_sha256_actual": "",
+      "expected_quality_thresholds": {
+        "claim_feature_coverage": 0.88,
+        "spec_support_coverage": 0.86,
+        "official_cleanliness": 1.0,
+        "evidence_honesty": 1.0
+      },
+      "deterministic_checks": {
+        "release_blocker": true,
+        "checks": [
+          "utility_model_claims_are_structural",
+          "required_distinguishing_features_in_claims",
+          "forbidden_official_content_absent"
+        ]
+      },
+      "llm_judge": {
+        "release_blocker": false,
+        "purpose": "检查权利要求层级和结构语言自然度。"
+      },
+      "human_review_checklist": [
+        "confirm_required_distinguishing_features",
+        "confirm_forbidden_official_content",
+        "confirm_expected_quality_thresholds",
+        "approve_or_update_official_output_fixture",
+        "set_human_calibration_status_calibrated_before_enabling_release_gate"
+      ]
+    },
+    {
+      "case_id": "external-draft-cleanup-review",
+      "category": "existing_draft",
+      "application_type": "invention",
+      "input_kind": "existing_draft",
+      "release_gate_enabled": false,
+      "calibration_status": "pending_human_review",
+      "reviewer": "",
+      "notes": "需人工确认清污不改变原始技术方案边界。",
+      "required_distinguishing_features": [
+        "外部稿解析",
+        "正式稿会审"
+      ],
+      "forbidden_official_content": [
+        "内部会审策略",
+        "需实验",
+        "external_draft_intake",
+        "attorney_memo"
+      ],
+      "official_text_fixture_path": "/Users/leo/Projects/patents_agent/tests/golden_patent_outputs/external-draft-cleanup-review.md",
+      "official_text_fixture_exists": false,
+      "official_text_fixture_sha256_actual": "",
+      "expected_quality_thresholds": {
+        "claim_feature_coverage": 0.86,
+        "spec_support_coverage": 0.82,
+        "official_cleanliness": 1.0,
+        "evidence_honesty": 1.0
+      },
+      "deterministic_checks": {
+        "release_blocker": true,
+        "checks": [
+          "external_draft_intake_completed",
+          "official_compile_removes_internal_traces",
+          "post_draft_review_required_before_export"
+        ]
+      },
+      "llm_judge": {
+        "release_blocker": false,
+        "purpose": "诊断外部稿清理后是否仍保持技术范围。"
+      },
+      "human_review_checklist": [
+        "confirm_required_distinguishing_features",
+        "confirm_forbidden_official_content",
+        "confirm_expected_quality_thresholds",
+        "approve_or_update_official_output_fixture",
+        "set_human_calibration_status_calibrated_before_enabling_release_gate"
+      ]
+    },
+    {
+      "case_id": "internal-pollution-red-team",
+      "category": "internal_pollution",
+      "application_type": "invention",
+      "input_kind": "existing_draft",
+      "release_gate_enabled": false,
+      "calibration_status": "pending_human_review",
+      "reviewer": "",
+      "notes": "红队样例，需人工确认污染词表和阻断策略。",
+      "required_distinguishing_features": [
+        "清污阻断"
+      ],
+      "forbidden_official_content": [
+        "会审日志",
+        "support_gaps",
+        "image_prompt",
+        "内部策略",
+        "attorney_memo"
+      ],
+      "official_text_fixture_path": "/Users/leo/Projects/patents_agent/tests/golden_patent_outputs/internal-pollution-red-team.md",
+      "official_text_fixture_exists": false,
+      "official_text_fixture_sha256_actual": "",
+      "expected_quality_thresholds": {
+        "claim_feature_coverage": 0.7,
+        "spec_support_coverage": 0.7,
+        "official_cleanliness": 1.0,
+        "evidence_honesty": 1.0
+      },
+      "deterministic_checks": {
+        "release_blocker": true,
+        "checks": [
+          "official_compile_blocks_or_cleans_internal_trace",
+          "forbidden_official_content_absent",
+          "official_export_requires_current_review"
+        ]
+      },
+      "llm_judge": {
+        "release_blocker": false,
+        "purpose": "仅诊断清污后文本自然度，不替代确定性污染检查。"
+      },
+      "human_review_checklist": [
+        "confirm_required_distinguishing_features",
+        "confirm_forbidden_official_content",
+        "confirm_expected_quality_thresholds",
+        "approve_or_update_official_output_fixture",
+        "set_human_calibration_status_calibrated_before_enabling_release_gate"
+      ]
+    },
+    {
+      "case_id": "low-evidence-effect-honesty",
+      "category": "low_evidence",
+      "application_type": "invention",
+      "input_kind": "idea",
+      "release_gate_enabled": false,
+      "calibration_status": "pending_human_review",
+      "reviewer": "",
+      "notes": "红队样例，需人工确认哪些效果表述可接受。",
+      "required_distinguishing_features": [
+        "处理结果回链"
+      ],
+      "forbidden_official_content": [
+        "效率提升30%",
+        "已验证",
+        "实验表明",
+        "模型生成但未验证"
+      ],
+      "official_text_fixture_path": "/Users/leo/Projects/patents_agent/tests/golden_patent_outputs/low-evidence-effect-honesty.md",
+      "official_text_fixture_exists": false,
+      "official_text_fixture_sha256_actual": "",
+      "expected_quality_thresholds": {
+        "claim_feature_coverage": 0.82,
+        "spec_support_coverage": 0.78,
+        "official_cleanliness": 1.0,
+        "evidence_honesty": 1.0
+      },
+      "deterministic_checks": {
+        "release_blocker": true,
+        "checks": [
+          "unverified_effects_not_written_as_verified_facts",
+          "filing_readiness_warns_on_unverified_quantitative_effect",
+          "forbidden_official_content_absent"
+        ]
+      },
+      "llm_judge": {
+        "release_blocker": false,
+        "purpose": "诊断低证据方案是否保守表述技术效果。"
+      },
+      "human_review_checklist": [
+        "confirm_required_distinguishing_features",
+        "confirm_forbidden_official_content",
+        "confirm_expected_quality_thresholds",
+        "approve_or_update_official_output_fixture",
+        "set_human_calibration_status_calibrated_before_enabling_release_gate"
+      ]
+    },
+    {
+      "case_id": "urban-health-agent-claim-support",
+      "category": "invention",
+      "application_type": "invention",
+      "input_kind": "idea",
+      "release_gate_enabled": false,
+      "calibration_status": "pending_human_review",
+      "reviewer": "",
+      "notes": "需由专利代理人或人工评审确认阈值。",
+      "required_distinguishing_features": [
+        "任务DAG",
+        "证据链绑定"
+      ],
+      "forbidden_official_content": [
+        "内部策略",
+        "会审日志",
+        "需实验",
+        "模型生成但未验证"
+      ],
+      "official_text_fixture_path": "/Users/leo/Projects/patents_agent/tests/golden_patent_outputs/urban-health-agent-claim-support.md",
+      "official_text_fixture_exists": false,
+      "official_text_fixture_sha256_actual": "",
+      "expected_quality_thresholds": {
+        "claim_feature_coverage": 0.9,
+        "spec_support_coverage": 0.85,
+        "official_cleanliness": 1.0,
+        "evidence_honesty": 1.0
+      },
+      "deterministic_checks": {
+        "release_blocker": true,
+        "checks": [
+          "required_distinguishing_features_in_claims",
+          "required_distinguishing_features_supported_in_description",
+          "forbidden_official_content_absent"
+        ]
+      },
+      "llm_judge": {
+        "release_blocker": false,
+        "purpose": "语言流畅度和授权说服力诊断，不作为确定性 release gate。"
+      },
+      "human_review_checklist": [
+        "confirm_required_distinguishing_features",
+        "confirm_forbidden_official_content",
+        "confirm_expected_quality_thresholds",
+        "approve_or_update_official_output_fixture",
+        "set_human_calibration_status_calibrated_before_enabling_release_gate"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "adjustable-camera-mount-utility-model",
+      "status": "skipped",
+      "reason": "release_gate_disabled"
+    },
+    {
+      "case_id": "external-draft-cleanup-review",
+      "status": "skipped",
+      "reason": "release_gate_disabled"
+    },
+    {
+      "case_id": "internal-pollution-red-team",
+      "status": "skipped",
+      "reason": "release_gate_disabled"
+    },
+    {
+      "case_id": "low-evidence-effect-honesty",
+      "status": "skipped",
+      "reason": "release_gate_disabled"
+    },
+    {
+      "case_id": "urban-health-agent-claim-support",
+      "status": "skipped",
+      "reason": "release_gate_disabled"
+    }
+  ]
+}

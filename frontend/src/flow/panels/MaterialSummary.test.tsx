@@ -41,4 +41,22 @@ describe("MaterialSummary", () => {
     expect(screen.getByText(/不参与后续发明点提炼/)).toBeTruthy();
     expect(container.textContent).not.toContain("round18-long-chinese-material.mdmd");
   });
+
+  it("warns when uploaded materials reuse the same file name", () => {
+    render(
+      <MaterialSummary
+        materials={[
+          processedMaterial,
+          {
+            ...processedMaterial,
+            id: "m-duplicate",
+            path: "data/project-materials/project-1/copy/round18-long-chinese-material.md",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("发现重复文件名")).toBeTruthy();
+    expect(screen.getByText(/round18-long-chinese-material\.md 已出现多次/)).toBeTruthy();
+  });
 });

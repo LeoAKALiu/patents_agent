@@ -1,0 +1,27 @@
+{
+  "export_allowed": false,
+  "draft_required": false,
+  "quality_required": true,
+  "official_compile_required": false,
+  "post_draft_review_required": false,
+  "next_action": "run_quality_checks",
+  "reason": "当前初稿尚未完成质量检查。请先运行提交前质量检查和成稿完整度检查，再进入正式导出链路。",
+  "current_source_draft_hash": "1708c17a54588ccf60723d321b5310bd16b7ad9be29c68e50ecfc50074a04ac8",
+  "quality_done": false,
+  "missing_quality_checks": [
+    "filing_readiness",
+    "claim_defense_worksheet",
+    "draft_completion"
+  ],
+  "stale_quality_checks": [],
+  "failed_quality_checks": [],
+  "unknown_quality_checks": [],
+  "quality_check_states": {
+    "filing_readiness": "missing",
+    "claim_defense_worksheet": "missing",
+    "draft_completion": "missing"
+  },
+  "filing_readiness_report_id": "",
+  "claim_defense_worksheet_id": "",
+  "draft_completion_run_id": ""
+}

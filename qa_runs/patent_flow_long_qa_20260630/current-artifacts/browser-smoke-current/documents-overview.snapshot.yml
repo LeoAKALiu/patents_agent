@@ -1,0 +1,234 @@
+- generic [ref=f1e2]:
+  - generic [ref=f1e3]:
+    - complementary "主导航" [ref=f1e4]:
+      - generic "权衡 GrantAtlas home" [ref=f1e5]:
+        - img "权衡 GrantAtlas logo" [ref=f1e7]
+        - generic [ref=f1e8]:
+          - strong [ref=f1e9]: 权衡 GrantAtlas
+          - generic [ref=f1e10]: 国际专利授权工程系统
+      - navigation "主导航" [ref=f1e11]:
+        - button "工作台" [ref=f1e12] [cursor=pointer]:
+          - img
+          - generic [ref=f1e13]: 工作台
+        - button "项目" [ref=f1e14] [cursor=pointer]:
+          - img
+          - generic [ref=f1e15]: 项目
+        - button "文稿与修复" [ref=f1e16] [cursor=pointer]:
+          - img
+          - generic [ref=f1e17]: 文稿与修复
+        - button "知识库" [ref=f1e18] [cursor=pointer]:
+          - img
+          - generic [ref=f1e19]: 知识库
+        - button "专家工具" [ref=f1e20] [cursor=pointer]:
+          - img
+          - generic [ref=f1e21]: 专家工具
+        - button "导出" [ref=f1e22] [cursor=pointer]:
+          - img
+          - generic [ref=f1e23]: 导出
+        - button "设置" [ref=f1e24] [cursor=pointer]:
+          - img
+          - generic [ref=f1e25]: 设置
+      - generic [ref=f1e27]:
+        - generic [ref=f1e28]:
+          - generic [ref=f1e29]: 模型
+          - generic [ref=f1e31]: 可用
+        - generic [ref=f1e32]:
+          - generic [ref=f1e33]: 智能体
+          - generic [ref=f1e35]: 部分可用
+        - generic [ref=f1e36]:
+          - generic [ref=f1e37]: 后端
+          - generic "后端在线" [ref=f1e152]: 在线
+    - main [ref=f1e40]:
+      - generic [ref=f1e41]:
+        - generic [ref=f1e42]:
+          - heading "文稿与修复" [level=1] [ref=f1e176]
+          - paragraph [ref=f1e44]: 处理当前项目的正文、问题和版本链路
+        - generic [ref=f1e46]:
+          - generic [ref=f1e47]:
+            - generic [ref=f1e48]: 当前项目
+            - combobox "当前项目" [ref=f1e49]:
+              - option "新建项目"
+              - option "QA 标注修复证据项目" [selected]
+          - generic [ref=f1e50]:
+            - img [ref=f1e51]
+            - generic [ref=f1e54]: 导出锁定
+          - generic [ref=f1e55]:
+            - img [ref=f1e153]
+            - generic [ref=f1e58]: 空闲
+          - button "后端在线" [ref=f1e155] [cursor=pointer]:
+            - img
+            - generic [ref=f1e60]: 后端在线
+          - button "刷新运行状态" [ref=f1e61] [cursor=pointer]:
+            - img
+      - region "文稿与修复" [ref=f1e177]:
+        - generic [ref=f1e179]:
+          - paragraph [ref=f1e180]: 文稿与修复
+          - heading "文稿与修复" [level=2] [ref=f1e181]
+          - paragraph [ref=f1e182]: 管理内部初稿、正式稿、问题修复和导出门禁。
+        - tablist "文稿与修复标签" [ref=f1e183]:
+          - tab "总览" [selected] [ref=f1e184] [cursor=pointer]
+          - tab "编辑" [ref=f1e185] [cursor=pointer]
+          - tab "问题" [ref=f1e186] [cursor=pointer]
+          - tab "标注修复" [ref=f1e187] [cursor=pointer]
+          - tab "版本" [ref=f1e188] [cursor=pointer]
+        - tabpanel "总览" [ref=f1e189]:
+          - generic [ref=f1e190]:
+            - region "当前文稿阻断导出，需先处理 2 个阻断项。" [ref=f1e191]:
+              - generic [ref=f1e192]:
+                - paragraph [ref=f1e193]: 总览
+                - heading "当前文稿阻断导出，需先处理 2 个阻断项。" [level=2] [ref=f1e194]
+                - paragraph [ref=f1e195]: 先处理阻断项。保存初稿后，当前正式稿和旧成稿会审会失效，需要重新编译正式稿并重新成稿会审。
+              - button "进入标注修复" [ref=f1e196] [cursor=pointer]:
+                - text: 进入标注修复
+                - img
+            - region "内部初稿到导出" [ref=f1e197]:
+              - generic [ref=f1e199]:
+                - paragraph [ref=f1e200]: 门禁链路
+                - heading "内部初稿到导出" [level=3] [ref=f1e201]
+              - list [ref=f1e202]:
+                - listitem [ref=f1e203]:
+                  - img [ref=f1e205]
+                  - generic [ref=f1e208]:
+                    - strong [ref=f1e209]: 内部初稿
+                    - generic [ref=f1e210]: 可编辑
+                  - paragraph [ref=f1e211]: 可继续编辑的内部工作稿。
+                - listitem [ref=f1e212]:
+                  - img [ref=f1e214]
+                  - generic [ref=f1e216]:
+                    - strong [ref=f1e217]: 质量检查
+                    - generic [ref=f1e218]: 待重新验证
+                  - paragraph [ref=f1e219]: 需要重新验证当前内部初稿。
+                - listitem [ref=f1e220]:
+                  - img [ref=f1e222]
+                  - generic [ref=f1e225]:
+                    - strong [ref=f1e226]: 正式稿编译
+                    - generic [ref=f1e227]: 当前有效
+                  - paragraph [ref=f1e228]: 正式稿已由当前内部初稿编译。
+                - listitem [ref=f1e229]:
+                  - img [ref=f1e231]
+                  - generic [ref=f1e235]:
+                    - strong [ref=f1e236]: 成稿会审
+                    - generic [ref=f1e237]: 需要修复
+                  - paragraph [ref=f1e238]: 成稿会审发现阻断项。
+                - listitem [ref=f1e239]:
+                  - img [ref=f1e241]
+                  - generic [ref=f1e245]:
+                    - strong [ref=f1e246]: 导出
+                    - generic [ref=f1e247]: 导出锁定
+                  - paragraph [ref=f1e248]: 导出被阻断，需要先修复问题。
+            - region "文稿状态" [ref=f1e249]:
+              - article [ref=f1e250]:
+                - generic [ref=f1e251]:
+                  - generic [ref=f1e252]:
+                    - generic [ref=f1e253]: 内部复核材料，可编辑工作稿
+                    - heading "内部初稿" [level=3] [ref=f1e254]
+                  - generic [ref=f1e255]: 可编辑
+                - paragraph [ref=f1e256]:
+                  - img [ref=f1e257]
+                  - generic [ref=f1e260]: 一种QA 标注修复证据项目结构
+                - generic [ref=f1e261]:
+                  - generic [ref=f1e262]:
+                    - generic [ref=f1e263]: 权利要求书
+                    - strong [ref=f1e264]: 11 字
+                  - generic [ref=f1e265]:
+                    - generic [ref=f1e266]: 说明书
+                    - strong [ref=f1e267]: 32 字
+                  - generic [ref=f1e268]:
+                    - generic [ref=f1e269]: 摘要
+                    - strong [ref=f1e270]: 19 字
+                - list [ref=f1e271]:
+                  - listitem [ref=f1e272]: 编辑内部初稿后，旧正式稿与旧成稿会审需要重新验证。
+                - button "编辑文稿" [ref=f1e273] [cursor=pointer]
+              - article [ref=f1e274]:
+                - generic [ref=f1e275]:
+                  - generic [ref=f1e276]:
+                    - generic [ref=f1e277]: 正式提交稿，由内部初稿编译生成
+                    - heading "正式稿" [level=3] [ref=f1e278]
+                  - generic [ref=f1e279]: 当前有效
+                - paragraph [ref=f1e280]:
+                  - img [ref=f1e281]
+                  - generic [ref=f1e284]: 一种QA 标注修复证据项目结构
+                - generic [ref=f1e285]:
+                  - generic [ref=f1e286]:
+                    - generic [ref=f1e287]: 来源状态
+                    - strong [ref=f1e288]: 来源当前
+                  - generic [ref=f1e289]:
+                    - generic [ref=f1e290]: 清理状态
+                    - strong [ref=f1e291]: 1 项已清理
+                  - generic [ref=f1e292]:
+                    - generic [ref=f1e293]: 导出状态
+                    - strong [ref=f1e294]: 未放行
+                - list [ref=f1e295]:
+                  - listitem [ref=f1e296]: 正式稿是提交候选稿，不作为内部策略材料编辑。
+                - button "查看正式稿" [ref=f1e297] [cursor=pointer]
+            - region "问题摘要" [ref=f1e298]:
+              - generic [ref=f1e299]:
+                - generic [ref=f1e300]:
+                  - paragraph [ref=f1e301]: 问题
+                  - heading "问题摘要" [level=3] [ref=f1e302]
+                - button "查看全部" [ref=f1e303] [cursor=pointer]
+              - generic [ref=f1e304]:
+                - generic [ref=f1e305]:
+                  - generic [ref=f1e306]: 阻断
+                  - strong [ref=f1e307]: "2"
+                - generic [ref=f1e308]:
+                  - generic [ref=f1e309]: 风险
+                  - strong [ref=f1e310]: "6"
+                - generic [ref=f1e311]:
+                  - generic [ref=f1e312]: 建议
+                  - strong [ref=f1e313]: "4"
+                - generic [ref=f1e314]:
+                  - generic [ref=f1e315]: 已处理
+                  - strong [ref=f1e316]: "1"
+              - generic [ref=f1e317]:
+                - generic [ref=f1e318]:
+                  - generic [ref=f1e319]: 阻断
+                  - generic [ref=f1e320]: 全文
+                  - strong [ref=f1e321]: 标题存在重复词汇方法方法
+                  - button "定位" [ref=f1e322] [cursor=pointer]
+                - generic [ref=f1e323]:
+                  - generic [ref=f1e324]: 阻断
+                  - generic [ref=f1e325]: 权利要求书
+                  - strong [ref=f1e326]: 权利要求1含内部引导语 好的，根据
+                  - button "定位" [ref=f1e327] [cursor=pointer]
+                - generic [ref=f1e328]:
+                  - generic [ref=f1e329]: 风险
+                  - generic [ref=f1e330]: 全文
+                  - strong [ref=f1e331]: 好的，根据
+                  - button "定位" [ref=f1e332] [cursor=pointer]
+                - generic [ref=f1e333]:
+                  - generic [ref=f1e334]: 风险
+                  - generic [ref=f1e335]: 全文
+                  - strong [ref=f1e336]: 注：内部备注
+                  - button "定位" [ref=f1e337] [cursor=pointer]
+                - generic [ref=f1e338]:
+                  - generic [ref=f1e339]: 建议
+                  - generic [ref=f1e340]: 权利要求书
+                  - strong [ref=f1e341]: 替换为干净权利要求。
+                  - button "定位" [ref=f1e342] [cursor=pointer]
+            - region "最近记录" [ref=f1e343]:
+              - generic [ref=f1e345]:
+                - paragraph [ref=f1e346]: 记录
+                - heading "最近记录" [level=3] [ref=f1e347]
+              - generic [ref=f1e348]:
+                - generic [ref=f1e349]:
+                  - generic [ref=f1e350]: 质量检查
+                  - strong [ref=f1e351]: 待重新验证
+                  - generic [ref=f1e352]: 暂无记录
+                - generic [ref=f1e353]:
+                  - generic [ref=f1e354]: 正式稿编译
+                  - strong [ref=f1e355]: 当前有效
+                  - generic [ref=f1e356]: 06/30 15:32
+                - generic [ref=f1e357]:
+                  - generic [ref=f1e358]: 成稿会审
+                  - strong [ref=f1e359]: 需要修复
+                  - generic [ref=f1e360]: 06/30 15:32
+                - generic [ref=f1e361]:
+                  - generic [ref=f1e362]: 修复记录
+                  - strong [ref=f1e363]: 1 项已处理
+                  - generic [ref=f1e364]: 包含清理与安全修复
+                - generic [ref=f1e365]:
+                  - generic [ref=f1e366]: 导出
+                  - strong [ref=f1e367]: 导出锁定
+                  - generic [ref=f1e368]: 当前初稿尚未完成质量检查。请先运行提交前质量检查和成稿完整度检查，再进入正式导出链路。
+  - region "Notifications alt+T"
