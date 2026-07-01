@@ -1,16 +1,20 @@
-# Task 3 Report: Implement Three API Journeys With JSON Reports
+# Task 3 Report: Project Knowledge Import API And Ledger Storage
 
 ## Source Identity
 
-- Worktree: `/Users/leo/Projects/patents_agent`
-- Branch: `codex/automation-test-plan`
-- Base commit from brief: `665afe37`
-- Dirty status at start: dirty with unrelated existing automation changes already present in the worktree
+- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+- Branch: `codex/cnipa-official-export-design`
+- Starting HEAD: `a93dabbb`
+- Commit created: `abd29605`
+- Dirty at start: yes, existing `.superpowers/sdd/progress.md`, `.superpowers/sdd/task-1-report.md`, and `.superpowers/sdd/task-2-report.md`
 
-## Files Changed
+## Scope Completed
 
-- `tests/agent_journey_runner.py`
-- `tests/test_agent_journey_runner.py`
+- Added `ProjectKnowledgeImportLedger` and `CnipaExportImportResponse` schemas in `backend/app/schemas.py`
+- Added SQLite persistence for project knowledge import ledgers in `backend/app/storage.py`
+- Added `import_cnipa_official_export(...)` in `backend/app/services/project_knowledge_service.py`
+- Added project knowledge CNIPA upload/list endpoints in `backend/app/api/project_knowledge.py`
+- Added service and API coverage in `tests/test_project_knowledge.py` and `tests/test_api.py`
 
 ## TDD Evidence
 
@@ -19,148 +23,127 @@
 Command:
 
 ```bash
-python3 -m pytest tests/test_agent_journey_runner.py -q
+python3 -m pytest tests/test_project_knowledge.py::test_import_cnipa_official_export_adds_real_candidates_and_ledger -q
 ```
 
-Relevant failing output:
+Observed failure:
 
 ```text
-ImportError while importing test module '/Users/leo/Projects/patents_agent/tests/test_agent_journey_runner.py'.
-E   ImportError: cannot import name 'run_journey' from 'agent_journey_runner'
+ImportError: cannot import name 'import_cnipa_official_export'
 ```
-
-This matched the expected failure mode from the brief: the new journey tests were present, but `run_journey` and `run_journeys` were not implemented yet.
 
 ### GREEN
 
-Focused command:
+Focused service command:
 
 ```bash
-python3 -m pytest tests/test_agent_journey_runner.py -q
+python3 -m pytest tests/test_project_knowledge.py::test_import_cnipa_official_export_adds_real_candidates_and_ledger -q
 ```
 
-Relevant passing output:
+Result:
 
 ```text
-6 passed, 4 warnings in 2.06s
+1 passed in 0.48s
 ```
 
-Combined verification command:
+Focused API command:
 
 ```bash
-python3 -m pytest tests/test_flow_driver.py tests/test_agent_journey_runner.py -q
+python3 -m pytest tests/test_api.py::test_project_knowledge_cnipa_export_upload_returns_overview -q
 ```
 
-Relevant passing output:
+Result:
 
 ```text
-18 passed, 16 warnings in 3.01s
+1 passed in 0.82s
 ```
 
-## Implementation Summary
+Final task verification:
 
-- Added the brief’s failing journey tests for all three approved journey IDs plus unknown-ID rejection.
-- Implemented deterministic `journey_llm()` responses for formula, draft generation, review, and post-draft review roles.
-- Implemented `run_journey()` and `run_journeys()` using `TestClient(create_app(...))`, `FlowDriver`, temporary data dirs, and `JourneyReport` JSON output.
-- Added the three journey execution helpers:
-  - `invention_from_idea`
-  - `utility_model_from_structure`
-  - `polish_existing_draft`
-- Added helper functions to seed a completed strict deliberation, assert official-export readiness, build step records, and provide deterministic external draft text.
+```bash
+python3 -m pytest tests/test_api.py tests/test_project_knowledge.py tests/test_cnipa_export_importer.py tests/test_patent_sources.py -q
+```
 
-## Self-Review Findings
+Result:
 
-- The implementation stays within the existing API contract and does not touch product API behavior.
-- Export readiness remains based on `official_compile_required`; no product code was changed.
-- The report runner captures source identity override, step evidence, current gates, and hashes from the actual API flow.
-- Warnings observed were existing `chromadb` deprecation warnings during pytest, not task regressions.
+```text
+67 passed in 3.09s
+```
+
+## Implementation Notes
+
+- Reused `CNIPA_OFFICIAL_EXPORT_SOURCE`, `CnipaExportImportContext`, and `parse_cnipa_official_export_file(...)` from the current worktree as required.
+- Preserved Task 2 import metadata and carried truthful ZIP attachment names into persisted import ledgers via `attachments`.
+- Stored retained candidate IDs based on the actual post-import candidate set for the active plan.
+- Kept the new API limited to Task 3 upload/query behavior; no Task 4 gating or Task 5 frontend work was added.
+
+## Self-Review
+
+- Verified the service path updates project knowledge state to `candidates_pending` on successful imports.
+- Verified ledger persistence contains the CNIPA source ID, parsed row count, retained candidate IDs, and attachment metadata.
+- Verified the upload endpoint stores the uploaded file under the app data dir and returns both `overview` and newest `ledger`.
 
 ## Concerns
 
-- None within the scoped task files and focused verification run.
+- None within Task 3 scope.
 
----
+## Review Fix Addendum
 
-## Task 3 Review Fixes - 2026-06-28
+- Date: 2026-07-01
+- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+- Branch: `codex/cnipa-official-export-design`
+- HEAD: `abd29605`
+- Dirty at start: yes; pre-existing `.superpowers` report/progress edits were present in this worktree
 
-### What I Fixed
+### Reviewer Findings Addressed
 
-- Updated `tests/agent_journey_runner.py` so persisted reports mark `execution.data_dir` as `ephemeral:<path>` instead of recording a deleted temporary directory as though it were durable.
-- Added shared journey ID prevalidation in `run_journeys()` so any unknown ID fails before earlier reports can be written.
-- Strengthened `tests/test_agent_journey_runner.py` to verify the full report gate/hash contract for every generated report:
-  - `gates.quality == current`
-  - `gates.official_compile == current`
-  - `gates.post_draft_review == current`
-  - non-empty `hashes.current_source_draft_hash`
-  - non-empty `hashes.latest_official_package_hash`
-  - non-empty `hashes.latest_review_draft_hash`
-  - non-empty `hashes.latest_review_official_package_hash`
-- Added a test that mixed valid/unknown batch IDs fail cleanly without writing any report files.
+- Cleaned up persisted CNIPA upload files on `POST /api/projects/{project_id}/knowledge/cnipa-export-imports` when import validation/activation fails before any ledger is created. The API now unlinks the randomized stored upload on the `400` and `409` failure paths.
+- Preserved the user-facing original upload basename in `ProjectKnowledgeImportLedger.source_file_name` by threading `source_file_name` through `import_cnipa_official_export(...)`, while keeping parser/service reads pointed at the randomized stored path on disk.
+- Added focused regression coverage for:
+  - ledger original filename preservation
+  - stored upload cleanup after failed import request
+  - ZIP attachment filenames remaining visible in import ledger/API responses
 
-### Commands Run And Results
+### Verification
+
+Required task suite:
 
 ```bash
-python3 -m pytest tests/test_agent_journey_runner.py -q
+python3 -m pytest tests/test_api.py tests/test_project_knowledge.py tests/test_cnipa_export_importer.py tests/test_patent_sources.py -q
 ```
 
 Result:
 
 ```text
-7 passed, 4 warnings in 1.91s
+70 passed in 3.40s
 ```
 
+## Re-review Fix 2 Addendum
+
+- Date: 2026-07-01
+- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+- Branch: `codex/cnipa-official-export-design`
+- Starting HEAD: `dd72b23b`
+- Dirty at start: yes; existing `.superpowers/sdd/progress.md`, `.superpowers/sdd/task-1-report.md`, `.superpowers/sdd/task-2-report.md`, and `.superpowers/sdd/task-3-report.md` edits were already present
+
+### Reviewer Finding Addressed
+
+- Updated `backend/app/api/project_knowledge.py` so any unexpected exception raised after the upload is written also unlinks the randomized stored file before returning `400 Failed to import CNIPA export.`
+
+### Regression Coverage
+
+- Added an API test in `tests/test_api.py` that monkeypatches `import_cnipa_official_export(...)` to raise an unexpected runtime error and asserts the stored upload directory is empty after the failed request.
+
+### Verification
+
+Required task suite:
+
 ```bash
-python3 -m pytest tests/test_flow_driver.py tests/test_agent_journey_runner.py -q
+python3 -m pytest tests/test_api.py tests/test_project_knowledge.py tests/test_cnipa_export_importer.py tests/test_patent_sources.py -q
 ```
 
 Result:
 
 ```text
-19 passed, 16 warnings in 2.90s
+71 passed in 4.12s
 ```
-
-### Files Changed
-
-- `tests/agent_journey_runner.py`
-- `tests/test_agent_journey_runner.py`
-- `.superpowers/sdd/task-3-report.md`
-
-### Concerns
-
-- Test runs still emit existing `chromadb` deprecation warnings; they did not block the scoped fixes.
-
----
-
-# Task 3 Report: Workbench Workspace
-
-Status: DONE_WITH_CONCERNS
-
-Source identity:
-- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
-- Branch: `codex/ui-refactor-2026-06-29`
-- Starting HEAD: `7cf5a118`
-- Dirty at start: no source changes in this worktree
-
-Implementation summary:
-- Added `deriveWorkbenchState()` in `frontend/src/features/workbench/selectors.ts`.
-- Added `WorkbenchWorkspace` in `frontend/src/features/workbench/WorkbenchWorkspace.tsx`.
-- Routed `workbench` in `AppRoot` to the new workspace.
-- Kept `documents` on the existing temporary `ProjectWorkspace` route for Task 4.
-- Added compact 3-group / 9-step progress, one primary action, risk summary, run summary, and no raw internals.
-- Updated route test assertion so local workbench shortcuts do not count as topbar/global nav.
-
-Verification:
-- RED: `cd frontend && npm test -- features/workbench/selectors.test.ts features/workbench/WorkbenchWorkspace.test.tsx` failed on missing modules before implementation.
-- GREEN targeted: `cd frontend && npm test -- features/workbench/selectors.test.ts features/workbench/WorkbenchWorkspace.test.tsx app/routes.test.tsx` passed, 3 files / 20 tests.
-- Build: `cd frontend && npm run build` passed.
-- Full suite: `cd frontend && npm test` passed, 30 files / 210 tests.
-- Final combined rerun after local review fix passed: targeted tests, build, and full suite.
-- Browser smoke: `npm run dev -- --host 127.0.0.1 --port 5178`; Playwright snapshot confirmed the real workbench route renders the workbench region, three start paths, grouped progress, and risk/run status.
-
-Review:
-- Subagent dispatcher tool was not available in this Codex session, so implementer/reviewer gates were executed locally.
-- Local review found and fixed one accessibility issue: `WorkbenchWorkspace` originally nested a `<main>` inside the shell `<main>`; it now renders as a section-level workspace region.
-- No Critical or Important findings remain from the local review.
-
-Concerns:
-- Browser smoke had expected Vite proxy errors because no backend was running on `127.0.0.1:8000`; the UI route still rendered.
