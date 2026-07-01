@@ -370,7 +370,10 @@ describe("evidence source api", () => {
     expect(result.api_key_masked).toBe("••••1234");
     expect(fetch).toHaveBeenCalledWith(
       "/api/evidence-sources/patsnap_api/config",
-      expect.objectContaining({ method: "PUT" }),
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({ api_key: "secret-1234", enabled: true }),
+      }),
     );
   });
 
@@ -396,5 +399,9 @@ describe("evidence source api", () => {
       source_id: "wanfang_api",
       live_search_available: false,
     });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/evidence-sources/wanfang_api/check",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 });
