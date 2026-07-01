@@ -30,6 +30,7 @@ import { ShellSidebar } from "./ui/ShellSidebar";
 import { ShellTopbar } from "./ui/ShellTopbar";
 import { SystemStatusPanel } from "./ui/SystemStatusPanel";
 import { useTheme } from "./ui/useTheme";
+import type { CorpusJobForm } from "@/features/corpus/types";
 import {
   AgentDoctorReport,
   ClaimDefenseWorksheet,
@@ -47,6 +48,7 @@ import {
   GrantabilityReport,
   Health,
   OfficialCompileRun,
+  type CnipaQueryPack,
   type ExportReadiness,
   type OfficialDraftPackage,
   PatentPointCandidate,
@@ -55,6 +57,7 @@ import {
   PostDraftReviewRun,
   PriorArtCandidate,
   ProjectMaterial,
+  ProjectKnowledgeImportLedger,
   ProjectKnowledgeOverview,
   PatentStrategyBrief,
   ProjectRecord,
@@ -99,6 +102,7 @@ import {
   getCorpusStats,
   getExportReadiness,
   getHealth,
+  getProjectCnipaQueryPack,
   getProjectKnowledge,
   improveProjectScore,
   importPatent,
@@ -115,6 +119,7 @@ import {
   listFormulaRuns,
   listOfficialCompileRuns,
   listPostDraftReviews,
+  listProjectKnowledgeImportLedgers,
   listProjectMaterials,
   listProjectPatentPoints,
   listProjects,
@@ -139,6 +144,7 @@ import {
   updateProjectDraftPackage,
   updateProjectPatentPoint,
   uploadCorpusJobFile,
+  uploadProjectCnipaExport,
   uploadExternalDraftSource,
   uploadProjectMaterial,
 } from "./api";
@@ -176,7 +182,6 @@ import {
   type RuntimeAwareRun,
 } from "./views/runtimePanel";
 import { ExportView } from "./views/exportView";
-import { CorpusBuildView } from "./views/corpusBuildView";
 import { MoatView, DeliberationView, DisclosureView } from "./views/pipelineViews";
 import {
   DisclosurePreview,
@@ -280,15 +285,6 @@ type DesktopMenuBridge = {
       }>;
     };
   };
-};
-
-
-type CorpusJobForm = {
-  source_type: string;
-  source_name: string;
-  query: string;
-  domain: string;
-  version_name: string;
 };
 
 type BusyTimer = {
@@ -593,6 +589,8 @@ function App() {
   const [corpusStats, setCorpusStats] = useState<CorpusStats | null>(null);
   const [corpusJob, setCorpusJob] = useState<CorpusImportJob | null>(null);
   const [projectKnowledge, setProjectKnowledge] = useState<ProjectKnowledgeOverview | null>(null);
+  const [cnipaQueryPack, setCnipaQueryPack] = useState<CnipaQueryPack | null>(null);
+  const [projectKnowledgeImportLedgers, setProjectKnowledgeImportLedgers] = useState<ProjectKnowledgeImportLedger[]>([]);
   const [corpusJobForm, setCorpusJobForm] = useState({
     source_type: "cnipa_export",
     source_name: "CNIPA",
@@ -791,6 +789,8 @@ function App() {
 
   useEffect(() => {
     setProjectKnowledge(null);
+    setCnipaQueryPack(null);
+    setProjectKnowledgeImportLedgers([]);
     setOfficialCompileRuns([]);
     setCurrentSourceDraftHash("");
     setPostDraftReviews([]);
@@ -826,6 +826,8 @@ function App() {
       setFormulaRequirement(null);
       setFormulaRuns([]);
       setProjectKnowledge(null);
+      setCnipaQueryPack(null);
+      setProjectKnowledgeImportLedgers([]);
       setExportReadiness(null);
       setPatentPoints([]);
       setFilingReports([]);
@@ -964,10 +966,38 @@ function App() {
         return false;
       }
       setProjectKnowledge(overview);
+      try {
+        const queryPack = await getProjectCnipaQueryPack(projectId);
+        if (selectedProjectIdRef.current !== projectId) {
+          return false;
+        }
+        setCnipaQueryPack(queryPack);
+      } catch {
+        if (selectedProjectIdRef.current === projectId) {
+          setCnipaQueryPack(null);
+        }
+      }
+      if (!overview.latest_plan) {
+        setProjectKnowledgeImportLedgers([]);
+        return true;
+      }
+      try {
+        const ledgers = await listProjectKnowledgeImportLedgers(projectId, overview.latest_plan.id);
+        if (selectedProjectIdRef.current !== projectId) {
+          return false;
+        }
+        setProjectKnowledgeImportLedgers(ledgers);
+      } catch {
+        if (selectedProjectIdRef.current === projectId) {
+          setProjectKnowledgeImportLedgers([]);
+        }
+      }
       return true;
     } catch {
       if (selectedProjectIdRef.current === projectId) {
         setProjectKnowledge(null);
+        setCnipaQueryPack(null);
+        setProjectKnowledgeImportLedgers([]);
       }
       return false;
     }
@@ -1323,6 +1353,27 @@ function App() {
         return;
       }
       setProjectKnowledge(overview);
+      try {
+        const queryPack = await getProjectCnipaQueryPack(projectId);
+        if (selectedProjectIdRef.current !== projectId) {
+          return;
+        }
+        setCnipaQueryPack(queryPack);
+        if (overview.latest_plan) {
+          const ledgers = await listProjectKnowledgeImportLedgers(projectId, overview.latest_plan.id);
+          if (selectedProjectIdRef.current !== projectId) {
+            return;
+          }
+          setProjectKnowledgeImportLedgers(ledgers);
+        } else {
+          setProjectKnowledgeImportLedgers([]);
+        }
+      } catch {
+        if (selectedProjectIdRef.current === projectId) {
+          setCnipaQueryPack(null);
+          setProjectKnowledgeImportLedgers([]);
+        }
+      }
       setMessage("已生成 Agent 检索计划。");
     });
   }
@@ -1379,6 +1430,21 @@ function App() {
         return;
       }
       setMessage(`项目证据库建库完成：${overview.state.document_count} 件文献。`);
+    });
+  }
+
+  async function handleImportCnipaExport(file: File): Promise<void> {
+    const latestPlan = projectKnowledge?.latest_plan;
+    if (!selectedProject || !latestPlan) return;
+    const projectId = selectedProject.id;
+    await withStatus("knowledge-cnipa-import", async () => {
+      const result = await uploadProjectCnipaExport(projectId, latestPlan.id, file);
+      if (selectedProjectIdRef.current !== projectId) {
+        return;
+      }
+      setProjectKnowledge(result.overview);
+      setProjectKnowledgeImportLedgers((current) => [result.ledger, ...current]);
+      setMessage(`已导入 CNIPA 官方导出物：解析 ${result.ledger.parsed_count} 条候选。`);
     });
   }
 
@@ -2154,6 +2220,8 @@ function App() {
       corpusState={{
         selectedProject,
         projectKnowledge,
+        cnipaQueryPack,
+        importLedgers: projectKnowledgeImportLedgers,
         corpusJobForm,
         corpusJob,
         corpusVersions,
@@ -2173,6 +2241,7 @@ function App() {
         onRunKnowledgeSearch: handleRunKnowledgeSearch,
         onCandidateDecision: handleCandidateDecision,
         onBuildProjectCorpus: handleBuildProjectCorpus,
+        onImportCnipaExport: handleImportCnipaExport,
         onImport: handleImport,
         onSearch: handleSearch,
         onSearchText: setSearchText,

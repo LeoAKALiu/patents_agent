@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import source from "./App.tsx?raw";
 
+function extractFunctionBody(name: string, nextName: string): string {
+  const start = source.indexOf(`async function ${name}`);
+  const end = source.indexOf(`async function ${nextName}`, start + 1);
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeGreaterThan(start);
+  return source.slice(start, end);
+}
+
 describe("App refresh effect dependencies", () => {
   it("uses stable scalar keys instead of refreshed object identities", () => {
     expect(source).toContain("const selectedProjectIdForRefresh = selectedProject?.id ?? \"\"");
@@ -66,5 +74,41 @@ describe("App refresh effect dependencies", () => {
     expect(body).toContain("await loadExportReadiness(projectId)");
     expect(body).not.toContain("updateProjectDraftPackage");
     expect(source).toContain("onDraftRepairPatchApplied: (issueId) => void handleDraftRepairPatchApplied(issueId)");
+  });
+
+  it("keeps the main knowledge overview loaded when CNIPA supplemental fetches fail", () => {
+    const body = extractFunctionBody("loadProjectKnowledge(projectId: string): Promise<boolean>", "loadPatentPoints(projectId: string): Promise<boolean>");
+
+    expect(body).toContain("const overview = await getProjectKnowledge(projectId);");
+    expect(body).toContain("setProjectKnowledge(overview);");
+    expect(body).toContain("const queryPack = await getProjectCnipaQueryPack(projectId);");
+    expect(body).toContain("setCnipaQueryPack(queryPack);");
+    expect(body).toContain("setCnipaQueryPack(null);");
+    expect(body).toContain("if (!overview.latest_plan) {");
+    expect(body).toContain("setProjectKnowledgeImportLedgers([]);");
+    expect(body).toContain("const ledgers = await listProjectKnowledgeImportLedgers(projectId, overview.latest_plan.id);");
+    expect(body).toContain("setProjectKnowledgeImportLedgers(ledgers);");
+    expect(body).toContain("return true;");
+    expect(body).toContain("setProjectKnowledge(null);");
+    expect(body).toContain("return false;");
+  });
+
+  it("isolates CNIPA supplemental failures during plan generation so stale ledgers are cleared", () => {
+    const body = extractFunctionBody("handleGenerateKnowledgePlan(): Promise<void>", "handleRunKnowledgeSearch(): Promise<void>");
+
+    expect(body).toContain("setProjectKnowledge(overview);");
+    expect(body).toContain("try {");
+    expect(body).toContain("const queryPack = await getProjectCnipaQueryPack(projectId);");
+    expect(body).toContain("setCnipaQueryPack(queryPack);");
+    expect(body).toContain("if (overview.latest_plan) {");
+    expect(body).toContain(
+      "const ledgers = await listProjectKnowledgeImportLedgers(projectId, overview.latest_plan.id);",
+    );
+    expect(body).toContain("} else {");
+    expect(body).toContain("setProjectKnowledgeImportLedgers([]);");
+    expect(body).toContain("} catch {");
+    expect(body).toContain("setCnipaQueryPack(null);");
+    expect(body).toContain("setProjectKnowledgeImportLedgers([]);");
+    expect(body).toContain('setMessage("已生成 Agent 检索计划。");');
   });
 });

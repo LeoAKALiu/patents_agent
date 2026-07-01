@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import textwrap
+from zipfile import ZipFile
 
 import pytest
 
@@ -27,6 +28,7 @@ from backend.app.services.project_knowledge_service import (
     bulk_update_project_candidate_decisions,
     create_project_corpus_from_included_candidates,
     ensure_project_knowledge_initialized,
+    get_cnipa_query_pack,
     knowledge_overview,
     mark_stale_if_project_changed,
     regenerate_project_knowledge,
@@ -36,6 +38,7 @@ from backend.app.services.project_knowledge_service import (
 )
 from backend.app.services.project_service import build_project_record
 from backend.app.storage import SQLiteStore
+import backend.app.services.project_knowledge_service as project_knowledge_service
 
 
 def _mark_candidates_as_real_sources(store: SQLiteStore, candidates: list[PriorArtCandidate]) -> None:
@@ -252,6 +255,154 @@ def test_knowledge_initialization_extracts_intent_and_plan(tmp_path):
     assert {group.id for group in overview.latest_plan.strategy_groups} >= {"broad-recall", "closest-prior-art"}
 
 
+def test_project_knowledge_cnipa_query_pack_uses_latest_plan(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+
+    pack = get_cnipa_query_pack(store, project.id)
+
+    assert pack.project_id == project.id
+    assert pack.plan_id == overview.latest_plan.id
+    assert pack.source_id == "cnipa_official_export"
+    assert pack.strategies
+    assert pack.strategies[0].queries
+
+
+def test_import_cnipa_official_export_adds_real_candidates_and_ledger(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    export_path = tmp_path / "cnipa.csv"
+    export_path.write_text(
+        "公开公告号,专利名称,摘要\n"
+        "CN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+
+    imported = import_cnipa_official_export(
+        store,
+        project.id,
+        overview.latest_plan.id,
+        export_path,
+        source_file_name="cnipa-original.csv",
+    )
+
+    assert imported.state.status == "candidates_pending"
+    assert imported.state.candidate_count == 1
+    assert imported.state.quality_flags == ["candidates_need_confirmation"]
+    assert imported.candidates[0].source == "cnipa_official_export"
+    assert imported.candidates[0].metadata["evidence_origin"] == "official_export"
+    ledgers = store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id)
+    assert len(ledgers) == 1
+    assert ledgers[0].source_id == "cnipa_official_export"
+    assert ledgers[0].source_file_name == "cnipa-original.csv"
+    assert ledgers[0].parsed_count == 1
+    assert ledgers[0].retained_candidate_ids == [imported.candidates[0].id]
+
+
+def test_import_cnipa_official_export_records_zip_attachment_names_in_ledger(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    csv_path = tmp_path / "inner.csv"
+    csv_path.write_text(
+        "申请号,题名,摘要\nCN202410000001,城市体检证据链方法,公开了一种证据链复核方法。\n",
+        encoding="utf-8",
+    )
+    pdf_path = tmp_path / "scan.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4 scanned placeholder")
+    export_path = tmp_path / "cnipa-export.zip"
+    with ZipFile(export_path, "w") as archive:
+        archive.write(csv_path, "metadata/inner.csv")
+        archive.write(pdf_path, "docs/scan.pdf")
+
+    import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path, source_file_name="cnipa-export.zip")
+
+    ledgers = store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id)
+
+    assert ledgers[0].source_file_name == "cnipa-export.zip"
+    assert ledgers[0].attachments == ["scan.pdf"]
+
+
+def test_import_cnipa_official_export_keeps_distinct_application_number_only_candidates(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    export_path = tmp_path / "cnipa-app-only.csv"
+    export_path.write_text(
+        "申请号,专利名称,摘要\n"
+        "CN202410000001,城市体检任务编排方法,公开了一种任务编排方法。\n"
+        "CN202410000002,城市体检证据链复核方法,公开了一种证据链复核方法。\n",
+        encoding="utf-8",
+    )
+
+    imported = import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+
+    assert imported.state.candidate_count == 2
+    assert len(imported.candidates) == 2
+    assert {candidate.application_number for candidate in imported.candidates} == {
+        "CN202410000001",
+        "CN202410000002",
+    }
+    assert len({candidate.id for candidate in imported.candidates}) == 2
+
+
+def test_import_cnipa_official_export_reimport_ledger_retains_refreshed_candidates(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    export_path = tmp_path / "cnipa.csv"
+    export_path.write_text(
+        "公开公告号,专利名称,摘要\n"
+        "CN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+
+    first_import = import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+    second_import = import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+    ledgers = store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id)
+
+    assert len(first_import.candidates) == 1
+    assert len(second_import.candidates) == 1
+    assert len(ledgers) == 2
+    assert ledgers[0].id != ledgers[1].id
+    assert ledgers[0].retained_candidate_ids == [second_import.candidates[0].id]
+    assert second_import.candidates[0].metadata["import_ledger_id"] == ledgers[0].id
+
+
+def test_live_search_rerun_preserves_imported_cnipa_candidates_for_same_plan(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    export_path = tmp_path / "cnipa.csv"
+    export_path.write_text(
+        "公开公告号,专利名称,摘要\n"
+        "CN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+
+    imported = import_cnipa_official_export(store, project.id, plan_id, export_path)
+    rerun = run_agent_search_plan(store, project.id, plan_id, providers=[_static_provider()])
+    candidates = store.list_prior_art_candidates(project.id, plan_id)
+
+    assert any(candidate.id == imported.candidates[0].id for candidate in rerun.candidates)
+    assert {candidate.source for candidate in candidates} >= {"cnipa_official_export", "google_patents"}
+    assert imported.candidates[0].id in {candidate.id for candidate in candidates}
+    assert rerun.state.candidate_count == len(candidates)
+
+
 def test_run_plan_creates_real_candidates_and_state(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(
@@ -405,6 +556,77 @@ def test_run_agent_search_plan_keeps_provider_warnings_for_default_chain_attempt
     assert any("CNIPA EPUB helper is not configured" in warning for warning in stored_plan.warnings)
 
 
+def test_run_agent_search_plan_does_not_run_cnipa_epub_for_official_export_only_plan(tmp_path, monkeypatch):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    intent = SearchIntent(
+        id="intent-1",
+        project_id=project.id,
+        source_project_hash="hash-1",
+        technical_object="城市体检智能体",
+        technical_problem="任务编排缺少可信复核",
+        technical_means="多智能体任务编排和证据链复核",
+        technical_effect="提高报告可信度",
+        keywords_zh=["城市体检", "智能体", "任务编排"],
+        jurisdictions=["CN"],
+        date_range="2016-2026",
+        created_by="agent",
+    )
+    plan = AgentSearchPlan(
+        id="plan-1",
+        project_id=project.id,
+        intent_id=intent.id,
+        status="draft",
+        strategy_groups=[
+            SearchPlanStrategyGroup(
+                id="official-export",
+                label="官方导出",
+                purpose="仅准备 CNIPA 官方导出查询包。",
+                queries=["城市体检 智能体 任务编排"],
+                sources=["cnipa_official_export"],
+            )
+        ],
+        target_sources=["cnipa_official_export"],
+        target_result_count=20,
+        filters={"jurisdictions": ["CN"], "date_range": "2016-2026"},
+    )
+    store.create_search_intent(intent)
+    store.create_agent_search_plan(plan)
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="search_plan_pending",
+            active_intent_id=intent.id,
+            active_plan_id=plan.id,
+        )
+    )
+
+    attempted_sources: list[str] = []
+
+    def _provider(source_id: str) -> StaticPatentSearchProvider:
+        provider = StaticPatentSearchProvider(source_id=source_id, hits=[])
+        original_search = provider.search
+
+        def _tracked_search(query: str, *, filters, limit: int):
+            attempted_sources.append(source_id)
+            return original_search(query, filters=filters, limit=limit)
+
+        provider.search = _tracked_search  # type: ignore[method-assign]
+        return provider
+
+    monkeypatch.setattr(
+        project_knowledge_service,
+        "default_project_patent_providers",
+        lambda: [_provider("cnipa_epub"), _provider("wipo_patentscope")],
+    )
+
+    result = run_agent_search_plan(store, project.id, plan.id)
+
+    assert result.state.status == "failed"
+    assert attempted_sources == []
+
+
 def test_run_patent_search_plan_marks_google_transport_failures(tmp_path):
     store = SQLiteStore(tmp_path / "test.sqlite")
     project = _project()
@@ -526,6 +748,30 @@ def test_run_plan_rerun_keeps_candidate_count_stable(tmp_path):
     assert [candidate.id for candidate in first_run.candidates] == [candidate.id for candidate in second_run.candidates]
 
 
+def test_delete_project_removes_knowledge_ledgers(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    store.create_project(project)
+    overview = regenerate_project_knowledge(store, project, [])
+    run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    export_path = tmp_path / "cnipa.csv"
+    export_path.write_text(
+        "公开公告号,专利名称,摘要\n"
+        "CN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+    import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+
+    assert store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id)
+    assert store.get_latest_project_search_ledger(project.id, overview.latest_plan.id) is not None
+
+    assert store.delete_project(project.id) is True
+    assert store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id) == []
+    assert store.get_latest_project_search_ledger(project.id, overview.latest_plan.id) is None
+
+
 def test_create_project_corpus_requires_explicit_include_decision(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
@@ -565,6 +811,240 @@ def test_create_project_corpus_uses_explicitly_included_candidates(tmp_path):
     assert after_build.latest_corpus_version.quality_report.failures == []
 
 
+def test_cnipa_official_export_builds_ready_corpus_with_claims_and_fulltext(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    for number in ["CN112233445A", "CN112233446A"]:
+        store.upsert_prior_art_candidate(
+            PriorArtCandidate(
+                id=f"candidate-{number}",
+                project_id=project.id,
+                plan_id=plan_id,
+                source="cnipa_official_export",
+                title=f"城市体检方法 {number}",
+                publication_number=number,
+                abstract="公开了一种城市体检方法。",
+                url="",
+                fulltext_status="available",
+                user_decision="include",
+                metadata={
+                    "claims": "1. 一种城市体检方法。",
+                    "description": "说明书全文。",
+                    "evidence_origin": "official_export",
+                    "import_ledger_id": f"ledger-{number}",
+                    "raw_file_hash": f"hash-{number}",
+                },
+            )
+        )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=2,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "ready"
+    assert result.state.document_count == 2
+    assert result.state.claim_coverage == 1.0
+    assert result.state.fulltext_coverage == 1.0
+    assert result.state.quality_flags == []
+
+
+def test_cnipa_candidate_missing_official_provenance_does_not_become_ready(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-cn-missing-provenance",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="cnipa_official_export",
+            title="城市体检方法",
+            publication_number="CN112233445A",
+            abstract="公开了一种城市体检方法。",
+            url="",
+            fulltext_status="available",
+            user_decision="include",
+            metadata={"claims": "1. 一种城市体检方法。", "description": "说明书全文。"},
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=1,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "needs_supplemental_search"
+    assert result.state.claim_coverage == 0.0
+    assert result.state.fulltext_coverage == 0.0
+    assert "cnipa_export_missing_provenance" in result.state.quality_flags
+    assert result.latest_corpus_version is not None
+    assert result.latest_corpus_version.quality_report is not None
+    assert result.latest_corpus_version.quality_report.failures == [
+        {
+            "code": "cnipa_export_missing_provenance",
+            "message": "CNIPA official export corpus contains records missing official-export provenance metadata.",
+        }
+    ]
+
+
+def test_cnipa_metadata_only_corpus_needs_supplemental_search(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-cn",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="cnipa_official_export",
+            title="城市体检方法",
+            publication_number="CN112233445A",
+            url="",
+            user_decision="include",
+            metadata={
+                "evidence_origin": "official_export",
+                "import_ledger_id": "ledger-cn",
+                "raw_file_hash": "hash-cn",
+            },
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=1,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "needs_supplemental_search"
+    assert "cnipa_export_metadata_only" in result.state.quality_flags
+    assert "synthetic_evidence" not in result.state.quality_flags
+    assert "non_patent_source" not in result.state.quality_flags
+    assert result.latest_corpus_version is not None
+    assert result.latest_corpus_version.quality_report is not None
+    assert result.latest_corpus_version.quality_report.failures == [
+        {
+            "code": "cnipa_export_metadata_only",
+            "message": "CNIPA official export corpus contains metadata-only records without claims or fulltext.",
+        },
+        {
+            "code": "cnipa_export_missing_claims",
+            "message": "CNIPA official export corpus is missing claims coverage for one or more included records.",
+        },
+    ]
+
+
+def test_cnipa_claims_without_description_needs_partial_fulltext_search(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-cn-claims-only",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="cnipa_official_export",
+            title="城市体检方法",
+            publication_number="CN112233445A",
+            abstract="公开了一种城市体检方法。",
+            url="",
+            fulltext_status="available",
+            user_decision="include",
+            metadata={
+                "claims": "1. 一种城市体检方法。",
+                "evidence_origin": "official_export",
+                "import_ledger_id": "ledger-claims-only",
+                "raw_file_hash": "hash-claims-only",
+            },
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=1,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "needs_supplemental_search"
+    assert result.state.claim_coverage == 1.0
+    assert result.state.fulltext_coverage == 0.0
+    assert "cnipa_export_partial_fulltext" in result.state.quality_flags
+    assert "cnipa_export_metadata_only" not in result.state.quality_flags
+    assert "cnipa_export_missing_claims" not in result.state.quality_flags
+
+
+def test_cnipa_attachment_metadata_does_not_count_as_fulltext(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-cn-attachment-only",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="cnipa_official_export",
+            title="城市体检方法",
+            publication_number="CN112233445A",
+            url="",
+            fulltext_status="available",
+            user_decision="include",
+            metadata={
+                "claims": "1. 一种城市体检方法。",
+                "fulltext_path": "/tmp/CN112233445A.pdf",
+                "fulltext_file": "CN112233445A.pdf",
+                "evidence_origin": "official_export",
+                "import_ledger_id": "ledger-attachment-only",
+                "raw_file_hash": "hash-attachment-only",
+            },
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=1,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "needs_supplemental_search"
+    assert result.state.claim_coverage == 1.0
+    assert result.state.fulltext_coverage == 0.0
+    assert "cnipa_export_partial_fulltext" in result.state.quality_flags
+    assert "cnipa_export_metadata_only" not in result.state.quality_flags
+
+
 def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
@@ -589,6 +1069,75 @@ def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tm
             "code": "non_patent_source",
             "message": "Corpus includes non-patent sources: semantic_scholar",
         }
+    ]
+
+
+def test_create_project_corpus_preserves_non_patent_and_cnipa_quality_flags_in_mixed_corpus(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-cn-partial",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="cnipa_official_export",
+            title="城市体检方法",
+            publication_number="CN112233445A",
+            abstract="公开了一种城市体检方法。",
+            url="",
+            user_decision="include",
+            metadata={
+                "claims": "1. 一种城市体检方法。",
+                "evidence_origin": "official_export",
+                "import_ledger_id": "ledger-mixed-partial",
+                "raw_file_hash": "hash-mixed-partial",
+            },
+        )
+    )
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-paper",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="semantic_scholar",
+            title="面向城市体检的智能体任务编排研究",
+            publication_number="SS-2024-001",
+            abstract="这是一篇论文而不是专利。",
+            url="https://example.com/semantic-scholar/paper-1",
+            user_decision="include",
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=2,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "needs_supplemental_search"
+    assert result.state.claim_coverage == 0.5
+    assert result.state.fulltext_coverage == 0.0
+    assert "non_patent_source" in result.state.quality_flags
+    assert "cnipa_export_partial_fulltext" in result.state.quality_flags
+    assert "cnipa_export_missing_claims" not in result.state.quality_flags
+    assert result.latest_corpus_version is not None
+    assert result.latest_corpus_version.quality_report is not None
+    assert result.latest_corpus_version.quality_report.failures == [
+        {
+            "code": "non_patent_source",
+            "message": "Corpus includes non-patent sources: semantic_scholar",
+        },
+        {
+            "code": "cnipa_export_partial_fulltext",
+            "message": "CNIPA official export corpus is missing fulltext coverage for one or more included records.",
+        },
     ]
 
 

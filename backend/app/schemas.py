@@ -1242,6 +1242,42 @@ class SearchPlanStrategyGroup(BaseModel):
     sources: list[str] = Field(default_factory=list)
 
 
+class PatentSourceCapability(BaseModel):
+    source_id: str
+    display_name: str
+    jurisdictions: list[str] = Field(default_factory=list)
+    modes: list[Literal["live_search", "official_export", "assisted_capture", "authorized_api"]] = Field(
+        default_factory=list
+    )
+    availability: Literal["available", "manual_import", "config_required", "unavailable"]
+    trusted_patent_source: bool = False
+    evidence_origin: Literal["official_export", "authorized_api", "public_web", "third_party", "legacy_helper"]
+    setup_hint: str = ""
+
+
+class CnipaQueryPackStrategy(BaseModel):
+    strategy_group_id: str
+    label: str
+    purpose: str
+    queries: list[str] = Field(default_factory=list)
+
+
+class CnipaQueryPack(BaseModel):
+    project_id: str
+    plan_id: str
+    intent_id: str
+    source_id: str = "cnipa_official_export"
+    technical_object: str = ""
+    technical_problem: str = ""
+    technical_means: str = ""
+    keywords_zh: list[str] = Field(default_factory=list)
+    negative_keywords: list[str] = Field(default_factory=list)
+    ipc_candidates: list[str] = Field(default_factory=list)
+    cpc_candidates: list[str] = Field(default_factory=list)
+    date_range: str = ""
+    strategies: list[CnipaQueryPackStrategy] = Field(default_factory=list)
+
+
 class PatentSearchFilters(BaseModel):
     jurisdictions: list[str] = Field(default_factory=list)
     date_range: str = ""
@@ -1299,6 +1335,26 @@ class PatentSearchHit(BaseModel):
         )
 
 
+class CnipaExportImportFailure(BaseModel):
+    source_file_name: str
+    row_number: int = 0
+    code: str
+    message: str
+
+
+class CnipaExportImportResult(BaseModel):
+    import_ledger_id: str
+    source_id: str = "cnipa_official_export"
+    raw_file_hash: str = ""
+    detected_schema: str = ""
+    row_count: int = 0
+    parsed_count: int = 0
+    hits: list[PatentSearchHit] = Field(default_factory=list)
+    attachments: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    failures: list[CnipaExportImportFailure] = Field(default_factory=list)
+
+
 class AgentSearchPlan(BaseModel):
     id: str
     project_id: str
@@ -1323,6 +1379,23 @@ class ProjectSearchLedger(BaseModel):
     attempts: list[ProviderAttempt] = Field(default_factory=list)
     retained_candidate_ids: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    created_at: str = ""
+
+
+class ProjectKnowledgeImportLedger(BaseModel):
+    id: str
+    project_id: str
+    plan_id: str
+    source_id: str
+    source_file_name: str
+    raw_file_hash: str = ""
+    detected_schema: str = ""
+    row_count: int = 0
+    parsed_count: int = 0
+    attachments: list[str] = Field(default_factory=list)
+    retained_candidate_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    failures: list[CnipaExportImportFailure] = Field(default_factory=list)
     created_at: str = ""
 
 
@@ -1378,6 +1451,11 @@ class ProjectKnowledgeOverview(BaseModel):
     latest_plan: AgentSearchPlan | None = None
     candidates: list[PriorArtCandidate] = Field(default_factory=list)
     latest_corpus_version: ProjectCorpusVersion | None = None
+
+
+class CnipaExportImportResponse(BaseModel):
+    overview: ProjectKnowledgeOverview
+    ledger: ProjectKnowledgeImportLedger
 
 
 class CandidateDecisionPatch(BaseModel):

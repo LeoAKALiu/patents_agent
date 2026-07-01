@@ -31,6 +31,7 @@ from backend.app.schemas import (
     PriorArtCandidate,
     PostDraftReviewRun,
     ProjectCorpusVersion,
+    ProjectKnowledgeImportLedger,
     ProjectKnowledgeState,
     ProjectSearchLedger,
     ProjectMaterial,
@@ -389,6 +390,48 @@ class SQLiteStore:
             )
         return ledger
 
+    def create_project_knowledge_import_ledger(self, ledger: ProjectKnowledgeImportLedger) -> ProjectKnowledgeImportLedger:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert or replace into project_knowledge_import_ledgers(id, project_id, plan_id, ledger_json, created_at)
+                values (?, ?, ?, ?, ?)
+                """,
+                (
+                    ledger.id,
+                    ledger.project_id,
+                    ledger.plan_id,
+                    ledger.model_dump_json(),
+                    ledger.created_at,
+                ),
+            )
+        return ledger
+
+    def list_project_knowledge_import_ledgers(
+        self,
+        project_id: str,
+        plan_id: str | None = None,
+    ) -> list[ProjectKnowledgeImportLedger]:
+        if plan_id:
+            rows = self.connection.execute(
+                """
+                select ledger_json from project_knowledge_import_ledgers
+                where project_id = ? and plan_id = ?
+                order by created_at desc, rowid desc
+                """,
+                (project_id, plan_id),
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                """
+                select ledger_json from project_knowledge_import_ledgers
+                where project_id = ?
+                order by created_at desc, rowid desc
+                """,
+                (project_id,),
+            ).fetchall()
+        return [ProjectKnowledgeImportLedger.model_validate_json(row["ledger_json"]) for row in rows]
+
     def replace_agent_search_run(
         self,
         *,
@@ -399,6 +442,12 @@ class SQLiteStore:
         state: ProjectKnowledgeState,
     ) -> tuple[list[PriorArtCandidate], ProjectSearchLedger]:
         with self.connection:
+            preserved_candidates = [
+                candidate
+                for candidate in self.list_prior_art_candidates(project_id, plan.id)
+                if str(candidate.metadata.get("import_ledger_id") or "").strip()
+            ]
+            merged_candidates = list({candidate.id: candidate for candidate in [*preserved_candidates, *candidates]}.values())
             self.connection.execute(
                 "delete from prior_art_candidates where project_id = ? and plan_id = ?",
                 (project_id, plan.id),
@@ -418,11 +467,19 @@ class SQLiteStore:
                         candidate.plan_id,
                         json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False),
                     )
-                    for candidate in candidates
+                    for candidate in merged_candidates
                 ],
             )
             stored_candidates = self.list_prior_art_candidates(project_id, plan.id)
-            stored_ledger = ledger.model_copy(update={"retained_candidate_ids": [candidate.id for candidate in stored_candidates]})
+            stored_ledger = ledger.model_copy(update={"retained_candidate_ids": [candidate.id for candidate in candidates]})
+            stored_state = state.model_copy(update={"candidate_count": len(stored_candidates)})
+            if stored_candidates and stored_state.status == "failed":
+                stored_state = stored_state.model_copy(
+                    update={
+                        "status": "candidates_pending",
+                        "quality_flags": ["candidates_need_confirmation"],
+                    }
+                )
             self.connection.execute(
                 """
                 insert or replace into project_search_ledgers(id, project_id, plan_id, ledger_json, created_at)
@@ -452,7 +509,7 @@ class SQLiteStore:
                     state_json = excluded.state_json,
                     updated_at = current_timestamp
                 """,
-                (state.project_id, json.dumps(state.model_dump(mode="json"), ensure_ascii=False)),
+                (stored_state.project_id, json.dumps(stored_state.model_dump(mode="json"), ensure_ascii=False)),
             )
         return stored_candidates, stored_ledger
 
@@ -677,6 +734,8 @@ class SQLiteStore:
                 "project_knowledge_states",
                 "search_intents",
                 "agent_search_plans",
+                "project_search_ledgers",
+                "project_knowledge_import_ledgers",
                 "prior_art_candidates",
                 "project_corpus_versions",
             ]:
@@ -1767,6 +1826,15 @@ class SQLiteStore:
                 );
 
                 create table if not exists project_search_ledgers (
+                    id text primary key,
+                    project_id text not null,
+                    plan_id text not null,
+                    ledger_json text not null,
+                    created_at text not null,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists project_knowledge_import_ledgers (
                     id text primary key,
                     project_id text not null,
                     plan_id text not null,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CorpusWorkspace, type CorpusWorkspaceProps } from "./CorpusWorkspace";
@@ -79,6 +79,22 @@ function buildProps(): CorpusWorkspaceProps {
         candidates: [],
         latest_corpus_version: null,
       },
+      cnipaQueryPack: {
+        project_id: "p-1",
+        plan_id: "plan-1",
+        intent_id: "intent-1",
+        source_id: "cnipa_official_export",
+        technical_object: "城市体检智能体",
+        technical_problem: "任务复核不足",
+        technical_means: "任务编排和证据链复核",
+        keywords_zh: ["城市体检"],
+        negative_keywords: [],
+        ipc_candidates: [],
+        cpc_candidates: [],
+        date_range: "2016-2026",
+        strategies: [],
+      },
+      importLedgers: [],
       corpusJobForm: {
         source_type: "cnipa_export",
         source_name: "",
@@ -104,6 +120,7 @@ function buildProps(): CorpusWorkspaceProps {
       onRunKnowledgeSearch: vi.fn(),
       onCandidateDecision: vi.fn(),
       onBuildProjectCorpus: vi.fn(),
+      onImportCnipaExport: vi.fn(),
       onImport: vi.fn(),
       onSearch: vi.fn(),
       onSearchText: vi.fn(),
@@ -113,14 +130,23 @@ function buildProps(): CorpusWorkspaceProps {
 }
 
 describe("CorpusWorkspace", () => {
-  it("defaults build tab to ProjectKnowledgeView and exposes the manual fallback", () => {
-    render(<CorpusWorkspace {...buildProps()} />);
+  it("defaults build tab to ProjectKnowledgeView and keeps the CNIPA flow focused on official export", () => {
+    const { container } = render(<CorpusWorkspace {...buildProps()} />);
 
     expect(screen.getByText("项目现有技术库")).toBeInTheDocument();
-    expect(screen.getByText("官方导出物批量建库")).not.toBeVisible();
+    expect(screen.getByText("导入 CNIPA 官方导出物")).toBeInTheDocument();
+    expect(container.querySelector('input[type="file"]')).toHaveAttribute("accept", ".csv,.xlsx,.zip");
+    expect(screen.queryByText("从本地文件补充语料")).not.toBeInTheDocument();
+    expect(screen.queryByText("官方导出物批量建库")).not.toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByText("从本地文件补充语料"));
+  it("relabels generic corpus import as reference material instead of project knowledge evidence", () => {
+    const props = buildProps();
 
-    expect(screen.getByText("官方导出物批量建库")).toBeVisible();
+    render(<CorpusWorkspace {...props} tool="corpus" />);
+
+    expect(screen.getByText("参考材料导入")).toBeInTheDocument();
+    expect(screen.getByText("导入 PDF、DOCX、TXT 或 Markdown 参考材料，供片段检索和写作支撑使用。")).toBeInTheDocument();
+    expect(screen.queryByText("导入历史专利文件，作为检索语料和证据输入。")).not.toBeInTheDocument();
   });
 });

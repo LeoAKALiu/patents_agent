@@ -4,7 +4,16 @@ import hashlib
 import re
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
+from backend.app.knowledge.cnipa_export import CnipaExportImportContext, parse_cnipa_official_export_file
+from backend.app.knowledge.patent_sources import (
+    CNIPA_LEGACY_EPUB_SOURCE,
+    CNIPA_OFFICIAL_EXPORT_SOURCE,
+    GOOGLE_PATENTS_SOURCE,
+    WIPO_PATENTSCOPE_SOURCE,
+    build_cnipa_query_pack,
+)
 from backend.app.knowledge.patent_search import (
     PatentSearchProvider,
     default_project_patent_providers,
@@ -13,10 +22,12 @@ from backend.app.knowledge.patent_search import (
 )
 from backend.app.schemas import (
     AgentSearchPlan,
+    CnipaQueryPack,
     CorpusQualityReport,
     PatentPointCandidate,
     PatentSearchFilters,
     PriorArtCandidate,
+    ProjectKnowledgeImportLedger,
     ProjectSearchLedger,
     ProjectCorpusVersion,
     ProjectKnowledgeOverview,
@@ -29,9 +40,12 @@ from backend.app.storage import SQLiteStore
 
 
 ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通过", "以及", "进行", "生成"}
-PROJECT_PATENT_PROVIDER_SOURCES = ["cnipa_epub", "wipo_patentscope"]
-PROJECT_PATENT_CORPUS_SOURCES = [*PROJECT_PATENT_PROVIDER_SOURCES, "google_patents"]
+PROJECT_PATENT_PROVIDER_SOURCES = [CNIPA_OFFICIAL_EXPORT_SOURCE, WIPO_PATENTSCOPE_SOURCE]
+PROJECT_PATENT_CORPUS_SOURCES = [*PROJECT_PATENT_PROVIDER_SOURCES, "cnipa_epub", "google_patents"]
 PROJECT_PATENT_PROVIDER_SOURCE_SET = frozenset(PROJECT_PATENT_CORPUS_SOURCES)
+LIVE_PROJECT_PATENT_PROVIDER_SOURCES = frozenset(
+    {CNIPA_LEGACY_EPUB_SOURCE, WIPO_PATENTSCOPE_SOURCE, GOOGLE_PATENTS_SOURCE}
+)
 
 
 class ProjectKnowledgeConflictError(ValueError):
@@ -45,6 +59,48 @@ def _now() -> str:
 def _validate_candidate_decision(decision: str) -> None:
     if decision not in {"pending", "include", "exclude"}:
         raise ValueError(f"invalid prior art candidate decision: {decision!r}")
+
+
+def _candidate_has_claims(candidate: PriorArtCandidate) -> bool:
+    if candidate.source == CNIPA_OFFICIAL_EXPORT_SOURCE and not _candidate_has_cnipa_official_provenance(candidate):
+        return False
+    return bool(str(candidate.metadata.get("claims") or "").strip())
+
+
+def _candidate_has_explicit_fulltext_metadata(candidate: PriorArtCandidate) -> bool:
+    return any(
+        bool(str(candidate.metadata.get(key) or "").strip())
+        for key in ("fulltext", "fulltext_text", "fulltext_content")
+    )
+
+
+def _candidate_has_cnipa_official_provenance(candidate: PriorArtCandidate) -> bool:
+    metadata = candidate.metadata
+    return (
+        candidate.source == CNIPA_OFFICIAL_EXPORT_SOURCE
+        and str(metadata.get("evidence_origin") or "").strip() == "official_export"
+        and bool(str(metadata.get("import_ledger_id") or "").strip())
+        and bool(str(metadata.get("raw_file_hash") or "").strip())
+    )
+
+
+def _candidate_has_fulltext(candidate: PriorArtCandidate) -> bool:
+    if candidate.source == CNIPA_OFFICIAL_EXPORT_SOURCE and not _candidate_has_cnipa_official_provenance(candidate):
+        return False
+    has_description = bool(str(candidate.metadata.get("description") or "").strip())
+    has_explicit_fulltext = _candidate_has_explicit_fulltext_metadata(candidate)
+    return bool(
+        has_description
+        or has_explicit_fulltext
+        or (
+            candidate.fulltext_status == "available"
+            and (has_description or has_explicit_fulltext)
+        )
+    )
+
+
+def _ratio(count: int, total: int) -> float:
+    return count / total if total else 0.0
 
 
 def project_snapshot_hash(project: ProjectRecord, patent_points: list[PatentPointCandidate] | None = None) -> str:
@@ -310,6 +366,12 @@ def knowledge_overview(store: SQLiteStore, project_id: str) -> ProjectKnowledgeO
     )
 
 
+def get_cnipa_query_pack(store: SQLiteStore, project_id: str) -> CnipaQueryPack:
+    intent = store.get_latest_search_intent(project_id)
+    plan = store.get_latest_agent_search_plan(project_id)
+    return build_cnipa_query_pack(intent, plan)
+
+
 def regenerate_project_knowledge(
     store: SQLiteStore,
     project: ProjectRecord,
@@ -383,6 +445,29 @@ def run_patent_search_plan(
     return candidates, ledger
 
 
+def _planned_source_ids(plan: AgentSearchPlan) -> set[str]:
+    return {
+        source_id
+        for source_id in (
+            [*plan.target_sources, *(source for group in plan.strategy_groups for source in group.sources)]
+        )
+        if source_id
+    }
+
+
+def _planned_provider_source_ids(plan: AgentSearchPlan) -> set[str]:
+    return _planned_source_ids(plan) & LIVE_PROJECT_PATENT_PROVIDER_SOURCES
+
+
+def _default_provider_chain_for_plan(plan: AgentSearchPlan) -> list[PatentSearchProvider]:
+    provider_chain = default_project_patent_providers()
+    planned_sources = _planned_source_ids(plan)
+    if not planned_sources:
+        return provider_chain
+    planned_sources = _planned_provider_source_ids(plan)
+    return [provider for provider in provider_chain if provider.source_id in planned_sources]
+
+
 def run_agent_search_plan(
     store: SQLiteStore,
     project_id: str,
@@ -392,7 +477,7 @@ def run_agent_search_plan(
     _state, plan = _get_active_plan(store, project_id, plan_id)
     running = plan.model_copy(update={"status": "running", "run_started_at": _now()})
     store.update_agent_search_plan(running)
-    provider_chain = list(providers) if providers is not None else default_project_patent_providers()
+    provider_chain = list(providers) if providers is not None else _default_provider_chain_for_plan(running)
     candidates, ledger = run_patent_search_plan(provider_chain, project_id, running)
     completed = running.model_copy(
         update={
@@ -421,6 +506,86 @@ def run_agent_search_plan(
         ledger=ledger,
         state=state,
     )
+    return knowledge_overview(store, project_id)
+
+
+def import_cnipa_official_export(
+    store: SQLiteStore,
+    project_id: str,
+    plan_id: str,
+    stored_path: Path,
+    source_file_name: str | None = None,
+) -> ProjectKnowledgeOverview:
+    _state, plan = _get_active_plan(store, project_id, plan_id)
+    ledger_id = uuid.uuid4().hex
+    query = ""
+    strategy_group_id = "cnipa-official-export"
+    if plan.strategy_groups:
+        first_group = plan.strategy_groups[0]
+        strategy_group_id = first_group.id
+        query = first_group.queries[0] if first_group.queries else first_group.label
+    result = parse_cnipa_official_export_file(
+        stored_path,
+        context=CnipaExportImportContext(
+            project_id=project_id,
+            plan_id=plan_id,
+            import_ledger_id=ledger_id,
+            query=query,
+            strategy_group_id=strategy_group_id,
+        ),
+    )
+    candidates = [
+        patent_hit_to_candidate(
+            hit,
+            project_id=project_id,
+            plan_id=plan_id,
+            strategy_group_id=str(hit.metadata.get("strategy_group") or strategy_group_id),
+        )
+        for hit in result.hits
+    ]
+    existing_candidates = store.list_prior_art_candidates(project_id, plan_id)
+    store.apply_prior_art_candidate_updates(candidates)
+    all_candidates = store.list_prior_art_candidates(project_id, plan_id)
+    flags = ["candidates_need_confirmation"] if candidates else ["no_hits"]
+    if result.warnings:
+        flags.append("cnipa_export_parse_warnings")
+    state = ProjectKnowledgeState(
+        project_id=project_id,
+        status="candidates_pending" if candidates else "failed",
+        active_intent_id=plan.intent_id,
+        active_plan_id=plan_id,
+        last_search_at=_now(),
+        candidate_count=len(all_candidates),
+        quality_flags=flags,
+    )
+    store.upsert_project_knowledge_state(state)
+    existing_ids = {candidate.id for candidate in existing_candidates}
+    retained_ids = [
+        candidate.id
+        for candidate in all_candidates
+        if (
+            candidate.id not in existing_ids
+            or str(candidate.metadata.get("import_ledger_id") or "").strip() == ledger_id
+        )
+        and str(candidate.metadata.get("import_ledger_id") or "").strip() == ledger_id
+    ]
+    ledger = ProjectKnowledgeImportLedger(
+        id=ledger_id,
+        project_id=project_id,
+        plan_id=plan_id,
+        source_id=CNIPA_OFFICIAL_EXPORT_SOURCE,
+        source_file_name=source_file_name or stored_path.name,
+        raw_file_hash=result.raw_file_hash,
+        detected_schema=result.detected_schema,
+        row_count=result.row_count,
+        parsed_count=result.parsed_count,
+        attachments=result.attachments,
+        retained_candidate_ids=retained_ids,
+        warnings=result.warnings,
+        failures=result.failures,
+        created_at=_now(),
+    )
+    store.create_project_knowledge_import_ledger(ledger)
     return knowledge_overview(store, project_id)
 
 
@@ -453,19 +618,53 @@ def create_project_corpus_from_included_candidates(
     ]
     all_synthetic = bool(included) and len(synthetic_included) == len(included)
     includes_non_patent = bool(non_patent_included)
-    patent_ratio = (len(patent_included) / len(included)) if included else 0.0
     if all_synthetic:
         claim_coverage = 0.0
         fulltext_coverage = 0.0
         quality_flags = ["synthetic_evidence"]
-    elif includes_non_patent:
-        claim_coverage = patent_ratio
-        fulltext_coverage = patent_ratio
-        quality_flags = ["non_patent_source"]
     else:
-        claim_coverage = 1.0 if included else 0.0
-        fulltext_coverage = 1.0 if included else 0.0
+        claim_covered_count = sum(
+            1
+            for candidate in patent_included
+            if candidate.source != CNIPA_OFFICIAL_EXPORT_SOURCE or _candidate_has_claims(candidate)
+        )
+        fulltext_covered_count = sum(
+            1
+            for candidate in patent_included
+            if candidate.source != CNIPA_OFFICIAL_EXPORT_SOURCE or _candidate_has_fulltext(candidate)
+        )
+        claim_coverage = _ratio(
+            claim_covered_count,
+            len(included),
+        )
+        fulltext_coverage = _ratio(
+            fulltext_covered_count,
+            len(included),
+        )
         quality_flags = []
+        if includes_non_patent:
+            quality_flags.append("non_patent_source")
+        cnipa_included = [candidate for candidate in patent_included if candidate.source == CNIPA_OFFICIAL_EXPORT_SOURCE]
+        invalid_cnipa_included = [
+            candidate for candidate in cnipa_included if not _candidate_has_cnipa_official_provenance(candidate)
+        ]
+        valid_cnipa_included = [candidate for candidate in cnipa_included if _candidate_has_cnipa_official_provenance(candidate)]
+        if invalid_cnipa_included:
+            quality_flags.append("cnipa_export_missing_provenance")
+        cnipa_claim_coverage = _ratio(
+            sum(1 for candidate in valid_cnipa_included if _candidate_has_claims(candidate)),
+            len(valid_cnipa_included),
+        )
+        cnipa_fulltext_coverage = _ratio(
+            sum(1 for candidate in valid_cnipa_included if _candidate_has_fulltext(candidate)),
+            len(valid_cnipa_included),
+        )
+        if valid_cnipa_included and cnipa_fulltext_coverage == 0.0 and cnipa_claim_coverage == 0.0:
+            quality_flags.append("cnipa_export_metadata_only")
+        elif valid_cnipa_included and cnipa_fulltext_coverage < 1.0:
+            quality_flags.append("cnipa_export_partial_fulltext")
+        if valid_cnipa_included and cnipa_claim_coverage < 1.0:
+            quality_flags.append("cnipa_export_missing_claims")
     non_patent_sources = sorted({candidate.source for candidate in non_patent_included})
     quality_failures: list[dict[str, str]] = []
     if all_synthetic:
@@ -479,7 +678,21 @@ def create_project_corpus_from_included_candidates(
                 "message": "Corpus includes non-patent sources: " + ", ".join(non_patent_sources),
             }
         )
-    corpus_status = "needs_supplemental_search" if (all_synthetic or includes_non_patent) else ("ready" if included else "failed")
+    cnipa_failure_messages = {
+        "cnipa_export_missing_provenance": "CNIPA official export corpus contains records missing official-export provenance metadata.",
+        "cnipa_export_metadata_only": "CNIPA official export corpus contains metadata-only records without claims or fulltext.",
+        "cnipa_export_partial_fulltext": "CNIPA official export corpus is missing fulltext coverage for one or more included records.",
+        "cnipa_export_missing_claims": "CNIPA official export corpus is missing claims coverage for one or more included records.",
+    }
+    for flag in quality_flags:
+        if flag in cnipa_failure_messages:
+            quality_failures.append({"code": flag, "message": cnipa_failure_messages[flag]})
+    partial_cnipa = any(flag.startswith("cnipa_export_") for flag in quality_flags)
+    corpus_status = (
+        "needs_supplemental_search"
+        if (all_synthetic or includes_non_patent or partial_cnipa)
+        else ("ready" if included else "failed")
+    )
     version = ProjectCorpusVersion(
         id=uuid.uuid4().hex,
         project_id=project_id,
@@ -507,14 +720,12 @@ def create_project_corpus_from_included_candidates(
         created_at=_now(),
     )
     store.create_project_corpus_version(version)
-    state_status = "needs_supplemental_search" if all_synthetic or includes_non_patent or not included else "ready"
-    if all_synthetic:
-        quality_flags = ["synthetic_evidence"]
-    elif includes_non_patent:
-        quality_flags = ["non_patent_source"]
-    elif included:
-        quality_flags = []
-    else:
+    state_status = (
+        "needs_supplemental_search"
+        if all_synthetic or includes_non_patent or partial_cnipa or not included
+        else "ready"
+    )
+    if not included:
         quality_flags = ["empty_corpus"]
     updated_state = state.model_copy(
         update={

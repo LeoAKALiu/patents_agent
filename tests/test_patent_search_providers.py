@@ -95,6 +95,37 @@ def test_dedupe_patent_search_hits_merges_non_adjacent_duplicates():
     assert deduped[1].metadata["provider_sources"] == ["source-b", "source-b2"]
 
 
+def test_dedupe_patent_search_hits_keeps_application_number_only_hits_distinct():
+    first = PatentSearchHit(
+        id="app-1",
+        source="cnipa_official_export",
+        title="城市体检智能体任务编排方法",
+        application_number="CN202410000001",
+        applicant="示例申请人",
+        publication_date="",
+        url="",
+        query="城市体检 智能体",
+    )
+    second = PatentSearchHit(
+        id="app-2",
+        source="cnipa_official_export",
+        title="城市体检智能体任务编排方法",
+        application_number="CN202410000002",
+        applicant="示例申请人",
+        publication_date="",
+        url="",
+        query="城市体检 智能体",
+    )
+
+    deduped = dedupe_patent_search_hits([first, second])
+
+    assert len(deduped) == 2
+    assert {hit.application_number for hit in deduped} == {
+        "CN202410000001",
+        "CN202410000002",
+    }
+
+
 def test_patent_hit_to_candidate_preserves_real_source_and_url():
     hit = PatentSearchHit(
         id="h1",

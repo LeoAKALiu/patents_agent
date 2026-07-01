@@ -545,19 +545,19 @@ export function CorpusView({
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <section className="surface-panel grid gap-4 p-5">
         <div className="settings-group-header">
-          <h3>语料导入</h3>
-          <p>导入历史专利文件，作为检索语料和证据输入。</p>
+          <h3>参考材料导入</h3>
+          <p>导入 PDF、DOCX、TXT 或 Markdown 参考材料，供片段检索和写作支撑使用。</p>
         </div>
         <form className="info-card" onSubmit={onImport}>
           <div className="info-card-icon info">
             <Upload size={17} />
           </div>
           <div className="info-card-body">
-            <strong>导入专利文件</strong>
-            <p>支持 PDF、DOCX、TXT、Markdown。</p>
+            <strong>导入参考材料</strong>
+            <p>支持 PDF、DOCX、TXT、Markdown，用于正文片段检索，不会作为 CNIPA 官方证据导入。</p>
             <input id="patent-file" name="patent-file" type="file" accept=".pdf,.docx,.txt,.md,.markdown" />
           </div>
-          <button className="btn btn-primary" disabled={busy === "import"} type="submit" title="导入专利文件">
+          <button className="btn btn-primary" disabled={busy === "import"} type="submit" title="导入参考材料">
             <Upload size={17} />
             <span>导入</span>
           </button>
@@ -578,8 +578,8 @@ export function CorpusView({
             <div className="callout">
               <FileText size={18} />
               <div>
-                <strong>暂无语料</strong>
-                <p>导入文件后可在右侧检索片段。</p>
+                <strong>暂无参考材料</strong>
+                <p>导入文件后可在右侧检索片段并辅助写作。</p>
               </div>
             </div>
           )}

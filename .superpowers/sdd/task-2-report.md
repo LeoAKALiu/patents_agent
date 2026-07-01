@@ -1,94 +1,61 @@
-## Task 2 Report - Route Mapping And Shell Chrome
+# Task 2 Report: CNIPA Official Export Importer
 
-Status: DONE
+- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+- Branch: `codex/cnipa-official-export-design`
+- Base SHA at start: `4bcc1748`
+- Dirty at start: yes (`.superpowers/sdd/progress.md`, `.superpowers/sdd/task-1-report.md`)
 
-Source identity:
-- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
-- Branch: `codex/ui-refactor-2026-06-29`
-- Start HEAD: `c441c5e9`
-- Dirty at start: false
+## Completed
 
-Implementation:
-- Normalized public `RouteKind` to `workbench | projects-overview | documents | knowledge | expert | export | settings`.
-- Kept expert sub-tool classification private to `AppRoot` while preserving existing corpus, quality, and post-draft workspace rendering.
-- Removed project-scoped `关键节点` sidebar chrome and the corresponding shell props.
-- Replaced topbar global navigation buttons with project selector, export status, run status, backend status, refresh, and workbench-only `返回三选一` recovery.
-- Reduced `SystemStatusPanel` default sidebar footprint to compact rows for model, agents, and backend with collapsed diagnostics.
-- Kept `documents` on the existing project workspace surface with the distinct route title/subtitle, leaving Task 4 document repair workspace out of scope.
+- Added CNIPA import result models in [backend/app/schemas.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/backend/app/schemas.py).
+- Added the official export importer in [backend/app/knowledge/cnipa_export.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/backend/app/knowledge/cnipa_export.py).
+- Added focused importer coverage in [tests/test_cnipa_export_importer.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/tests/test_cnipa_export_importer.py).
 
-TDD evidence:
-- RED: `cd frontend && npm test -- app/routes.test.tsx`
-  - Failed as expected on old `start-choice` route, old `关键节点` shell block, missing topbar export/backend status, and tall status panel labels.
-- GREEN: `cd frontend && npm test -- app/routes.test.tsx`
-  - Passed: 1 file, 11 tests.
+## TDD Notes
 
-Verification:
-- `cd frontend && npm test -- app/routes.test.tsx AppOfflineState.test.tsx`
-  - Passed: 2 files, 14 tests.
-- `cd frontend && npm run build`
-  - Passed: `tsc -b && vite build`.
-- `cd frontend && npm test`
-  - Passed: 28 files, 201 tests.
-- `git diff --check`
-  - Passed.
+1. Added the importer tests first from the task brief.
+2. Verified red state with:
+   - `python3 -m pytest tests/test_cnipa_export_importer.py -q`
+   - Failure: `ModuleNotFoundError: No module named 'backend.app.knowledge.cnipa_export'`
+3. Implemented the minimal importer module and result schemas required by the tests and brief.
+4. Verified green state with:
+   - `python3 -m pytest tests/test_cnipa_export_importer.py tests/test_patent_sources.py tests/test_patent_search_providers.py -q`
+   - Result: `21 passed in 0.25s`
 
-Files changed:
-- `frontend/src/app/routes.tsx`
-- `frontend/src/app/AppRoot.tsx`
-- `frontend/src/app/ShellLayout.tsx`
-- `frontend/src/ui/ShellSidebar.tsx`
-- `frontend/src/ui/ShellTopbar.tsx`
-- `frontend/src/ui/SystemStatusPanel.tsx`
-- `frontend/src/app/routes.test.tsx`
-- `frontend/src/styles.css`
+## Scope Guard
 
-Self-review:
-- Confirmed no lingering public `expert-corpus`, `expert-quality`, or `expert-post-draft` route kinds in app/ui code.
-- Confirmed old `keySections` shell props and `关键节点` rendering path are removed.
-- Confirmed `专家工具` and `返回向导` are not added as topbar global navigation controls.
+- Did not modify the dirty primary checkout.
+- Did not commit `.superpowers` scratch/report files.
+- Implemented Task 2 only; no Task 3 API, storage, or frontend work was started.
 
-Concerns:
-- No callable subagent dispatch tool was exposed in this session, so implementation and review were performed locally while preserving the SDD report, TDD, verification, and commit workflow.
+## Self Review
 
-## Task 2 Review Fix - Diagnostics Surface
+- Reused `CNIPA_OFFICIAL_EXPORT_SOURCE` rather than hard-coding a divergent source identifier in produced hits.
+- Preserved the brief’s field aliases, ZIP attachment warning behavior, row-level failure reporting, file hashing, and `PatentSearchHit` output contract.
+- Kept the importer isolated to parsing and normalization; it does not store, fetch, or expose data through new APIs.
+- No scoped issues found after reviewing the diff and rerunning focused tests.
 
-Status: DONE
+## Task 2 Review Fixes
 
-Source identity:
-- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/ui-refactor-2026-06-29`
-- Branch: `codex/ui-refactor-2026-06-29`
-- Start HEAD: `2e9fcd05`
-- Dirty at start: false
+- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+- Branch: `codex/cnipa-official-export-design`
+- Base SHA at fix start: `133c789b`
+- Dirty at fix start: yes (`.superpowers/sdd/progress.md`, `.superpowers/sdd/task-1-report.md`, `.superpowers/sdd/task-2-report.md`)
 
-Review finding:
-- Fixed P2 where `SystemStatusPanel` still embedded detailed diagnostics inline in the sidebar footer via `<details>`.
+### Fix Summary
 
-Implementation:
-- Removed inline diagnostics from `SystemStatusPanel`; its default render is now only the compact model, agent, and backend rows.
-- Added `SystemDiagnosticsDialog`, reusing `frontend/src/components/ui/dialog.tsx`, with backend status, project list status, model, embedding model, data dir, and agent status/mode where useful.
-- Wired the existing `ShellTopbar` `onOpenDiagnostics` prop from `AppRoot`, so the topbar backend chip opens the diagnostics surface.
-- Added route-shell tests proving diagnostics are absent from the sidebar by default and available only after opening the backend diagnostics dialog.
+- Added plausible CN identifier validation in [backend/app/knowledge/cnipa_export.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/backend/app/knowledge/cnipa_export.py) so rows without a CN-style publication or application identifier fail with `invalid_cn_identifier` and do not produce hits.
+- Added `attachments` to [backend/app/schemas.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/backend/app/schemas.py) and aligned ZIP attachment warnings to the exact returned behavior: basenames are reported, no storage is claimed, and no candidates are generated from attachments.
+- Added ZIP member-count and uncompressed-size guardrails in the importer so oversized or excess members are skipped safely and recorded as failures.
+- Expanded [tests/test_cnipa_export_importer.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/tests/test_cnipa_export_importer.py) to cover non-CN identifier rejection, attachment reporting, and ZIP safety limits while keeping the happy-path cases green.
 
-TDD evidence:
-- RED: `cd frontend && npm test -- app/routes.test.tsx`
-  - Failed as expected because `模型名称` was still present in the default footer DOM.
-- GREEN: `cd frontend && npm test -- app/routes.test.tsx`
-  - Passed: 1 file, 12 tests.
+### Verification
 
-Verification:
-- `cd frontend && npm test -- app/routes.test.tsx AppOfflineState.test.tsx`
-  - Passed: 2 files, 15 tests.
-- `cd frontend && npm run build`
-  - Passed: `tsc -b && vite build`.
-- `cd frontend && npm test`
-  - Passed: 28 files, 202 tests.
+- `python3 -m pytest tests/test_cnipa_export_importer.py tests/test_patent_sources.py tests/test_patent_search_providers.py -q`
+- Result: `23 passed in 0.26s`
 
-Files changed:
-- `frontend/src/app/AppRoot.tsx`
-- `frontend/src/ui/SystemStatusPanel.tsx`
-- `frontend/src/app/routes.test.tsx`
-- `frontend/src/styles.css`
-- `.superpowers/sdd/task-2-report.md`
+### Scope Guard
 
-Concerns:
-- None.
+- Kept the fix within `backend/app/knowledge/cnipa_export.py`, `backend/app/schemas.py`, and `tests/test_cnipa_export_importer.py`.
+- Did not modify the dirty primary checkout.
+- Did not commit `.superpowers` scratch/report files.

@@ -1098,6 +1098,57 @@ export interface ProjectKnowledgeOverview {
   latest_corpus_version: ProjectCorpusVersion | null;
 }
 
+export interface PatentSourceCapability {
+  source_id: string;
+  display_name: string;
+  jurisdictions: string[];
+  modes: Array<"live_search" | "official_export" | "assisted_capture" | "authorized_api">;
+  availability: "available" | "manual_import" | "config_required" | "unavailable";
+  trusted_patent_source: boolean;
+  evidence_origin: "official_export" | "authorized_api" | "public_web" | "third_party" | "legacy_helper";
+  setup_hint: string;
+}
+
+export interface CnipaQueryPackStrategy {
+  strategy_group_id: string;
+  label: string;
+  purpose: string;
+  queries: string[];
+}
+
+export interface CnipaQueryPack {
+  project_id: string;
+  plan_id: string;
+  intent_id: string;
+  source_id: string;
+  technical_object: string;
+  technical_problem: string;
+  technical_means: string;
+  keywords_zh: string[];
+  negative_keywords: string[];
+  ipc_candidates: string[];
+  cpc_candidates: string[];
+  date_range: string;
+  strategies: CnipaQueryPackStrategy[];
+}
+
+export interface ProjectKnowledgeImportLedger {
+  id: string;
+  project_id: string;
+  plan_id: string;
+  source_id: string;
+  source_file_name: string;
+  raw_file_hash: string;
+  detected_schema: string;
+  row_count: number;
+  parsed_count: number;
+  attachments: string[];
+  retained_candidate_ids: string[];
+  warnings: string[];
+  failures: Array<{ source_file_name: string; row_number: number; code: string; message: string }>;
+  created_at: string;
+}
+
 export interface CorpusStats {
   version_name: string | null;
   document_count: number;
@@ -1217,6 +1268,28 @@ export async function getProjectKnowledge(projectId: string): Promise<ProjectKno
   return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge`);
 }
 
+export async function getPatentSources(): Promise<PatentSourceCapability[]> {
+  const data = await request<{ sources: PatentSourceCapability[] }>("/api/patent-sources");
+  return data.sources;
+}
+
+export async function getProjectCnipaQueryPack(projectId: string): Promise<CnipaQueryPack> {
+  return request<CnipaQueryPack>(`/api/projects/${projectId}/knowledge/cnipa-query-pack`);
+}
+
+export async function listProjectKnowledgeImportLedgers(
+  projectId: string,
+  planId?: string,
+): Promise<ProjectKnowledgeImportLedger[]> {
+  const params = new URLSearchParams();
+  if (planId) params.set("plan_id", planId);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const data = await request<{ ledgers: ProjectKnowledgeImportLedger[] }>(
+    `/api/projects/${projectId}/knowledge/import-ledgers${suffix}`,
+  );
+  return data.ledgers;
+}
+
 export async function createProjectSearchIntent(projectId: string): Promise<ProjectKnowledgeOverview> {
   return request<ProjectKnowledgeOverview>(`/api/projects/${projectId}/knowledge/search-intent`, {
     method: "POST",
@@ -1252,6 +1325,20 @@ export async function buildProjectCorpusVersion(projectId: string, planId: strin
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ plan_id: planId }),
   });
+}
+
+export async function uploadProjectCnipaExport(
+  projectId: string,
+  planId: string,
+  file: File,
+): Promise<{ overview: ProjectKnowledgeOverview; ledger: ProjectKnowledgeImportLedger }> {
+  const form = new FormData();
+  form.append("plan_id", planId);
+  form.append("file", file);
+  return request<{ overview: ProjectKnowledgeOverview; ledger: ProjectKnowledgeImportLedger }>(
+    `/api/projects/${projectId}/knowledge/cnipa-export-imports`,
+    { method: "POST", body: form },
+  );
 }
 
 export async function listProjects(): Promise<ProjectRecord[]> {

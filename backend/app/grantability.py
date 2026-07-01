@@ -42,6 +42,14 @@ from backend.app.schemas import (
 
 _EVIDENCE_QUALITY_RANKS: dict[str, int] = {"verified": 3, "unverified": 2, "low": 1}
 _ATTACK_STRENGTH_RANKS: dict[str, int] = {"strong": 4, "moderate": 3, "weak": 2, "none": 1}
+_CNIPA_BLOCKING_KNOWLEDGE_FLAGS = frozenset(
+    {
+        "cnipa_export_missing_provenance",
+        "cnipa_export_metadata_only",
+        "cnipa_export_missing_claims",
+        "cnipa_export_partial_fulltext",
+    }
+)
 
 
 def generate_grantability_report(
@@ -113,6 +121,11 @@ def generate_grantability_report(
         fail_closed = True
     if "insufficient_corpus" in knowledge_flags:
         low_evidence_flags.append("项目语料库证据不足，需补充检索和入库文献。")
+        fail_closed = True
+    if knowledge_flags.intersection(_CNIPA_BLOCKING_KNOWLEDGE_FLAGS):
+        low_evidence_flags.append(
+            "CNIPA 官方导出文献已入库，但全文或权利要求覆盖不足，需补充导出全文后再确认授权前景。"
+        )
         fail_closed = True
     if project_knowledge_state and project_knowledge_state.document_count < 2:
         low_evidence_flags.append("项目语料库入库文献少于 2 件，现有技术证据不足。")
