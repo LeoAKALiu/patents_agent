@@ -183,8 +183,31 @@ describe("WorkbenchWorkspace", () => {
     expect(screen.getByText("从结构方案撰写实用新型")).toBeInTheDocument();
     expect(screen.getByText("导入已有稿件进行润色提升")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "创建项目" }));
+    expect(screen.queryByRole("button", { name: "创建项目" })).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /从技术想法撰写发明专利/,
+      }),
+    );
 
     expect(handlers.onStartChoice).toHaveBeenCalledWith("invention");
+  });
+
+  it("keeps secondary workspaces behind an other-actions disclosure", async () => {
+    const navigate = vi.fn();
+    render(<WorkbenchWorkspace state={makeState()} handlers={makeHandlers()} onNavigate={navigate} />);
+
+    expect(screen.getByRole("button", { name: "进入文稿与修复" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "知识库" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "专家工具" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "其他操作" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "知识库" }));
+    expect(navigate).toHaveBeenCalledWith("knowledge");
+
+    await userEvent.click(screen.getByRole("button", { name: "专家工具" }));
+    expect(navigate).toHaveBeenCalledWith("expert");
   });
 });

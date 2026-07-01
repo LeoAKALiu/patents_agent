@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ArrowRight,
   AlertTriangle,
@@ -32,6 +32,8 @@ export function WorkbenchWorkspace({
   onNavigate,
   startWorkspace,
 }: WorkbenchWorkspaceProps) {
+  const [otherActionsOpen, setOtherActionsOpen] = useState(false);
+
   return (
     <section className="workbench-workspace" aria-labelledby="workbench-title">
       <section className="workbench-section workbench-current">
@@ -51,14 +53,16 @@ export function WorkbenchWorkspace({
             <p className="section-eyebrow">下一步</p>
             <h3 id="workbench-next-title">{state.nextAction.label}</h3>
           </div>
-          <Button
-            type="button"
-            onClick={() => runPrimaryAction(state, handlers, onNavigate)}
-            disabled={isPrimaryActionDisabled(state)}
-          >
-            {primaryButtonLabel(state)}
-            <ArrowRight size={16} aria-hidden="true" />
-          </Button>
+          {state.hasProject && (
+            <Button
+              type="button"
+              onClick={() => runPrimaryAction(state, handlers, onNavigate)}
+              disabled={isPrimaryActionDisabled(state)}
+            >
+              {primaryButtonLabel(state)}
+              <ArrowRight size={16} aria-hidden="true" />
+            </Button>
+          )}
         </div>
         <p>{state.nextAction.description}</p>
         {state.primaryActionBlockReason && (
@@ -87,20 +91,33 @@ export function WorkbenchWorkspace({
         )}
         {startWorkspace && <div className="workbench-start-detail">{startWorkspace}</div>}
         {state.hasProject && (
-          <div className="workbench-secondary-links" aria-label="常用工作区">
-            <button type="button" onClick={() => onNavigate("documents")}>
-              <FileText size={15} aria-hidden="true" />
-              <span>文稿与修复</span>
-            </button>
-            <button type="button" onClick={() => onNavigate("knowledge")}>
-              <BookOpen size={15} aria-hidden="true" />
-              <span>知识库</span>
-            </button>
-            <button type="button" onClick={() => onNavigate("expert")}>
-              <Gauge size={15} aria-hidden="true" />
-              <span>专家工具</span>
-            </button>
-          </div>
+          <details
+            className="workbench-other-actions"
+            onToggle={(event) => setOtherActionsOpen((event.currentTarget as HTMLDetailsElement).open)}
+          >
+            <summary role="button">
+              <span>其他操作</span>
+              <ArrowRight size={14} aria-hidden="true" />
+            </summary>
+            <div
+              className="workbench-secondary-links"
+              aria-label="常用工作区"
+              hidden={!otherActionsOpen}
+            >
+              <button type="button" onClick={() => onNavigate("documents")}>
+                <FileText size={15} aria-hidden="true" />
+                <span>文稿与修复</span>
+              </button>
+              <button type="button" onClick={() => onNavigate("knowledge")}>
+                <BookOpen size={15} aria-hidden="true" />
+                <span>知识库</span>
+              </button>
+              <button type="button" onClick={() => onNavigate("expert")}>
+                <Gauge size={15} aria-hidden="true" />
+                <span>专家工具</span>
+              </button>
+            </div>
+          </details>
         )}
       </section>
 
