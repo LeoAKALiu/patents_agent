@@ -367,4 +367,47 @@ describe("ExportView quality gate copy", () => {
     expect(screen.getByText("成稿会审阻断导出")).toBeInTheDocument();
     expect(screen.getByText("阻断问题：权利要求1仍含内部评审说明")).toBeInTheDocument();
   });
+
+  it("hides the long package preview while official export is locked", () => {
+    const View = ExportView as any;
+
+    render(
+      <View
+        project={{ id: "p-1", name: "输入数据处理", draft_text: "draft", package: packageValue }}
+        packageValue={{
+          ...packageValue,
+          claims: "1. 一种方法。".repeat(80),
+          description: "说明书长文本。".repeat(120),
+        }}
+        postDraftReview={null}
+        officialCompileRun={null}
+        exportReadiness={{
+          export_allowed: false,
+          draft_required: false,
+          quality_required: true,
+          official_compile_required: false,
+          post_draft_review_required: false,
+          next_action: "run_quality_checks",
+          reason: "quality_required",
+          quality_done: false,
+        }}
+        currentDraftHash="draft-hash"
+        currentSourceDraftHash="source-hash"
+        currentQualityChecked={false}
+        qualityCheckStates={{
+          filing_readiness: "current",
+          claim_defense_worksheet: "unknown",
+          draft_completion: "unknown",
+        }}
+        lastExport={null}
+        onNativeExport={vi.fn()}
+        onOpenExportFolder={vi.fn()}
+        desktopDialogsAvailable={false}
+      />,
+    );
+
+    expect(screen.getByText("质量检查未完成")).toBeInTheDocument();
+    expect(screen.getByText("导出解锁前隐藏申请文本预览")).toBeInTheDocument();
+    expect(screen.queryByText(/说明书长文本。说明书长文本。/)).toBeNull();
+  });
 });
