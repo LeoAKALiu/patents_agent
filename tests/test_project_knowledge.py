@@ -789,6 +789,46 @@ def test_cnipa_metadata_only_corpus_needs_supplemental_search(tmp_path):
     assert "non_patent_source" not in result.state.quality_flags
 
 
+def test_cnipa_claims_without_description_needs_partial_fulltext_search(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-cn-claims-only",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="cnipa_official_export",
+            title="城市体检方法",
+            publication_number="CN112233445A",
+            abstract="公开了一种城市体检方法。",
+            url="",
+            fulltext_status="available",
+            user_decision="include",
+            metadata={"claims": "1. 一种城市体检方法。"},
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=1,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "needs_supplemental_search"
+    assert result.state.claim_coverage == 1.0
+    assert result.state.fulltext_coverage == 0.0
+    assert "cnipa_export_partial_fulltext" in result.state.quality_flags
+    assert "cnipa_export_metadata_only" not in result.state.quality_flags
+    assert "cnipa_export_missing_claims" not in result.state.quality_flags
+
+
 def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
@@ -814,6 +854,58 @@ def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tm
             "message": "Corpus includes non-patent sources: semantic_scholar",
         }
     ]
+
+
+def test_create_project_corpus_preserves_non_patent_and_cnipa_quality_flags_in_mixed_corpus(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-cn-partial",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="cnipa_official_export",
+            title="城市体检方法",
+            publication_number="CN112233445A",
+            abstract="公开了一种城市体检方法。",
+            url="",
+            user_decision="include",
+            metadata={"claims": "1. 一种城市体检方法。"},
+        )
+    )
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-paper",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="semantic_scholar",
+            title="面向城市体检的智能体任务编排研究",
+            publication_number="SS-2024-001",
+            abstract="这是一篇论文而不是专利。",
+            url="https://example.com/semantic-scholar/paper-1",
+            user_decision="include",
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=2,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "needs_supplemental_search"
+    assert result.state.claim_coverage == 0.5
+    assert result.state.fulltext_coverage == 0.0
+    assert "non_patent_source" in result.state.quality_flags
+    assert "cnipa_export_partial_fulltext" in result.state.quality_flags
+    assert "cnipa_export_missing_claims" not in result.state.quality_flags
 
 
 def test_create_project_corpus_rejects_build_before_search(tmp_path):
