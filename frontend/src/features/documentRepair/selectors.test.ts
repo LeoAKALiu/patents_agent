@@ -272,6 +272,36 @@ describe("deriveDocumentRepairState", () => {
     expect(state.topConclusion).toBe("当前初稿尚未完成质量检查。");
   });
 
+  it("uses export-readiness next action before stale export artifacts", () => {
+    const state = deriveDocumentRepairState({
+      projectState: makeProjectState({
+        selectedProject: makeProject({ package: makePackage() }),
+        currentPackage: makePackage(),
+        currentDraftHash: "draft-current",
+        currentSourceDraftHash: "draft-current",
+        officialCompileRuns: [makeOfficialCompileRun()],
+        postDraftReviews: [makePostDraftReview({ export_allowed: true, blocking_issues: [] })],
+      }),
+      exportReadiness: makeExportReadiness({
+        export_allowed: false,
+        quality_required: true,
+        post_draft_review_required: false,
+        next_action: "run_quality_checks",
+        reason: "当前初稿尚未完成质量检查。",
+        quality_done: false,
+        review_gate_status: "passed",
+        review_blocking_issues: [],
+      }),
+    });
+
+    expect(state.gates.export.state).not.toBe("可导出");
+    expect(state.primaryAction).toEqual({
+      label: "运行质量检查",
+      targetSection: "workbench",
+    });
+    expect(state.topConclusion).toBe("当前初稿尚未完成质量检查。");
+  });
+
   it("uses only the approved gate vocabulary", () => {
     const state = deriveDocumentRepairState({
       projectState: makeProjectState({
