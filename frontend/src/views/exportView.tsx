@@ -476,9 +476,19 @@ export function ExportView({
           </button>
         </div>
       )}
-      <div className="report-preview-pane">
-        <PackagePreview packageValue={packageValue} compact />
-      </div>
+      {officialAllowed ? (
+        <div className="report-preview-pane">
+          <PackagePreview packageValue={packageValue} compact />
+        </div>
+      ) : (
+        <div className="callout callout-warn">
+          <AlertTriangle size={18} aria-hidden="true" />
+          <div>
+            <strong>导出解锁前隐藏申请文本预览</strong>
+            <p>先完成上方门禁后再复核正式提交稿内容；内部稿仍可在文稿工作区查看和编辑。</p>
+          </div>
+        </div>
+      )}
       </SettingsGroup>
     </section>
   );
