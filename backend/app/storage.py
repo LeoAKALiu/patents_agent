@@ -442,6 +442,12 @@ class SQLiteStore:
         state: ProjectKnowledgeState,
     ) -> tuple[list[PriorArtCandidate], ProjectSearchLedger]:
         with self.connection:
+            preserved_candidates = [
+                candidate
+                for candidate in self.list_prior_art_candidates(project_id, plan.id)
+                if str(candidate.metadata.get("import_ledger_id") or "").strip()
+            ]
+            merged_candidates = list({candidate.id: candidate for candidate in [*preserved_candidates, *candidates]}.values())
             self.connection.execute(
                 "delete from prior_art_candidates where project_id = ? and plan_id = ?",
                 (project_id, plan.id),
@@ -461,11 +467,19 @@ class SQLiteStore:
                         candidate.plan_id,
                         json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False),
                     )
-                    for candidate in candidates
+                    for candidate in merged_candidates
                 ],
             )
             stored_candidates = self.list_prior_art_candidates(project_id, plan.id)
-            stored_ledger = ledger.model_copy(update={"retained_candidate_ids": [candidate.id for candidate in stored_candidates]})
+            stored_ledger = ledger.model_copy(update={"retained_candidate_ids": [candidate.id for candidate in candidates]})
+            stored_state = state.model_copy(update={"candidate_count": len(stored_candidates)})
+            if stored_candidates and stored_state.status == "failed":
+                stored_state = stored_state.model_copy(
+                    update={
+                        "status": "candidates_pending",
+                        "quality_flags": ["candidates_need_confirmation"],
+                    }
+                )
             self.connection.execute(
                 """
                 insert or replace into project_search_ledgers(id, project_id, plan_id, ledger_json, created_at)
@@ -495,7 +509,7 @@ class SQLiteStore:
                     state_json = excluded.state_json,
                     updated_at = current_timestamp
                 """,
-                (state.project_id, json.dumps(state.model_dump(mode="json"), ensure_ascii=False)),
+                (stored_state.project_id, json.dumps(stored_state.model_dump(mode="json"), ensure_ascii=False)),
             )
         return stored_candidates, stored_ledger
 

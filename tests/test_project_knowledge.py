@@ -379,6 +379,30 @@ def test_import_cnipa_official_export_reimport_ledger_retains_refreshed_candidat
     assert second_import.candidates[0].metadata["import_ledger_id"] == ledgers[0].id
 
 
+def test_live_search_rerun_preserves_imported_cnipa_candidates_for_same_plan(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    export_path = tmp_path / "cnipa.csv"
+    export_path.write_text(
+        "公开公告号,专利名称,摘要\n"
+        "CN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+
+    imported = import_cnipa_official_export(store, project.id, plan_id, export_path)
+    rerun = run_agent_search_plan(store, project.id, plan_id, providers=[_static_provider()])
+    candidates = store.list_prior_art_candidates(project.id, plan_id)
+
+    assert any(candidate.id == imported.candidates[0].id for candidate in rerun.candidates)
+    assert {candidate.source for candidate in candidates} >= {"cnipa_official_export", "google_patents"}
+    assert imported.candidates[0].id in {candidate.id for candidate in candidates}
+    assert rerun.state.candidate_count == len(candidates)
+
+
 def test_run_plan_creates_real_candidates_and_state(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(

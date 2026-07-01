@@ -401,10 +401,11 @@ def _sanitize_candidate_metadata(value: Any) -> Any:
 
 def _dedupe_key(hit: PatentSearchHit) -> str:
     publication = normalize_publication_number(hit.publication_number)
+    application = normalize_publication_number(hit.application_number)
     family = hit.family_id.strip().lower()
     url = hit.url.strip().lower()
     fallback = f"{hit.title.strip().lower()}::{hit.applicant.strip().lower()}::{hit.publication_date[:4]}"
-    return publication or family or url or fallback
+    return publication or application or family or url or fallback
 
 
 def _merge_metadata(*values: dict[str, object]) -> dict[str, object]:
