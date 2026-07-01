@@ -282,6 +282,9 @@ def test_project_knowledge_cnipa_query_pack_uses_latest_plan(tmp_path):
     assert pack.source_id == "cnipa_official_export"
     assert pack.strategies
     assert pack.strategies[0].queries
+    strategy_ids = {strategy.strategy_group_id for strategy in pack.strategies}
+    assert {"broad-recall", "closest-prior-art"} <= strategy_ids
+    assert "supplemental-literature" not in strategy_ids
 
 
 def test_import_cnipa_official_export_adds_real_candidates_and_ledger(tmp_path):
@@ -777,6 +780,24 @@ def test_run_patent_search_plan_records_skipped_and_successful_default_attempts(
     assert any("CNIPA EPUB helper is not configured" in warning for warning in ledger.warnings)
 
 
+def test_run_patent_search_plan_filters_wanfang_only_groups_for_patent_providers(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+    provider = StaticPatentSearchProvider(source_id="wipo_patentscope", hits=[])
+
+    _candidates, ledger = run_patent_search_plan([provider], project.id, plan)
+
+    assert [attempt.provider for attempt in ledger.attempts] == ["wipo_patentscope", "wipo_patentscope"]
+    assert {attempt.query for attempt in ledger.attempts} == {
+        plan.strategy_groups[0].queries[0],
+        plan.strategy_groups[1].queries[0],
+    }
+
+
 def test_run_agent_search_plan_keeps_provider_warnings_for_default_chain_attempts(tmp_path):
     store = SQLiteStore(tmp_path / "test.sqlite")
     project = _project()
@@ -926,7 +947,7 @@ def test_run_patent_search_plan_marks_cnipa_parse_failures(tmp_path):
 def test_run_patent_search_plan_records_timeout_attempts_without_fake_candidates(tmp_path):
     class TimeoutPatentSearchProvider:
         name = "Timeout Patent Search"
-        source_id = "timeout_provider"
+        source_id = "google_patents"
 
         def available(self) -> tuple[bool, str | None]:
             return True, None
@@ -1297,10 +1318,29 @@ def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tm
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
     store.create_project(project)
     overview = ensure_project_knowledge_initialized(store, project)
-    after_run = run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_semantic_scholar_provider()])
-
-    assert after_run.candidates
-    store.update_prior_art_candidate_decision(project.id, after_run.candidates[0].id, "include")
+    assert overview.latest_plan is not None
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-non-patent-only",
+            project_id=project.id,
+            plan_id=overview.latest_plan.id,
+            source="semantic_scholar",
+            title="面向城市体检的智能体任务编排研究",
+            publication_number="SS-2024-001",
+            abstract="这是一篇论文而不是专利。",
+            url="https://example.com/semantic-scholar/paper-1",
+            user_decision="include",
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=overview.latest_plan.id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=1,
+        )
+    )
 
     after_build = create_project_corpus_from_included_candidates(store, project.id, overview.latest_plan.id)
 

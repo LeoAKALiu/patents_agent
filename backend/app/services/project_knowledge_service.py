@@ -13,12 +13,16 @@ from backend.app.knowledge.patent_sources import (
     CNIPA_LEGACY_EPUB_SOURCE,
     CNIPA_OFFICIAL_EXPORT_SOURCE,
     GOOGLE_PATENTS_SOURCE,
+    PATENT_QUERY_SOURCE_IDS,
     WIPO_PATENTSCOPE_SOURCE,
     build_cnipa_query_pack,
+    strategy_group_targets_any_source,
+    strategy_group_targets_source,
 )
 from backend.app.knowledge.patent_search import (
     PatentSearchProvider,
     default_project_patent_providers,
+    dedupe_patent_search_hits,
     patent_hit_to_candidate,
     run_provider_chain,
 )
@@ -454,18 +458,50 @@ def run_patent_search_plan(
     project_id: str,
     plan: AgentSearchPlan,
 ) -> tuple[list[PriorArtCandidate], ProjectSearchLedger]:
-    queries = [
+    fallback_queries = [
         (group.id, query)
         for group in plan.strategy_groups
+        if strategy_group_targets_any_source(group, PATENT_QUERY_SOURCE_IDS)
         for query in (group.queries or [group.label])
     ]
     filters = PatentSearchFilters.model_validate(plan.filters)
-    hits, attempts, warnings = run_provider_chain(
-        providers=provider_chain,
-        queries=queries,
-        filters=filters,
-        limit=plan.target_result_count,
-    )
+    hits: list = []
+    attempts: list[ProviderAttempt] = []
+    warnings: list[str] = []
+    if not provider_chain:
+        hits, attempts, warnings = run_provider_chain(
+            providers=[],
+            queries=fallback_queries,
+            filters=filters,
+            limit=plan.target_result_count,
+        )
+    for provider in provider_chain:
+        provider_queries = [
+            (group.id, query)
+            for group in plan.strategy_groups
+            if strategy_group_targets_source(group, provider.source_id)
+            for query in (group.queries or [group.label])
+        ]
+        if not provider_queries:
+            continue
+        provider_hits, provider_attempts, provider_warnings = run_provider_chain(
+            providers=[provider],
+            queries=provider_queries,
+            filters=filters,
+            limit=plan.target_result_count,
+        )
+        hits.extend(provider_hits)
+        attempts.extend(provider_attempts)
+        warnings.extend(provider_warnings)
+    hits = dedupe_patent_search_hits(hits)[: plan.target_result_count]
+    retained_by_attempt: dict[str, int] = {}
+    for hit in hits:
+        for attempt_id in hit.metadata.get("source_attempt_ids", []):
+            retained_by_attempt[attempt_id] = retained_by_attempt.get(attempt_id, 0) + 1
+    attempts = [
+        attempt.model_copy(update={"retained_count": retained_by_attempt.get(attempt.id, 0)})
+        for attempt in attempts
+    ]
     candidates = [
         patent_hit_to_candidate(
             hit,
