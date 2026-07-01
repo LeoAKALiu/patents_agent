@@ -139,4 +139,14 @@ describe("CorpusWorkspace", () => {
     expect(screen.queryByText("从本地文件补充语料")).not.toBeInTheDocument();
     expect(screen.queryByText("官方导出物批量建库")).not.toBeInTheDocument();
   });
+
+  it("relabels generic corpus import as reference material instead of project knowledge evidence", () => {
+    const props = buildProps();
+
+    render(<CorpusWorkspace {...props} tool="corpus" />);
+
+    expect(screen.getByText("参考材料导入")).toBeInTheDocument();
+    expect(screen.getByText("导入 PDF、DOCX、TXT 或 Markdown 参考材料，供片段检索和写作支撑使用。")).toBeInTheDocument();
+    expect(screen.queryByText("导入历史专利文件，作为检索语料和证据输入。")).not.toBeInTheDocument();
+  });
 });

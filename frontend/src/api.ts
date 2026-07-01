@@ -1142,6 +1142,7 @@ export interface ProjectKnowledgeImportLedger {
   detected_schema: string;
   row_count: number;
   parsed_count: number;
+  attachments: string[];
   retained_candidate_ids: string[];
   warnings: string[];
   failures: Array<{ source_file_name: string; row_number: number; code: string; message: string }>;

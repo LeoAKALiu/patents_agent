@@ -545,6 +545,7 @@ describe("ProjectKnowledgeView", () => {
             detected_schema: "cnipa_csv",
             row_count: 8,
             parsed_count: 5,
+            attachments: [],
             retained_candidate_ids: ["c-1"],
             warnings: ["第 3 列摘要为空，已按题录导入。"],
             failures: [

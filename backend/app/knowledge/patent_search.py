@@ -603,6 +603,7 @@ def patent_hit_to_candidate(
     strategy_group_id: str,
 ) -> PriorArtCandidate:
     normalized_pub = normalize_publication_number(hit.publication_number)
+    normalized_application = normalize_publication_number(hit.application_number)
     sanitized_query = sanitize_untrusted_text(hit.query)
     matched_terms = sanitized_query.split()
     sanitized_metadata = _sanitize_candidate_metadata(hit.metadata)
@@ -612,8 +613,15 @@ def patent_hit_to_candidate(
         )
     else:
         sanitized_metadata = {}
+    identity_seed = (
+        normalized_pub
+        or normalized_application
+        or hit.url
+        or sanitize_untrusted_text(hit.title, max_len=300)
+        or hit.id
+    )
     return PriorArtCandidate(
-        id=stable_id(project_id, plan_id, strategy_group_id, hit.source, normalized_pub or hit.url),
+        id=stable_id(project_id, plan_id, strategy_group_id, hit.source, identity_seed),
         project_id=project_id,
         plan_id=plan_id,
         source=hit.source,

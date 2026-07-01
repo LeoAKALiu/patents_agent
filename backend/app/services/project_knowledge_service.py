@@ -560,7 +560,15 @@ def import_cnipa_official_export(
     )
     store.upsert_project_knowledge_state(state)
     existing_ids = {candidate.id for candidate in existing_candidates}
-    retained_ids = [candidate.id for candidate in all_candidates if candidate.id not in existing_ids]
+    retained_ids = [
+        candidate.id
+        for candidate in all_candidates
+        if (
+            candidate.id not in existing_ids
+            or str(candidate.metadata.get("import_ledger_id") or "").strip() == ledger_id
+        )
+        and str(candidate.metadata.get("import_ledger_id") or "").strip() == ledger_id
+    ]
     ledger = ProjectKnowledgeImportLedger(
         id=ledger_id,
         project_id=project_id,

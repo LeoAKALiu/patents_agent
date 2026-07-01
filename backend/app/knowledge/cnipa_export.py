@@ -65,7 +65,7 @@ FIELD_ALIASES: dict[str, str] = {
 }
 
 LIST_FIELDS = {"ipc", "cpc"}
-TABLE_SUFFIXES = {".csv", ".txt", ".xlsx", ".xlsm"}
+TABLE_SUFFIXES = {".csv", ".xlsx"}
 ATTACHMENT_SUFFIXES = {".pdf", ".xml"}
 MAX_ZIP_MEMBER_COUNT = 100
 MAX_ZIP_MEMBER_BYTES = 10 * 1024 * 1024
@@ -210,9 +210,9 @@ def _parse_zip(path: Path, *, context: CnipaExportImportContext, raw_file_hash: 
 
 def _parse_table(path: Path) -> list[dict[str, Any]]:
     suffix = path.suffix.lower()
-    if suffix in {".csv", ".txt"}:
+    if suffix == ".csv":
         return _parse_csv(path)
-    if suffix in {".xlsx", ".xlsm"}:
+    if suffix == ".xlsx":
         return _parse_xlsx(path)
     raise ValueError(f"Unsupported CNIPA export table type: {suffix}")
 

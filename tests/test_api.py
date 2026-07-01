@@ -184,6 +184,92 @@ def test_project_knowledge_cnipa_export_upload_returns_attachment_names_in_ledge
     assert data["ledger"]["attachments"] == ["scan.pdf"]
 
 
+def test_project_knowledge_cnipa_export_upload_rejects_unsupported_suffix_before_storage(tmp_path: Path):
+    client = _test_app_without_env(tmp_path)
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "城市体检智能体",
+            "draft_text": "通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        },
+    ).json()["id"]
+    plan_id = client.post(f"/api/projects/{project_id}/knowledge/search-intent").json()["latest_plan"]["id"]
+
+    response = client.post(
+        f"/api/projects/{project_id}/knowledge/cnipa-export-imports",
+        data={"plan_id": plan_id},
+        files={"file": ("sample.txt", "公开公告号,专利名称,摘要\n", "text/plain")},
+    )
+
+    assert response.status_code == 400
+    assert "Unsupported CNIPA export file type" in response.json()["detail"]
+    upload_dir = tmp_path / "project-knowledge" / project_id / "cnipa-imports"
+    assert upload_dir.exists()
+    assert list(upload_dir.iterdir()) == []
+
+
+def test_project_knowledge_cnipa_export_upload_rejects_oversized_file_before_storage(tmp_path: Path, monkeypatch):
+    client = _test_app_without_env(tmp_path)
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "城市体检智能体",
+            "draft_text": "通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        },
+    ).json()["id"]
+    plan_id = client.post(f"/api/projects/{project_id}/knowledge/search-intent").json()["latest_plan"]["id"]
+    monkeypatch.setattr(project_knowledge_api, "MAX_CNIPA_EXPORT_UPLOAD_BYTES", 16)
+
+    response = client.post(
+        f"/api/projects/{project_id}/knowledge/cnipa-export-imports",
+        data={"plan_id": plan_id},
+        files={"file": ("cnipa.csv", "公开公告号,专利名称,摘要\nCN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n", "text/csv")},
+    )
+
+    assert response.status_code == 400
+    assert "exceeds the upload limit" in response.json()["detail"]
+    upload_dir = tmp_path / "project-knowledge" / project_id / "cnipa-imports"
+    assert upload_dir.exists()
+    assert list(upload_dir.iterdir()) == []
+
+
+def test_delete_project_removes_knowledge_ledgers_via_api(tmp_path: Path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={
+            "name": "城市体检智能体",
+            "draft_text": "通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        },
+    ).json()
+    project_id = created["id"]
+    overview = client.post(f"/api/projects/{project_id}/knowledge/search-intent").json()
+    plan_id = overview["latest_plan"]["id"]
+    run = client.post(f"/api/projects/{project_id}/knowledge/search-plans/{plan_id}/run")
+    assert run.status_code == 200
+    upload = client.post(
+        f"/api/projects/{project_id}/knowledge/cnipa-export-imports",
+        data={"plan_id": plan_id},
+        files={
+            "file": (
+                "cnipa.csv",
+                "公开公告号,专利名称,摘要\nCN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+                "text/csv",
+            )
+        },
+    )
+    assert upload.status_code == 200
+    ledgers = client.get(f"/api/projects/{project_id}/knowledge/import-ledgers").json()["ledgers"]
+    assert len(ledgers) == 1
+
+    delete = client.delete(f"/api/projects/{project_id}")
+
+    assert delete.status_code == 200
+    store = client.app.state.store
+    assert store.list_project_knowledge_import_ledgers(project_id, plan_id) == []
+    assert store.get_latest_project_search_ledger(project_id, plan_id) is None
+
+
 def test_api_corpus_project_generation_review_and_export(tmp_path):
     llm = FakeLLMClient(
         {

@@ -1,6 +1,7 @@
 from pathlib import Path
 from zipfile import ZipFile
 
+import pytest
 from openpyxl import Workbook
 
 from backend.app.knowledge import cnipa_export
@@ -142,3 +143,46 @@ def test_parse_cnipa_zip_export_skips_oversized_members_and_excess_member_count(
         "zip_member_too_large",
     }
     assert all(hit.application_number != "CN202410000003" for hit in result.hits)
+
+
+def test_parse_cnipa_export_rejects_txt_and_xlsm_tables(tmp_path: Path):
+    txt_path = tmp_path / "cnipa.txt"
+    txt_path.write_text(
+        "公开公告号,专利名称,摘要\nCN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+    xlsm_path = tmp_path / "cnipa.xlsm"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["公开公告号", "专利名称", "摘要"])
+    sheet.append(["CN112233446A", "城市体检证据链复核方法", "公开了一种证据链复核方法。"])
+    workbook.save(xlsm_path)
+
+    with pytest.raises(ValueError, match=r"Unsupported CNIPA export table type: \.txt"):
+        parse_cnipa_official_export_file(txt_path, context=_context())
+    with pytest.raises(ValueError, match=r"Unsupported CNIPA export table type: \.xlsm"):
+        parse_cnipa_official_export_file(xlsm_path, context=_context())
+
+
+def test_parse_cnipa_zip_export_rejects_txt_and_xlsm_members(tmp_path: Path):
+    txt_path = tmp_path / "inner.txt"
+    txt_path.write_text(
+        "公开公告号,专利名称,摘要\nCN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+    xlsm_path = tmp_path / "inner.xlsm"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["公开公告号", "专利名称", "摘要"])
+    sheet.append(["CN112233446A", "城市体检证据链复核方法", "公开了一种证据链复核方法。"])
+    workbook.save(xlsm_path)
+    zip_path = tmp_path / "cnipa.zip"
+    with ZipFile(zip_path, "w") as archive:
+        archive.write(txt_path, "metadata/inner.txt")
+        archive.write(xlsm_path, "metadata/inner.xlsm")
+
+    result = parse_cnipa_official_export_file(zip_path, context=_context())
+
+    assert result.parsed_count == 0
+    assert result.row_count == 0
+    assert result.failures == []

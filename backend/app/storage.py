@@ -720,6 +720,8 @@ class SQLiteStore:
                 "project_knowledge_states",
                 "search_intents",
                 "agent_search_plans",
+                "project_search_ledgers",
+                "project_knowledge_import_ledgers",
                 "prior_art_candidates",
                 "project_corpus_versions",
             ]:

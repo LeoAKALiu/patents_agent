@@ -329,6 +329,56 @@ def test_import_cnipa_official_export_records_zip_attachment_names_in_ledger(tmp
     assert ledgers[0].attachments == ["scan.pdf"]
 
 
+def test_import_cnipa_official_export_keeps_distinct_application_number_only_candidates(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    export_path = tmp_path / "cnipa-app-only.csv"
+    export_path.write_text(
+        "申请号,专利名称,摘要\n"
+        "CN202410000001,城市体检任务编排方法,公开了一种任务编排方法。\n"
+        "CN202410000002,城市体检证据链复核方法,公开了一种证据链复核方法。\n",
+        encoding="utf-8",
+    )
+
+    imported = import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+
+    assert imported.state.candidate_count == 2
+    assert len(imported.candidates) == 2
+    assert {candidate.application_number for candidate in imported.candidates} == {
+        "CN202410000001",
+        "CN202410000002",
+    }
+    assert len({candidate.id for candidate in imported.candidates}) == 2
+
+
+def test_import_cnipa_official_export_reimport_ledger_retains_refreshed_candidates(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    export_path = tmp_path / "cnipa.csv"
+    export_path.write_text(
+        "公开公告号,专利名称,摘要\n"
+        "CN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+
+    first_import = import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+    second_import = import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+    ledgers = store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id)
+
+    assert len(first_import.candidates) == 1
+    assert len(second_import.candidates) == 1
+    assert len(ledgers) == 2
+    assert ledgers[0].id != ledgers[1].id
+    assert ledgers[0].retained_candidate_ids == [second_import.candidates[0].id]
+    assert second_import.candidates[0].metadata["import_ledger_id"] == ledgers[0].id
+
+
 def test_run_plan_creates_real_candidates_and_state(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(
@@ -672,6 +722,30 @@ def test_run_plan_rerun_keeps_candidate_count_stable(tmp_path):
     assert len(first_run.candidates) == len(second_run.candidates)
     assert second_run.state.candidate_count == len(second_run.candidates)
     assert [candidate.id for candidate in first_run.candidates] == [candidate.id for candidate in second_run.candidates]
+
+
+def test_delete_project_removes_knowledge_ledgers(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    store.create_project(project)
+    overview = regenerate_project_knowledge(store, project, [])
+    run_agent_search_plan(store, project.id, overview.latest_plan.id, providers=[_static_provider()])
+    export_path = tmp_path / "cnipa.csv"
+    export_path.write_text(
+        "公开公告号,专利名称,摘要\n"
+        "CN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+    import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+
+    assert store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id)
+    assert store.get_latest_project_search_ledger(project.id, overview.latest_plan.id) is not None
+
+    assert store.delete_project(project.id) is True
+    assert store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id) == []
+    assert store.get_latest_project_search_ledger(project.id, overview.latest_plan.id) is None
 
 
 def test_create_project_corpus_requires_explicit_include_decision(tmp_path):

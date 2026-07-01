@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import uuid
 from pathlib import Path
 
@@ -27,6 +26,9 @@ from backend.app.services.project_knowledge_service import (
 )
 
 router = APIRouter(tags=["project-knowledge"])
+CNIPA_EXPORT_UPLOAD_SUFFIXES = frozenset({".csv", ".xlsx", ".zip"})
+MAX_CNIPA_EXPORT_UPLOAD_BYTES = 25 * 1024 * 1024
+UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
 def _resolve_patent_search_providers(request: Request, project_id: str, plan_id: str):
@@ -34,6 +36,30 @@ def _resolve_patent_search_providers(request: Request, project_id: str, plan_id:
     if callable(providers):
         return providers(project_id=project_id, plan_id=plan_id)
     return providers
+
+
+async def _stream_cnipa_export_upload(file: UploadFile, destination: Path) -> None:
+    try:
+        suffix = destination.suffix.lower()
+        if suffix not in CNIPA_EXPORT_UPLOAD_SUFFIXES:
+            raise ValueError(f"Unsupported CNIPA export file type: {suffix or '(none)'}")
+        total_bytes = 0
+        with destination.open("wb") as handle:
+            while True:
+                chunk = await file.read(UPLOAD_CHUNK_BYTES)
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > MAX_CNIPA_EXPORT_UPLOAD_BYTES:
+                    raise ValueError(
+                        f"CNIPA export upload exceeds the upload limit of {MAX_CNIPA_EXPORT_UPLOAD_BYTES} bytes."
+                    )
+                handle.write(chunk)
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+    finally:
+        await file.close()
 
 
 @router.get("/api/patent-sources")
@@ -105,9 +131,8 @@ async def import_project_cnipa_export(
     upload_dir.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename or "cnipa-export").name
     stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-    with stored_path.open("wb") as handle:
-        shutil.copyfileobj(file.file, handle)
     try:
+        await _stream_cnipa_export_upload(file, stored_path)
         overview = import_cnipa_official_export(
             request.app.state.store,
             project_id,
