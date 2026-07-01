@@ -1,0 +1,176 @@
+- generic [ref=f2e2]:
+  - generic [ref=f2e3]:
+    - complementary "主导航" [ref=f2e4]:
+      - generic "权衡 GrantAtlas home" [ref=f2e5]:
+        - img "权衡 GrantAtlas logo" [ref=f2e7]
+        - generic [ref=f2e8]:
+          - strong [ref=f2e9]: 权衡 GrantAtlas
+          - generic [ref=f2e10]: 国际专利授权工程系统
+      - navigation "主导航" [ref=f2e11]:
+        - button "工作台" [ref=f2e12] [cursor=pointer]:
+          - img
+          - generic [ref=f2e13]: 工作台
+        - button "项目" [ref=f2e14] [cursor=pointer]:
+          - img
+          - generic [ref=f2e15]: 项目
+        - button "文稿与修复" [ref=f2e16] [cursor=pointer]:
+          - img
+          - generic [ref=f2e17]: 文稿与修复
+        - button "知识库" [ref=f2e18] [cursor=pointer]:
+          - img
+          - generic [ref=f2e19]: 知识库
+        - button "专家工具" [ref=f2e20] [cursor=pointer]:
+          - img
+          - generic [ref=f2e21]: 专家工具
+        - button "导出" [active] [ref=f2e22] [cursor=pointer]:
+          - img
+          - generic [ref=f2e23]: 导出
+        - button "设置" [ref=f2e24] [cursor=pointer]:
+          - img
+          - generic [ref=f2e25]: 设置
+      - generic [ref=f2e27]:
+        - generic [ref=f2e28]:
+          - generic [ref=f2e29]: 模型
+          - generic [ref=f2e31]: 可用
+        - generic [ref=f2e32]:
+          - generic [ref=f2e33]: 智能体
+          - generic [ref=f2e35]: 部分可用
+        - generic [ref=f2e36]:
+          - generic [ref=f2e37]: 后端
+          - generic "后端在线" [ref=f2e224]: 在线
+    - main [ref=f2e40]:
+      - generic [ref=f2e41]:
+        - generic [ref=f2e42]:
+          - heading "导出" [level=1] [ref=f2e619]
+          - paragraph [ref=f2e44]: 正式提交稿、内部复核材料与风险追溯
+        - generic [ref=f2e46]:
+          - generic [ref=f2e47]:
+            - generic [ref=f2e48]: 当前项目
+            - combobox "当前项目" [ref=f2e49]:
+              - option "新建项目"
+              - option "QA 标注修复证据项目" [selected]
+          - generic [ref=f2e50]:
+            - img [ref=f2e51]
+            - generic [ref=f2e54]: 导出锁定
+          - generic [ref=f2e55]:
+            - img [ref=f2e296]
+            - generic [ref=f2e58]: 空闲
+          - button "后端在线" [ref=f2e227] [cursor=pointer]:
+            - img
+            - generic [ref=f2e60]: 后端在线
+          - button "刷新运行状态" [ref=f2e61] [cursor=pointer]:
+            - img
+      - generic [ref=f2e620]:
+        - generic [ref=f2e622]:
+          - heading "导出" [level=2] [ref=f2e623]
+          - paragraph [ref=f2e624]: 把正式提交稿、内部复核材料与风险追溯拆开呈现，避免导出区承载修复操作。
+        - generic "导出工作区分区" [ref=f2e625]:
+          - article [ref=f2e626]:
+            - strong [ref=f2e627]: 正式提交稿
+            - paragraph [ref=f2e628]: 面向正式提交的 DOCX 与 Markdown，继续由正式稿编译和成稿会审门禁控制。
+          - article [ref=f2e629]:
+            - strong [ref=f2e630]: 内部复核材料
+            - paragraph [ref=f2e631]: 保留内部判断与复核上下文，便于团队继续检查，但不进入正式提交稿。
+          - article [ref=f2e632]:
+            - strong [ref=f2e633]: 风险说明与追溯
+            - paragraph [ref=f2e634]: 集中呈现阻断原因、污染提示、哈希与导出记录，方便回到文稿修复链路。
+        - region "导出锁定指引" [ref=f2e635]:
+          - generic [ref=f2e637]:
+            - heading "导出仍被锁定" [level=3] [ref=f2e638]
+            - paragraph [ref=f2e639]: 请回到文稿与修复处理门禁或阻断问题；导出区只呈现文件与追溯信息，不承载正文修复面板。
+          - generic [ref=f2e640]:
+            - button "返回文稿与修复 / 总览" [ref=f2e641] [cursor=pointer]:
+              - img [ref=f2e642]
+              - generic [ref=f2e644]: 返回文稿与修复 / 总览
+            - button "查看文稿与修复 / 标注修复" [ref=f2e645] [cursor=pointer]:
+              - img [ref=f2e646]
+              - generic [ref=f2e651]: 查看文稿与修复 / 标注修复
+            - generic [ref=f2e652]:
+              - text: 进入文稿与修复后，可在对应标签中继续处理问题。
+              - img [ref=f2e653]
+        - generic [ref=f2e655]:
+          - region "导出状态" [ref=f2e656]:
+            - generic [ref=f2e657]:
+              - generic [ref=f2e658]: 正式稿状态
+              - strong [ref=f2e659]: 等待质检
+            - generic [ref=f2e660]:
+              - generic [ref=f2e661]: 源稿哈希
+              - strong [ref=f2e662]: 1708c17a5458
+            - generic [ref=f2e663]:
+              - generic [ref=f2e664]: 正式稿哈希
+              - strong [ref=f2e665]: 0a4772012ce0
+            - generic [ref=f2e666]:
+              - generic [ref=f2e667]: 最近导出
+              - strong [ref=f2e668]: 无有效导出
+          - generic [ref=f2e669]:
+            - generic [ref=f2e670]:
+              - heading "导出边界" [level=3] [ref=f2e671]
+              - paragraph [ref=f2e672]: 正式提交稿、内部复核材料和风险说明与追溯使用不同容器，避免内部会审内容进入可提交文件。
+            - generic [ref=f2e673]:
+              - article [ref=f2e674]:
+                - strong [ref=f2e675]: 正式提交稿
+                - paragraph [ref=f2e676]: 只包含清污后的权利要求、说明书和摘要；必须由质量检查、正式稿编译和成稿会审共同解锁。
+              - article [ref=f2e677]:
+                - strong [ref=f2e678]: 内部复核材料
+                - paragraph [ref=f2e679]: 保留会审结论、护城河、支撑缺口和补强建议，仅供内部复核，不作为提交稿。
+              - article [ref=f2e680]:
+                - strong [ref=f2e681]: 风险说明与追溯
+                - paragraph [ref=f2e682]: 解释导出阻断、清污命中和版本哈希来源，帮助人工复核，不替代专利代理师或律师意见。
+          - generic [ref=f2e683]:
+            - generic [ref=f2e684]:
+              - heading "正式提交稿" [level=3] [ref=f2e685]
+              - paragraph [ref=f2e686]: 正式稿导出受门禁控制，只呈现可提交给代理师或提交系统的文件形态。
+            - article [ref=f2e687]:
+              - img [ref=f2e689]
+              - generic [ref=f2e692]:
+                - strong [ref=f2e693]: 质量检查未完成
+                - paragraph [ref=f2e694]:
+                  - text: 正式稿需先完成当前初稿质量检查、生成正式稿，并通过针对当前正式稿的成稿会审；内部稿和风险说明仅供内部复核。
+                  - generic [ref=f2e695]: 缺少：提交前质量检查、权利要求防守工作表、成稿完整度检查
+                - generic [ref=f2e697]: 需处理
+            - generic [ref=f2e698]:
+              - generic [ref=f2e699]:
+                - img [ref=f2e700]
+                - generic [ref=f2e703]: 正式提交稿 DOCX
+              - generic [ref=f2e704]:
+                - img [ref=f2e705]
+                - generic [ref=f2e708]: 正式提交稿 MD
+          - generic [ref=f2e709]:
+            - generic [ref=f2e710]:
+              - heading "内部复核材料" [level=3] [ref=f2e711]
+              - paragraph [ref=f2e712]: 内部材料始终带有策略语境，请勿直接作为正式提交稿。
+            - generic [ref=f2e713]:
+              - link "DOCX" [ref=f2e714] [cursor=pointer]:
+                - /url: /api/projects/73855542dcb141f19eb29355319b3189/export.docx
+                - img [ref=f2e715]
+                - generic [ref=f2e718]: DOCX
+              - link "Markdown" [ref=f2e719] [cursor=pointer]:
+                - /url: /api/projects/73855542dcb141f19eb29355319b3189/export.md
+                - img [ref=f2e720]
+                - generic [ref=f2e723]: Markdown
+              - link "Mermaid" [ref=f2e724] [cursor=pointer]:
+                - /url: /api/projects/73855542dcb141f19eb29355319b3189/diagram.mmd
+                - img [ref=f2e725]
+                - generic [ref=f2e728]: Mermaid
+              - link "绘图提示词" [ref=f2e729] [cursor=pointer]:
+                - /url: /api/projects/73855542dcb141f19eb29355319b3189/image-prompt.md
+                - img [ref=f2e730]
+                - generic [ref=f2e733]: 绘图提示词
+          - generic [ref=f2e734]:
+            - generic [ref=f2e735]:
+              - heading "风险说明与追溯" [level=3] [ref=f2e736]
+              - paragraph [ref=f2e737]: 用于人工复核导出内容、阻断原因和追溯信息，正式提交前仍需专业人员确认。
+            - generic [ref=f2e739]:
+              - article [ref=f2e740]:
+                - heading "摘要" [level=4] [ref=f2e741]
+                - generic [ref=f2e742]: 本发明公开一种按置信度主动采集的方法。
+              - article [ref=f2e743]:
+                - heading "权利要求书" [level=4] [ref=f2e744]
+                - generic [ref=f2e745]: "*(注：内部备注)**"
+              - article [ref=f2e746]:
+                - heading "Mermaid流程图" [level=4] [ref=f2e747]
+                - generic [ref=f2e748]: flowchart TD A[城市体检指标] --> B[置信度热力图] --> C[无人机任务包]
+              - article [ref=f2e749]:
+                - heading "绘图提示词" [level=4] [ref=f2e750]
+                - generic [ref=f2e751]: 黑白线稿，展示城市体检指标、置信度热力图和无人机任务包。
+  - region "Notifications alt+T"

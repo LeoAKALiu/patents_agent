@@ -258,6 +258,95 @@ Result summary:
 - Repair starting HEAD: `2970bad2`
 - Dirty at repair start: no
 
+---
+
+## Document Repair Follow Export Readiness / 2026-07-01
+
+### Repository identity
+
+- `pwd`: `/Users/leo/Projects/patents_agent`
+- `git branch --show-current`: `codex/grantatlas-readme-branding`
+- `git rev-parse --short HEAD` at start: `f566fc09`
+- Dirty worktree at start: `yes`
+
+### What changed
+
+- Updated `frontend/src/features/documentRepair/selectors.ts` so document-repair quality gating now prefers `ExportReadiness` over artifact presence when export readiness reports unfinished, stale, failed, or unknown quality checks.
+- Added `hasAnyQualityGap`, `qualityPrimaryActionLabel`, and `primaryActionFromNextAction` to make the selector follow backend `next_action` and quality check state details.
+- Changed `deriveTopConclusion(...)` to prefer backend `exportReadiness.reason` for locked or incomplete flows when export is not ready.
+- Adjusted the fallback quality gate detail copy so the `待重新验证` state explicitly references quality checks.
+- Added the required regression test in `frontend/src/features/documentRepair/selectors.test.ts` for the quality-readiness precedence case.
+
+### TDD evidence
+
+#### RED
+
+Added the required test first, then ran:
+
+```bash
+npm --prefix frontend test -- --run src/features/documentRepair/selectors.test.ts -t "uses export-readiness quality state before artifact presence"
+```
+
+Observed failing output summary:
+
+- `1 failed | 6 skipped`
+- failure surfaced on `expect(state.gates.quality.detail).toContain("质量检查")`
+- this confirmed the selector was still returning the old quality revalidation copy and not yet aligned with the new export-readiness-driven behavior
+
+#### GREEN
+
+After the selector changes, reran:
+
+```bash
+npm --prefix frontend test -- --run src/features/documentRepair/selectors.test.ts -t "uses export-readiness quality state before artifact presence"
+```
+
+Result summary:
+
+- `1 passed | 6 skipped`
+
+### Tests and output
+
+1. Focused RED check
+
+```bash
+npm --prefix frontend test -- --run src/features/documentRepair/selectors.test.ts -t "uses export-readiness quality state before artifact presence"
+```
+
+- failed as expected before implementation
+
+2. Focused GREEN check
+
+```bash
+npm --prefix frontend test -- --run src/features/documentRepair/selectors.test.ts -t "uses export-readiness quality state before artifact presence"
+```
+
+- passed after implementation
+
+3. Full task-required selector suite
+
+```bash
+npm --prefix frontend test -- --run src/features/documentRepair/selectors.test.ts
+```
+
+- passed: `1 file, 7 tests`
+
+### Files changed
+
+- `frontend/src/features/documentRepair/selectors.ts`
+- `frontend/src/features/documentRepair/selectors.test.ts`
+
+### Self-review
+
+- Scope stayed within the two owned source files for the task implementation.
+- The new helpers remain selector-local and preserve existing fallback behavior for older flows without `exportReadiness`.
+- `failed_quality_checks` still wins over the new quality-gap branch, preserving the existing `运行失败` gate state.
+- `next_action` now drives the primary CTA before older gate-derived fallbacks, matching the task brief.
+
+### Concerns
+
+- No blocking concerns. The RED failure surfaced first on updated copy rather than the exact assertion order described in the brief, but it still demonstrated the pre-change misalignment and the task-required behavior is now covered and passing.
+
 ### Reviewer blocker addressed
 
 - Fixed the Task 1 routing regression where `activeSection === "knowledge"` and `activeSection === "export"` fell through the shell/router and rendered the guided workspace instead of the existing corpus/export workspaces.

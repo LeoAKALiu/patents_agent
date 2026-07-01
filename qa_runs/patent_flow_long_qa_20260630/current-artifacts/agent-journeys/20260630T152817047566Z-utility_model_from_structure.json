@@ -1,0 +1,111 @@
+{
+  "artifacts": {
+    "api_payloads": [
+      "GET /api/projects/000676751ec04248bcfe42ea092daa8e/export-readiness",
+      "GET /api/projects/000676751ec04248bcfe42ea092daa8e/official-export.md"
+    ],
+    "logs": [],
+    "screenshots": []
+  },
+  "execution": {
+    "data_dir": "ephemeral:/var/folders/g4/s06gtz5d7svbfvj7s823rn9w0000gn/T/patentagent-utility_model_from_structure-s6etw8lv",
+    "finished_at": "2026-06-30T15:28:17.047524+00:00",
+    "journey_id": "utility_model_from_structure",
+    "llm_mode": "fake",
+    "mode": "api",
+    "started_at": "2026-06-30T15:28:16.658912+00:00",
+    "status": "passed",
+    "test_target": "api_testclient"
+  },
+  "failures": [],
+  "gates": {
+    "official_compile": "current",
+    "post_draft_review": "current",
+    "quality": "current"
+  },
+  "hashes": {
+    "current_source_draft_hash": "136aaf7209af2c7a0a36815bea62df4a805f8edfe489b632f905c882057b8745",
+    "latest_official_package_hash": "e5495564839930dcce82b90c62bc83cde2dff881854be4ee6d0bae50863d127a",
+    "latest_official_source_hash": "136aaf7209af2c7a0a36815bea62df4a805f8edfe489b632f905c882057b8745",
+    "latest_review_draft_hash": "136aaf7209af2c7a0a36815bea62df4a805f8edfe489b632f905c882057b8745",
+    "latest_review_official_package_hash": "e5495564839930dcce82b90c62bc83cde2dff881854be4ee6d0bae50863d127a",
+    "latest_worksheet_draft_hash": "136aaf7209af2c7a0a36815bea62df4a805f8edfe489b632f905c882057b8745"
+  },
+  "schema_version": 1,
+  "source_identity": {
+    "branch": "codex/grantatlas-readme-branding",
+    "dirty_files_summary": [
+      ".github/workflows/ci.yml",
+      "backend/app/api/projects.py",
+      "backend/app/services/project_service.py",
+      "scripts/golden_quality_gate.py",
+      "scripts/v1_smoke.sh",
+      "tests/test_golden_release_gate.py",
+      "tests/test_projects_api_router.py",
+      "tests/test_tauri_desktop_skeleton.py",
+      "output/playwright/grantatlas-brand-sidebar.png",
+      "output/playwright/patentagent-logo-sidebar.png",
+      "qa_runs/"
+    ],
+    "dirty_status": "dirty",
+    "git_top_level": "/Users/leo/Projects/patents_agent",
+    "short_sha": "f566fc09",
+    "worktree_path": "/Users/leo/Projects/patents_agent"
+  },
+  "steps": [
+    {
+      "actual": "ddfbcf9b839943db9b71de4d47ba4d42",
+      "evidence": [],
+      "expected": "project id assigned",
+      "id": "create_project",
+      "input_summary": "utility model structure",
+      "status": "passed"
+    },
+    {
+      "actual": "False",
+      "evidence": [],
+      "expected": "required false",
+      "id": "formula_requirement",
+      "input_summary": "check utility formula gate",
+      "status": "passed"
+    },
+    {
+      "actual": "一种可调安装支架结构 | 1. 一种可调安装支架，其特征在于，包括底座、支撑臂和限位件，所述支撑臂与所述底座转动连接，所述限位件用于锁定所述支撑臂的调节角度。\n2. 根据权利要求1所述的可调安装支架，其特征在于，所述支撑臂设有角度刻度。",
+      "evidence": [],
+      "expected": "structure claim summary",
+      "id": "lightweight_draft",
+      "input_summary": "generate utility model draft",
+      "status": "passed"
+    },
+    {
+      "actual": "True",
+      "evidence": [],
+      "expected": "export_allowed true",
+      "id": "post_draft_review",
+      "input_summary": "review utility model package",
+      "status": "passed"
+    },
+    {
+      "actual": "True",
+      "evidence": [],
+      "expected": "ok true",
+      "id": "official_export",
+      "input_summary": "export official markdown",
+      "status": "passed"
+    },
+    {
+      "actual": "export_allowed=False next_action=run_quality_checks quality=stale official_compile=stale post_draft_review=stale export_blocked=True",
+      "evidence": [
+        "api:GET /api/projects/000676751ec04248bcfe42ea092daa8e/export-readiness",
+        "api:GET /api/projects/000676751ec04248bcfe42ea092daa8e/official-export.md",
+        "current_source_draft_hash:2e95cecd76180ad93e3ff6d03ee9d20ec7f461366f31322b3980c1ca4e1b2b41",
+        "latest_official_source_hash:853a54a391d82c7ac9e2d7224c41c12eb2f748d0ab8054a88aa2d117d3b5bc1a",
+        "latest_review_draft_hash:853a54a391d82c7ac9e2d7224c41c12eb2f748d0ab8054a88aa2d117d3b5bc1a"
+      ],
+      "expected": "official export remains blocked and prior gates become stale",
+      "id": "hash_drift_export_gate",
+      "input_summary": "edit source draft after quality, official compile, and post-draft review pass",
+      "status": "passed"
+    }
+  ]
+}

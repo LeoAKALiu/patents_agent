@@ -1,0 +1,588 @@
+{
+  "suite": "v1.1 deterministic quality gate",
+  "deterministic": true,
+  "live_provider_tests": "opt-in only; default suite uses TestClient and V1SmokeLLM",
+  "passed": true,
+  "summary": {
+    "expected_workflows": 5,
+    "completed_workflows": 5,
+    "failed_workflows": 0,
+    "execution_failures": 0,
+    "repeatability_failures": 0,
+    "total_failures": 0,
+    "repeat_count": 1,
+    "categories": [
+      "algorithmic",
+      "external_draft",
+      "mechanical_device",
+      "sensing_inspection",
+      "software"
+    ],
+    "trend_fields": [
+      "authorization_stability",
+      "support_strength",
+      "prior_art_distinction",
+      "official_hygiene",
+      "overall"
+    ],
+    "drafting_quality_fields": [
+      "evidence_binding_rate",
+      "core_feature_support_rate",
+      "unsupported_core_feature_count",
+      "unverified_effect_leak_count",
+      "dependent_fallback_depth",
+      "embodiment_density",
+      "patch_delta"
+    ]
+  },
+  "loop_engineering": {
+    "objective": "final patent draft quality",
+    "standard": "full-process stability and reliability",
+    "gate_groups": {
+      "stability": {
+        "gates": [
+          {
+            "name": "quality_trend_present",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          },
+          {
+            "name": "official_export_hygiene",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          }
+        ],
+        "all_passed": true
+      },
+      "reliability": {
+        "gates": [
+          {
+            "name": "official_export_blocked_before_compile",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          },
+          {
+            "name": "official_export_blocked_before_review",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          },
+          {
+            "name": "post_draft_review_unlocks_export",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          }
+        ],
+        "all_passed": true
+      },
+      "final_draft_quality": {
+        "gates": [
+          {
+            "name": "research_evidence_count",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          },
+          {
+            "name": "grantability_report_present",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          },
+          {
+            "name": "evidence_binding_rate",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          },
+          {
+            "name": "core_feature_support_rate",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          },
+          {
+            "name": "unverified_effect_leak_count",
+            "passed": 5,
+            "total": 5,
+            "all_passed": true
+          }
+        ],
+        "all_passed": true
+      }
+    },
+    "repeatability_failures": []
+  },
+  "workflows": [
+    {
+      "workflow": "software",
+      "category": "software",
+      "project_id": "faf93db8620941f18c355fe86d428295",
+      "official_compile_id": "afe960678d88474ea4fada7572fa9d0c",
+      "post_draft_review_id": "f96c78db1c7247a3ae2b7ff422e6ac12",
+      "official_package_hash": "fbf50893036108a07527fc10f31e81cf193d1c177213cb75e19c7c74ef913ff2",
+      "official_text_hash": "f200b4c100375e214b05ad2bd5c8c3c601bc4ffce7a8de35c149af93d759e7c2",
+      "research_evidence_count": 2,
+      "research_confidence": "medium",
+      "grantability": {
+        "id": "c76e2e3a08134dcba424548d612daa0a",
+        "status": "medium",
+        "fail_closed": false,
+        "claim_chart_rows": 2,
+        "novelty_attacks": 2,
+        "inventive_step_attacks": 1,
+        "low_evidence_flags": [
+          "部分现有技术引用未经验证（模型生成或文件缺失）。请人工复核后调整授权概率。"
+        ]
+      },
+      "quality_trend": {
+        "authorization_stability": 0,
+        "support_strength": 0,
+        "prior_art_distinction": 65,
+        "official_hygiene": 52,
+        "overall": 27
+      },
+      "drafting_quality": {
+        "evidence_binding_rate": 0.3,
+        "core_feature_support_rate": 1.0,
+        "unsupported_core_feature_count": 0,
+        "unverified_effect_leak_count": 0,
+        "dependent_fallback_depth": 3,
+        "embodiment_density": 0.7,
+        "patch_delta": -1
+      },
+      "gates": {
+        "research_evidence_count": {
+          "passed": true,
+          "expected": ">=2",
+          "actual": "2"
+        },
+        "grantability_report_present": {
+          "passed": true,
+          "expected": "claim_chart_rows>0 and fail_closed=false",
+          "actual": "rows=2 fail_closed=False"
+        },
+        "quality_trend_present": {
+          "passed": true,
+          "expected": "authorization_stability,support_strength,prior_art_distinction,official_hygiene,overall",
+          "actual": "{\"authorization_stability\": 0, \"support_strength\": 0, \"prior_art_distinction\": 65, \"official_hygiene\": 52, \"overall\": 27}"
+        },
+        "evidence_binding_rate": {
+          "passed": true,
+          "expected": ">=0.1",
+          "actual": "0.3"
+        },
+        "core_feature_support_rate": {
+          "passed": true,
+          "expected": ">=0.4",
+          "actual": "1.0"
+        },
+        "unverified_effect_leak_count": {
+          "passed": true,
+          "expected": "0",
+          "actual": "0"
+        },
+        "official_export_blocked_before_compile": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Official draft compile is required for the current draft before official export."
+        },
+        "official_export_blocked_before_review": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Post-draft multi-agent review is required for the current official draft before official export."
+        },
+        "post_draft_review_unlocks_export": {
+          "passed": true,
+          "expected": "export_allowed=true",
+          "actual": "true"
+        },
+        "official_export_hygiene": {
+          "passed": true,
+          "expected": "no internal markers",
+          "actual": "clean"
+        }
+      },
+      "loop_round": 1
+    },
+    {
+      "workflow": "sensing_inspection",
+      "category": "sensing_inspection",
+      "project_id": "f13ac623705c46e8927539e06549a331",
+      "official_compile_id": "8a56fb9a45d949c195b9ef8ddaafab49",
+      "post_draft_review_id": "4fd7f2298306436e9385baef316a9048",
+      "official_package_hash": "f91f01fc91606ec5a83ee21304bc03e4f47ccb0d7731df4d8ab9b80d698a6c29",
+      "official_text_hash": "f221a228949ef76ecc43bd6231ec0191d3dc5ad31419b64e752c0d8fd56c85b8",
+      "research_evidence_count": 2,
+      "research_confidence": "medium",
+      "grantability": {
+        "id": "b48eb2c75e4b4ea3a17ae89f8727eec5",
+        "status": "medium",
+        "fail_closed": false,
+        "claim_chart_rows": 2,
+        "novelty_attacks": 2,
+        "inventive_step_attacks": 1,
+        "low_evidence_flags": [
+          "部分现有技术引用未经验证（模型生成或文件缺失）。请人工复核后调整授权概率。"
+        ]
+      },
+      "quality_trend": {
+        "authorization_stability": 0,
+        "support_strength": 0,
+        "prior_art_distinction": 65,
+        "official_hygiene": 52,
+        "overall": 27
+      },
+      "drafting_quality": {
+        "evidence_binding_rate": 0.3,
+        "core_feature_support_rate": 1.0,
+        "unsupported_core_feature_count": 0,
+        "unverified_effect_leak_count": 0,
+        "dependent_fallback_depth": 3,
+        "embodiment_density": 0.7,
+        "patch_delta": 1
+      },
+      "gates": {
+        "research_evidence_count": {
+          "passed": true,
+          "expected": ">=2",
+          "actual": "2"
+        },
+        "grantability_report_present": {
+          "passed": true,
+          "expected": "claim_chart_rows>0 and fail_closed=false",
+          "actual": "rows=2 fail_closed=False"
+        },
+        "quality_trend_present": {
+          "passed": true,
+          "expected": "authorization_stability,support_strength,prior_art_distinction,official_hygiene,overall",
+          "actual": "{\"authorization_stability\": 0, \"support_strength\": 0, \"prior_art_distinction\": 65, \"official_hygiene\": 52, \"overall\": 27}"
+        },
+        "evidence_binding_rate": {
+          "passed": true,
+          "expected": ">=0.1",
+          "actual": "0.3"
+        },
+        "core_feature_support_rate": {
+          "passed": true,
+          "expected": ">=0.4",
+          "actual": "1.0"
+        },
+        "unverified_effect_leak_count": {
+          "passed": true,
+          "expected": "0",
+          "actual": "0"
+        },
+        "official_export_blocked_before_compile": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Official draft compile is required for the current draft before official export."
+        },
+        "official_export_blocked_before_review": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Post-draft multi-agent review is required for the current official draft before official export."
+        },
+        "post_draft_review_unlocks_export": {
+          "passed": true,
+          "expected": "export_allowed=true",
+          "actual": "true"
+        },
+        "official_export_hygiene": {
+          "passed": true,
+          "expected": "no internal markers",
+          "actual": "clean"
+        }
+      },
+      "loop_round": 1
+    },
+    {
+      "workflow": "mechanical_device",
+      "category": "mechanical_device",
+      "project_id": "ce64f0b48750469dadf06d40fe2d9eaf",
+      "official_compile_id": "8daf5a605fa64a05ad5e948e0d204f7c",
+      "post_draft_review_id": "3d759e09c4d74d39b428af91f9c702a2",
+      "official_package_hash": "e3d6bb248c01dfaa7c56571cb44445f1635b2709d6ff6f21f523c7ce3737cdb4",
+      "official_text_hash": "7b44d77b6878e2b0d21d3af0fbc101b6498c0530bf042f7fa286dbe7757d0d42",
+      "research_evidence_count": 2,
+      "research_confidence": "medium",
+      "grantability": {
+        "id": "4823b54bceff48acbba47309bfcb1f92",
+        "status": "medium",
+        "fail_closed": false,
+        "claim_chart_rows": 2,
+        "novelty_attacks": 2,
+        "inventive_step_attacks": 1,
+        "low_evidence_flags": [
+          "部分现有技术引用未经验证（模型生成或文件缺失）。请人工复核后调整授权概率。"
+        ]
+      },
+      "quality_trend": {
+        "authorization_stability": 0,
+        "support_strength": 0,
+        "prior_art_distinction": 65,
+        "official_hygiene": 52,
+        "overall": 26
+      },
+      "drafting_quality": {
+        "evidence_binding_rate": 0.273,
+        "core_feature_support_rate": 0.889,
+        "unsupported_core_feature_count": 1,
+        "unverified_effect_leak_count": 0,
+        "dependent_fallback_depth": 2,
+        "embodiment_density": 0.727,
+        "patch_delta": -1
+      },
+      "gates": {
+        "research_evidence_count": {
+          "passed": true,
+          "expected": ">=2",
+          "actual": "2"
+        },
+        "grantability_report_present": {
+          "passed": true,
+          "expected": "claim_chart_rows>0 and fail_closed=false",
+          "actual": "rows=2 fail_closed=False"
+        },
+        "quality_trend_present": {
+          "passed": true,
+          "expected": "authorization_stability,support_strength,prior_art_distinction,official_hygiene,overall",
+          "actual": "{\"authorization_stability\": 0, \"support_strength\": 0, \"prior_art_distinction\": 65, \"official_hygiene\": 52, \"overall\": 26}"
+        },
+        "evidence_binding_rate": {
+          "passed": true,
+          "expected": ">=0.1",
+          "actual": "0.273"
+        },
+        "core_feature_support_rate": {
+          "passed": true,
+          "expected": ">=0.4",
+          "actual": "0.889"
+        },
+        "unverified_effect_leak_count": {
+          "passed": true,
+          "expected": "0",
+          "actual": "0"
+        },
+        "official_export_blocked_before_compile": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Official draft compile is required for the current draft before official export."
+        },
+        "official_export_blocked_before_review": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Post-draft multi-agent review is required for the current official draft before official export."
+        },
+        "post_draft_review_unlocks_export": {
+          "passed": true,
+          "expected": "export_allowed=true",
+          "actual": "true"
+        },
+        "official_export_hygiene": {
+          "passed": true,
+          "expected": "no internal markers",
+          "actual": "clean"
+        }
+      },
+      "loop_round": 1
+    },
+    {
+      "workflow": "algorithmic",
+      "category": "algorithmic",
+      "project_id": "40cac48d87624db880a33d72c31f0063",
+      "official_compile_id": "325514b9036844c3aa9213828c7b461f",
+      "post_draft_review_id": "2372c1a9bd0a4428a3e9dc7a4c6e9eb5",
+      "official_package_hash": "ff432fb07f2c436a768e158c1e077988309bf14baa10ac9937fea5f4a772778d",
+      "official_text_hash": "4448987afa867874fff15e9b49cff5dde0706dff9e9e3eb3018b8cc041df58ff",
+      "research_evidence_count": 2,
+      "research_confidence": "medium",
+      "grantability": {
+        "id": "bd9628ca1fbd4e4bb74d59acd13b974a",
+        "status": "medium",
+        "fail_closed": false,
+        "claim_chart_rows": 2,
+        "novelty_attacks": 2,
+        "inventive_step_attacks": 1,
+        "low_evidence_flags": [
+          "部分现有技术引用未经验证（模型生成或文件缺失）。请人工复核后调整授权概率。"
+        ]
+      },
+      "quality_trend": {
+        "authorization_stability": 0,
+        "support_strength": 0,
+        "prior_art_distinction": 65,
+        "official_hygiene": 52,
+        "overall": 26
+      },
+      "drafting_quality": {
+        "evidence_binding_rate": 0.273,
+        "core_feature_support_rate": 1.0,
+        "unsupported_core_feature_count": 0,
+        "unverified_effect_leak_count": 0,
+        "dependent_fallback_depth": 3,
+        "embodiment_density": 0.727,
+        "patch_delta": 2
+      },
+      "gates": {
+        "research_evidence_count": {
+          "passed": true,
+          "expected": ">=2",
+          "actual": "2"
+        },
+        "grantability_report_present": {
+          "passed": true,
+          "expected": "claim_chart_rows>0 and fail_closed=false",
+          "actual": "rows=2 fail_closed=False"
+        },
+        "quality_trend_present": {
+          "passed": true,
+          "expected": "authorization_stability,support_strength,prior_art_distinction,official_hygiene,overall",
+          "actual": "{\"authorization_stability\": 0, \"support_strength\": 0, \"prior_art_distinction\": 65, \"official_hygiene\": 52, \"overall\": 26}"
+        },
+        "evidence_binding_rate": {
+          "passed": true,
+          "expected": ">=0.1",
+          "actual": "0.273"
+        },
+        "core_feature_support_rate": {
+          "passed": true,
+          "expected": ">=0.4",
+          "actual": "1.0"
+        },
+        "unverified_effect_leak_count": {
+          "passed": true,
+          "expected": "0",
+          "actual": "0"
+        },
+        "official_export_blocked_before_compile": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Official draft compile is required for the current draft before official export."
+        },
+        "official_export_blocked_before_review": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Post-draft multi-agent review is required for the current official draft before official export."
+        },
+        "post_draft_review_unlocks_export": {
+          "passed": true,
+          "expected": "export_allowed=true",
+          "actual": "true"
+        },
+        "official_export_hygiene": {
+          "passed": true,
+          "expected": "no internal markers",
+          "actual": "clean"
+        }
+      },
+      "loop_round": 1
+    },
+    {
+      "workflow": "external_draft",
+      "category": "external_draft",
+      "project_id": "538f0b65da6449f6b70b291e9dfe461a",
+      "official_compile_id": "c2c101d7e74e42a89d16379fa099ad9c",
+      "post_draft_review_id": "71cbe81e87d64a01967fd4e11a20c97c",
+      "official_package_hash": "a09e8c1f2d8dd86cac6f9c5c3ebdc5fd56acaa7d1d01f10aceecbb7b272ae2f8",
+      "official_text_hash": "eb9882f109621100213bfea8ff328d74132911b8970b4597301454eb67b582ef",
+      "research_evidence_count": 2,
+      "research_confidence": "medium",
+      "grantability": {
+        "id": "0c91c8e76f7d4fb296a31be390002726",
+        "status": "medium",
+        "fail_closed": false,
+        "claim_chart_rows": 2,
+        "novelty_attacks": 2,
+        "inventive_step_attacks": 1,
+        "low_evidence_flags": [
+          "部分现有技术引用未经验证（模型生成或文件缺失）。请人工复核后调整授权概率。"
+        ]
+      },
+      "quality_trend": {
+        "authorization_stability": 4,
+        "support_strength": 0,
+        "prior_art_distinction": 65,
+        "official_hygiene": 85,
+        "overall": 37
+      },
+      "drafting_quality": {
+        "evidence_binding_rate": 0.214,
+        "core_feature_support_rate": 1.0,
+        "unsupported_core_feature_count": 0,
+        "unverified_effect_leak_count": 0,
+        "dependent_fallback_depth": 2,
+        "embodiment_density": 0.857,
+        "patch_delta": 2
+      },
+      "gates": {
+        "research_evidence_count": {
+          "passed": true,
+          "expected": ">=2",
+          "actual": "2"
+        },
+        "grantability_report_present": {
+          "passed": true,
+          "expected": "claim_chart_rows>0 and fail_closed=false",
+          "actual": "rows=2 fail_closed=False"
+        },
+        "quality_trend_present": {
+          "passed": true,
+          "expected": "authorization_stability,support_strength,prior_art_distinction,official_hygiene,overall",
+          "actual": "{\"authorization_stability\": 4, \"support_strength\": 0, \"prior_art_distinction\": 65, \"official_hygiene\": 85, \"overall\": 37}"
+        },
+        "evidence_binding_rate": {
+          "passed": true,
+          "expected": ">=0.1",
+          "actual": "0.214"
+        },
+        "core_feature_support_rate": {
+          "passed": true,
+          "expected": ">=0.4",
+          "actual": "1.0"
+        },
+        "unverified_effect_leak_count": {
+          "passed": true,
+          "expected": "0",
+          "actual": "0"
+        },
+        "official_export_blocked_before_compile": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Official draft compile is required for the current draft before official export."
+        },
+        "official_export_blocked_before_review": {
+          "passed": true,
+          "expected": "409",
+          "actual": "409",
+          "detail": "Post-draft multi-agent review is required for the current official draft before official export."
+        },
+        "post_draft_review_unlocks_export": {
+          "passed": true,
+          "expected": "export_allowed=true",
+          "actual": "true"
+        },
+        "official_export_hygiene": {
+          "passed": true,
+          "expected": "no internal markers",
+          "actual": "clean"
+        }
+      },
+      "loop_round": 1
+    }
+  ],
+  "failures": []
+}

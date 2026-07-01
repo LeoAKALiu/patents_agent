@@ -1,0 +1,152 @@
+- generic [ref=f1e2]:
+  - generic [ref=f1e3]:
+    - complementary "主导航" [ref=f1e4]:
+      - generic "权衡 GrantAtlas home" [ref=f1e5]:
+        - img "权衡 GrantAtlas logo" [ref=f1e7]
+        - generic [ref=f1e8]:
+          - strong [ref=f1e9]: 权衡 GrantAtlas
+          - generic [ref=f1e10]: 国际专利授权工程系统
+      - navigation "主导航" [ref=f1e11]:
+        - button "工作台" [ref=f1e12] [cursor=pointer]:
+          - img
+          - generic [ref=f1e13]: 工作台
+        - button "项目" [ref=f1e14] [cursor=pointer]:
+          - img
+          - generic [ref=f1e15]: 项目
+        - button "文稿与修复" [ref=f1e16] [cursor=pointer]:
+          - img
+          - generic [ref=f1e17]: 文稿与修复
+        - button "知识库" [ref=f1e18] [cursor=pointer]:
+          - img
+          - generic [ref=f1e19]: 知识库
+        - button "专家工具" [ref=f1e20] [cursor=pointer]:
+          - img
+          - generic [ref=f1e21]: 专家工具
+        - button "导出" [ref=f1e22] [cursor=pointer]:
+          - img
+          - generic [ref=f1e23]: 导出
+        - button "设置" [ref=f1e24] [cursor=pointer]:
+          - img
+          - generic [ref=f1e25]: 设置
+      - generic [ref=f1e27]:
+        - generic [ref=f1e28]:
+          - generic [ref=f1e29]: 模型
+          - generic [ref=f1e31]: 检测中
+        - generic [ref=f1e32]:
+          - generic [ref=f1e33]: 智能体
+          - generic [ref=f1e35]: 检测中
+        - generic [ref=f1e36]:
+          - generic [ref=f1e37]: 后端
+          - generic "后端检测中" [ref=f1e39]: 检测中
+    - main [ref=f1e40]:
+      - generic [ref=f1e41]:
+        - generic [ref=f1e42]:
+          - heading "工作台" [level=1] [ref=f1e43]
+          - paragraph [ref=f1e44]: 当前项目、下一步和导出风险概览
+        - generic [ref=f1e46]:
+          - generic [ref=f1e47]:
+            - generic [ref=f1e48]: 当前项目
+            - combobox "当前项目" [ref=f1e49]:
+              - option "暂无项目" [selected]
+          - generic [ref=f1e50]:
+            - img [ref=f1e51]
+            - generic [ref=f1e54]: 导出待检查
+          - generic [ref=f1e55]:
+            - img [ref=f1e56]
+            - generic [ref=f1e58]: 处理中
+          - button "后端检测中" [ref=f1e59] [cursor=pointer]:
+            - img
+            - generic [ref=f1e60]: 后端检测中
+          - button "刷新运行状态" [ref=f1e61] [cursor=pointer]:
+            - img
+      - generic [ref=f1e62]:
+        - img [ref=f1e63]
+        - generic [ref=f1e65]: 正在刷新工作台
+        - status "正在刷新工作台" [ref=f1e66]:
+          - generic [ref=f1e67]: "[00:00] 提交请求到本地服务"
+      - region "工作台" [ref=f1e69]:
+        - generic [ref=f1e70]:
+          - generic [ref=f1e71]:
+            - paragraph [ref=f1e72]: 当前项目
+            - heading "工作台" [level=2] [ref=f1e73]
+            - paragraph [ref=f1e74]: 先选择起步路径，创建当前项目。
+          - generic [ref=f1e75]: 未选择项目
+        - region "创建项目" [ref=f1e76]:
+          - generic [ref=f1e77]:
+            - generic [ref=f1e78]:
+              - paragraph [ref=f1e79]: 下一步
+              - heading "创建项目" [level=3] [ref=f1e80]
+            - button "创建项目" [disabled]:
+              - text: 创建项目
+              - img
+          - paragraph [ref=f1e81]: 选择一种起步路径，创建或导入当前项目。
+          - generic "起步路径" [ref=f1e82]:
+            - button "从技术想法撰写发明专利 输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。" [ref=f1e83] [cursor=pointer]:
+              - generic [ref=f1e84]: 从技术想法撰写发明专利
+              - generic [ref=f1e85]: 输入技术问题、方案和效果，进入发明点确认、会审、初稿和正式导出。
+            - button "从结构方案撰写实用新型 聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。" [ref=f1e86] [cursor=pointer]:
+              - generic [ref=f1e87]: 从结构方案撰写实用新型
+              - generic [ref=f1e88]: 聚焦产品结构、部件连接关系、安装位置和附图说明，跳过发明专属重步骤。
+            - button "导入已有稿件进行润色提升 上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。" [ref=f1e89] [cursor=pointer]:
+              - generic [ref=f1e90]: 导入已有稿件进行润色提升
+              - generic [ref=f1e91]: 上传或粘贴已有 Markdown/DOCX 初稿，解析章节后进入质量检查和正式稿清理。
+        - region "流程进度" [ref=f1e92]:
+          - paragraph [ref=f1e93]: 流程进度
+          - heading "流程进度" [level=3] [ref=f1e94]
+          - generic [ref=f1e95]:
+            - generic [ref=f1e96]:
+              - heading "构思输入" [level=4] [ref=f1e97]
+              - list [ref=f1e98]:
+                - listitem [ref=f1e99]:
+                  - generic [ref=f1e100]: 想法与材料
+                  - generic [ref=f1e101]: 当前步骤
+                - listitem [ref=f1e102]:
+                  - generic [ref=f1e103]: 发明点
+                  - generic [ref=f1e104]: 未解锁
+            - generic [ref=f1e105]:
+              - heading "生成成稿" [level=4] [ref=f1e106]
+              - list [ref=f1e107]:
+                - listitem [ref=f1e108]:
+                  - generic [ref=f1e109]: 多智能体会审
+                  - generic [ref=f1e110]: 未解锁
+                - listitem [ref=f1e111]:
+                  - generic [ref=f1e112]: 核心公式
+                  - generic [ref=f1e113]: 未解锁
+                - listitem [ref=f1e114]:
+                  - generic [ref=f1e115]: 生成初稿
+                  - generic [ref=f1e116]: 未解锁
+                - listitem [ref=f1e117]:
+                  - generic [ref=f1e118]: 质量检查
+                  - generic [ref=f1e119]: 未解锁
+            - generic [ref=f1e120]:
+              - heading "提交放行" [level=4] [ref=f1e121]
+              - list [ref=f1e122]:
+                - listitem [ref=f1e123]:
+                  - generic [ref=f1e124]: 正式稿编译
+                  - generic [ref=f1e125]: 未解锁
+                - listitem [ref=f1e126]:
+                  - generic [ref=f1e127]: 成稿会审
+                  - generic [ref=f1e128]: 未解锁
+                - listitem [ref=f1e129]:
+                  - generic [ref=f1e130]: 导出
+                  - generic [ref=f1e131]: 未解锁
+        - region "风险与运行" [ref=f1e132]:
+          - generic [ref=f1e134]:
+            - paragraph [ref=f1e135]: 风险与运行
+            - heading "风险与运行" [level=3] [ref=f1e136]
+          - generic [ref=f1e137]:
+            - generic [ref=f1e138]:
+              - generic [ref=f1e139]: 阻断项
+              - strong [ref=f1e140]: 0 项
+            - generic [ref=f1e141]:
+              - generic [ref=f1e142]: 风险项
+              - strong [ref=f1e143]: 0 项
+            - generic [ref=f1e144]:
+              - generic [ref=f1e145]: 导出状态
+              - strong [ref=f1e146]: 等待生成
+            - generic [ref=f1e147]:
+              - generic [ref=f1e148]: 运行状态
+              - strong [ref=f1e149]:
+                - img [ref=f1e150]
+                - text: 正在刷新工作台
+  - region "Notifications alt+T"

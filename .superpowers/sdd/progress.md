@@ -1,5 +1,29 @@
 # Subagent-Driven Development Progress
 
+---
+
+Plan: `docs/superpowers/plans/2026-06-30-ui-flow-repair.md`
+Start SHA: `f566fc09`
+Execution branch: `codex/grantatlas-readme-branding`
+Worktree: `/Users/leo/Projects/patents_agent`
+Started: `2026-07-01`
+
+Preflight: affected frontend baseline passed (`npm --prefix frontend test -- --run src/features/documentRepair/selectors.test.ts src/features/documentRepair/DocumentRepairWorkspace.test.tsx src/views/exportView.test.tsx src/features/export/ExportWorkspace.test.tsx src/features/workbench/selectors.test.ts src/features/workbench/WorkbenchWorkspace.test.tsx`, 6 files / 38 tests).
+
+Task 1: complete (commits f566fc09..f0f2e667, review clean). Targeted checks passed in worker (`selectors.test.ts`, 8 tests). Minor note: one regression could assert the exact non-ready export state more tightly, non-blocking.
+
+Task 2: complete (commits f0f2e667..89a342a4, review clean). Targeted checks passed in worker (`DocumentRepairWorkspace.test.tsx`, 15 tests). Review-loop fix restored recent-record copy and made tests structurally scoped.
+
+Task 3: complete (commits 89a342a4..a043aa14, review clean). Targeted checks passed in worker (`exportView.test.tsx`, `ExportWorkspace.test.tsx`, 10 tests). Review-loop fix made export preview visibility follow backend readiness when present.
+
+Task 4: complete (commits a043aa14..0dff937f, review clean). Targeted checks passed in worker (`WorkbenchWorkspace.test.tsx`, `workbench/selectors.test.ts`, 12 tests). Review-loop fix restored native summary semantics.
+
+Task 5: complete (commits 0dff937f..4d6fc6d3, review clean). Targeted checks passed in worker (`workbench/selectors.test.ts`, `WorkbenchWorkspace.test.tsx`, 13 tests) and `npm --prefix frontend run build` passed. Review-loop fix added scoped CSS for the compact phase rail.
+
+Task 6: complete (commits 4d6fc6d3..83e0cb19, review clean). Frontend regression suite passed (`6` files / `46` tests), `npm --prefix frontend run build` passed, backend readiness matched `next_action=run_quality_checks`, and five required screenshots were captured. Servers were stopped and ports `8000`/`5174` were clear.
+
+---
+
 Plan: `docs/superpowers/plans/2026-06-29-patentagent-ui-refactor.md`
 Start SHA: `4349f872`
 Execution branch: `codex/ui-refactor-2026-06-29`

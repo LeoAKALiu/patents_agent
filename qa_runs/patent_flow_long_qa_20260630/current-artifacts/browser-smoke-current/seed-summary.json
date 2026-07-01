@@ -1,0 +1,26 @@
+{
+  "project_id": "73855542dcb141f19eb29355319b3189",
+  "project_name": "QA 标注修复证据项目",
+  "material_id": "a817e875238448b188b1ce5dba909ebe",
+  "material_status": "processed",
+  "package_title": "一种QA 标注修复证据项目结构",
+  "official_compile_run_id": "b8521c8f762d4aa6afdef74254e9bee9",
+  "official_compile_status": "completed",
+  "post_draft_review_id": "41ab0277c7d945489e66bee60b3644af",
+  "post_draft_review_status": "completed",
+  "post_draft_export_allowed": false,
+  "repair_issue_count": 9,
+  "repair_section_keys": [
+    "abstract",
+    "claims",
+    "description",
+    "drawing_description",
+    "title"
+  ],
+  "export_readiness": {
+    "export_allowed": false,
+    "next_action": "run_quality_checks",
+    "review_gate_status": null,
+    "compile_status": null
+  }
+}

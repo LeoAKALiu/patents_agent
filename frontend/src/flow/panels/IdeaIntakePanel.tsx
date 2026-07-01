@@ -85,6 +85,10 @@ export function IdeaIntakePanel({
   const [beneficialEffects, setBeneficialEffects] = useState(project?.beneficial_effects ?? "");
   const nameError = !project && !name.trim() ? "项目名称不能为空" : "";
   const ideaError = !project && !idea.trim() ? "一句话想法不能为空" : "";
+  const ideaGuidance = !project ? getIdeaInputGuidance(idea) : null;
+  const ideaDescriptionIds = [ideaError ? "guided-project-idea-error" : "", ideaGuidance ? "guided-project-idea-guidance" : ""]
+    .filter(Boolean)
+    .join(" ") || undefined;
   const canSubmit = Boolean(!nameError && !ideaError && !project);
   const effectiveMode = fixedGoalMode ?? mode;
   const effectivePatentType: PatentType = fixedGoalMode === "utility" ? "utility_model" : patentType;
@@ -236,7 +240,7 @@ export function IdeaIntakePanel({
                   <div className="field field-wide">
                     <label htmlFor="guided-project-idea">一句话想法</label>
                     <textarea
-                      aria-describedby={ideaError ? "guided-project-idea-error" : undefined}
+                      aria-describedby={ideaDescriptionIds}
                       aria-invalid={Boolean(ideaError)}
                       className="idea-input"
                       id="guided-project-idea"
@@ -249,6 +253,11 @@ export function IdeaIntakePanel({
                     {ideaError && (
                       <small className="settings-hint warn" id="guided-project-idea-error" role="alert">
                         {ideaError}
+                      </small>
+                    )}
+                    {ideaGuidance && (
+                      <small className="settings-hint" id="guided-project-idea-guidance">
+                        {ideaGuidance}
                       </small>
                     )}
                   </div>
@@ -475,4 +484,38 @@ export function IdeaIntakePanel({
       )}
     </section>
   );
+}
+
+export function getIdeaInputGuidance(text: string): string | null {
+  const normalized = text.trim().replace(/\s+/g, "");
+  if (!normalized) return null;
+
+  const marketingSignals = ["全球领先", "成本最低", "体验最好", "商业模式", "市场", "盈利", "客户增长"];
+  const technicalSignals = [
+    "模块",
+    "步骤",
+    "算法",
+    "传感器",
+    "数据",
+    "模型",
+    "控制",
+    "检测",
+    "结构",
+    "连接",
+    "采集",
+    "处理",
+    "输出",
+    "装置",
+    "系统",
+  ];
+  const looksMarketingOnly =
+    marketingSignals.some((signal) => normalized.includes(signal)) &&
+    !technicalSignals.some((signal) => normalized.includes(signal));
+  if (looksMarketingOnly) {
+    return "当前描述偏效果或商业价值，建议补充可实现的技术方案、数据流或结构关系。";
+  }
+  if (normalized.length < 24) {
+    return "当前想法较短，建议补充技术问题、关键步骤或模块、预期技术效果。";
+  }
+  return null;
 }

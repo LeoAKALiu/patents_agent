@@ -1,0 +1,68 @@
+{
+  "runs": [
+    {
+      "id": "b8521c8f762d4aa6afdef74254e9bee9",
+      "project_id": "73855542dcb141f19eb29355319b3189",
+      "status": "completed",
+      "source_draft_hash": "1708c17a54588ccf60723d321b5310bd16b7ad9be29c68e50ecfc50074a04ac8",
+      "official_package_hash": "0a4772012ce04bcf5e629ac0e0f686b08c4a451aeb55bb2014d913ebba8b5a92",
+      "official_package": {
+        "title": "一种QA 标注修复证据项目结构",
+        "abstract": "本发明公开一种按置信度主动采集的方法。",
+        "claims": "*(注：内部备注)**",
+        "description": "本发明改变了固定航线模式，并通过置信度热力图生成无人机采集任务。",
+        "drawing_description": "图1为系统流程图。",
+        "figure_plan": [
+          {
+            "figure_no": "图1",
+            "title": "系统流程图",
+            "description": "图1为系统流程图。",
+            "referenced_sections": [
+              "drawing_description"
+            ]
+          }
+        ],
+        "compile_warnings": [],
+        "source_draft_hash": "1708c17a54588ccf60723d321b5310bd16b7ad9be29c68e50ecfc50074a04ac8",
+        "official_package_hash": "0a4772012ce04bcf5e629ac0e0f686b08c4a451aeb55bb2014d913ebba8b5a92"
+      },
+      "contamination_removed": [
+        {
+          "category": "auto_cleaned_text",
+          "section": "description",
+          "pattern": "颠覆",
+          "text": "本发明颠覆了固定航线模式，并通过置信度热力图生成无人机采集任务。"
+        }
+      ],
+      "blocked_items": [],
+      "sidecar_notes": [],
+      "logs": [
+        {
+          "level": "info",
+          "phase": "official_compile",
+          "provider_id": "",
+          "attempt": null,
+          "message": "official draft compile started",
+          "detail": "source_draft_hash=1708c17a54588ccf60723d321b5310bd16b7ad9be29c68e50ecfc50074a04ac8",
+          "repair_suggestion": "",
+          "elapsed_ms": null,
+          "created_at": "2026-06-30T15:32:19Z"
+        },
+        {
+          "level": "info",
+          "phase": "official_compile",
+          "provider_id": "",
+          "attempt": null,
+          "message": "official draft compile completed",
+          "detail": "official_package_hash=0a4772012ce04bcf5e629ac0e0f686b08c4a451aeb55bb2014d913ebba8b5a92",
+          "repair_suggestion": "",
+          "elapsed_ms": null,
+          "created_at": "2026-06-30T15:32:19Z"
+        }
+      ],
+      "created_at": "2026-06-30 15:32:19",
+      "updated_at": "2026-06-30 15:32:19"
+    }
+  ],
+  "current_source_draft_hash": "1708c17a54588ccf60723d321b5310bd16b7ad9be29c68e50ecfc50074a04ac8"
+}

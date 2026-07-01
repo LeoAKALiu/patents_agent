@@ -235,10 +235,12 @@ def test_v1_smoke_prepares_tauri_resource_placeholder_for_clean_worktrees() -> N
 
     assert "ensure_tauri_resource_placeholders" in smoke
     assert "build/backend/patentagent-backend" in smoke
-    assert "mkdir -p build/backend/patentagent-backend" not in smoke
-    assert 'mkdir -p "$(dirname "$sidecar_path")"' in smoke
-    assert 'touch "$sidecar_path"' in smoke
-    assert 'chmod +x "$sidecar_path"' in smoke
+    assert 'local executable_path="${sidecar_dir}/patentagent-backend"' in smoke
+    assert 'rm -f "$sidecar_dir"' in smoke
+    assert 'mkdir -p "$sidecar_dir"' in smoke
+    assert "printf '#!/bin/sh\\nexit 0\\n' > \"$executable_path\"" in smoke
+    assert 'chmod +x "$executable_path"' in smoke
+    assert "Using existing Tauri sidecar resource directory" in smoke
     assert smoke.index("ensure_tauri_resource_placeholders") < smoke.index("cargo check")
 
 
