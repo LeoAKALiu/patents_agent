@@ -29,8 +29,9 @@ from backend.app.storage import SQLiteStore
 
 
 ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通过", "以及", "进行", "生成"}
-PROJECT_PATENT_PROVIDER_SOURCES = ["cnipa_epub", "google_patents"]
-PROJECT_PATENT_PROVIDER_SOURCE_SET = frozenset(PROJECT_PATENT_PROVIDER_SOURCES)
+PROJECT_PATENT_PROVIDER_SOURCES = ["cnipa_epub", "wipo_patentscope"]
+PROJECT_PATENT_CORPUS_SOURCES = [*PROJECT_PATENT_PROVIDER_SOURCES, "google_patents"]
+PROJECT_PATENT_PROVIDER_SOURCE_SET = frozenset(PROJECT_PATENT_CORPUS_SOURCES)
 
 
 class ProjectKnowledgeConflictError(ValueError):

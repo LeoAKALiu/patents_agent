@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 
 ROOT = Path.cwd()
@@ -18,6 +18,7 @@ hiddenimports = (
     backend_hiddenimports
     + collect_submodules("uvicorn")
     + [
+        "certifi",
         "fastapi",
         "pydantic",
         "pydantic_settings",
@@ -29,6 +30,8 @@ hiddenimports = (
         "json_repair",
     ]
 )
+
+datas = collect_data_files("certifi")
 
 excludes = [
     "chromadb",
@@ -50,7 +53,7 @@ a = Analysis(
     [str(ROOT / "scripts" / "backend_server.py")],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[],
+    datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

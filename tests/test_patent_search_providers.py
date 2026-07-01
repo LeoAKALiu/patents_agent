@@ -1,13 +1,17 @@
 import pytest
 
+from backend.app.knowledge import patent_search
 from backend.app.knowledge.patent_search import (
     CnipaEpubPatentProvider,
     GooglePatentsProvider,
     dedupe_patent_search_hits,
+    default_project_patent_providers,
     normalize_publication_number,
     patent_hit_to_candidate,
+    parse_wipo_patentscope_hits,
     run_provider_chain,
     stable_id,
+    WipoPatentscopeProvider,
 )
 from backend.app.schemas import PatentSearchFilters, PatentSearchHit
 
@@ -195,6 +199,138 @@ def test_google_patents_provider_parse_does_not_synthesize_missing_results():
     assert hits[0].source == "google_patents"
     assert hits[0].publication_number == "CN112233445A"
     assert hits[0].url == "https://patents.google.com/patent/CN112233445A"
+
+
+def test_parse_wipo_patentscope_hits_extracts_real_result_cards():
+    html = """
+    <tbody id="resultListForm:resultTable_data">
+      <tr data-ri="0" data-rk="WO2026112646" class="ui-widget-content">
+        <td role="gridcell">
+          <div id="resultListForm:resultTable:0:patentResult" class="ps-patent-result" data-mt-ipc="G06F 16/906">
+            <div class="ps-patent-result--title">
+              <span class="notranslate ps-patent-result--title--record-number">1.</span>
+              <a href="detail.jsf?docId=WO2026112646&amp;_cid=P20">
+                <span class="notranslate ps-patent-result--title--patent-number">WO/2026/112646</span>
+              </a>
+              <span class="ps-patent-result--title--title content--text-wrap">
+                <span class="trans-section needTranslation-title" lang="en">
+                  <span class="trans-control"></span>TRUSTED MULTI-AGENT TASK ORCHESTRATION SYSTEM
+                </span>
+              </span>
+            </div>
+            <div class="ps-patent-result--title--ctr-pubdate">
+              <span class="notranslate">WO</span><span class="notranslate">-</span>
+              <span class="notranslate">11.06.2026</span>
+            </div>
+            <span class="ps-field--value ps-patent-result--ipc notranslate">
+              <a href="https://www.wipo.int/ipcpub/?symbol=G06F0016906000">G06F 16/906</a>
+            </span>
+            <span class="ps-field--label notranslate">Appl.No</span>
+            <span class="ps-field--value notranslate">PCT/CN2026/000001</span>
+            <span class="ps-field--value ps-patent-result--applicant notranslate">Example Applicant</span>
+            <div class="ps-patent-result--abstract">
+              <p>A system coordinates agent tasks and verifies evidence chain consistency.</p>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+    """
+
+    hits = parse_wipo_patentscope_hits(html, "agent task orchestration")
+
+    assert len(hits) == 1
+    assert hits[0].source == "wipo_patentscope"
+    assert hits[0].publication_number == "WO2026112646"
+    assert hits[0].application_number == "PCT/CN2026/000001"
+    assert hits[0].applicant == "Example Applicant"
+    assert hits[0].publication_date == "2026-06-11"
+    assert hits[0].ipc == ["G06F 16/906"]
+    assert hits[0].url == "https://patentscope.wipo.int/search/en/detail.jsf?docId=WO2026112646"
+    assert "evidence chain" in hits[0].abstract
+
+
+def test_wipo_provider_expands_chinese_project_query_to_english_terms():
+    seen_urls: list[str] = []
+    html = """
+    <tbody id="resultListForm:resultTable_data">
+      <tr data-ri="0" data-rk="US478565200" class="ui-widget-content">
+        <td><div id="resultListForm:resultTable:0:patentResult" class="ps-patent-result">
+          <div class="ps-patent-result--title">
+            <a href="detail.jsf?docId=US478565200"><span class="notranslate ps-patent-result--title--patent-number">20260123620</span></a>
+            <span class="ps-patent-result--title--title"><span class="trans-section needTranslation-title" lang="en"><span class="trans-control"></span>TASK ORCHESTRATION WITH REVIEW</span></span>
+          </div>
+          <div class="ps-patent-result--title--ctr-pubdate"><span class="notranslate">US</span><span class="notranslate">-</span><span class="notranslate">07.05.2026</span></div>
+        </div></td>
+      </tr>
+    </tbody>
+    """
+
+    def fake_get(url: str, timeout: int) -> str:
+        seen_urls.append(url)
+        return html
+
+    provider = WipoPatentscopeProvider(http_get=fake_get)
+    hits, warnings = provider.search("城市体检 智能体 任务编排 证据链", filters=PatentSearchFilters(), limit=5)
+
+    assert warnings == []
+    assert hits
+    assert hits[0].source == "wipo_patentscope"
+    assert "urban%20health%20assessment" in seen_urls[0]
+    assert "task%20orchestration" in seen_urls[0]
+
+
+def test_default_project_patent_providers_use_official_wipo_without_google_by_default(monkeypatch):
+    monkeypatch.delenv("PATENT_ENABLE_GOOGLE_PATENTS_FALLBACK", raising=False)
+
+    providers = default_project_patent_providers()
+
+    assert [provider.source_id for provider in providers] == [
+        "cnipa_epub",
+        "wipo_patentscope",
+    ]
+
+
+def test_default_project_patent_providers_can_opt_into_google_fallback(monkeypatch):
+    monkeypatch.setenv("PATENT_ENABLE_GOOGLE_PATENTS_FALLBACK", "1")
+
+    providers = default_project_patent_providers()
+
+    assert [provider.source_id for provider in providers] == [
+        "cnipa_epub",
+        "wipo_patentscope",
+        "google_patents",
+    ]
+
+
+def test_urllib_get_supplies_ca_context_for_https_requests(monkeypatch):
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    seen = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, _exc_type, _exc, _traceback):
+            return False
+
+        def read(self, _limit):
+            return b"<html></html>"
+
+    def fake_urlopen(request, *, timeout, context=None):
+        seen["request"] = request
+        seen["timeout"] = timeout
+        seen["context"] = context
+        return Response()
+
+    monkeypatch.setattr(patent_search.urllib.request, "urlopen", fake_urlopen)
+
+    html = patent_search._urllib_get("https://patents.google.com/?q=urban", 7)
+
+    assert html == "<html></html>"
+    assert seen["timeout"] == 7
+    assert seen["context"] is not None
 
 
 def test_cnipa_provider_skips_when_helper_missing():

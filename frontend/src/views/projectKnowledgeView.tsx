@@ -79,6 +79,11 @@ function qualityFlagCopy(flag: string, stalenessReason: string): { tone: "warnin
         tone: "warning",
         text: "当前纳入项包含非专利来源，不能作为项目现有技术库就绪依据；请改用专利检索来源或重新筛选候选文献。",
       };
+    case "no_hits":
+      return {
+        tone: "warning",
+        text: "本次检索没有形成候选文献。请检查 CNIPA helper 或 Google Patents 网络/证书配置，修复后重新运行候选检索；在证据库就绪前不要依赖授权前景判断。",
+      };
     case "empty_corpus":
       return {
         tone: "warning",
