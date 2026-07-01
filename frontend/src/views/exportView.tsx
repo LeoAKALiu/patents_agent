@@ -254,6 +254,8 @@ export function ExportView({
     : undefined;
   const officialAllowed = readinessAllowed ?? fallbackOfficialAllowed;
   const previewAllowed = officialAllowed;
+  const canRenderNativeFormalExports = desktopDialogsAvailable
+    && (readinessAllowed !== undefined ? officialAllowed : officialCompileRun?.status === "completed");
   // PR7 (issue #21): scan the official package text for residual internal
   // markers (log lines, prompt fragments, review memos, mermaid fences, etc.).
   // The backend already strips these at compile time and the gate refuses to
@@ -418,7 +420,7 @@ export function ExportView({
           <Download size={18} />
           <span>正式提交稿 MD</span>
         </a>
-        {desktopDialogsAvailable && officialCompileRun?.status === "completed" && (
+        {canRenderNativeFormalExports && (
           <>
             <button
               aria-disabled={!officialAllowed}
