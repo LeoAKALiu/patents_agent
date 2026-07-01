@@ -229,11 +229,9 @@ function deriveFacts(
       latestPostDraftReview.chair_result?.official_safe_patches.length ?? 0,
     ) ?? 0
   );
-  const exportReady = Boolean(
-    exportReadiness?.export_allowed
-      || exportReadiness?.next_action === "export_ready"
-      || (latestPostDraftReview?.status === "completed" && latestPostDraftReview.export_allowed && !reviewStale),
-  );
+  const exportReady = exportReadiness
+    ? Boolean(exportReadiness.export_allowed || exportReadiness.next_action === "export_ready")
+    : Boolean(latestPostDraftReview?.status === "completed" && latestPostDraftReview.export_allowed && !reviewStale);
   const exportLocked = Boolean(
     !exportReady
       && (
@@ -391,12 +389,12 @@ function deriveTopConclusion(
 ): string {
   if (!facts.hasInternalDraft) return "当前项目尚未生成内部初稿。";
   const blockingCount = facts.blockingIssues.length + facts.compileBlockedItems.length;
+  if (exportReadiness?.reason && exportReadiness.next_action !== "export_ready") {
+    return exportReadiness.reason;
+  }
   if (facts.exportReady) return "正式稿已通过导出门禁，可以导出正式稿。";
   if (facts.exportLocked) {
     return `当前文稿阻断导出，需先处理 ${Math.max(blockingCount, 1)} 个阻断项。`;
-  }
-  if (exportReadiness?.reason && exportReadiness.next_action !== "export_ready") {
-    return exportReadiness.reason;
   }
   if (gates.officialCompile.state === "已失效" || exportReadiness?.official_compile_required) {
     return "当前正式稿已失效，需要重新编译正式稿。";
@@ -464,7 +462,7 @@ function primaryActionFromNextAction(
   facts: DocumentRepairFacts,
 ): DocumentRepairState["primaryAction"] | null {
   if (!exportReadiness) return null;
-  if (exportReadiness.export_allowed || exportReadiness.next_action === "export_ready" || facts.exportReady) {
+  if (exportReadiness.export_allowed || exportReadiness.next_action === "export_ready") {
     return { label: "导出正式稿", targetSection: "export" };
   }
   if (exportReadiness.next_action === "generate_draft") {
