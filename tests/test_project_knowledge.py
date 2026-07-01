@@ -268,6 +268,33 @@ def test_project_knowledge_cnipa_query_pack_uses_latest_plan(tmp_path):
     assert pack.strategies[0].queries
 
 
+def test_import_cnipa_official_export_adds_real_candidates_and_ledger(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    export_path = tmp_path / "cnipa.csv"
+    export_path.write_text(
+        "公开公告号,专利名称,摘要\n"
+        "CN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+        encoding="utf-8",
+    )
+
+    imported = import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+
+    assert imported.state.status == "candidates_pending"
+    assert imported.state.candidate_count == 1
+    assert imported.state.quality_flags == ["candidates_need_confirmation"]
+    assert imported.candidates[0].source == "cnipa_official_export"
+    assert imported.candidates[0].metadata["evidence_origin"] == "official_export"
+    ledgers = store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id)
+    assert len(ledgers) == 1
+    assert ledgers[0].source_id == "cnipa_official_export"
+    assert ledgers[0].parsed_count == 1
+    assert ledgers[0].retained_candidate_ids == [imported.candidates[0].id]
+
+
 def test_run_plan_creates_real_candidates_and_state(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(

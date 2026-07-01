@@ -4,7 +4,9 @@ import hashlib
 import re
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
+from backend.app.knowledge.cnipa_export import CnipaExportImportContext, parse_cnipa_official_export_file
 from backend.app.knowledge.patent_sources import (
     CNIPA_LEGACY_EPUB_SOURCE,
     CNIPA_OFFICIAL_EXPORT_SOURCE,
@@ -25,6 +27,7 @@ from backend.app.schemas import (
     PatentPointCandidate,
     PatentSearchFilters,
     PriorArtCandidate,
+    ProjectKnowledgeImportLedger,
     ProjectSearchLedger,
     ProjectCorpusVersion,
     ProjectKnowledgeOverview,
@@ -461,6 +464,77 @@ def run_agent_search_plan(
         ledger=ledger,
         state=state,
     )
+    return knowledge_overview(store, project_id)
+
+
+def import_cnipa_official_export(
+    store: SQLiteStore,
+    project_id: str,
+    plan_id: str,
+    stored_path: Path,
+) -> ProjectKnowledgeOverview:
+    _state, plan = _get_active_plan(store, project_id, plan_id)
+    ledger_id = uuid.uuid4().hex
+    query = ""
+    strategy_group_id = "cnipa-official-export"
+    if plan.strategy_groups:
+        first_group = plan.strategy_groups[0]
+        strategy_group_id = first_group.id
+        query = first_group.queries[0] if first_group.queries else first_group.label
+    result = parse_cnipa_official_export_file(
+        stored_path,
+        context=CnipaExportImportContext(
+            project_id=project_id,
+            plan_id=plan_id,
+            import_ledger_id=ledger_id,
+            query=query,
+            strategy_group_id=strategy_group_id,
+        ),
+    )
+    candidates = [
+        patent_hit_to_candidate(
+            hit,
+            project_id=project_id,
+            plan_id=plan_id,
+            strategy_group_id=str(hit.metadata.get("strategy_group") or strategy_group_id),
+        )
+        for hit in result.hits
+    ]
+    existing_candidates = store.list_prior_art_candidates(project_id, plan_id)
+    store.apply_prior_art_candidate_updates(candidates)
+    all_candidates = store.list_prior_art_candidates(project_id, plan_id)
+    flags = ["candidates_need_confirmation"] if candidates else ["no_hits"]
+    if result.warnings:
+        flags.append("cnipa_export_parse_warnings")
+    state = ProjectKnowledgeState(
+        project_id=project_id,
+        status="candidates_pending" if candidates else "failed",
+        active_intent_id=plan.intent_id,
+        active_plan_id=plan_id,
+        last_search_at=_now(),
+        candidate_count=len(all_candidates),
+        quality_flags=flags,
+    )
+    store.upsert_project_knowledge_state(state)
+    existing_ids = {candidate.id for candidate in existing_candidates}
+    retained_ids = [candidate.id for candidate in all_candidates if candidate.id not in existing_ids]
+    ledger = ProjectKnowledgeImportLedger(
+        id=ledger_id,
+        project_id=project_id,
+        plan_id=plan_id,
+        source_id=CNIPA_OFFICIAL_EXPORT_SOURCE,
+        source_file_name=stored_path.name,
+        raw_file_hash=result.raw_file_hash,
+        detected_schema=result.detected_schema,
+        row_count=result.row_count,
+        parsed_count=result.parsed_count,
+        attachments=result.attachments,
+        retained_candidate_ids=retained_ids,
+        warnings=result.warnings,
+        failures=result.failures,
+        created_at=_now(),
+    )
+    store.create_project_knowledge_import_ledger(ledger)
     return knowledge_overview(store, project_id)
 
 

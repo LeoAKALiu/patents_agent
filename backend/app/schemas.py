@@ -1382,6 +1382,23 @@ class ProjectSearchLedger(BaseModel):
     created_at: str = ""
 
 
+class ProjectKnowledgeImportLedger(BaseModel):
+    id: str
+    project_id: str
+    plan_id: str
+    source_id: str
+    source_file_name: str
+    raw_file_hash: str = ""
+    detected_schema: str = ""
+    row_count: int = 0
+    parsed_count: int = 0
+    attachments: list[str] = Field(default_factory=list)
+    retained_candidate_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    failures: list[CnipaExportImportFailure] = Field(default_factory=list)
+    created_at: str = ""
+
+
 class PriorArtCandidate(BaseModel):
     id: str
     project_id: str
@@ -1434,6 +1451,11 @@ class ProjectKnowledgeOverview(BaseModel):
     latest_plan: AgentSearchPlan | None = None
     candidates: list[PriorArtCandidate] = Field(default_factory=list)
     latest_corpus_version: ProjectCorpusVersion | None = None
+
+
+class CnipaExportImportResponse(BaseModel):
+    overview: ProjectKnowledgeOverview
+    ledger: ProjectKnowledgeImportLedger
 
 
 class CandidateDecisionPatch(BaseModel):

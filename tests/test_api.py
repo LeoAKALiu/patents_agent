@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from backend.app.knowledge.patent_search import StaticPatentSearchProvider
@@ -54,6 +56,40 @@ def _static_project_patent_provider() -> StaticPatentSearchProvider:
             ),
         ],
     )
+
+
+def test_project_knowledge_cnipa_export_upload_returns_overview(tmp_path: Path):
+    client = _test_app_without_env(tmp_path)
+    created = client.post(
+        "/api/projects",
+        json={
+            "name": "城市体检智能体",
+            "draft_text": "通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        },
+    ).json()
+    project_id = created["id"]
+    overview = client.post(f"/api/projects/{project_id}/knowledge/search-intent").json()
+    plan_id = overview["latest_plan"]["id"]
+    upload = client.post(
+        f"/api/projects/{project_id}/knowledge/cnipa-export-imports",
+        data={"plan_id": plan_id},
+        files={
+            "file": (
+                "cnipa.csv",
+                "公开公告号,专利名称,摘要\nCN112233445A,城市体检任务编排方法,公开了一种任务编排方法。\n",
+                "text/csv",
+            )
+        },
+    )
+
+    assert upload.status_code == 200
+    data = upload.json()
+    assert data["overview"]["state"]["status"] == "candidates_pending"
+    assert data["overview"]["candidates"][0]["source"] == "cnipa_official_export"
+    assert data["ledger"]["parsed_count"] == 1
+
+    ledgers = client.get(f"/api/projects/{project_id}/knowledge/import-ledgers").json()
+    assert ledgers["ledgers"][0]["source_id"] == "cnipa_official_export"
 
 
 def test_api_corpus_project_generation_review_and_export(tmp_path):

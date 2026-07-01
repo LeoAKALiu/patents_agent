@@ -31,6 +31,7 @@ from backend.app.schemas import (
     PriorArtCandidate,
     PostDraftReviewRun,
     ProjectCorpusVersion,
+    ProjectKnowledgeImportLedger,
     ProjectKnowledgeState,
     ProjectSearchLedger,
     ProjectMaterial,
@@ -388,6 +389,48 @@ class SQLiteStore:
                 ),
             )
         return ledger
+
+    def create_project_knowledge_import_ledger(self, ledger: ProjectKnowledgeImportLedger) -> ProjectKnowledgeImportLedger:
+        with self.connection:
+            self.connection.execute(
+                """
+                insert or replace into project_knowledge_import_ledgers(id, project_id, plan_id, ledger_json, created_at)
+                values (?, ?, ?, ?, ?)
+                """,
+                (
+                    ledger.id,
+                    ledger.project_id,
+                    ledger.plan_id,
+                    ledger.model_dump_json(),
+                    ledger.created_at,
+                ),
+            )
+        return ledger
+
+    def list_project_knowledge_import_ledgers(
+        self,
+        project_id: str,
+        plan_id: str | None = None,
+    ) -> list[ProjectKnowledgeImportLedger]:
+        if plan_id:
+            rows = self.connection.execute(
+                """
+                select ledger_json from project_knowledge_import_ledgers
+                where project_id = ? and plan_id = ?
+                order by created_at desc, rowid desc
+                """,
+                (project_id, plan_id),
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                """
+                select ledger_json from project_knowledge_import_ledgers
+                where project_id = ?
+                order by created_at desc, rowid desc
+                """,
+                (project_id,),
+            ).fetchall()
+        return [ProjectKnowledgeImportLedger.model_validate_json(row["ledger_json"]) for row in rows]
 
     def replace_agent_search_run(
         self,
@@ -1767,6 +1810,15 @@ class SQLiteStore:
                 );
 
                 create table if not exists project_search_ledgers (
+                    id text primary key,
+                    project_id text not null,
+                    plan_id text not null,
+                    ledger_json text not null,
+                    created_at text not null,
+                    foreign key(project_id) references projects(id)
+                );
+
+                create table if not exists project_knowledge_import_ledgers (
                     id text primary key,
                     project_id text not null,
                     plan_id text not null,
