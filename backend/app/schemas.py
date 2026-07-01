@@ -1519,6 +1519,47 @@ class DesktopConfigHealthResult(BaseModel):
     error: str = ""
 
 
+class EvidenceSourceConfig(BaseModel):
+    source_id: str
+    display_name: str
+    source_type: str = Field(pattern="^(patent|non_patent_literature|web_discovery)$")
+    evidence_tier: str = Field(pattern="^(primary_patent|supplemental_literature|discovery_signal)$")
+    enabled: bool = True
+    status: str = Field(pattern="^(not_configured|configured|unavailable|quota_limited)$")
+    base_url: str = ""
+    api_key_present: bool = False
+    api_key_masked: str = ""
+    api_key_source: str = Field(default="none", pattern="^(env|local|none)$")
+    last_checked_at: str = ""
+    last_error: str = ""
+    application_url: str = ""
+    docs_url: str = ""
+    guidance: str = ""
+    can_satisfy_patent_gate: bool = False
+
+
+class EvidenceSourceConfigPatch(BaseModel):
+    api_key: str | None = None
+    clear_api_key: bool = False
+    base_url: str | None = None
+    enabled: bool | None = None
+
+    @model_validator(mode="after")
+    def _api_key_exclusive(self) -> "EvidenceSourceConfigPatch":
+        if self.clear_api_key and self.api_key is not None:
+            raise ValueError("Pass either api_key or clear_api_key, not both.")
+        return self
+
+
+class EvidenceSourceCheckResult(BaseModel):
+    source_id: str
+    ok: bool
+    status: str = Field(pattern="^(not_configured|configured|unavailable|quota_limited)$")
+    detail: str = ""
+    live_search_available: bool = False
+    last_checked_at: str = ""
+
+
 # --- V1.1 PR2: Grantability claim chart and patentability attack analysis -----
 
 
