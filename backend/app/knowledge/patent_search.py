@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import urllib.parse
 import urllib.request
@@ -13,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from socket import timeout as SocketTimeout
 from typing import Any, Protocol
+
+import certifi
 
 from backend.app.research.providers import sanitize_untrusted_text
 from backend.app.schemas import PatentSearchFilters, PatentSearchHit, PriorArtCandidate, ProviderAttempt
@@ -75,7 +78,12 @@ class StaticPatentSearchProvider:
 
 def _urllib_get(url: str, timeout: int) -> str:
     request = urllib.request.Request(url, headers={"User-Agent": "patents-agent/0.1"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    kwargs: dict[str, Any] = {"timeout": timeout}
+    if url.lower().startswith("https://") and not (
+        os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE")
+    ):
+        kwargs["context"] = ssl.create_default_context(cafile=certifi.where())
+    with urllib.request.urlopen(request, **kwargs) as response:
         return response.read(500_000).decode("utf-8", errors="replace")
 
 

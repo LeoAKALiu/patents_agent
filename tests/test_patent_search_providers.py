@@ -1,5 +1,6 @@
 import pytest
 
+from backend.app.knowledge import patent_search
 from backend.app.knowledge.patent_search import (
     CnipaEpubPatentProvider,
     GooglePatentsProvider,
@@ -195,6 +196,36 @@ def test_google_patents_provider_parse_does_not_synthesize_missing_results():
     assert hits[0].source == "google_patents"
     assert hits[0].publication_number == "CN112233445A"
     assert hits[0].url == "https://patents.google.com/patent/CN112233445A"
+
+
+def test_urllib_get_supplies_ca_context_for_https_requests(monkeypatch):
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    seen = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, _exc_type, _exc, _traceback):
+            return False
+
+        def read(self, _limit):
+            return b"<html></html>"
+
+    def fake_urlopen(request, *, timeout, context=None):
+        seen["request"] = request
+        seen["timeout"] = timeout
+        seen["context"] = context
+        return Response()
+
+    monkeypatch.setattr(patent_search.urllib.request, "urlopen", fake_urlopen)
+
+    html = patent_search._urllib_get("https://patents.google.com/?q=urban", 7)
+
+    assert html == "<html></html>"
+    assert seen["timeout"] == 7
+    assert seen["context"] is not None
 
 
 def test_cnipa_provider_skips_when_helper_missing():

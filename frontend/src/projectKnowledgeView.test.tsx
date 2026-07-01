@@ -316,6 +316,43 @@ describe("ProjectKnowledgeView", () => {
     expect(screen.queryByText(/fake/)).not.toBeInTheDocument();
   });
 
+  it("explains no-hit provider failures instead of showing the raw quality flag", () => {
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      state: {
+        ...baseOverview.state,
+        status: "failed",
+        candidate_count: 0,
+        quality_flags: ["no_hits"],
+      },
+      latest_plan: {
+        ...baseOverview.latest_plan!,
+        warnings: [
+          "CNIPA EPUB helper is not configured; set CNIPA_EPUB_SEARCH_SCRIPT to enable live CNIPA search.",
+          "Google Patents search failed for query 城市体检: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED]>",
+        ],
+      },
+      candidates: [],
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/没有形成候选文献/)).toBeInTheDocument();
+    expect(screen.getByText(/检查 CNIPA helper 或 Google Patents 网络/)).toBeInTheDocument();
+    expect(screen.getByText(/CERTIFICATE_VERIFY_FAILED/)).toBeInTheDocument();
+    expect(screen.queryByText("质量信号：no_hits")).not.toBeInTheDocument();
+  });
+
   it("regenerates a fresh plan for stale knowledge states", () => {
     const onRunKnowledgeSearch = vi.fn();
     const onGenerateKnowledgePlan = vi.fn();
