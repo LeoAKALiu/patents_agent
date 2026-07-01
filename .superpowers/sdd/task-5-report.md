@@ -71,3 +71,47 @@ Controller test hardening:
 - Re-ran `cd frontend && npm run build`: passed.
 - Re-ran `cd frontend && npm test`: passed, 32 files / 225 tests.
 - Re-ran `git diff --check`: passed.
+
+Task 5 implementation report:
+- Source identity verified before edits:
+  - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+  - Branch: `codex/cnipa-official-export-design`
+  - Short SHA: `53da62cf`
+  - Dirty status: dirty from pre-existing `.superpowers/sdd/progress.md`, `task-1-report.md`, `task-2-report.md`, and `task-3-report.md`
+- Added CNIPA official export frontend API types and wrappers in `frontend/src/api.ts` for patent source capabilities, CNIPA query packs, import ledgers, and export-upload POSTs.
+- Added API coverage in `frontend/src/api.test.ts` for:
+  - `GET /api/patent-sources`
+  - `GET /api/projects/{project_id}/knowledge/cnipa-query-pack`
+  - `GET /api/projects/{project_id}/knowledge/import-ledgers?plan_id=...`
+  - `POST /api/projects/{project_id}/knowledge/cnipa-export-imports`
+- Updated `frontend/src/views/projectKnowledgeView.tsx` to:
+  - expose a CNIPA official export import panel whenever a knowledge plan exists
+  - show query-pack strategies
+  - show the latest import ledger summary
+  - relabel candidate sources with user-facing names, including `CNIPA 官方导出`
+  - rewrite helper-config warnings so ordinary UI points users to the official export path rather than `CNIPA_EPUB_SEARCH_SCRIPT`
+  - surface new CNIPA quality flags as official-export evidence issues, while keeping parse warnings informational rather than a hard gate
+- Threaded CNIPA query-pack/import-ledger state and the upload handler through:
+  - `frontend/src/App.tsx`
+  - `frontend/src/features/corpus/CorpusWorkspace.tsx`
+- Added view/workspace regression coverage in:
+  - `frontend/src/projectKnowledgeView.test.tsx`
+  - `frontend/src/features/corpus/CorpusWorkspace.test.tsx`
+
+Verification:
+- `npm --prefix frontend install`: passed
+- `npm --prefix frontend test -- --run src/api.test.ts src/projectKnowledgeView.test.tsx src/features/corpus/CorpusWorkspace.test.tsx`: passed, 3 files / 18 tests
+- `npm --prefix frontend run build`: passed
+
+Files changed for Task 5:
+- `frontend/src/api.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/features/corpus/CorpusWorkspace.tsx`
+- `frontend/src/views/projectKnowledgeView.tsx`
+- `frontend/src/api.test.ts`
+- `frontend/src/projectKnowledgeView.test.tsx`
+- `frontend/src/features/corpus/CorpusWorkspace.test.tsx`
+- `.superpowers/sdd/task-5-report.md`
+
+Concerns:
+- None.

@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
 
-import type { PriorArtCandidate, ProjectKnowledgeOverview, ProjectRecord } from "@/api";
+import type {
+  CnipaQueryPack,
+  PriorArtCandidate,
+  ProjectKnowledgeImportLedger,
+  ProjectKnowledgeOverview,
+  ProjectRecord,
+} from "@/api";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -57,6 +63,22 @@ function recommendationLabel(action: PriorArtCandidate["recommended_action"]): s
   return "Agent 建议复核";
 }
 
+function sourceLabel(source: string): string {
+  if (source === "cnipa_official_export") return "CNIPA 官方导出";
+  if (source === "cnipa_authorized_api") return "CNIPA 授权 API";
+  if (source === "cnipa_epub") return "CNIPA legacy helper";
+  if (source === "wipo_patentscope") return "WIPO Patentscope";
+  if (source === "google_patents") return "Google Patents";
+  return source;
+}
+
+function normalizePlanWarning(warning: string): string {
+  if (warning.includes("CNIPA_EPUB_SEARCH_SCRIPT")) {
+    return "CNIPA helper 当前未配置。普通导入路径请改用 CNIPA 官方导出检索包，不需要额外环境变量。";
+  }
+  return warning;
+}
+
 function qualityFlagCopy(flag: string, stalenessReason: string): { tone: "warning" | "info"; text: string } {
   switch (flag) {
     case "needs_search":
@@ -79,10 +101,35 @@ function qualityFlagCopy(flag: string, stalenessReason: string): { tone: "warnin
         tone: "warning",
         text: "当前纳入项包含非专利来源，不能作为项目现有技术库就绪依据；请改用专利检索来源或重新筛选候选文献。",
       };
+    case "cnipa_export_missing_provenance":
+      return {
+        tone: "warning",
+        text: "部分 CNIPA 官方导出候选缺少原始导出链路，暂不能作为完整官方证据；请重新导出并保留来源字段后再导入。",
+      };
+    case "cnipa_export_metadata_only":
+      return {
+        tone: "warning",
+        text: "当前 CNIPA 官方导出仅含题录元数据，缺少可支撑复核的正文证据；请补充包含摘要或全文字段的官方导出。",
+      };
+    case "cnipa_export_missing_claims":
+      return {
+        tone: "warning",
+        text: "当前 CNIPA 官方导出缺少权利要求内容，无法满足正式的权利要求覆盖复核；请补充包含权利要求的官方导出。",
+      };
+    case "cnipa_export_partial_fulltext":
+      return {
+        tone: "warning",
+        text: "当前 CNIPA 官方导出只有部分全文，现有技术证据仍不完整；请补充更完整的官方导出结果。",
+      };
+    case "cnipa_export_parse_warnings":
+      return {
+        tone: "info",
+        text: "CNIPA 官方导入时出现解析提醒，建议复核导入结果，但这不单独等同于覆盖率门控失败。",
+      };
     case "no_hits":
       return {
         tone: "warning",
-        text: "本次检索没有形成候选文献。请检查 CNIPA helper 或 Google Patents 网络/证书配置，修复后重新运行候选检索；在证据库就绪前不要依赖授权前景判断。",
+        text: "本次检索没有形成候选文献。请检查 Google Patents 网络/证书状态，或直接改走 CNIPA 官方导出导入路径；在证据库就绪前不要依赖授权前景判断。",
       };
     case "empty_corpus":
       return {
@@ -130,15 +177,20 @@ export function ProjectKnowledgeView({
   selectedProject,
   knowledge,
   busy,
+  cnipaQueryPack,
+  importLedgers,
   onGenerateKnowledgePlan,
   onRunKnowledgeSearch,
   onCandidateDecision,
   onBuildProjectCorpus,
+  onImportCnipaExport,
   advancedFallback,
 }: {
   selectedProject: ProjectRecord | null;
   knowledge: ProjectKnowledgeOverview | null;
   busy: string;
+  cnipaQueryPack?: CnipaQueryPack | null;
+  importLedgers?: ProjectKnowledgeImportLedger[];
   onGenerateKnowledgePlan: () => void;
   onRunKnowledgeSearch: () => void;
   onCandidateDecision: (
@@ -146,6 +198,7 @@ export function ProjectKnowledgeView({
     decision: PriorArtCandidate["user_decision"],
   ) => void;
   onBuildProjectCorpus: () => void;
+  onImportCnipaExport?: (file: File) => void;
   advancedFallback?: ReactNode;
 }) {
   if (!selectedProject) {
@@ -162,7 +215,7 @@ export function ProjectKnowledgeView({
   const status = knowledge?.state.status ?? "not_started";
   const candidates = knowledge?.candidates ?? [];
   const plan = knowledge?.latest_plan ?? null;
-  const planWarnings = plan?.warnings ?? [];
+  const planWarnings = (plan?.warnings ?? []).map(normalizePlanWarning);
   const intent = knowledge?.latest_intent ?? null;
   const state = knowledge?.state;
   const latestCorpusVersion = knowledge?.latest_corpus_version ?? null;
@@ -260,6 +313,57 @@ export function ProjectKnowledgeView({
         </div>
       </section>
 
+      {plan && (
+        <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h3>CNIPA 官方导出</h3>
+              <p className="text-sm text-[var(--text-primary)]/65">
+                Agent 已生成 CNIPA 检索包。请在 CNIPA 官方系统执行检索并导出 CSV/XLSX/ZIP，再导入为真实中文专利候选。
+              </p>
+            </div>
+            <form
+              className="flex flex-wrap items-center gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const file = new FormData(event.currentTarget).get("file");
+                if (file instanceof File && file.size > 0) onImportCnipaExport?.(file);
+                event.currentTarget.reset();
+              }}
+            >
+              <input accept=".csv,.txt,.xlsx,.xlsm,.zip" className="text-sm" name="file" type="file" />
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-sm font-medium"
+                disabled={busy.startsWith("knowledge") || !onImportCnipaExport}
+                type="submit"
+              >
+                <Database size={16} />
+                <span>导入 CNIPA 官方导出物</span>
+              </button>
+            </form>
+          </div>
+          {cnipaQueryPack?.strategies?.length ? (
+            <div className="mt-4 grid gap-3">
+              {cnipaQueryPack.strategies.map((strategy) => (
+                <article
+                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3"
+                  key={strategy.strategy_group_id}
+                >
+                  <p className="font-semibold">{strategy.label}</p>
+                  <p className="text-sm text-[var(--text-primary)]/65">{strategy.purpose}</p>
+                  <p className="mt-2 text-xs text-[var(--text-primary)]/70">{strategy.queries.join(" / ")}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          {importLedgers?.length ? (
+            <div className="mt-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-3 text-sm">
+              最近导入：{importLedgers[0].source_file_name}，解析 {importLedgers[0].parsed_count} 条候选。
+            </div>
+          ) : null}
+        </section>
+      )}
+
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-6">
           <h3>Agent 检索计划</h3>
@@ -334,7 +438,7 @@ export function ProjectKnowledgeView({
                   <div>
                     <p className="font-semibold">{candidate.title}</p>
                     <p className="text-xs text-[var(--text-primary)]/55">
-                      {candidate.publication_number || "未记录公开号"} · {candidate.source}
+                      {candidate.publication_number || "未记录公开号"} · {sourceLabel(candidate.source)}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs">
                       <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1">

@@ -5,11 +5,13 @@ import { ProjectKnowledgeView } from "@/views/projectKnowledgeView";
 import { CorpusView } from "@/views/projectViews";
 
 import type {
+  CnipaQueryPack,
   CorpusImportJob,
   CorpusStats,
   CorpusVersion,
   PatentDocument,
   PriorArtCandidate,
+  ProjectKnowledgeImportLedger,
   ProjectKnowledgeOverview,
   ProjectRecord,
   SearchResult,
@@ -24,6 +26,8 @@ import type {
 export interface CorpusWorkspaceState {
   selectedProject?: ProjectRecord | null;
   projectKnowledge?: ProjectKnowledgeOverview | null;
+  cnipaQueryPack?: CnipaQueryPack | null;
+  importLedgers?: ProjectKnowledgeImportLedger[];
   /** Import-job form state (build tool). */
   corpusJobForm: CorpusJobForm;
   /** Active import job, if any. */
@@ -49,6 +53,7 @@ export interface CorpusWorkspaceHandlers {
     decision: PriorArtCandidate["user_decision"],
   ) => Promise<void> | void;
   onBuildProjectCorpus: () => Promise<void> | void;
+  onImportCnipaExport: (file: File) => Promise<void> | void;
   onImport: (event: FormEvent<HTMLFormElement>) => Promise<void> | void;
   onSearch: (event: FormEvent) => Promise<void> | void;
   onSearchText: (text: string) => void;
@@ -76,12 +81,15 @@ export function CorpusWorkspace({ tool, state, handlers }: CorpusWorkspaceProps)
         selectedProject={state.selectedProject ?? null}
         knowledge={state.projectKnowledge ?? null}
         busy={state.busy}
+        cnipaQueryPack={state.cnipaQueryPack ?? null}
+        importLedgers={state.importLedgers ?? []}
         onGenerateKnowledgePlan={() => void handlers.onGenerateKnowledgePlan()}
         onRunKnowledgeSearch={() => void handlers.onRunKnowledgeSearch()}
         onCandidateDecision={(candidateId, decision) =>
           void handlers.onCandidateDecision(candidateId, decision)
         }
         onBuildProjectCorpus={() => void handlers.onBuildProjectCorpus()}
+        onImportCnipaExport={(file) => void handlers.onImportCnipaExport(file)}
         advancedFallback={
           <CorpusBuildView
             form={state.corpusJobForm}

@@ -79,6 +79,22 @@ function buildProps(): CorpusWorkspaceProps {
         candidates: [],
         latest_corpus_version: null,
       },
+      cnipaQueryPack: {
+        project_id: "p-1",
+        plan_id: "plan-1",
+        intent_id: "intent-1",
+        source_id: "cnipa_official_export",
+        technical_object: "城市体检智能体",
+        technical_problem: "任务复核不足",
+        technical_means: "任务编排和证据链复核",
+        keywords_zh: ["城市体检"],
+        negative_keywords: [],
+        ipc_candidates: [],
+        cpc_candidates: [],
+        date_range: "2016-2026",
+        strategies: [],
+      },
+      importLedgers: [],
       corpusJobForm: {
         source_type: "cnipa_export",
         source_name: "",
@@ -104,6 +120,7 @@ function buildProps(): CorpusWorkspaceProps {
       onRunKnowledgeSearch: vi.fn(),
       onCandidateDecision: vi.fn(),
       onBuildProjectCorpus: vi.fn(),
+      onImportCnipaExport: vi.fn(),
       onImport: vi.fn(),
       onSearch: vi.fn(),
       onSearchText: vi.fn(),
@@ -117,6 +134,7 @@ describe("CorpusWorkspace", () => {
     render(<CorpusWorkspace {...buildProps()} />);
 
     expect(screen.getByText("项目现有技术库")).toBeInTheDocument();
+    expect(screen.getByText("导入 CNIPA 官方导出物")).toBeInTheDocument();
     expect(screen.getByText("官方导出物批量建库")).not.toBeVisible();
 
     fireEvent.click(screen.getByText("从本地文件补充语料"));

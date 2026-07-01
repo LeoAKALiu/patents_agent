@@ -282,6 +282,64 @@ describe("ProjectKnowledgeView", () => {
     expect(screen.getByText(/不能作为项目现有技术库就绪依据/)).toBeInTheDocument();
   });
 
+  it("renders CNIPA official export workflow instead of helper configuration", () => {
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={baseOverview}
+        busy=""
+        cnipaQueryPack={{
+          project_id: "p-1",
+          plan_id: "plan-1",
+          intent_id: "intent-1",
+          source_id: "cnipa_official_export",
+          technical_object: "城市体检智能体",
+          technical_problem: "任务编排缺少可信复核",
+          technical_means: "多智能体任务编排",
+          keywords_zh: ["城市体检", "智能体"],
+          negative_keywords: ["医疗体检"],
+          ipc_candidates: ["G06Q"],
+          cpc_candidates: [],
+          date_range: "2016-2026",
+          strategies: [{ strategy_group_id: "broad", label: "宽召回检索", purpose: "找全相关专利", queries: ["城市体检 智能体"] }],
+        }}
+        importLedgers={[]}
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+        onImportCnipaExport={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("导入 CNIPA 官方导出物")).toBeInTheDocument();
+    expect(screen.getByText("城市体检 智能体")).toBeInTheDocument();
+    expect(screen.queryByText(/CNIPA_EPUB_SEARCH_SCRIPT/)).not.toBeInTheDocument();
+  });
+
+  it("labels imported CNIPA candidates as official export", () => {
+    const knowledge: ProjectKnowledgeOverview = {
+      ...baseOverview,
+      candidates: [{ ...baseOverview.candidates[0], source: "cnipa_official_export" }],
+    };
+
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={knowledge}
+        busy=""
+        importLedgers={[]}
+        onGenerateKnowledgePlan={vi.fn()}
+        onRunKnowledgeSearch={vi.fn()}
+        onCandidateDecision={vi.fn()}
+        onBuildProjectCorpus={vi.fn()}
+        onImportCnipaExport={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("CN100A · CNIPA 官方导出")).toBeInTheDocument();
+  });
+
   it("renders real provider warnings and source badges without fake success copy", () => {
     const knowledge: ProjectKnowledgeOverview = {
       ...baseOverview,
@@ -312,7 +370,7 @@ describe("ProjectKnowledgeView", () => {
     );
 
     expect(screen.getByText(/Google Patents returned no parseable hits/)).toBeInTheDocument();
-    expect(screen.getByText(/google_patents/)).toBeInTheDocument();
+    expect(screen.getByText("CN112233445A · Google Patents")).toBeInTheDocument();
     expect(screen.queryByText(/fake/)).not.toBeInTheDocument();
   });
 
@@ -348,8 +406,9 @@ describe("ProjectKnowledgeView", () => {
     );
 
     expect(screen.getByText(/没有形成候选文献/)).toBeInTheDocument();
-    expect(screen.getByText(/检查 CNIPA helper 或 Google Patents 网络/)).toBeInTheDocument();
+    expect(screen.getByText(/检查 Google Patents 网络\/证书状态，或直接改走 CNIPA 官方导出导入路径/)).toBeInTheDocument();
     expect(screen.getByText(/CERTIFICATE_VERIFY_FAILED/)).toBeInTheDocument();
+    expect(screen.queryByText(/CNIPA_EPUB_SEARCH_SCRIPT/)).not.toBeInTheDocument();
     expect(screen.queryByText("质量信号：no_hits")).not.toBeInTheDocument();
   });
 

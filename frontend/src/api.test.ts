@@ -7,11 +7,14 @@ import {
   cancelPostDraftReview,
   cancelProjectDeliberation,
   cancelProjectDisclosure,
+  getPatentSources,
+  getProjectCnipaQueryPack,
   getProjectKnowledge,
   acceptAllCompletionPatches,
   applyOfficialCompileCleanup,
   getHealth,
   importPatent,
+  listProjectKnowledgeImportLedgers,
   retryFormulaRun,
   retryPostDraftReview,
   retryProjectDeliberation,
@@ -21,6 +24,7 @@ import {
   startPostDraftReview,
   startKimiOfficialLanguagePolish,
   updateProjectKnowledgeCandidate,
+  uploadProjectCnipaExport,
   uploadCorpusJobFile,
   uploadProjectMaterial,
 } from "./api";
@@ -250,5 +254,47 @@ describe("runtime control API", () => {
     expect(requests[2].init?.method).toBe("POST");
     expect(requests[4].init?.method).toBe("PATCH");
     expect(requests[5].init?.body).toBe(JSON.stringify({ plan_id: "plan-1" }));
+  });
+
+  it("calls patent source and CNIPA export endpoints", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      requests.push({ url, init });
+      if (url === "/api/patent-sources") {
+        return new Response(JSON.stringify({ sources: [{ source_id: "cnipa_official_export", display_name: "CNIPA 官方导出" }] }), { status: 200 });
+      }
+      if (url.endsWith("/knowledge/cnipa-query-pack")) {
+        return new Response(JSON.stringify({ project_id: "p-1", plan_id: "plan-1", intent_id: "intent-1", source_id: "cnipa_official_export", strategies: [] }), { status: 200 });
+      }
+      if (url.endsWith("/knowledge/import-ledgers?plan_id=plan-1")) {
+        return new Response(JSON.stringify({ ledgers: [{ id: "ledger-1", source_id: "cnipa_official_export", parsed_count: 1 }] }), { status: 200 });
+      }
+      if (url.endsWith("/knowledge/cnipa-export-imports")) {
+        return new Response(JSON.stringify({
+          overview: { state: { project_id: "p-1", status: "candidates_pending" }, latest_intent: null, latest_plan: null, candidates: [], latest_corpus_version: null },
+          ledger: { id: "ledger-2", source_id: "cnipa_official_export", parsed_count: 1 },
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    }));
+    const file = new File(["公开公告号,专利名称"], "cnipa.csv", { type: "text/csv" });
+
+    const sources = await getPatentSources();
+    const queryPack = await getProjectCnipaQueryPack("p-1");
+    const ledgers = await listProjectKnowledgeImportLedgers("p-1", "plan-1");
+    const result = await uploadProjectCnipaExport("p-1", "plan-1", file);
+
+    expect(sources[0].source_id).toBe("cnipa_official_export");
+    expect(queryPack.source_id).toBe("cnipa_official_export");
+    expect(ledgers[0].source_id).toBe("cnipa_official_export");
+    expect(result.ledger.source_id).toBe("cnipa_official_export");
+    expect(requests.map((request) => request.url)).toEqual([
+      "/api/patent-sources",
+      "/api/projects/p-1/knowledge/cnipa-query-pack",
+      "/api/projects/p-1/knowledge/import-ledgers?plan_id=plan-1",
+      "/api/projects/p-1/knowledge/cnipa-export-imports",
+    ]);
+    expect(requests[3].init?.method).toBe("POST");
+    expect(requests[3].init?.body).toBeInstanceOf(FormData);
   });
 });
