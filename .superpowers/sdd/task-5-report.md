@@ -156,3 +156,20 @@ Reviewer fix verification:
 
 Concerns:
 - None.
+
+Task 5 final fix report:
+- Source identity verified before edits:
+  - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+  - Branch: `codex/cnipa-official-export-design`
+  - Short SHA: `3e55f4d2`
+  - Dirty status: dirty from pre-existing `.superpowers/sdd/progress.md`, `task-1-report.md`, `task-2-report.md`, and `task-3-report.md`
+- Restored the missing full-pack CNIPA action in `frontend/src/views/projectKnowledgeView.tsx` with the exact label `复制 CNIPA 检索式`.
+- The new action copies all strategy queries in the query pack, while the existing per-strategy `复制该策略检索式` actions remain available.
+- Updated `frontend/src/projectKnowledgeView.test.tsx` to assert the full-pack button label, the flattened copy payload, and the preserved per-strategy copy behavior.
+
+Verification:
+- `npm --prefix frontend test -- --run src/api.test.ts src/projectKnowledgeView.test.tsx src/features/corpus/CorpusWorkspace.test.tsx src/AppRefreshEffect.test.ts`: passed, 4 files / 27 tests
+- `npm --prefix frontend run build`: passed
+
+Concerns:
+- None.

@@ -231,6 +231,7 @@ export function ProjectKnowledgeView({
   const intent = knowledge?.latest_intent ?? null;
   const state = knowledge?.state;
   const latestCorpusVersion = knowledge?.latest_corpus_version ?? null;
+  const cnipaStrategyQueries = cnipaQueryPack?.strategies?.flatMap((strategy) => strategy.queries) ?? [];
   const includedCandidates = candidates.filter((candidate) => candidate.user_decision === "include");
   const hasReadonlyCandidates =
     status === "stale" || status === "not_started" || status === "search_running" || status === "failed";
@@ -370,6 +371,14 @@ export function ProjectKnowledgeView({
           </div>
           {cnipaQueryPack?.strategies?.length ? (
             <div className="mt-4 grid gap-3">
+              <button
+                className="inline-flex w-fit items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium"
+                onClick={() => void handleCopyCnipaQuery(cnipaStrategyQueries)}
+                type="button"
+              >
+                <RefreshCw size={14} />
+                <span>复制 CNIPA 检索式</span>
+              </button>
               {cnipaQueryPack.strategies.map((strategy) => (
                 <article
                   className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3"

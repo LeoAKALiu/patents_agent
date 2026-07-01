@@ -322,6 +322,7 @@ describe("ProjectKnowledgeView", () => {
 
     expect(screen.getByText("导入 CNIPA 官方导出物")).toBeInTheDocument();
     expect(screen.getByText("城市体检 智能体")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复制 CNIPA 检索式" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制该策略检索式" })).toBeInTheDocument();
     expect(container.querySelector('input[type="file"]')).toHaveAttribute("accept", ".csv,.xlsx,.zip");
     expect(screen.queryByText(/CNIPA_EPUB_SEARCH_SCRIPT/)).not.toBeInTheDocument();
@@ -366,10 +367,15 @@ describe("ProjectKnowledgeView", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "复制 CNIPA 检索式" }));
+
+    expect(writeText).toHaveBeenCalledWith("城市体检 智能体\n\n任务编排 复核\n\n证据链 智能体");
+    expect(await screen.findByText("已复制检索式。")).toBeInTheDocument();
+
+    writeText.mockClear();
     fireEvent.click(screen.getAllByRole("button", { name: "复制该策略检索式" })[1]);
 
     expect(writeText).toHaveBeenCalledWith("任务编排 复核\n\n证据链 智能体");
-    expect(await screen.findByText("已复制检索式。")).toBeInTheDocument();
 
     Object.defineProperty(globalThis.navigator, "clipboard", {
       configurable: true,
