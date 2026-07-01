@@ -222,7 +222,7 @@ export function AppRoot(props: AppRootProps) {
     projectState: props.projectState,
     exportReadiness: props.postDraftState.exportReadiness,
   });
-  const workbenchStartWorkspace = !props.selectedProject && props.startChoice
+  const workbenchStartWorkspace = props.startChoice
     ? projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")
     : undefined;
 

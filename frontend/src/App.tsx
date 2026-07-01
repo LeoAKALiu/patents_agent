@@ -481,6 +481,7 @@ const OFFICIAL_CONTAMINATION_PATTERNS: ReadonlyArray<{
   { pattern: "attorney_memo", label: "attorney_memo" },
   { pattern: "system_trace", label: "system_trace" },
   { pattern: "official_safe_patches", label: "official_safe_patches" },
+  { pattern: "内部备注", label: "内部备注" },
   { pattern: "根据会审策略", label: "根据会审策略" },
   { pattern: "多 Agent 会审", label: "多 Agent 会审" },
   { pattern: "多Agent会审", label: "多Agent会审" },
@@ -872,6 +873,7 @@ function App() {
 
   async function refreshAll() {
     await withStatus("refresh", async () => {
+      const selectionAtRefreshStart = selectedProjectIdRef.current;
       setProjectListStatus((current) => current === "ready" ? current : "loading");
       try {
         const [healthData, doctorData, corpusData, projectsData] = await Promise.all([
@@ -881,7 +883,10 @@ function App() {
           listProjects(),
         ]);
         const [versionsData, statsData] = await Promise.all([listCorpusVersions(), getCorpusStats()]);
-        const recoveredSelection = resolveRecoveredProjectSelection(projectsData, selectedProjectIdRef.current);
+        const currentSelection = selectedProjectIdRef.current;
+        const selectionChangedDuringRefresh = currentSelection !== selectionAtRefreshStart;
+        const refreshedProjectsContainCurrentSelection = projectsData.some((project) => project.id === currentSelection);
+        const recoveredSelection = resolveRecoveredProjectSelection(projectsData, selectionAtRefreshStart);
         setBackendStatus("online");
         setProjectListStatus("ready");
         setHealth(healthData);
@@ -889,17 +894,21 @@ function App() {
         setDocuments(corpusData);
         setCorpusVersions(versionsData);
         setCorpusStats(statsData);
-        setProjects(projectsData);
-        if (recoveredSelection.selectedProjectId === selectedProjectIdRef.current && recoveredSelection.selectedProjectId) {
-          await loadProjectKnowledge(recoveredSelection.selectedProjectId);
-        } else if (!recoveredSelection.selectedProjectId) {
-          setProjectKnowledge(null);
+        if (!selectionChangedDuringRefresh || !currentSelection || refreshedProjectsContainCurrentSelection) {
+          setProjects(projectsData);
         }
-        if (recoveredSelection.selectedProjectId !== selectedProjectIdRef.current) {
-          setSelectedProjectId(recoveredSelection.selectedProjectId);
-        }
-        if (recoveredSelection.clearedMissingProject) {
-          setMessage("上次选择的项目已不存在，请重新选择项目。");
+        if (!selectionChangedDuringRefresh) {
+          if (recoveredSelection.selectedProjectId === currentSelection && recoveredSelection.selectedProjectId) {
+            await loadProjectKnowledge(recoveredSelection.selectedProjectId);
+          } else if (!recoveredSelection.selectedProjectId) {
+            setProjectKnowledge(null);
+          }
+          if (recoveredSelection.selectedProjectId !== currentSelection) {
+            setSelectedProjectId(recoveredSelection.selectedProjectId);
+          }
+          if (recoveredSelection.clearedMissingProject) {
+            setMessage("上次选择的项目已不存在，请重新选择项目。");
+          }
         }
       } catch (err) {
         setBackendStatus("offline");
@@ -920,13 +929,28 @@ function App() {
   }
 
   async function loadDisclosures(projectId: string): Promise<boolean> {
-    return projectDataLoadDisclosures(projectId, projectDataDeps);
+    return projectDataLoadDisclosures(projectId, disclosureProjectDataDeps(projectId));
   }
 
   async function refreshDisclosureRunUntilSettled(projectId: string, runId: string): Promise<void> {
     // Delegates to store/projectData (M3-B); back-off schedule + race guard
     // live there and are unit-tested. `delay` is passed in to keep the module pure.
-    return projectDataRefresh(projectId, runId, projectDataDeps, delay);
+    return projectDataRefresh(projectId, runId, disclosureProjectDataDeps(projectId), delay);
+  }
+
+  function upsertTerminalDisclosureRun(projectId: string, run: DisclosureRun): boolean {
+    if (run.status === "queued" || run.status === "running") return true;
+    if (selectedProjectIdRef.current !== projectId) return false;
+    setDisclosureRuns((current) => [run, ...current.filter((item) => item.id !== run.id)]);
+    return true;
+  }
+
+  function disclosureProjectDataDeps(projectId: string): ProjectDataDeps {
+    return {
+      ...projectDataDeps,
+      setDisclosureRuns: (runs) =>
+        setDisclosureRuns((current) => mergeFetchedDisclosureRuns(projectId, runs, current)),
+    };
   }
 
   async function loadFormulaState(projectId: string): Promise<boolean> {
@@ -1531,6 +1555,7 @@ function App() {
       if (run.status === "queued" || run.status === "running") {
         void refreshDisclosureRunUntilSettled(projectId, run.id);
       } else {
+        if (!upsertTerminalDisclosureRun(projectId, run)) return;
         await loadPatentPoints(projectId);
       }
       const modeLabel =
@@ -2293,6 +2318,29 @@ function delay(ms: number): Promise<void> {
 
 function latestCompletedDisclosure(runs: DisclosureRun[]): DisclosureRun | null {
   return runs.find((run) => run.status === "completed" && run.package) ?? null;
+}
+
+function mergeFetchedDisclosureRuns(
+  projectId: string,
+  fetched: DisclosureRun[],
+  current: DisclosureRun[],
+): DisclosureRun[] {
+  const currentTerminalById = new Map(
+    current
+      .filter((run) => run.project_id === projectId && isTerminalDisclosureRun(run))
+      .map((run) => [run.id, run]),
+  );
+  const fetchedIds = new Set(fetched.map((run) => run.id));
+  const preservedMissing = [...currentTerminalById.values()].filter((run) => !fetchedIds.has(run.id));
+  const mergedFetched = fetched.map((run) => {
+    const currentTerminal = currentTerminalById.get(run.id);
+    return currentTerminal && !isTerminalDisclosureRun(run) ? currentTerminal : run;
+  });
+  return [...preservedMissing, ...mergedFetched];
+}
+
+function isTerminalDisclosureRun(run: DisclosureRun): boolean {
+  return run.status !== "queued" && run.status !== "running";
 }
 
 
