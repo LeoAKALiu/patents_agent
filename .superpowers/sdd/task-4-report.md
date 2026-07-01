@@ -75,6 +75,25 @@
 
 - Required suite:
   - `python3 -m pytest tests/test_project_knowledge.py tests/test_grantability.py -q`
+
+## Review Fix Addendum 3
+
+- Follow-up source branch: `codex/cnipa-official-export-design`
+- Follow-up source short SHA: `3973ff08`
+- Worktree path: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+- Dirty worktree at start: yes (`.superpowers/sdd/progress.md`, `task-1-report.md`, `task-2-report.md`, `task-3-report.md`)
+
+### Fixes Applied
+
+- Added CNIPA-specific `quality_report.failures` entries so stored corpus artifacts explain `cnipa_export_metadata_only`, `cnipa_export_partial_fulltext`, and `cnipa_export_missing_claims` without relying only on state flags.
+- Narrowed the grantability CNIPA fail-closed gate to the three blocking coverage flags so `cnipa_export_parse_warnings` alone no longer triggers the low-evidence CNIPA warning.
+- Added regression coverage for both the stored corpus failure payloads and the non-blocking parse-warning grantability path.
+
+### Verification
+
+- Required suite:
+  - `python3 -m pytest tests/test_project_knowledge.py tests/test_grantability.py -q`
+  - Result: `79 passed`
   - Result: `78 passed`
   - Result: `78 passed`
   - Result: `77 passed`

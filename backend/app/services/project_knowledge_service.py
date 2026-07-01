@@ -650,6 +650,14 @@ def create_project_corpus_from_included_candidates(
                 "message": "Corpus includes non-patent sources: " + ", ".join(non_patent_sources),
             }
         )
+    cnipa_failure_messages = {
+        "cnipa_export_metadata_only": "CNIPA official export corpus contains metadata-only records without claims or fulltext.",
+        "cnipa_export_partial_fulltext": "CNIPA official export corpus is missing fulltext coverage for one or more included records.",
+        "cnipa_export_missing_claims": "CNIPA official export corpus is missing claims coverage for one or more included records.",
+    }
+    for flag in quality_flags:
+        if flag in cnipa_failure_messages:
+            quality_failures.append({"code": flag, "message": cnipa_failure_messages[flag]})
     partial_cnipa = any(flag.startswith("cnipa_export_") for flag in quality_flags)
     corpus_status = (
         "needs_supplemental_search"

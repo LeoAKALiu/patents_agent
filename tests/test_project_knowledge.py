@@ -787,6 +787,18 @@ def test_cnipa_metadata_only_corpus_needs_supplemental_search(tmp_path):
     assert "cnipa_export_metadata_only" in result.state.quality_flags
     assert "synthetic_evidence" not in result.state.quality_flags
     assert "non_patent_source" not in result.state.quality_flags
+    assert result.latest_corpus_version is not None
+    assert result.latest_corpus_version.quality_report is not None
+    assert result.latest_corpus_version.quality_report.failures == [
+        {
+            "code": "cnipa_export_metadata_only",
+            "message": "CNIPA official export corpus contains metadata-only records without claims or fulltext.",
+        },
+        {
+            "code": "cnipa_export_missing_claims",
+            "message": "CNIPA official export corpus is missing claims coverage for one or more included records.",
+        },
+    ]
 
 
 def test_cnipa_claims_without_description_needs_partial_fulltext_search(tmp_path):
@@ -948,6 +960,18 @@ def test_create_project_corpus_preserves_non_patent_and_cnipa_quality_flags_in_m
     assert "non_patent_source" in result.state.quality_flags
     assert "cnipa_export_partial_fulltext" in result.state.quality_flags
     assert "cnipa_export_missing_claims" not in result.state.quality_flags
+    assert result.latest_corpus_version is not None
+    assert result.latest_corpus_version.quality_report is not None
+    assert result.latest_corpus_version.quality_report.failures == [
+        {
+            "code": "non_patent_source",
+            "message": "Corpus includes non-patent sources: semantic_scholar",
+        },
+        {
+            "code": "cnipa_export_partial_fulltext",
+            "message": "CNIPA official export corpus is missing fulltext coverage for one or more included records.",
+        },
+    ]
 
 
 def test_create_project_corpus_rejects_build_before_search(tmp_path):

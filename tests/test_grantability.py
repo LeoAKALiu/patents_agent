@@ -586,6 +586,26 @@ def test_grantability_fails_closed_for_partial_cnipa_export_state():
     assert any("CNIPA 官方导出文献已入库" in flag for flag in report.low_evidence_flags)
 
 
+def test_grantability_does_not_fail_closed_for_cnipa_parse_warning_only():
+    report = generate_grantability_report(
+        project_id="proj-cnipa-warning-only",
+        package=_sample_package(),
+        disclosures=[_sample_disclosure()],
+        patent_points=_sample_patent_points(),
+        project_knowledge_state=ProjectKnowledgeState(
+            project_id="proj-cnipa-warning-only",
+            status="ready",
+            document_count=2,
+            claim_coverage=1.0,
+            fulltext_coverage=1.0,
+            quality_flags=["cnipa_export_parse_warnings"],
+        ),
+    )
+
+    assert report.fail_closed is False
+    assert not any("CNIPA 官方导出文献已入库" in flag for flag in report.low_evidence_flags)
+
+
 # ---------------------------------------------------------------------------
 # Tests: low-evidence fail-closed behavior
 # ---------------------------------------------------------------------------
