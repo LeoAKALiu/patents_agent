@@ -124,6 +124,14 @@ export function WorkbenchWorkspace({
       <section className="workbench-section" aria-labelledby="workbench-progress-title">
         <p className="section-eyebrow">流程进度</p>
         <h3 id="workbench-progress-title">流程进度</h3>
+        <ol className="workbench-phase-rail" aria-label="用户流程阶段">
+          {state.phaseGroups.map((phase) => (
+            <li className={`workbench-phase is-${phase.status}`} key={phase.label}>
+              <span>{phase.label}</span>
+              <small>{phase.status === "done" ? "已完成" : phase.status === "current" ? "当前阶段" : "未解锁"}</small>
+            </li>
+          ))}
+        </ol>
         <div className="workbench-progress-groups">
           {state.stepGroups.map((group) => (
             <div className="workbench-progress-group" key={group.label}>

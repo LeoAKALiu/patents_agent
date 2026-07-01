@@ -258,6 +258,41 @@ describe("deriveWorkbenchState", () => {
     expect(blockedState.riskSummary.exportLocked).toBe(true);
   });
 
+  it("summarizes the nine internal steps into five user-facing phases", () => {
+    const state = deriveWorkbenchState({
+      projectState: makeProjectState({
+        selectedProject: makeProject({ package: makeProjectPackage() }),
+        currentPackage: makeProjectPackage(),
+        visiblePatentPoints: [makePatentPoint()],
+        currentSourceDraftHash: "draft-hash",
+        filingReports: [makeFilingReport("draft-hash")],
+        worksheets: [makeWorksheet("draft-hash")],
+        completionRuns: [makeCompletionRun("draft-hash")],
+        officialCompileRuns: [makeOfficialCompileRun("draft-hash")],
+        postDraftReviews: [
+          makePostDraftReview({
+            status: "completed",
+            export_allowed: false,
+            blocking_issues: ["说明书仍需补强"],
+          }),
+        ],
+      }),
+      exportReadiness: makeExportReadiness({
+        review_gate_status: "blocked",
+        review_blocking_issues: ["说明书仍需补强"],
+      }),
+    });
+
+    expect(state.phaseGroups.map((phase) => phase.label)).toEqual([
+      "输入",
+      "提炼",
+      "成稿",
+      "质检修复",
+      "导出",
+    ]);
+    expect(state.phaseGroups.find((phase) => phase.label === "质检修复")?.status).toBe("current");
+  });
+
   it("sends export-ready projects to export", () => {
     const exportReadyState = deriveWorkbenchState({
       projectState: makeProjectState({
