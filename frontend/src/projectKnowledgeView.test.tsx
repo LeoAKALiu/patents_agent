@@ -709,7 +709,7 @@ describe("ProjectKnowledgeView", () => {
               source_type: "non_patent_literature",
               evidence_tier: "supplemental_literature",
               enabled: true,
-              status: "not_configured",
+              status: "quota_limited",
               base_url: "https://apps.wanfangdata.com.cn/open",
               api_key_present: false,
               api_key_masked: "",
@@ -720,6 +720,42 @@ describe("ProjectKnowledgeView", () => {
               docs_url: "https://apps.wanfangdata.com.cn/open/docs",
               guidance: "配置万方 API key 后可补充论文、期刊、会议与科技文献。",
               can_satisfy_patent_gate: false,
+            },
+            {
+              source_id: "google_patents",
+              display_name: "Google Patents",
+              source_type: "patent",
+              evidence_tier: "primary_patent",
+              enabled: true,
+              status: "configured",
+              base_url: "https://patents.google.com",
+              api_key_present: false,
+              api_key_masked: "",
+              api_key_source: "none",
+              last_checked_at: "",
+              last_error: "",
+              application_url: "",
+              docs_url: "",
+              guidance: "可用于公开专利检索补充。",
+              can_satisfy_patent_gate: true,
+            },
+            {
+              source_id: "wipo_patentscope",
+              display_name: "WIPO Patentscope",
+              source_type: "patent",
+              evidence_tier: "primary_patent",
+              enabled: true,
+              status: "unavailable",
+              base_url: "https://patentscope.wipo.int",
+              api_key_present: false,
+              api_key_masked: "",
+              api_key_source: "none",
+              last_checked_at: "",
+              last_error: "503",
+              application_url: "",
+              docs_url: "",
+              guidance: "当前供应商端不可用。",
+              can_satisfy_patent_gate: true,
             },
           ],
         }}
@@ -735,7 +771,14 @@ describe("ProjectKnowledgeView", () => {
     expect(screen.getByText("非专利文献覆盖")).toBeInTheDocument();
     expect(screen.getByText(/智慧芽 PatSnap/)).toBeInTheDocument();
     expect(screen.getAllByText(/万方/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/未配置不是检索失败/).length).toBeGreaterThan(0);
+    expect(screen.getByText("已配置")).toBeInTheDocument();
+    expect(screen.getByText("未配置")).toBeInTheDocument();
+    expect(screen.getByText("暂不可用")).toBeInTheDocument();
+    expect(screen.getByText("配额受限")).toBeInTheDocument();
+    expect(screen.getByText("未配置不是检索失败。")).toBeInTheDocument();
+    expect(
+      screen.getByText("可补充背景与创造性判断线索，但不能替代专利现有技术证据，也不能替代专利门控证据。"),
+    ).toBeInTheDocument();
   });
 
   it("marks Wanfang candidate as supplemental and not patent-gate eligible", () => {

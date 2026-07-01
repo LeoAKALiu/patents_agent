@@ -83,6 +83,14 @@ function patentGateLabel(candidate: PriorArtCandidate): string {
   return candidate.can_satisfy_patent_gate === false ? "不可用于授权门控" : "可用于授权门控";
 }
 
+function sourceStatusLabel(status: string): string {
+  if (status === "configured") return "已配置";
+  if (status === "not_configured") return "未配置";
+  if (status === "unavailable") return "暂不可用";
+  if (status === "quota_limited") return "配额受限";
+  return status;
+}
+
 function sourceLabel(source: string): string {
   if (source === "cnipa_official_export") return "CNIPA 官方导出";
   if (source === "cnipa_authorized_api") return "CNIPA 授权 API";
@@ -372,7 +380,7 @@ export function ProjectKnowledgeView({
               >
                 <div className="flex items-center justify-between gap-3">
                   <strong>{source.display_name}</strong>
-                  <span>{source.status === "configured" ? "已配置" : "未配置"}</span>
+                  <span>{sourceStatusLabel(source.status)}</span>
                 </div>
                 <p className="text-sm text-[var(--text-primary)]/65">
                   {source.can_satisfy_patent_gate ? "专利主证据源" : "非专利文献补强源"}
@@ -380,6 +388,11 @@ export function ProjectKnowledgeView({
                 <p className="text-sm text-[var(--text-primary)]/65">{source.guidance}</p>
                 {source.status === "not_configured" && (
                   <p className="text-sm text-[var(--text-primary)]/65">未配置不是检索失败。</p>
+                )}
+                {!source.can_satisfy_patent_gate && (
+                  <p className="text-sm text-[var(--text-primary)]/65">
+                    可补充背景与创造性判断线索，但不能替代专利现有技术证据，也不能替代专利门控证据。
+                  </p>
                 )}
               </div>
             ))}
