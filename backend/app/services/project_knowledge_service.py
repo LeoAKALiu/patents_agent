@@ -726,6 +726,18 @@ def _ledger_has_public_no_hit_or_failure(ledger: ProjectSearchLedger) -> bool:
     )
 
 
+def _empty_search_result_state(ledger: ProjectSearchLedger, source_setup_flags: list[str]) -> tuple[str, list[str]]:
+    public_no_hits = _ledger_has_public_no_hit_or_failure(ledger)
+    if source_setup_flags:
+        quality_flags = list(source_setup_flags)
+        if public_no_hits:
+            quality_flags.append("no_hits")
+        return "search_plan_pending", quality_flags
+    if public_no_hits:
+        return "failed", ["no_hits"]
+    return "failed", ["no_hits"]
+
+
 def run_agent_search_plan(
     store: SQLiteStore,
     project_id: str,
@@ -760,7 +772,8 @@ def run_agent_search_plan(
         }
     )
     source_setup_flags = _source_setup_quality_flags(running, ledger, data_dir=data_dir)
-    empty_run_is_setup_guidance = bool(source_setup_flags) and not _ledger_has_public_no_hit_or_failure(ledger)
+    empty_state_status, empty_state_quality_flags = _empty_search_result_state(ledger, source_setup_flags)
+    empty_run_is_setup_guidance = empty_state_status == "search_plan_pending"
     completed = running.model_copy(
         update={
             "status": "completed" if all_candidates or empty_run_is_setup_guidance else "failed",
@@ -774,12 +787,12 @@ def run_agent_search_plan(
     )
     state = ProjectKnowledgeState(
         project_id=project_id,
-        status="candidates_pending" if all_candidates else ("search_plan_pending" if empty_run_is_setup_guidance else "failed"),
+        status="candidates_pending" if all_candidates else empty_state_status,
         active_intent_id=completed.intent_id,
         active_plan_id=plan_id,
         last_search_at=_now(),
         candidate_count=len(all_candidates),
-        quality_flags=["candidates_need_confirmation"] if all_candidates else (source_setup_flags if empty_run_is_setup_guidance else ["no_hits"]),
+        quality_flags=["candidates_need_confirmation"] if all_candidates else empty_state_quality_flags,
     )
     stored_candidates, _stored_ledger = store.replace_agent_search_run(
         project_id=project_id,
@@ -1014,7 +1027,7 @@ def create_project_corpus_from_included_candidates(
         state_quality_flags = ["non_patent_only"]
         state_status = "needs_supplemental_search"
     elif non_patent_included:
-        state_quality_flags = ["non_patent_source"]
+        state_quality_flags = quality_flags or ["non_patent_source"]
         state_status = "needs_supplemental_search"
     elif patent_included:
         state_quality_flags = quality_flags

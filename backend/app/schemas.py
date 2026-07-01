@@ -1558,7 +1558,7 @@ class EvidenceSourceConfig(BaseModel):
 
 
 class EvidenceSourceConfigPatch(BaseModel):
-    api_key: str | None = Field(default=None, max_length=4096)
+    api_key: str | None = None
     clear_api_key: bool = False
     base_url: str | None = None
     enabled: bool | None = None

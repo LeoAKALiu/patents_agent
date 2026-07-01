@@ -9,6 +9,7 @@ from backend.app.evidence_sources import update_evidence_source_config
 from backend.app.knowledge.patent_search import (
     CnipaEpubPatentProvider,
     GooglePatentsProvider,
+    PatSnapPatentProvider,
     StaticPatentSearchProvider,
     patent_hit_to_candidate,
 )
@@ -628,6 +629,90 @@ def test_run_agent_search_plan_marks_configured_commercial_skeletons_as_not_impl
     assert ledger is not None
     assert any(attempt.provider == "wanfang_api" and attempt.status == "partial" for attempt in ledger.attempts)
     assert any(attempt.provider == "patsnap_api" and attempt.status == "partial" for attempt in ledger.attempts)
+
+
+def test_run_agent_search_plan_keeps_missing_commercial_setup_guidance_when_public_fallbacks_have_no_hits(
+    tmp_path,
+    monkeypatch,
+):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    monkeypatch.setattr(
+        project_knowledge_service,
+        "default_project_patent_providers",
+        lambda data_dir=None: [
+            PatSnapPatentProvider(
+                {source.source_id: source for source in project_knowledge_service.evidence_source_views(tmp_path)}[
+                    "patsnap_api"
+                ]
+            ),
+            StaticPatentSearchProvider(source_id="wipo_patentscope", hits=[]),
+        ],
+    )
+
+    result = run_agent_search_plan(store, project.id, plan.id, data_dir=tmp_path)
+
+    assert result.state.status == "search_plan_pending"
+    assert "source_not_configured" in result.state.quality_flags
+    assert "no_hits" in result.state.quality_flags
+    assert result.state.candidate_count == 0
+    ledger = store.get_latest_project_search_ledger(project.id, plan.id)
+    assert ledger is not None
+    assert any(attempt.provider == "patsnap_api" and attempt.status == "skipped" for attempt in ledger.attempts)
+    assert any(attempt.provider == "wipo_patentscope" and attempt.status == "partial" for attempt in ledger.attempts)
+    assert any(attempt.provider == "wanfang_api" and attempt.status == "skipped" for attempt in ledger.attempts)
+
+
+def test_run_agent_search_plan_keeps_configured_commercial_skeleton_guidance_when_public_fallbacks_have_no_hits(
+    tmp_path,
+    monkeypatch,
+):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    update_evidence_source_config(
+        tmp_path,
+        "patsnap_api",
+        EvidenceSourceConfigPatch(api_key="ps-test-secret-1234", enabled=True),
+    )
+    update_evidence_source_config(
+        tmp_path,
+        "wanfang_api",
+        EvidenceSourceConfigPatch(api_key="wf-test-secret-5678", enabled=True),
+    )
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+
+    monkeypatch.setattr(
+        project_knowledge_service,
+        "default_project_patent_providers",
+        lambda data_dir=None: [
+            PatSnapPatentProvider(
+                {source.source_id: source for source in project_knowledge_service.evidence_source_views(tmp_path)}[
+                    "patsnap_api"
+                ]
+            ),
+            StaticPatentSearchProvider(source_id="wipo_patentscope", hits=[]),
+        ],
+    )
+
+    result = run_agent_search_plan(store, project.id, plan.id, data_dir=tmp_path)
+
+    assert result.state.status == "search_plan_pending"
+    assert "source_configured_not_implemented" in result.state.quality_flags
+    assert "no_hits" in result.state.quality_flags
+    assert result.state.candidate_count == 0
+    ledger = store.get_latest_project_search_ledger(project.id, plan.id)
+    assert ledger is not None
+    assert any(attempt.provider == "patsnap_api" and attempt.status == "partial" for attempt in ledger.attempts)
+    assert any(attempt.provider == "wanfang_api" and attempt.status == "partial" for attempt in ledger.attempts)
+    assert any(attempt.provider == "wipo_patentscope" and attempt.status == "partial" for attempt in ledger.attempts)
 
 
 def test_wipo_patentscope_candidates_can_build_ready_project_corpus(tmp_path):
@@ -1333,7 +1418,7 @@ def test_create_project_corpus_preserves_non_patent_and_cnipa_quality_flags_in_m
     assert result.state.status == "needs_supplemental_search"
     assert result.state.claim_coverage == 0.5
     assert result.state.fulltext_coverage == 0.0
-    assert result.state.quality_flags == ["non_patent_source"]
+    assert result.state.quality_flags == ["non_patent_source", "cnipa_export_partial_fulltext"]
     assert result.latest_corpus_version is not None
     assert result.latest_corpus_version.quality_report is not None
     assert result.latest_corpus_version.quality_report.failures == [

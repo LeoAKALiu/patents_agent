@@ -53,6 +53,36 @@ def test_update_evidence_source_config_rejects_conflicting_secret_fields_without
     assert "ps-secret-value-1234" not in response.text
 
 
+def test_update_evidence_source_config_rejects_oversized_secret_without_echoing_raw_input(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    oversized_secret = "ps-oversized-secret-1234-" + ("x" * 5000)
+
+    response = client.put(
+        "/api/evidence-sources/patsnap_api/config",
+        json={"api_key": oversized_secret, "enabled": True},
+    )
+
+    assert response.status_code == 422
+    assert "api_key is too long" in response.text
+    assert oversized_secret not in response.text
+    assert "ps-oversized-secret-1234" not in response.text
+
+
+def test_update_evidence_source_config_rejects_oversized_secret_with_clear_flag_without_echoing_raw_input(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+    oversized_secret = "ps-oversized-secret-5678-" + ("y" * 5000)
+
+    response = client.put(
+        "/api/evidence-sources/patsnap_api/config",
+        json={"api_key": oversized_secret, "clear_api_key": True},
+    )
+
+    assert response.status_code == 422
+    assert "Pass either api_key or clear_api_key, not both." in response.text
+    assert oversized_secret not in response.text
+    assert "ps-oversized-secret-5678" not in response.text
+
+
 def test_check_evidence_source_config_is_local_only(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
     client.put(
