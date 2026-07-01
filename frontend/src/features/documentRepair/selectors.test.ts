@@ -227,6 +227,51 @@ describe("deriveDocumentRepairState", () => {
     expect(exportReady.primaryAction.targetSection).toBe("export");
   });
 
+  it("uses export-readiness quality state before artifact presence", () => {
+    const state = deriveDocumentRepairState({
+      projectState: makeProjectState({
+        selectedProject: makeProject({ package: makePackage() }),
+        currentPackage: makePackage(),
+        currentDraftHash: "draft-current",
+        currentSourceDraftHash: "draft-current",
+        officialCompileRuns: [makeOfficialCompileRun()],
+        postDraftReviews: [
+          makePostDraftReview({
+            status: "failed",
+            blocking_issues: [],
+            role_results: [],
+          }),
+        ],
+      }),
+      exportReadiness: makeExportReadiness({
+        export_allowed: false,
+        quality_required: true,
+        official_compile_required: false,
+        post_draft_review_required: false,
+        next_action: "run_quality_checks",
+        reason: "当前初稿尚未完成质量检查。",
+        quality_done: false,
+        review_gate_status: "failed",
+        review_blocking_issues: [],
+        unknown_quality_checks: ["claim_defense_worksheet", "draft_completion"],
+        quality_check_states: {
+          filing_readiness: "current",
+          claim_defense_worksheet: "unknown",
+          draft_completion: "unknown",
+        },
+      }),
+    });
+
+    expect(state.gates.quality.state).toBe("待重新验证");
+    expect(state.gates.quality.detail).toContain("质量检查");
+    expect(state.gates.postDraftReview.state).toBe("运行失败");
+    expect(state.primaryAction).toEqual({
+      label: "运行质量检查",
+      targetSection: "workbench",
+    });
+    expect(state.topConclusion).toBe("当前初稿尚未完成质量检查。");
+  });
+
   it("uses only the approved gate vocabulary", () => {
     const state = deriveDocumentRepairState({
       projectState: makeProjectState({

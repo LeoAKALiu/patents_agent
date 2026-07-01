@@ -327,16 +327,14 @@ function deriveQualityGateState(
   if (!facts.hasInternalDraft) return "等待生成";
   if (projectState.busy === "quality") return "运行中";
   if ((exportReadiness?.failed_quality_checks?.length ?? 0) > 0) return "运行失败";
-  if (facts.latestFilingReport?.draft_package_hash === facts.currentDraftHash || exportReadiness?.quality_done) {
+  if (hasAnyQualityGap(exportReadiness)) {
+    return "待重新验证";
+  }
+  if (exportReadiness?.quality_done === true) {
     return "当前有效";
   }
-  if (
-    exportReadiness?.quality_required
-    || (exportReadiness?.missing_quality_checks?.length ?? 0) > 0
-    || (exportReadiness?.stale_quality_checks?.length ?? 0) > 0
-    || (exportReadiness?.unknown_quality_checks?.length ?? 0) > 0
-  ) {
-    return "待重新验证";
+  if (facts.latestFilingReport?.draft_package_hash === facts.currentDraftHash) {
+    return "当前有效";
   }
   return "待重新验证";
 }
@@ -397,6 +395,9 @@ function deriveTopConclusion(
   if (facts.exportLocked) {
     return `当前文稿阻断导出，需先处理 ${Math.max(blockingCount, 1)} 个阻断项。`;
   }
+  if (exportReadiness?.reason && exportReadiness.next_action !== "export_ready") {
+    return exportReadiness.reason;
+  }
   if (gates.officialCompile.state === "已失效" || exportReadiness?.official_compile_required) {
     return "当前正式稿已失效，需要重新编译正式稿。";
   }
@@ -415,6 +416,8 @@ function derivePrimaryAction(
   gates: DocumentRepairState["gates"],
 ): DocumentRepairState["primaryAction"] {
   if (!facts.hasInternalDraft) return { label: "生成内部初稿", targetSection: "workbench" };
+  const exportReadinessAction = primaryActionFromNextAction(exportReadiness, facts);
+  if (exportReadinessAction) return exportReadinessAction;
   if (facts.exportReady) return { label: "导出正式稿", targetSection: "export" };
   if (facts.exportLocked && facts.blockingIssues.length > 0) {
     return { label: "进入标注修复", targetTab: "annotated" };
@@ -430,6 +433,54 @@ function derivePrimaryAction(
     return { label: "重新成稿会审", targetSection: "workbench" };
   }
   return { label: "编辑文稿", targetTab: "edit" };
+}
+
+function hasAnyQualityGap(exportReadiness: ExportReadiness | null | undefined): boolean {
+  if (!exportReadiness) return false;
+  if (exportReadiness.quality_done === false) return true;
+  if (exportReadiness.quality_required) return true;
+  if ((exportReadiness.missing_quality_checks?.length ?? 0) > 0) return true;
+  if ((exportReadiness.stale_quality_checks?.length ?? 0) > 0) return true;
+  if ((exportReadiness.failed_quality_checks?.length ?? 0) > 0) return true;
+  if ((exportReadiness.unknown_quality_checks?.length ?? 0) > 0) return true;
+  return Object.values(exportReadiness.quality_check_states ?? {}).some((state) => state !== "current");
+}
+
+function qualityPrimaryActionLabel(exportReadiness: ExportReadiness | null | undefined): string {
+  const hasMissingOrUnknown = Boolean(
+    (exportReadiness?.missing_quality_checks?.length ?? 0) > 0
+      || (exportReadiness?.unknown_quality_checks?.length ?? 0) > 0
+      || Object.values(exportReadiness?.quality_check_states ?? {}).some(
+        (state) => state === "missing" || state === "unknown",
+      ),
+  );
+  return hasMissingOrUnknown || exportReadiness?.quality_done === false
+    ? "运行质量检查"
+    : "重新质量检查";
+}
+
+function primaryActionFromNextAction(
+  exportReadiness: ExportReadiness | null | undefined,
+  facts: DocumentRepairFacts,
+): DocumentRepairState["primaryAction"] | null {
+  if (!exportReadiness) return null;
+  if (exportReadiness.export_allowed || exportReadiness.next_action === "export_ready" || facts.exportReady) {
+    return { label: "导出正式稿", targetSection: "export" };
+  }
+  if (exportReadiness.next_action === "generate_draft") {
+    return { label: "生成内部初稿", targetSection: "workbench" };
+  }
+  if (exportReadiness.next_action === "run_quality_checks") {
+    return { label: qualityPrimaryActionLabel(exportReadiness), targetSection: "workbench" };
+  }
+  if (exportReadiness.next_action === "run_official_compile") {
+    return { label: facts.latestOfficialCompile ? "重新编译正式稿" : "生成正式稿", targetSection: "workbench" };
+  }
+  if (exportReadiness.next_action === "run_post_draft_review") {
+    if (facts.blockingIssues.length > 0) return { label: "进入标注修复", targetTab: "annotated" };
+    return { label: facts.latestPostDraftReview ? "重新成稿会审" : "启动成稿会审", targetSection: "workbench" };
+  }
+  return null;
 }
 
 function deriveInternalDraftCard(
@@ -1013,7 +1064,7 @@ function qualityGateDetail(state: GateState): string {
   if (state === "运行失败") return "质量检查失败，需要重新运行。";
   if (state === "运行中") return "质量检查正在运行。";
   if (state === "等待生成") return "等待内部初稿生成。";
-  return "需要重新验证当前内部初稿。";
+  return "质量检查需要重新验证当前内部初稿。";
 }
 
 function officialCompileGateDetail(state: GateState): string {
