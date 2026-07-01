@@ -376,7 +376,8 @@ def test_ci_runs_golden_release_gate_after_backend_quality_gate() -> None:
     ci = CI_PATH.read_text(encoding="utf-8")
 
     assert "python scripts/v1_api_smoke.py --report-dir .artifacts/v1.1.0-quality" in ci
-    assert "python scripts/golden_quality_gate.py --strict --report-path .artifacts/golden-quality-gate.json" in ci
+    assert "python scripts/golden_quality_gate.py --report-path .artifacts/golden-quality-gate.json" in ci
+    assert "python scripts/golden_quality_gate.py --strict --report-path .artifacts/golden-quality-gate.json" not in ci
 
 
 def _write_case(

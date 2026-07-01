@@ -41,10 +41,10 @@ The reusable browser script is:
    - Fix: make the happy-path fake backend generate clean claims and passing post-draft review payloads.
    - Regression: `tests/test_browser_evidence_backend.py`.
 
-6. Official compile missed "内部备注" residual text
-   - Symptom: a formal compile run could complete even when official claims still contained "注：内部备注".
-   - Fix: add "内部备注" to backend residual internal patterns and frontend official contamination scanning.
-   - Regression: `tests/test_official_compile.py` and `frontend/src/lib/officialContamination.test.ts`.
+6. Official warning missed "内部备注" residual text
+   - Symptom: a formal compile run could complete even when official claims still contained "注：内部备注"; hard-blocking this at compile time broke post-draft repair sessions that intentionally diagnose and repair such residual text.
+   - Fix: keep backend compile pass-through for the repair gate and add "内部备注" to frontend official contamination scanning.
+   - Regression: `tests/test_official_compile.py`, `tests/test_post_draft_repair.py`, and `frontend/src/lib/officialContamination.test.ts`.
 
 7. Browser waiting strategy was too brittle
    - Symptom: fixed sleeps falsely reported failures while the app was still refreshing or had moved to different copy.

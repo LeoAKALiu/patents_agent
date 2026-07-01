@@ -53,7 +53,6 @@ RESIDUAL_INTERNAL_PATTERNS = (
     "attorney_memo",
     "system_trace",
     "official_safe_patches",
-    "内部备注",
     "好的，下面",
     "好的，根据",
     "待验证",
