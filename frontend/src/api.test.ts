@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildProjectCorpusVersion,
+  checkEvidenceSourceConfig,
   createProjectSearchIntent,
   cancelFormulaRun,
   cancelPostDraftReview,
@@ -12,6 +13,7 @@ import {
   applyOfficialCompileCleanup,
   getHealth,
   importPatent,
+  listEvidenceSources,
   retryFormulaRun,
   retryPostDraftReview,
   retryProjectDeliberation,
@@ -21,8 +23,10 @@ import {
   startPostDraftReview,
   startKimiOfficialLanguagePolish,
   updateProjectKnowledgeCandidate,
+  updateEvidenceSourceConfig,
   uploadCorpusJobFile,
   uploadProjectMaterial,
+  type EvidenceSourceConfig,
 } from "./api";
 
 describe("runtime control API", () => {
@@ -250,5 +254,101 @@ describe("runtime control API", () => {
     expect(requests[2].init?.method).toBe("POST");
     expect(requests[4].init?.method).toBe("PATCH");
     expect(requests[5].init?.body).toBe(JSON.stringify({ plan_id: "plan-1" }));
+  });
+});
+
+describe("evidence source api", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("lists evidence sources", async () => {
+    const sources: EvidenceSourceConfig[] = [
+      {
+        source_id: "patsnap_api",
+        display_name: "智慧芽 PatSnap",
+        source_type: "patent",
+        evidence_tier: "primary_patent",
+        enabled: true,
+        status: "not_configured",
+        base_url: "https://connect.zhihuiya.com",
+        api_key_present: false,
+        api_key_masked: "",
+        api_key_source: "none",
+        last_checked_at: "",
+        last_error: "",
+        application_url: "https://open.zhihuiya.com/",
+        docs_url: "https://open.zhihuiya.com/devportal",
+        guidance: "配置智慧芽 API key 后可启用中文及全球专利主检索。",
+        can_satisfy_patent_gate: true,
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ sources }), { status: 200 })),
+    );
+
+    await expect(listEvidenceSources()).resolves.toEqual(sources);
+  });
+
+  it("updates evidence source config without requiring caller to include raw key in response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            source_id: "patsnap_api",
+            display_name: "智慧芽 PatSnap",
+            source_type: "patent",
+            evidence_tier: "primary_patent",
+            enabled: true,
+            status: "configured",
+            base_url: "https://connect.zhihuiya.com",
+            api_key_present: true,
+            api_key_masked: "••••1234",
+            api_key_source: "local",
+            last_checked_at: "",
+            last_error: "",
+            application_url: "https://open.zhihuiya.com/",
+            docs_url: "https://open.zhihuiya.com/devportal",
+            guidance: "配置智慧芽 API key 后可启用中文及全球专利主检索。",
+            can_satisfy_patent_gate: true,
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const result = await updateEvidenceSourceConfig("patsnap_api", { api_key: "secret-1234", enabled: true });
+
+    expect(result.api_key_masked).toBe("••••1234");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/evidence-sources/patsnap_api/config",
+      expect.objectContaining({ method: "PUT" }),
+    );
+  });
+
+  it("checks evidence source config", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            source_id: "wanfang_api",
+            ok: true,
+            status: "configured",
+            detail: "configured_local_check_only",
+            live_search_available: false,
+            last_checked_at: "2026-07-01T00:00:00Z",
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    await expect(checkEvidenceSourceConfig("wanfang_api")).resolves.toMatchObject({
+      source_id: "wanfang_api",
+      live_search_available: false,
+    });
   });
 });

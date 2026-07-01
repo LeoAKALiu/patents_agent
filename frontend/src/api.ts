@@ -700,6 +700,46 @@ export interface DesktopConfigHealthResult {
   error: string;
 }
 
+export type EvidenceSourceType = "patent" | "non_patent_literature" | "web_discovery";
+export type EvidenceTier = "primary_patent" | "supplemental_literature" | "discovery_signal";
+export type EvidenceSourceStatus = "not_configured" | "configured" | "unavailable" | "quota_limited";
+export type EvidenceSourceKeySource = "env" | "local" | "none";
+
+export interface EvidenceSourceConfig {
+  source_id: string;
+  display_name: string;
+  source_type: EvidenceSourceType;
+  evidence_tier: EvidenceTier;
+  enabled: boolean;
+  status: EvidenceSourceStatus;
+  base_url: string;
+  api_key_present: boolean;
+  api_key_masked: string;
+  api_key_source: EvidenceSourceKeySource;
+  last_checked_at: string;
+  last_error: string;
+  application_url: string;
+  docs_url: string;
+  guidance: string;
+  can_satisfy_patent_gate: boolean;
+}
+
+export interface EvidenceSourceConfigPatch {
+  api_key?: string;
+  clear_api_key?: boolean;
+  base_url?: string;
+  enabled?: boolean;
+}
+
+export interface EvidenceSourceCheckResult {
+  source_id: string;
+  ok: boolean;
+  status: EvidenceSourceStatus;
+  detail: string;
+  live_search_available: boolean;
+  last_checked_at: string;
+}
+
 export interface AgentProviderStatus {
   id: string;
   label: string;
@@ -1000,6 +1040,8 @@ export interface ProjectKnowledgeState {
   claim_coverage: number;
   fulltext_coverage: number;
   quality_flags: string[];
+  patent_document_count?: number;
+  non_patent_document_count?: number;
 }
 
 export interface SearchIntent {
@@ -1072,6 +1114,8 @@ export interface PriorArtCandidate {
   user_decision: "pending" | "include" | "exclude";
   metadata: Record<string, unknown>;
   created_at: string;
+  evidence_kind?: "patent" | "non_patent_literature" | "web_discovery";
+  can_satisfy_patent_gate?: boolean;
 }
 
 export interface ProjectCorpusVersion {
@@ -1096,6 +1140,7 @@ export interface ProjectKnowledgeOverview {
   latest_plan: AgentSearchPlan | null;
   candidates: PriorArtCandidate[];
   latest_corpus_version: ProjectCorpusVersion | null;
+  source_statuses?: EvidenceSourceConfig[];
 }
 
 export interface CorpusStats {
@@ -1140,6 +1185,28 @@ export async function checkDesktopConfigHealth(): Promise<DesktopConfigHealthRes
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
+  });
+}
+
+export async function listEvidenceSources(): Promise<EvidenceSourceConfig[]> {
+  const data = await request<{ sources: EvidenceSourceConfig[] }>("/api/evidence-sources");
+  return data.sources;
+}
+
+export async function updateEvidenceSourceConfig(
+  sourceId: string,
+  payload: EvidenceSourceConfigPatch,
+): Promise<EvidenceSourceConfig> {
+  return request<EvidenceSourceConfig>(`/api/evidence-sources/${sourceId}/config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function checkEvidenceSourceConfig(sourceId: string): Promise<EvidenceSourceCheckResult> {
+  return request<EvidenceSourceCheckResult>(`/api/evidence-sources/${sourceId}/check`, {
+    method: "POST",
   });
 }
 
