@@ -116,6 +116,26 @@ Files changed for Task 5:
 Concerns:
 - None.
 
+Task 5 final reviewer fix:
+- Source identity verified before edits:
+  - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+  - Branch: `codex/cnipa-official-export-design`
+  - Short SHA: `4fbb1cab`
+  - Dirty status: dirty from pre-existing `.superpowers/sdd/progress.md`, `task-1-report.md`, `task-2-report.md`, and `task-3-report.md`
+- Updated `frontend/src/App.tsx` so `handleGenerateKnowledgePlan()` keeps the new main overview visible while isolating CNIPA supplemental failures:
+  - query-pack fetches are now wrapped in a local `try/catch`
+  - stale CNIPA query-pack state is cleared on failure
+  - stale import ledgers are cleared on failure
+  - if the new plan has a latest plan id, ledger loading now happens in the same isolated block
+- Added a focused regression assertion in `frontend/src/AppRefreshEffect.test.ts` for the plan-generation path so stale ledgers are explicitly cleared when CNIPA supplemental loading fails.
+
+Verification:
+- `npm --prefix frontend test -- --run src/api.test.ts src/projectKnowledgeView.test.tsx src/features/corpus/CorpusWorkspace.test.tsx src/AppRefreshEffect.test.ts`: passed, 4 files / 28 tests
+- `npm --prefix frontend run build`: passed
+
+Concerns:
+- None.
+
 Task 5 reviewer fix 2 report:
 - Source identity verified before edits:
   - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`

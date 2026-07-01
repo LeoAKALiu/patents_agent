@@ -1362,12 +1362,27 @@ function App() {
         return;
       }
       setProjectKnowledge(overview);
-      const queryPack = await getProjectCnipaQueryPack(projectId);
-      if (selectedProjectIdRef.current !== projectId) {
-        return;
+      try {
+        const queryPack = await getProjectCnipaQueryPack(projectId);
+        if (selectedProjectIdRef.current !== projectId) {
+          return;
+        }
+        setCnipaQueryPack(queryPack);
+        if (overview.latest_plan) {
+          const ledgers = await listProjectKnowledgeImportLedgers(projectId, overview.latest_plan.id);
+          if (selectedProjectIdRef.current !== projectId) {
+            return;
+          }
+          setProjectKnowledgeImportLedgers(ledgers);
+        } else {
+          setProjectKnowledgeImportLedgers([]);
+        }
+      } catch {
+        if (selectedProjectIdRef.current === projectId) {
+          setCnipaQueryPack(null);
+          setProjectKnowledgeImportLedgers([]);
+        }
       }
-      setCnipaQueryPack(queryPack);
-      setProjectKnowledgeImportLedgers([]);
       setMessage("已生成 Agent 检索计划。");
     });
   }
