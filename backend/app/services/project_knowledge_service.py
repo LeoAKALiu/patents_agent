@@ -68,7 +68,7 @@ def _candidate_has_claims(candidate: PriorArtCandidate) -> bool:
 def _candidate_has_explicit_fulltext_metadata(candidate: PriorArtCandidate) -> bool:
     return any(
         bool(str(candidate.metadata.get(key) or "").strip())
-        for key in ("fulltext", "fulltext_text", "fulltext_content", "fulltext_path", "fulltext_file")
+        for key in ("fulltext", "fulltext_text", "fulltext_content")
     )
 
 

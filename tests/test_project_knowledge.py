@@ -829,6 +829,48 @@ def test_cnipa_claims_without_description_needs_partial_fulltext_search(tmp_path
     assert "cnipa_export_missing_claims" not in result.state.quality_flags
 
 
+def test_cnipa_attachment_metadata_does_not_count_as_fulltext(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-cn-attachment-only",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="cnipa_official_export",
+            title="城市体检方法",
+            publication_number="CN112233445A",
+            url="",
+            fulltext_status="available",
+            user_decision="include",
+            metadata={
+                "claims": "1. 一种城市体检方法。",
+                "fulltext_path": "/tmp/CN112233445A.pdf",
+                "fulltext_file": "CN112233445A.pdf",
+            },
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=1,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "needs_supplemental_search"
+    assert result.state.claim_coverage == 1.0
+    assert result.state.fulltext_coverage == 0.0
+    assert "cnipa_export_partial_fulltext" in result.state.quality_flags
+    assert "cnipa_export_metadata_only" not in result.state.quality_flags
+
+
 def test_create_project_corpus_non_patent_candidates_do_not_make_corpus_ready(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = build_project_record(ProjectCreate(name="城市体检智能体", draft_text="任务编排和证据链复核。"))
