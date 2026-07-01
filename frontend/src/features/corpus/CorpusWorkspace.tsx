@@ -1,8 +1,8 @@
 import type { FormEvent } from "react";
 
-import { CorpusBuildView, type CorpusJobForm } from "@/views/corpusBuildView";
-import { ProjectKnowledgeView } from "@/views/projectKnowledgeView";
 import { CorpusView } from "@/views/projectViews";
+import { ProjectKnowledgeView } from "@/views/projectKnowledgeView";
+import type { CorpusJobForm } from "@/views/corpusBuildView";
 
 import type {
   CnipaQueryPack,
@@ -90,19 +90,6 @@ export function CorpusWorkspace({ tool, state, handlers }: CorpusWorkspaceProps)
         }
         onBuildProjectCorpus={() => void handlers.onBuildProjectCorpus()}
         onImportCnipaExport={(file) => void handlers.onImportCnipaExport(file)}
-        advancedFallback={
-          <CorpusBuildView
-            form={state.corpusJobForm}
-            job={state.corpusJob}
-            versions={state.corpusVersions}
-            stats={state.corpusStats}
-            busy={state.busy}
-            onFormChange={handlers.onCorpusFormChange}
-            onCreateJob={(event) => void handlers.onCreateCorpusJob(event)}
-            onUploadFile={(event) => void handlers.onUploadCorpusJobFile(event)}
-            onRunJob={() => void handlers.onRunCorpusJob()}
-          />
-        }
       />
     );
   }

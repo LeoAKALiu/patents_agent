@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
 import type {
   CnipaQueryPack,
@@ -194,7 +194,6 @@ export function ProjectKnowledgeView({
   onCandidateDecision,
   onBuildProjectCorpus,
   onImportCnipaExport,
-  advancedFallback,
 }: {
   selectedProject: ProjectRecord | null;
   knowledge: ProjectKnowledgeOverview | null;
@@ -209,7 +208,6 @@ export function ProjectKnowledgeView({
   ) => void;
   onBuildProjectCorpus: () => void;
   onImportCnipaExport?: (file: File) => void;
-  advancedFallback?: ReactNode;
 }) {
   const [copyFeedback, setCopyFeedback] = useState("");
 
@@ -640,17 +638,6 @@ export function ProjectKnowledgeView({
         )}
       </section>
 
-      {advancedFallback && (
-        <details className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-6">
-          <summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">
-            <span className="inline-flex items-center gap-2">
-              <RefreshCw size={16} />
-              从本地文件补充语料
-            </span>
-          </summary>
-          <div className="mt-4">{advancedFallback}</div>
-        </details>
-      )}
     </div>
   );
 }

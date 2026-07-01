@@ -325,6 +325,7 @@ describe("ProjectKnowledgeView", () => {
     expect(screen.getByRole("button", { name: "复制 CNIPA 检索式" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制该策略检索式" })).toBeInTheDocument();
     expect(container.querySelector('input[type="file"]')).toHaveAttribute("accept", ".csv,.xlsx,.zip");
+    expect(screen.queryByText("从本地文件补充语料")).not.toBeInTheDocument();
     expect(screen.queryByText(/CNIPA_EPUB_SEARCH_SCRIPT/)).not.toBeInTheDocument();
   });
 

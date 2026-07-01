@@ -116,6 +116,23 @@ Files changed for Task 5:
 Concerns:
 - None.
 
+Task 5 final reviewer fix 3 report:
+- Source identity verified before edits:
+  - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+  - Branch: `codex/cnipa-official-export-design`
+  - Short SHA: `cdb99384`
+  - Dirty status: dirty from pre-existing `.superpowers/sdd/progress.md`, `task-1-report.md`, `task-2-report.md`, and `task-3-report.md`
+- Removed the legacy `advancedFallback` render path from the ordinary Project Knowledge CNIPA workflow so the main screen no longer exposes `从本地文件补充语料`.
+- Kept the CNIPA official export panel as the ordinary import path and left the separate corpus build tool untouched.
+- Tightened regression coverage to assert the ordinary CNIPA screen and the corpus workspace do not show the fallback copy anymore.
+
+Verification:
+- `npm --prefix frontend test -- --run src/api.test.ts src/projectKnowledgeView.test.tsx src/features/corpus/CorpusWorkspace.test.tsx src/AppRefreshEffect.test.ts`: passed, 4 files / 28 tests
+- `npm --prefix frontend run build`: passed
+
+Concerns:
+- None.
+
 Task 5 final reviewer fix:
 - Source identity verified before edits:
   - Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
