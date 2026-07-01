@@ -3,6 +3,7 @@ from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
+import backend.app.api.project_knowledge as project_knowledge_api
 from backend.app.knowledge.patent_search import StaticPatentSearchProvider
 from backend.app.llm import FakeLLMClient
 from backend.app.main import create_app
@@ -112,6 +113,37 @@ def test_project_knowledge_cnipa_export_upload_cleans_stored_file_on_validation_
     )
 
     assert response.status_code == 400
+    upload_dir = tmp_path / "project-knowledge" / project_id / "cnipa-imports"
+    assert upload_dir.exists()
+    assert list(upload_dir.iterdir()) == []
+
+
+def test_project_knowledge_cnipa_export_upload_cleans_stored_file_on_unexpected_import_failure(
+    tmp_path: Path, monkeypatch
+):
+    client = _test_app_without_env(tmp_path)
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "城市体检智能体",
+            "draft_text": "通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        },
+    ).json()["id"]
+    plan_id = client.post(f"/api/projects/{project_id}/knowledge/search-intent").json()["latest_plan"]["id"]
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("corrupt workbook")
+
+    monkeypatch.setattr(project_knowledge_api, "import_cnipa_official_export", _boom)
+
+    response = client.post(
+        f"/api/projects/{project_id}/knowledge/cnipa-export-imports",
+        data={"plan_id": plan_id},
+        files={"file": ("cnipa.zip", b"not-a-real-zip", "application/zip")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Failed to import CNIPA export."
     upload_dir = tmp_path / "project-knowledge" / project_id / "cnipa-imports"
     assert upload_dir.exists()
     assert list(upload_dir.iterdir()) == []

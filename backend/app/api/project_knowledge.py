@@ -121,6 +121,9 @@ async def import_project_cnipa_export(
     except ValueError as exc:
         stored_path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        stored_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Failed to import CNIPA export.") from exc
     ledgers = request.app.state.store.list_project_knowledge_import_ledgers(project_id, plan_id)
     return {"overview": overview.model_dump(mode="json"), "ledger": ledgers[0].model_dump(mode="json")}
 
