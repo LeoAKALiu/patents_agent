@@ -157,6 +157,7 @@ from backend.app.settings import Settings, build_settings
 from backend.app.storage import SQLiteStore
 
 from backend.app.api.desktop_config import router as desktop_config_router
+from backend.app.api.evidence_sources import router as evidence_sources_router
 from backend.app.api.system import router as system_router
 from backend.app.api.corpus import router as corpus_router
 from backend.app.api.project_knowledge import router as project_knowledge_router
@@ -241,6 +242,7 @@ def create_app(
     )
     app.include_router(system_router)
     app.include_router(desktop_config_router)
+    app.include_router(evidence_sources_router)
     app.include_router(corpus_router)
     app.include_router(projects_router)
     app.include_router(project_knowledge_router)

@@ -1,61 +1,34 @@
-# Task 2 Report: CNIPA Official Export Importer
+# Task 2 Report: Evidence Source API Router
 
-- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
-- Branch: `codex/cnipa-official-export-design`
-- Base SHA at start: `4bcc1748`
-- Dirty at start: yes (`.superpowers/sdd/progress.md`, `.superpowers/sdd/task-1-report.md`)
+- Branch: `codex/commercial-evidence-provider-skeleton`
+- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/commercial-evidence-provider-skeleton`
+- Short SHA at start: `4498c15e`
+- Tree status at start: dirty, with pre-existing edits in `.superpowers/sdd/progress.md` and `.superpowers/sdd/task-1-report.md`
 
-## Completed
+## What changed
 
-- Added CNIPA import result models in [backend/app/schemas.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/backend/app/schemas.py).
-- Added the official export importer in [backend/app/knowledge/cnipa_export.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/backend/app/knowledge/cnipa_export.py).
-- Added focused importer coverage in [tests/test_cnipa_export_importer.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/tests/test_cnipa_export_importer.py).
+- Added `backend/app/api/evidence_sources.py` with the FastAPI router for:
+  - `GET /api/evidence-sources`
+  - `PUT /api/evidence-sources/{source_id}/config`
+  - `POST /api/evidence-sources/{source_id}/check`
+- Registered the router in `backend/app/main.py`.
+- Added API integration tests in `tests/test_evidence_sources_api.py`.
 
-## TDD Notes
+## Behavior verified
 
-1. Added the importer tests first from the task brief.
-2. Verified red state with:
-   - `python3 -m pytest tests/test_cnipa_export_importer.py -q`
-   - Failure: `ModuleNotFoundError: No module named 'backend.app.knowledge.cnipa_export'`
-3. Implemented the minimal importer module and result schemas required by the tests and brief.
-4. Verified green state with:
-   - `python3 -m pytest tests/test_cnipa_export_importer.py tests/test_patent_sources.py tests/test_patent_search_providers.py -q`
-   - Result: `21 passed in 0.25s`
+- Evidence source listings return redacted setup guidance.
+- PatSnap is reported as `not_configured` by default, with patent-gate support marked `true`.
+- Wanfang is reported with `can_satisfy_patent_gate = false`.
+- Config updates never echo raw secrets.
+- Config checks stay local-only and return the expected structured result.
+- Unknown source IDs return 404.
 
-## Scope Guard
+## Test run
 
-- Did not modify the dirty primary checkout.
-- Did not commit `.superpowers` scratch/report files.
-- Implemented Task 2 only; no Task 3 API, storage, or frontend work was started.
+- `python3 -m pytest tests/test_evidence_sources.py tests/test_evidence_sources_api.py -q`
+- Result: `10 passed`
 
-## Self Review
+## Notes
 
-- Reused `CNIPA_OFFICIAL_EXPORT_SOURCE` rather than hard-coding a divergent source identifier in produced hits.
-- Preserved the brief’s field aliases, ZIP attachment warning behavior, row-level failure reporting, file hashing, and `PatentSearchHit` output contract.
-- Kept the importer isolated to parsing and normalization; it does not store, fetch, or expose data through new APIs.
-- No scoped issues found after reviewing the diff and rerunning focused tests.
-
-## Task 2 Review Fixes
-
-- Worktree: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
-- Branch: `codex/cnipa-official-export-design`
-- Base SHA at fix start: `133c789b`
-- Dirty at fix start: yes (`.superpowers/sdd/progress.md`, `.superpowers/sdd/task-1-report.md`, `.superpowers/sdd/task-2-report.md`)
-
-### Fix Summary
-
-- Added plausible CN identifier validation in [backend/app/knowledge/cnipa_export.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/backend/app/knowledge/cnipa_export.py) so rows without a CN-style publication or application identifier fail with `invalid_cn_identifier` and do not produce hits.
-- Added `attachments` to [backend/app/schemas.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/backend/app/schemas.py) and aligned ZIP attachment warnings to the exact returned behavior: basenames are reported, no storage is claimed, and no candidates are generated from attachments.
-- Added ZIP member-count and uncompressed-size guardrails in the importer so oversized or excess members are skipped safely and recorded as failures.
-- Expanded [tests/test_cnipa_export_importer.py](/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design/tests/test_cnipa_export_importer.py) to cover non-CN identifier rejection, attachment reporting, and ZIP safety limits while keeping the happy-path cases green.
-
-### Verification
-
-- `python3 -m pytest tests/test_cnipa_export_importer.py tests/test_patent_sources.py tests/test_patent_search_providers.py -q`
-- Result: `23 passed in 0.26s`
-
-### Scope Guard
-
-- Kept the fix within `backend/app/knowledge/cnipa_export.py`, `backend/app/schemas.py`, and `tests/test_cnipa_export_importer.py`.
-- Did not modify the dirty primary checkout.
-- Did not commit `.superpowers` scratch/report files.
+- Task 1 artifacts were left untouched.
+- No additional frontend or packaging files were modified.
