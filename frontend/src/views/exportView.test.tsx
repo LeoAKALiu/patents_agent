@@ -535,7 +535,7 @@ describe("ExportView quality gate copy", () => {
     expect(screen.getByText(/1\. 一种方法。1\. 一种方法。/)).toBeInTheDocument();
   });
 
-  it("unlocks formal export actions from backend readiness even when local compile state is stale", () => {
+  it("unlocks formal export actions from backend readiness even when local compile state is absent", () => {
     const View = ExportView as any;
 
     render(
@@ -543,30 +543,7 @@ describe("ExportView quality gate copy", () => {
         project={{ id: "p-1", name: "输入数据处理", draft_text: "draft", package: packageValue }}
         packageValue={packageValue}
         postDraftReview={null}
-        officialCompileRun={{
-          id: "compile-stale",
-          project_id: "p-1",
-          status: "completed",
-          source_draft_hash: "stale-source-hash",
-          official_package_hash: "official-ready-hash",
-          official_package: {
-            title: "一种输入数据处理方法",
-            abstract: "摘要",
-            claims: "1. 一种方法。",
-            description: "说明书",
-            drawing_description: "图1为流程图。",
-            figure_plan: [],
-            compile_warnings: [],
-            source_draft_hash: "stale-source-hash",
-            official_package_hash: "official-ready-hash",
-          },
-          contamination_removed: [],
-          blocked_items: [],
-          sidecar_notes: [],
-          logs: [],
-          created_at: "2026-06-28T00:00:00Z",
-          updated_at: "2026-06-28T00:00:00Z",
-        }}
+        officialCompileRun={null}
         exportReadiness={{
           export_allowed: true,
           draft_required: false,
@@ -576,7 +553,7 @@ describe("ExportView quality gate copy", () => {
           next_action: "export_ready",
           reason: "ready",
           quality_done: true,
-          compile_status: "completed",
+          compile_status: "missing",
           official_package_hash: "official-ready-hash",
           current_source_draft_hash: "source-hash",
           review_gate_status: "passed",
