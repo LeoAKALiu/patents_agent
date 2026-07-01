@@ -28,10 +28,15 @@ import { DARK_MODE_ENABLED, type ThemeMode } from "./ui/useTheme";
 import {
   DesktopConfigHealthResult,
   DesktopConfigView,
+  EvidenceSourceConfig,
+  EvidenceSourceStatus,
+  checkEvidenceSourceConfig,
   checkDesktopConfigHealth,
   clearDesktopConfigKey,
   getDesktopConfig,
+  listEvidenceSources,
   updateDesktopConfig,
+  updateEvidenceSourceConfig,
 } from "./api";
 import { userFacingAppErrorMessage, userFacingErrorCopy } from "./runtimeDisplay";
 
@@ -47,6 +52,11 @@ type HealthStatus =
   | { kind: "ok"; result: DesktopConfigHealthResult }
   | { kind: "no-key" }
   | { kind: "error"; result: DesktopConfigHealthResult };
+
+type EvidenceSourceFeedback =
+  | { kind: "idle" }
+  | { kind: "ok"; message: string }
+  | { kind: "error"; message: string };
 
 function apiKeySourceLabel(source: DesktopConfigView["api_key_source"]): string {
   if (source === "env") return "环境变量";
@@ -67,6 +77,10 @@ export interface SettingsPanelProps {
 
 export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
   const [view, setView] = useState<DesktopConfigView | null>(null);
+  const [evidenceSources, setEvidenceSources] = useState<EvidenceSourceConfig[]>([]);
+  const [evidenceSourceInputs, setEvidenceSourceInputs] = useState<Record<string, { apiKey: string; baseUrl: string }>>({});
+  const [evidenceSourceFeedback, setEvidenceSourceFeedback] = useState<EvidenceSourceFeedback>({ kind: "idle" });
+  const [evidenceSourceLoadError, setEvidenceSourceLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [provider, setProvider] = useState("deepseek");
@@ -81,6 +95,7 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
   const load = async () => {
     setLoading(true);
     setLoadError("");
+    setEvidenceSourceLoadError("");
     try {
       const data = await getDesktopConfig();
       setView(data);
@@ -89,11 +104,32 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
       setModel(data.model);
       setApiKeyInput("");
       setClearRequested(false);
+      setEvidenceSourceFeedback({ kind: "idle" });
     } catch (err) {
       setLoadError(userFacingAppErrorMessage(err, { fallbackTitle: "设置加载失败" }));
-    } finally {
+      setEvidenceSources([]);
+      setEvidenceSourceInputs({});
+      setEvidenceSourceFeedback({ kind: "idle" });
       setLoading(false);
+      return;
     }
+
+    try {
+      const sources = await listEvidenceSources();
+      setEvidenceSources(sources);
+      setEvidenceSourceInputs(
+        Object.fromEntries(
+          sources.map((source) => [source.source_id, { apiKey: "", baseUrl: source.base_url }]),
+        ),
+      );
+    } catch (err) {
+      setEvidenceSources([]);
+      setEvidenceSourceInputs({});
+      setEvidenceSourceLoadError(
+        userFacingAppErrorMessage(err, { fallbackTitle: "数据源配置加载失败" }),
+      );
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -167,6 +203,64 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
       setSaveStatus({
         kind: "error",
         message: userFacingAppErrorMessage(err, { fallbackTitle: "密钥清除失败" }),
+      });
+    }
+  };
+
+  const handleSaveEvidenceSource = async (source: EvidenceSourceConfig) => {
+    const input = evidenceSourceInputs[source.source_id] ?? { apiKey: "", baseUrl: source.base_url };
+    try {
+      const updated = await updateEvidenceSourceConfig(source.source_id, {
+        api_key: input.apiKey || undefined,
+        base_url: input.baseUrl || undefined,
+        enabled: source.enabled,
+      });
+      setEvidenceSources((current) => current.map((item) => (item.source_id === updated.source_id ? updated : item)));
+      setEvidenceSourceInputs((current) => ({
+        ...current,
+        [source.source_id]: { apiKey: "", baseUrl: updated.base_url },
+      }));
+      setEvidenceSourceFeedback({ kind: "ok", message: `${source.display_name} 配置已保存` });
+    } catch (err) {
+      setEvidenceSourceFeedback({
+        kind: "error",
+        message: `${source.display_name} 保存失败：${userFacingAppErrorMessage(err, { fallbackTitle: "请检查配置后重试" })}`,
+      });
+    }
+  };
+
+  const evidenceSourceCheckFailureMessage = (sourceName: string, status: EvidenceSourceStatus, detail: string) => {
+    const suffix = detail ? `：${detail}` : "";
+    if (status === "not_configured") {
+      return `${sourceName} 尚未配置 API key${suffix}`;
+    }
+    if (status === "unavailable") {
+      return `${sourceName} 当前不可用，请稍后重试${suffix}`;
+    }
+    if (status === "quota_limited") {
+      return `${sourceName} 已触发额度限制，请检查套餐或稍后再试${suffix}`;
+    }
+    return `${sourceName} 检查失败，请稍后重试${suffix}`;
+  };
+
+  const handleCheckEvidenceSource = async (source: EvidenceSourceConfig) => {
+    try {
+      const result = await checkEvidenceSourceConfig(source.source_id);
+      if (result.ok) {
+        setEvidenceSourceFeedback({
+          kind: "ok",
+          message: `${source.display_name} 本地配置已就绪，真实检索接口仍保持关闭。`,
+        });
+        return;
+      }
+      setEvidenceSourceFeedback({
+        kind: "error",
+        message: evidenceSourceCheckFailureMessage(source.display_name, result.status, result.detail),
+      });
+    } catch (err) {
+      setEvidenceSourceFeedback({
+        kind: "error",
+        message: `${source.display_name} 检查失败：${userFacingAppErrorMessage(err, { fallbackTitle: "请稍后重试" })}`,
       });
     }
   };
@@ -403,6 +497,112 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
           )}
         </div>
       )}
+
+      <section className="mt-6 pt-6 border-t border-app-border settings-group">
+        <div className="settings-group-header mb-4">
+          <div>
+            <h3>数据源</h3>
+            <p className="section-copy">
+              配置商业专利库和非专利文献库。未配置时只显示接入指引，不会被当作检索失败。
+            </p>
+          </div>
+        </div>
+        <div className="settings-source-grid grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {evidenceSources.map((source) => {
+            const input = evidenceSourceInputs[source.source_id] ?? { apiKey: "", baseUrl: source.base_url };
+            return (
+              <article
+                className="settings-source-card flex flex-col gap-3 p-4 rounded-lg border border-app-border bg-app-surface"
+                key={source.source_id}
+              >
+                <div className="settings-source-card-header flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-app-fg">{source.display_name}</h4>
+                    <p className="text-sm text-app-muted">
+                      {source.can_satisfy_patent_gate ? "专利主证据源" : "非专利文献补强源"}
+                    </p>
+                  </div>
+                  <span className="status-pill">
+                    {source.status === "configured" ? "已配置" : "未配置"}
+                  </span>
+                </div>
+                <p className="text-sm text-[var(--text-primary)]/65">{source.guidance}</p>
+                {!source.can_satisfy_patent_gate && (
+                  <p className="text-sm text-[var(--text-primary)]/65">
+                    万方命中只用于背景技术和创造性论证补强，不替代专利证据门控。
+                  </p>
+                )}
+                <label className="settings-field">
+                  <span>{source.display_name} API Key</span>
+                  <input
+                    aria-label={`${source.display_name} API Key`}
+                    onChange={(event) =>
+                      setEvidenceSourceInputs((current) => ({
+                        ...current,
+                        [source.source_id]: { ...input, apiKey: event.target.value },
+                      }))
+                    }
+                    type="password"
+                    value={input.apiKey}
+                  />
+                </label>
+                <label className="settings-field">
+                  <span>Base URL</span>
+                  <input
+                    onChange={(event) =>
+                      setEvidenceSourceInputs((current) => ({
+                        ...current,
+                        [source.source_id]: { ...input, baseUrl: event.target.value },
+                      }))
+                    }
+                    value={input.baseUrl}
+                  />
+                </label>
+                {source.api_key_masked && <p>{source.api_key_masked}</p>}
+                <div className="settings-source-actions flex flex-wrap gap-2">
+                  <Button type="button" onClick={() => void handleSaveEvidenceSource(source)}>
+                    保存{source.display_name}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => void handleCheckEvidenceSource(source)}>
+                    测试配置
+                  </Button>
+                  <a
+                    className="inline-flex items-center text-sm font-medium text-app-fg underline-offset-4 hover:underline"
+                    href={source.application_url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    申请入口
+                  </a>
+                  <a
+                    className="inline-flex items-center text-sm font-medium text-app-fg underline-offset-4 hover:underline"
+                    href={source.docs_url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    文档
+                  </a>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        {evidenceSourceLoadError && (
+          <p className="settings-feedback err mt-3" data-testid="evidence-source-load-error">
+            <AlertTriangle size={14} /> 数据源配置加载失败：{evidenceSourceLoadError}
+          </p>
+        )}
+        {evidenceSourceFeedback.kind === "ok" && (
+          <p className="settings-feedback ok mt-3" data-testid="evidence-source-feedback">
+            <CheckCircle2 size={14} /> {evidenceSourceFeedback.message}
+          </p>
+        )}
+        {evidenceSourceFeedback.kind === "error" && (
+          <p className="settings-feedback err mt-3" data-testid="evidence-source-feedback">
+            <AlertTriangle size={14} /> {evidenceSourceFeedback.message}
+          </p>
+        )}
+      </section>
 
       <div className="mt-6 pt-6 border-t border-app-border">
         <h4 className="text-sm font-semibold text-app-fg mb-3">外观</h4>

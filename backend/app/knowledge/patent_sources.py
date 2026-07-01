@@ -6,13 +6,25 @@ from backend.app.schemas import (
     CnipaQueryPackStrategy,
     PatentSourceCapability,
     SearchIntent,
+    SearchPlanStrategyGroup,
 )
 
+PATSNAP_API_SOURCE = "patsnap_api"
 CNIPA_OFFICIAL_EXPORT_SOURCE = "cnipa_official_export"
 CNIPA_AUTHORIZED_API_SOURCE = "cnipa_authorized_api"
 CNIPA_LEGACY_EPUB_SOURCE = "cnipa_epub"
 WIPO_PATENTSCOPE_SOURCE = "wipo_patentscope"
 GOOGLE_PATENTS_SOURCE = "google_patents"
+PATENT_QUERY_SOURCE_IDS = frozenset(
+    {
+        PATSNAP_API_SOURCE,
+        CNIPA_OFFICIAL_EXPORT_SOURCE,
+        CNIPA_AUTHORIZED_API_SOURCE,
+        CNIPA_LEGACY_EPUB_SOURCE,
+        WIPO_PATENTSCOPE_SOURCE,
+        GOOGLE_PATENTS_SOURCE,
+    }
+)
 
 
 def list_patent_source_capabilities() -> list[PatentSourceCapability]:
@@ -70,6 +82,14 @@ def list_patent_source_capabilities() -> list[PatentSourceCapability]:
     ]
 
 
+def strategy_group_targets_any_source(group: SearchPlanStrategyGroup, source_ids: frozenset[str] | set[str]) -> bool:
+    return not group.sources or any(source_id in source_ids for source_id in group.sources)
+
+
+def strategy_group_targets_source(group: SearchPlanStrategyGroup, source_id: str) -> bool:
+    return strategy_group_targets_any_source(group, {source_id})
+
+
 def build_cnipa_query_pack(intent: SearchIntent | None, plan: AgentSearchPlan | None) -> CnipaQueryPack:
     project_id = plan.project_id if plan else (intent.project_id if intent else "")
     plan_id = plan.id if plan else ""
@@ -83,6 +103,7 @@ def build_cnipa_query_pack(intent: SearchIntent | None, plan: AgentSearchPlan | 
             queries=list(group.queries),
         )
         for group in (plan.strategy_groups if plan else [])
+        if strategy_group_targets_any_source(group, PATENT_QUERY_SOURCE_IDS)
     ]
     return CnipaQueryPack(
         project_id=project_id,

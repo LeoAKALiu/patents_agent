@@ -1,9 +1,12 @@
 import pytest
 
+from backend.app.evidence_sources import evidence_source_views, update_evidence_source_config
 from backend.app.knowledge import patent_search
+from backend.app.knowledge.non_patent_search import WanfangLiteratureProvider
 from backend.app.knowledge.patent_search import (
     CnipaEpubPatentProvider,
     GooglePatentsProvider,
+    PatSnapPatentProvider,
     dedupe_patent_search_hits,
     default_project_patent_providers,
     normalize_publication_number,
@@ -13,7 +16,17 @@ from backend.app.knowledge.patent_search import (
     stable_id,
     WipoPatentscopeProvider,
 )
-from backend.app.schemas import PatentSearchFilters, PatentSearchHit
+from backend.app.schemas import EvidenceSourceConfigPatch, PatentSearchFilters, PatentSearchHit
+
+
+def _source(tmp_path, source_id: str, *, configured: bool):
+    if configured:
+        update_evidence_source_config(
+            tmp_path,
+            source_id,
+            EvidenceSourceConfigPatch(api_key=f"{source_id}-secret-1234", enabled=True),
+        )
+    return {source.source_id: source for source in evidence_source_views(tmp_path, env={})}[source_id]
 
 
 def test_normalize_publication_number_collapses_spaces_and_case():
@@ -332,6 +345,47 @@ def test_default_project_patent_providers_can_opt_into_google_fallback(monkeypat
         "wipo_patentscope",
         "google_patents",
     ]
+
+
+def test_patsnap_provider_skips_when_not_configured(tmp_path):
+    provider = PatSnapPatentProvider(_source(tmp_path, "patsnap_api", configured=False))
+
+    available, reason = provider.available()
+
+    assert available is False
+    assert "智慧芽" in reason
+    assert "API key" in reason
+
+
+def test_patsnap_provider_configured_skeleton_returns_no_fake_hits(tmp_path):
+    provider = PatSnapPatentProvider(_source(tmp_path, "patsnap_api", configured=True))
+
+    available, reason = provider.available()
+    hits, warnings = provider.search("城市体检 智能体", filters=PatentSearchFilters(), limit=10)
+
+    assert available is True
+    assert reason is None
+    assert hits == []
+    assert warnings == ["patsnap_api_live_search_not_implemented"]
+
+
+def test_default_patent_providers_put_patsnap_before_public_fallbacks(tmp_path):
+    providers = default_project_patent_providers(data_dir=tmp_path)
+
+    assert [provider.source_id for provider in providers][:2] == ["patsnap_api", "cnipa_epub"]
+
+
+def test_wanfang_provider_is_non_patent_and_never_patent_gate(tmp_path):
+    provider = WanfangLiteratureProvider(_source(tmp_path, "wanfang_api", configured=True))
+
+    available, reason = provider.available()
+    hits, warnings = provider.search("城市体检 任务编排", limit=10)
+
+    assert available is True
+    assert reason is None
+    assert hits == []
+    assert warnings == ["wanfang_api_live_search_not_implemented"]
+    assert provider.can_satisfy_patent_gate is False
 
 
 def test_urllib_get_supplies_ca_context_for_https_requests(monkeypatch):

@@ -657,4 +657,266 @@ describe("ProjectKnowledgeView", () => {
     expect(onRunKnowledgeSearch).not.toHaveBeenCalled();
     expect(onCandidateDecision).not.toHaveBeenCalled();
   });
+
+  it("shows PatSnap and Wanfang source setup separately from search failure", () => {
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={{
+          state: {
+            project_id: project.id,
+            status: "search_plan_pending",
+            active_intent_id: "intent-1",
+            active_plan_id: "plan-1",
+            active_corpus_version_id: "",
+            last_search_at: "",
+            last_indexed_at: "",
+            staleness_reason: "",
+            document_count: 0,
+            patent_document_count: 0,
+            non_patent_document_count: 0,
+            candidate_count: 0,
+            claim_coverage: 0,
+            fulltext_coverage: 0,
+            quality_flags: ["source_not_configured"],
+          },
+          latest_intent: null,
+          latest_plan: null,
+          candidates: [],
+          latest_corpus_version: null,
+          source_statuses: [
+            {
+              source_id: "patsnap_api",
+              display_name: "智慧芽 PatSnap",
+              source_type: "patent",
+              evidence_tier: "primary_patent",
+              enabled: true,
+              status: "not_configured",
+              base_url: "https://connect.zhihuiya.com",
+              api_key_present: false,
+              api_key_masked: "",
+              api_key_source: "none",
+              last_checked_at: "",
+              last_error: "",
+              application_url: "https://open.zhihuiya.com/",
+              docs_url: "https://open.zhihuiya.com/devportal",
+              guidance: "配置智慧芽 API key 后可启用中文及全球专利主检索。",
+              can_satisfy_patent_gate: true,
+            },
+            {
+              source_id: "wanfang_api",
+              display_name: "万方",
+              source_type: "non_patent_literature",
+              evidence_tier: "supplemental_literature",
+              enabled: true,
+              status: "quota_limited",
+              base_url: "https://apps.wanfangdata.com.cn/open",
+              api_key_present: false,
+              api_key_masked: "",
+              api_key_source: "none",
+              last_checked_at: "",
+              last_error: "",
+              application_url: "https://apps.wanfangdata.com.cn/open/market/apis",
+              docs_url: "https://apps.wanfangdata.com.cn/open/docs",
+              guidance: "配置万方 API key 后可补充论文、期刊、会议与科技文献。",
+              can_satisfy_patent_gate: false,
+            },
+            {
+              source_id: "google_patents",
+              display_name: "Google Patents",
+              source_type: "patent",
+              evidence_tier: "primary_patent",
+              enabled: true,
+              status: "configured",
+              base_url: "https://patents.google.com",
+              api_key_present: false,
+              api_key_masked: "",
+              api_key_source: "none",
+              last_checked_at: "",
+              last_error: "",
+              application_url: "",
+              docs_url: "",
+              guidance: "可用于公开专利检索补充。",
+              can_satisfy_patent_gate: true,
+            },
+            {
+              source_id: "wipo_patentscope",
+              display_name: "WIPO Patentscope",
+              source_type: "patent",
+              evidence_tier: "primary_patent",
+              enabled: true,
+              status: "unavailable",
+              base_url: "https://patentscope.wipo.int",
+              api_key_present: false,
+              api_key_masked: "",
+              api_key_source: "none",
+              last_checked_at: "",
+              last_error: "503",
+              application_url: "",
+              docs_url: "",
+              guidance: "当前供应商端不可用。",
+              can_satisfy_patent_gate: true,
+            },
+          ],
+        }}
+        busy=""
+        onGenerateKnowledgePlan={() => undefined}
+        onRunKnowledgeSearch={() => undefined}
+        onCandidateDecision={() => undefined}
+        onBuildProjectCorpus={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("专利证据覆盖")).toBeInTheDocument();
+    expect(screen.getByText("非专利文献覆盖")).toBeInTheDocument();
+    expect(screen.getByText(/智慧芽 PatSnap/)).toBeInTheDocument();
+    expect(screen.getAllByText(/万方/).length).toBeGreaterThan(0);
+    expect(screen.getByText("已配置")).toBeInTheDocument();
+    expect(screen.getByText("未配置")).toBeInTheDocument();
+    expect(screen.getByText("暂不可用")).toBeInTheDocument();
+    expect(screen.getByText("配额受限")).toBeInTheDocument();
+    expect(screen.getByText("未配置不是检索失败。")).toBeInTheDocument();
+    expect(
+      screen.getByText("可补充背景与创造性判断线索，但不能替代专利现有技术证据，也不能替代专利门控证据。"),
+    ).toBeInTheDocument();
+  });
+
+  it("marks Wanfang candidate as supplemental and not patent-gate eligible", () => {
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={{
+          state: {
+            project_id: project.id,
+            status: "needs_supplemental_search",
+            active_intent_id: "intent-1",
+            active_plan_id: "plan-1",
+            active_corpus_version_id: "version-1",
+            last_search_at: "2026-07-01T00:00:00Z",
+            last_indexed_at: "2026-07-01T00:00:00Z",
+            staleness_reason: "",
+            document_count: 1,
+            patent_document_count: 0,
+            non_patent_document_count: 1,
+            candidate_count: 1,
+            claim_coverage: 0,
+            fulltext_coverage: 0,
+            quality_flags: ["non_patent_only"],
+          },
+          latest_intent: null,
+          latest_plan: null,
+          candidates: [
+            {
+              id: "wanfang-1",
+              project_id: project.id,
+              plan_id: "plan-1",
+              source: "wanfang_api",
+              title: "城市体检智能体任务编排研究",
+              publication_number: null,
+              application_number: null,
+              applicant: "",
+              publication_date: "",
+              grant_date: "",
+              abstract: "讨论城市体检任务编排。",
+              url: "https://apps.wanfangdata.com.cn/example",
+              relevance_score: 0,
+              matched_terms: [],
+              ipc: [],
+              cpc: [],
+              family_id: "",
+              duplicate_of: "",
+              fulltext_status: "unknown",
+              recommended_action: "review",
+              recommendation_reason: "",
+              user_decision: "include",
+              metadata: {},
+              evidence_kind: "non_patent_literature",
+              can_satisfy_patent_gate: false,
+              created_at: "",
+            },
+          ],
+          latest_corpus_version: null,
+          source_statuses: [],
+        }}
+        busy=""
+        onGenerateKnowledgePlan={() => undefined}
+        onRunKnowledgeSearch={() => undefined}
+        onCandidateDecision={() => undefined}
+        onBuildProjectCorpus={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("补强证据")).toBeInTheDocument();
+    expect(screen.getByText("不可用于授权门控")).toBeInTheDocument();
+    expect(screen.getByText("未记录公开号 · 万方")).toBeInTheDocument();
+    expect(screen.getByText(/尚未形成可支撑授权判断的专利证据库/)).toBeInTheDocument();
+  });
+
+  it("uses commercial source labels in candidate cards", () => {
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={{
+          state: {
+            project_id: project.id,
+            status: "candidates_pending",
+            active_intent_id: "intent-1",
+            active_plan_id: "plan-1",
+            active_corpus_version_id: "",
+            last_search_at: "2026-07-01T00:00:00Z",
+            last_indexed_at: "",
+            staleness_reason: "",
+            document_count: 0,
+            patent_document_count: 0,
+            non_patent_document_count: 0,
+            candidate_count: 1,
+            claim_coverage: 0,
+            fulltext_coverage: 0,
+            quality_flags: ["candidates_need_confirmation"],
+          },
+          latest_intent: null,
+          latest_plan: null,
+          candidates: [
+            {
+              id: "patsnap-1",
+              project_id: project.id,
+              plan_id: "plan-1",
+              source: "patsnap_api",
+              title: "城市体检智能体调度方法",
+              publication_number: "CN112233445A",
+              application_number: null,
+              applicant: "",
+              publication_date: "",
+              grant_date: "",
+              abstract: "公开了一种城市体检调度方法。",
+              url: "https://example.com/patsnap-1",
+              relevance_score: 0,
+              matched_terms: [],
+              ipc: [],
+              cpc: [],
+              family_id: "",
+              duplicate_of: "",
+              fulltext_status: "unknown",
+              recommended_action: "review",
+              recommendation_reason: "",
+              user_decision: "pending",
+              metadata: {},
+              evidence_kind: "patent",
+              can_satisfy_patent_gate: true,
+              created_at: "",
+            },
+          ],
+          latest_corpus_version: null,
+          source_statuses: [],
+        }}
+        busy=""
+        onGenerateKnowledgePlan={() => undefined}
+        onRunKnowledgeSearch={() => undefined}
+        onCandidateDecision={() => undefined}
+        onBuildProjectCorpus={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("CN112233445A · 智慧芽")).toBeInTheDocument();
+  });
 });

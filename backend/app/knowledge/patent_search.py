@@ -18,8 +18,9 @@ from typing import Any, Protocol
 
 import certifi
 
+from backend.app.evidence_sources import evidence_source_views
 from backend.app.research.providers import sanitize_untrusted_text
-from backend.app.schemas import PatentSearchFilters, PatentSearchHit, PriorArtCandidate, ProviderAttempt
+from backend.app.schemas import EvidenceSourceConfig, PatentSearchFilters, PatentSearchHit, PriorArtCandidate, ProviderAttempt
 
 
 def now_iso() -> str:
@@ -75,6 +76,29 @@ class StaticPatentSearchProvider:
             for hit in self._hits[:limit]
         ]
         return hits, list(self._warnings)
+
+
+class PatSnapPatentProvider:
+    name = "智慧芽 PatSnap"
+    source_id = "patsnap_api"
+
+    def __init__(self, config: EvidenceSourceConfig) -> None:
+        self.config = config
+
+    def available(self) -> tuple[bool, str | None]:
+        if self.config.status != "configured" or not self.config.api_key_present:
+            return False, "智慧芽 PatSnap API key 未配置；请在设置页的数据源中配置后启用商业专利检索。"
+        return True, None
+
+    def search(
+        self,
+        query: str,
+        *,
+        filters: PatentSearchFilters,
+        limit: int,
+    ) -> tuple[list[PatentSearchHit], list[str]]:
+        del query, filters, limit
+        return [], ["patsnap_api_live_search_not_implemented"]
 
 
 def _urllib_get(url: str, timeout: int) -> str:
@@ -373,11 +397,15 @@ class GooglePatentsProvider:
         return hits, []
 
 
-def default_project_patent_providers() -> list[PatentSearchProvider]:
-    providers: list[PatentSearchProvider] = [
+def default_project_patent_providers(data_dir: str | Path | None = None) -> list[PatentSearchProvider]:
+    providers: list[PatentSearchProvider] = []
+    if data_dir is not None:
+        sources = {source.source_id: source for source in evidence_source_views(Path(data_dir))}
+        providers.append(PatSnapPatentProvider(sources["patsnap_api"]))
+    providers.extend([
         CnipaEpubPatentProvider(),
         WipoPatentscopeProvider(),
-    ]
+    ])
     if os.environ.get("PATENT_ENABLE_GOOGLE_PATENTS_FALLBACK", "").lower() in {"1", "true", "yes", "on"}:
         providers.append(GooglePatentsProvider())
     return providers
@@ -640,6 +668,14 @@ def patent_hit_to_candidate(
         cpc=hit.cpc,
         family_id=hit.family_id,
         fulltext_status="unknown",
+        evidence_kind="patent",
+        can_satisfy_patent_gate=hit.source in {
+            "patsnap_api",
+            "cnipa_official_export",
+            "cnipa_epub",
+            "wipo_patentscope",
+            "google_patents",
+        },
         recommended_action="review",
         recommendation_reason="真实专利检索命中，等待全文与相关度复核。",
         metadata={
