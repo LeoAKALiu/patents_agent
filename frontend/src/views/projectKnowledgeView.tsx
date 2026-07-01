@@ -73,6 +73,16 @@ function recommendationLabel(action: PriorArtCandidate["recommended_action"]): s
   return "Agent 建议复核";
 }
 
+function evidenceTierLabel(candidate: PriorArtCandidate): string {
+  if (candidate.evidence_kind === "non_patent_literature") return "补强证据";
+  if (candidate.can_satisfy_patent_gate === false) return "发现线索";
+  return "主证据";
+}
+
+function patentGateLabel(candidate: PriorArtCandidate): string {
+  return candidate.can_satisfy_patent_gate === false ? "不可用于授权门控" : "可用于授权门控";
+}
+
 function sourceLabel(source: string): string {
   if (source === "cnipa_official_export") return "CNIPA 官方导出";
   if (source === "cnipa_authorized_api") return "CNIPA 授权 API";
@@ -106,10 +116,25 @@ function qualityFlagCopy(flag: string, stalenessReason: string): { tone: "warnin
         tone: "warning",
         text: "建库已完成，但当前证据库仅包含 synthetic/fake 候选结果。授权判断仍然受证据门控，不能视为真实检索结论。",
       };
+    case "source_not_configured":
+      return {
+        tone: "info",
+        text: "商业数据源未配置不是检索失败。配置智慧芽可扩大专利主检索覆盖，配置万方可补充非专利文献。",
+      };
+    case "source_configured_not_implemented":
+      return {
+        tone: "info",
+        text: "数据源本地配置已就绪，真实供应商检索接口仍保持关闭；当前不会生成假候选。",
+      };
     case "non_patent_source":
       return {
         tone: "warning",
         text: "当前纳入项包含非专利来源，不能作为项目现有技术库就绪依据；请改用专利检索来源或重新筛选候选文献。",
+      };
+    case "non_patent_only":
+      return {
+        tone: "warning",
+        text: "已找到非专利文献线索，但尚未形成可支撑授权判断的专利证据库。请配置或运行专利检索源。",
       };
     case "cnipa_export_missing_provenance":
       return {
@@ -308,10 +333,12 @@ export function ProjectKnowledgeView({
             <span>{primaryAction.label}</span>
           </button>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
           <StatusPill label="知识状态" value={statusLabels[status] ?? status} />
           <StatusPill label="候选文献" value={String(state?.candidate_count ?? candidates.length)} />
           <StatusPill label="入库文献" value={String(state?.document_count ?? 0)} />
+          <StatusPill label="专利证据覆盖" value={String(state?.patent_document_count ?? 0)} />
+          <StatusPill label="非专利文献覆盖" value={String(state?.non_patent_document_count ?? 0)} />
           <StatusPill label="权利要求覆盖" value={percent(state?.claim_coverage ?? 0)} />
           <StatusPill label="全文覆盖" value={percent(state?.fulltext_coverage ?? 0)} />
         </div>
@@ -336,6 +363,28 @@ export function ProjectKnowledgeView({
             </p>
           ))}
         </div>
+        {(knowledge?.source_statuses ?? []).length > 0 && (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {(knowledge?.source_statuses ?? []).map((source) => (
+              <div
+                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] p-3"
+                key={source.source_id}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <strong>{source.display_name}</strong>
+                  <span>{source.status === "configured" ? "已配置" : "未配置"}</span>
+                </div>
+                <p className="text-sm text-[var(--text-primary)]/65">
+                  {source.can_satisfy_patent_gate ? "专利主证据源" : "非专利文献补强源"}
+                </p>
+                <p className="text-sm text-[var(--text-primary)]/65">{source.guidance}</p>
+                {source.status === "not_configured" && (
+                  <p className="text-sm text-[var(--text-primary)]/65">未配置不是检索失败。</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {plan && (
@@ -546,6 +595,12 @@ export function ProjectKnowledgeView({
                       </span>
                       <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1">
                         {candidateDecisionLabel(candidate.user_decision)}
+                      </span>
+                      <span className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-xs">
+                        {evidenceTierLabel(candidate)}
+                      </span>
+                      <span className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-xs">
+                        {patentGateLabel(candidate)}
                       </span>
                     </div>
                   </div>
