@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from backend.app.rag import LocalVectorIndex
+from backend.app.rag import LocalVectorIndex, create_vector_index
 from backend.app.schemas import PatentChunk, SectionType
 
 
@@ -58,3 +58,11 @@ def test_chroma_hash_embedding_is_stable_across_python_hash_seeds():
         return json.loads(output)
 
     assert embedding_for_seed("1") == embedding_for_seed("2")
+
+
+def test_vector_index_can_be_forced_local_for_test_suites(tmp_path, monkeypatch):
+    monkeypatch.setenv("PATENTS_AGENT_VECTOR_INDEX", "local")
+
+    index = create_vector_index(tmp_path / "chroma")
+
+    assert isinstance(index, LocalVectorIndex)

@@ -163,7 +163,7 @@ export function IdeaIntakePanel({
         {intakeMode === "idea" ? <Wand2 size={24} /> : <FileText size={24} />}
       </div>
 
-      <div className="status-strip guided-intake-status" aria-label="首 Mile 摘要">
+      <div className="status-strip guided-intake-status" aria-label="起步配置摘要">
         <div className="status-tile">
           <span>入口方式</span>
           <strong>{intakeModeLabel}</strong>

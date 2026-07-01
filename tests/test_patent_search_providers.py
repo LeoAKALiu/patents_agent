@@ -1,5 +1,8 @@
+import ssl
+
 import pytest
 
+from backend.app.knowledge import patent_search as patent_search_module
 from backend.app.knowledge.patent_search import (
     CnipaEpubPatentProvider,
     GooglePatentsProvider,
@@ -195,6 +198,87 @@ def test_google_patents_provider_parse_does_not_synthesize_missing_results():
     assert hits[0].source == "google_patents"
     assert hits[0].publication_number == "CN112233445A"
     assert hits[0].url == "https://patents.google.com/patent/CN112233445A"
+
+
+def test_google_patents_provider_uses_xhr_query_and_parses_results():
+    captured: dict[str, object] = {}
+    payload = """
+    {
+      "results": {
+        "cluster": [
+          {
+            "result": [
+              {
+                "id": "patent/CN112233445A/en",
+                "patent": {
+                  "title": " 城市体检任务编排方法",
+                  "snippet": "公开了任务编排和证据链复核。",
+                  "publication_number": "CN112233445A",
+                  "publication_date": "2024-01-02",
+                  "grant_date": "",
+                  "assignee": "城市科技公司",
+                  "inventor": "张三"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+    """
+
+    def fake_http_get(url: str, timeout: int) -> str:
+        captured["url"] = url
+        captured["timeout"] = timeout
+        return payload
+
+    provider = GooglePatentsProvider(http_get=fake_http_get, timeout_seconds=11)
+
+    hits, warnings = provider.search("城市体检 智能体", filters=PatentSearchFilters(), limit=5)
+
+    assert warnings == []
+    assert captured["timeout"] == 11
+    assert str(captured["url"]).startswith("https://patents.google.com/xhr/query?")
+    assert "url=q%3D" in str(captured["url"])
+    assert len(hits) == 1
+    assert hits[0].source == "google_patents"
+    assert hits[0].publication_number == "CN112233445A"
+    assert hits[0].title == "城市体检任务编排方法"
+    assert hits[0].abstract == "公开了任务编排和证据链复核。"
+    assert hits[0].applicant == "城市科技公司"
+    assert hits[0].url == "https://patents.google.com/patent/CN112233445A"
+
+
+def test_urllib_get_uses_explicit_ssl_context(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self, limit: int) -> bytes:
+            captured["read_limit"] = limit
+            return b"<html></html>"
+
+    def fake_urlopen(request, *, timeout: int, context=None):
+        captured["request"] = request
+        captured["timeout"] = timeout
+        captured["context"] = context
+        return FakeResponse()
+
+    monkeypatch.setattr(patent_search_module.urllib.request, "urlopen", fake_urlopen)
+
+    html = patent_search_module._urllib_get("https://patents.google.com/?q=urban", 7)
+
+    assert html == "<html></html>"
+    assert captured["timeout"] == 7
+    assert captured["read_limit"] == 500_000
+    assert isinstance(captured["context"], ssl.SSLContext)
+    assert captured["context"].verify_mode == ssl.CERT_REQUIRED
+    assert captured["context"].check_hostname is True
 
 
 def test_cnipa_provider_skips_when_helper_missing():

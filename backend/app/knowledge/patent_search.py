@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import html as html_lib
 import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import urllib.parse
 import urllib.request
@@ -75,15 +77,27 @@ class StaticPatentSearchProvider:
 
 def _urllib_get(url: str, timeout: int) -> str:
     request = urllib.request.Request(url, headers={"User-Agent": "patents-agent/0.1"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with urllib.request.urlopen(request, timeout=timeout, context=_verified_https_context()) as response:
         return response.read(500_000).decode("utf-8", errors="replace")
 
 
+def _verified_https_context() -> ssl.SSLContext:
+    try:
+        import certifi
+    except ImportError:
+        return ssl.create_default_context()
+    return ssl.create_default_context(cafile=certifi.where())
+
+
 def parse_google_patents_hits(html: str, query: str) -> list[PatentSearchHit]:
+    xhr_hits = _parse_google_patents_xhr_hits(html, query)
+    if xhr_hits:
+        return dedupe_patent_search_hits(xhr_hits)
+
     hits: list[PatentSearchHit] = []
     for match in re.finditer(r'href="(/patent/[^"]+)"[^>]*>(.*?)</a>', html, flags=re.I | re.S):
         href, label = match.groups()
-        title = sanitize_untrusted_text(re.sub(r"<[^>]+>", " ", label), max_len=300).strip()
+        title = _clean_google_patents_text(label, max_len=300)
         if len(title) < 4:
             continue
         publication_match = re.search(r"/patent/([^/?#]+)", href)
@@ -102,6 +116,56 @@ def parse_google_patents_hits(html: str, query: str) -> list[PatentSearchHit]:
             )
         )
     return dedupe_patent_search_hits(hits)
+
+
+def _clean_google_patents_text(value: object, *, max_len: int = 1000) -> str:
+    text = html_lib.unescape(str(value or ""))
+    text = re.sub(r"<[^>]+>", " ", text)
+    return sanitize_untrusted_text(text, max_len=max_len).strip()
+
+
+def _parse_google_patents_xhr_hits(payload: str, query: str) -> list[PatentSearchHit]:
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return []
+    clusters = data.get("results", {}).get("cluster", []) if isinstance(data, dict) else []
+    hits: list[PatentSearchHit] = []
+    for cluster in clusters:
+        if not isinstance(cluster, dict):
+            continue
+        for result in cluster.get("result", []):
+            if not isinstance(result, dict):
+                continue
+            patent = result.get("patent") or {}
+            if not isinstance(patent, dict):
+                continue
+            result_id = str(result.get("id") or "")
+            publication_number = normalize_publication_number(patent.get("publication_number"))
+            if not publication_number:
+                publication_match = re.search(r"patent/([^/?#]+)", result_id)
+                publication_number = normalize_publication_number(publication_match.group(1) if publication_match else "")
+            title = _clean_google_patents_text(patent.get("title") or publication_number, max_len=300)
+            if len(title) < 4:
+                continue
+            url = f"https://patents.google.com/patent/{publication_number}" if publication_number else (
+                "https://patents.google.com/" + result_id.lstrip("/")
+            )
+            hits.append(
+                PatentSearchHit(
+                    id=uuid.uuid4().hex,
+                    source="google_patents",
+                    query=query,
+                    title=title,
+                    publication_number=publication_number,
+                    url=url,
+                    applicant=_clean_google_patents_text(patent.get("assignee"), max_len=300),
+                    publication_date=str(patent.get("publication_date") or ""),
+                    grant_date=str(patent.get("grant_date") or ""),
+                    abstract=_clean_google_patents_text(patent.get("snippet")) or None,
+                )
+            )
+    return hits
 
 
 class CnipaEpubPatentProvider:
@@ -195,7 +259,7 @@ class GooglePatentsProvider:
         limit: int,
     ) -> tuple[list[PatentSearchHit], list[str]]:
         del filters
-        url = "https://patents.google.com/?q=" + urllib.parse.quote(query)
+        url = "https://patents.google.com/xhr/query?url=q%3D" + urllib.parse.quote(query)
         try:
             html = self._http_get(url, self.timeout_seconds)
         except (TimeoutError, SocketTimeout) as exc:

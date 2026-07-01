@@ -201,6 +201,20 @@ describe("GuidedPatentFlow progress action", () => {
     expect(screen.getByRole("button", { name: /下一步：生成专利初稿/ })).toBeEnabled();
   });
 
+  it("does not show first-mile jargon while waiting for project intake", () => {
+    renderFlow({
+      project: null,
+      disclosures: [],
+      deliberations: [],
+      patentPoints: [],
+    });
+
+    expect(screen.getByRole("button", { name: /下一步：填写并创建项目/ })).toBeDisabled();
+    expect(screen.queryByText("等待首 Mile 输入")).not.toBeInTheDocument();
+    expect(screen.queryByText(/首 Mile/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/首 Mile/)).not.toBeInTheDocument();
+  });
+
   it("returns to the current step without starting it while browsing a completed step", () => {
     const onGenerateDraft = vi.fn();
     renderFlow({ onGenerateDraft });

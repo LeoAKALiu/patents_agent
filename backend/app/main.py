@@ -257,6 +257,13 @@ def create_app(
     app.state.disclosure_inline = prior_art_provider is not None
     app.state.corpus_service = CorpusImportService(store=store, index=index, data_dir=settings.data_dir)
 
+    def _close_runtime_resources() -> None:
+        close_index = getattr(app.state.index, "close", None)
+        if callable(close_index):
+            close_index()
+
+    app.add_event_handler("shutdown", _close_runtime_resources)
+
     @app.post("/api/projects/{project_id}/external-drafts")
     def create_external_draft(project_id: str, payload: ExternalDraftSourceCreate) -> dict:
         _require_project(store, project_id)

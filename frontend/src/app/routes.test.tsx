@@ -311,7 +311,8 @@ describe("AppRoot routes", () => {
     render(<AppRoot {...makeRootProps()} activeSection="documents" activeExpertTool="materials" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "文稿与修复" })).toBeInTheDocument();
-    expect(screen.getByText("处理当前项目的正文、问题和版本链路")).toBeInTheDocument();
+    const topbar = document.querySelector(".topbar") as HTMLElement;
+    expect(within(topbar).queryByText("处理当前项目的正文、问题和版本链路")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "总览" })).toBeInTheDocument();
     expect(screen.getByText("当前项目尚未生成内部初稿。")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2, name: "开始撰写" })).not.toBeInTheDocument();
@@ -378,6 +379,7 @@ describe("AppRoot routes", () => {
     expect(screen.getByText("后端在线")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "刷新运行状态" })).toBeInTheDocument();
     const topbar = document.querySelector(".topbar") as HTMLElement;
+    expect(within(topbar).queryByText("当前项目、下一步和导出风险概览")).not.toBeInTheDocument();
     expect(within(topbar).queryByRole("button", { name: "专家工具" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "返回向导" })).not.toBeInTheDocument();
   });

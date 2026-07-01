@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import re
 from collections import Counter
 from pathlib import Path
@@ -54,6 +55,11 @@ class ChromaVectorIndex:
             embedding_function=_ChromaHashEmbedding(),
         )
 
+    def close(self) -> None:
+        close = getattr(self.client, "close", None)
+        if callable(close):
+            close()
+
     def add(self, chunks: list[PatentChunk]) -> None:
         if not chunks:
             return
@@ -102,6 +108,8 @@ class ChromaVectorIndex:
 
 
 def create_vector_index(persist_dir: Path) -> LocalVectorIndex | ChromaVectorIndex:
+    if os.environ.get("PATENTS_AGENT_VECTOR_INDEX", "").lower() == "local":
+        return LocalVectorIndex()
     try:
         return ChromaVectorIndex(persist_dir)
     except Exception:

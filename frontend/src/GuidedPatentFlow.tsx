@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
   Download,
@@ -490,7 +489,6 @@ function GuidedProgressBanner({
   totalStepCount: number;
 }) {
   const percent = Math.round((completedStepCount / totalStepCount) * 100);
-  const actionIsFormOnly = action.disabled && currentStepId === "idea" && displayedStepId === currentStepId;
   return (
     <section className="guided-progress-banner" aria-label="流程进度和下一步">
       <div className="guided-progress-copy">
@@ -519,15 +517,6 @@ function GuidedProgressBanner({
           <span>{action.label}</span>
         </button>
       </span>
-      {actionIsFormOnly && (
-        <div className="callout guided-progress-callout">
-          <AlertTriangle size={17} aria-hidden="true" />
-          <div>
-            <strong>等待首 Mile 输入</strong>
-            <p>请在下方表单中填写项目名称和技术方案，或返回三选一选择导入已有稿件。</p>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

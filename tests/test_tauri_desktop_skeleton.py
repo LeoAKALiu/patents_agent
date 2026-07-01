@@ -97,6 +97,11 @@ def test_tauri_backend_supervision_matches_fastapi_sidecar_contract() -> None:
     assert "PYTHONPATH" in main_rs
     assert "PYTHONUNBUFFERED" in main_rs
     assert "PYTHONDONTWRITEBYTECODE" in main_rs
+    assert "bundled_certifi_cafile" in main_rs
+    assert '"certifi"' in main_rs
+    assert '"cacert.pem"' in main_rs
+    assert "SSL_CERT_FILE" in main_rs
+    assert "REQUESTS_CA_BUNDLE" in main_rs
     assert "/api/health" in main_rs
     assert "backend stdout:" in main_rs
     assert "backend stderr:" in main_rs
