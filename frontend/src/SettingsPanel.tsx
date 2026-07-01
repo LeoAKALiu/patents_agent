@@ -28,10 +28,14 @@ import { DARK_MODE_ENABLED, type ThemeMode } from "./ui/useTheme";
 import {
   DesktopConfigHealthResult,
   DesktopConfigView,
+  EvidenceSourceConfig,
+  checkEvidenceSourceConfig,
   checkDesktopConfigHealth,
   clearDesktopConfigKey,
   getDesktopConfig,
+  listEvidenceSources,
   updateDesktopConfig,
+  updateEvidenceSourceConfig,
 } from "./api";
 import { userFacingAppErrorMessage, userFacingErrorCopy } from "./runtimeDisplay";
 
@@ -67,6 +71,9 @@ export interface SettingsPanelProps {
 
 export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
   const [view, setView] = useState<DesktopConfigView | null>(null);
+  const [evidenceSources, setEvidenceSources] = useState<EvidenceSourceConfig[]>([]);
+  const [evidenceSourceInputs, setEvidenceSourceInputs] = useState<Record<string, { apiKey: string; baseUrl: string }>>({});
+  const [evidenceSourceMessage, setEvidenceSourceMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [provider, setProvider] = useState("deepseek");
@@ -82,13 +89,23 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
     setLoading(true);
     setLoadError("");
     try {
-      const data = await getDesktopConfig();
+      const [data, sources] = await Promise.all([
+        getDesktopConfig(),
+        listEvidenceSources(),
+      ]);
       setView(data);
+      setEvidenceSources(sources);
+      setEvidenceSourceInputs(
+        Object.fromEntries(
+          sources.map((source) => [source.source_id, { apiKey: "", baseUrl: source.base_url }]),
+        ),
+      );
       setProvider(data.provider);
       setBaseUrl(data.base_url);
       setModel(data.model);
       setApiKeyInput("");
       setClearRequested(false);
+      setEvidenceSourceMessage("");
     } catch (err) {
       setLoadError(userFacingAppErrorMessage(err, { fallbackTitle: "设置加载失败" }));
     } finally {
@@ -169,6 +186,30 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
         message: userFacingAppErrorMessage(err, { fallbackTitle: "密钥清除失败" }),
       });
     }
+  };
+
+  const handleSaveEvidenceSource = async (source: EvidenceSourceConfig) => {
+    const input = evidenceSourceInputs[source.source_id] ?? { apiKey: "", baseUrl: source.base_url };
+    const updated = await updateEvidenceSourceConfig(source.source_id, {
+      api_key: input.apiKey || undefined,
+      base_url: input.baseUrl || undefined,
+      enabled: source.enabled,
+    });
+    setEvidenceSources((current) => current.map((item) => (item.source_id === updated.source_id ? updated : item)));
+    setEvidenceSourceInputs((current) => ({
+      ...current,
+      [source.source_id]: { apiKey: "", baseUrl: updated.base_url },
+    }));
+    setEvidenceSourceMessage(`${source.display_name} 配置已保存`);
+  };
+
+  const handleCheckEvidenceSource = async (source: EvidenceSourceConfig) => {
+    const result = await checkEvidenceSourceConfig(source.source_id);
+    setEvidenceSourceMessage(
+      result.ok
+        ? `${source.display_name} 本地配置已就绪，真实检索接口仍保持关闭。`
+        : `${source.display_name} 尚未配置 API key。`,
+    );
   };
 
   if (loading) {
@@ -403,6 +444,90 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
           )}
         </div>
       )}
+
+      <section className="mt-6 pt-6 border-t border-app-border settings-group">
+        <div className="settings-group-header mb-4">
+          <div>
+            <h3>数据源</h3>
+            <p className="section-copy">
+              配置商业专利库和非专利文献库。未配置时只显示接入指引，不会被当作检索失败。
+            </p>
+          </div>
+        </div>
+        <div className="settings-source-grid grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {evidenceSources.map((source) => {
+            const input = evidenceSourceInputs[source.source_id] ?? { apiKey: "", baseUrl: source.base_url };
+            return (
+              <article
+                className="settings-source-card flex flex-col gap-3 p-4 rounded-lg border border-app-border bg-app-surface"
+                key={source.source_id}
+              >
+                <div className="settings-source-card-header flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-app-fg">{source.display_name}</h4>
+                    <p className="text-sm text-app-muted">
+                      {source.can_satisfy_patent_gate ? "专利主证据源" : "非专利文献补强源"}
+                    </p>
+                  </div>
+                  <span className="status-pill">
+                    {source.status === "configured" ? "已配置" : "未配置"}
+                  </span>
+                </div>
+                <p className="text-sm text-[var(--text-primary)]/65">{source.guidance}</p>
+                {!source.can_satisfy_patent_gate && (
+                  <p className="text-sm text-[var(--text-primary)]/65">
+                    万方命中只用于背景技术和创造性论证补强，不替代专利证据门控。
+                  </p>
+                )}
+                <label className="settings-field">
+                  <span>{source.display_name} API Key</span>
+                  <input
+                    aria-label={`${source.display_name} API Key`}
+                    onChange={(event) =>
+                      setEvidenceSourceInputs((current) => ({
+                        ...current,
+                        [source.source_id]: { ...input, apiKey: event.target.value },
+                      }))
+                    }
+                    type="password"
+                    value={input.apiKey}
+                  />
+                </label>
+                <label className="settings-field">
+                  <span>Base URL</span>
+                  <input
+                    onChange={(event) =>
+                      setEvidenceSourceInputs((current) => ({
+                        ...current,
+                        [source.source_id]: { ...input, baseUrl: event.target.value },
+                      }))
+                    }
+                    value={input.baseUrl}
+                  />
+                </label>
+                {source.api_key_masked && <p>{source.api_key_masked}</p>}
+                <div className="settings-source-actions flex flex-wrap gap-2">
+                  <Button type="button" onClick={() => void handleSaveEvidenceSource(source)}>
+                    保存{source.display_name}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => void handleCheckEvidenceSource(source)}>
+                    测试配置
+                  </Button>
+                  <a
+                    className="inline-flex items-center text-sm font-medium text-app-fg underline-offset-4 hover:underline"
+                    href={source.application_url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    申请入口
+                  </a>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        {evidenceSourceMessage && <p className="mt-3 text-sm text-app-fg">{evidenceSourceMessage}</p>}
+      </section>
 
       <div className="mt-6 pt-6 border-t border-app-border">
         <h4 className="text-sm font-semibold text-app-fg mb-3">外观</h4>
