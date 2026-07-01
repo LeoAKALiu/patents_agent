@@ -95,7 +95,7 @@ export function WorkbenchWorkspace({
             className="workbench-other-actions"
             onToggle={(event) => setOtherActionsOpen((event.currentTarget as HTMLDetailsElement).open)}
           >
-            <summary role="button">
+            <summary>
               <span>其他操作</span>
               <ArrowRight size={14} aria-hidden="true" />
             </summary>

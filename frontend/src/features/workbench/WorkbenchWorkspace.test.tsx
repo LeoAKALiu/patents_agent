@@ -199,10 +199,16 @@ describe("WorkbenchWorkspace", () => {
     render(<WorkbenchWorkspace state={makeState()} handlers={makeHandlers()} onNavigate={navigate} />);
 
     expect(screen.getByRole("button", { name: "进入文稿与修复" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "文稿与修复" })).toBeNull();
     expect(screen.queryByRole("button", { name: "知识库" })).toBeNull();
     expect(screen.queryByRole("button", { name: "专家工具" })).toBeNull();
 
-    await userEvent.click(screen.getByRole("button", { name: "其他操作" }));
+    const disclosureSummary = screen.getByText("其他操作").closest("summary");
+
+    expect(disclosureSummary).toBeInTheDocument();
+    expect(disclosureSummary).not.toHaveAttribute("role");
+
+    await userEvent.click(disclosureSummary!);
 
     await userEvent.click(screen.getByRole("button", { name: "知识库" }));
     expect(navigate).toHaveBeenCalledWith("knowledge");
