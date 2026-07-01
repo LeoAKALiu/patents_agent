@@ -1335,6 +1335,25 @@ class PatentSearchHit(BaseModel):
         )
 
 
+class CnipaExportImportFailure(BaseModel):
+    source_file_name: str
+    row_number: int = 0
+    code: str
+    message: str
+
+
+class CnipaExportImportResult(BaseModel):
+    import_ledger_id: str
+    source_id: str = "cnipa_official_export"
+    raw_file_hash: str = ""
+    detected_schema: str = ""
+    row_count: int = 0
+    parsed_count: int = 0
+    hits: list[PatentSearchHit] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    failures: list[CnipaExportImportFailure] = Field(default_factory=list)
+
+
 class AgentSearchPlan(BaseModel):
     id: str
     project_id: str
