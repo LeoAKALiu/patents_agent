@@ -108,10 +108,18 @@ async def import_project_cnipa_export(
     with stored_path.open("wb") as handle:
         shutil.copyfileobj(file.file, handle)
     try:
-        overview = import_cnipa_official_export(request.app.state.store, project_id, plan_id, stored_path)
+        overview = import_cnipa_official_export(
+            request.app.state.store,
+            project_id,
+            plan_id,
+            stored_path,
+            source_file_name=safe_name,
+        )
     except ProjectKnowledgeConflictError as exc:
+        stored_path.unlink(missing_ok=True)
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
+        stored_path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     ledgers = request.app.state.store.list_project_knowledge_import_ledgers(project_id, plan_id)
     return {"overview": overview.model_dump(mode="json"), "ledger": ledgers[0].model_dump(mode="json")}

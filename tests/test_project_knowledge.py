@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import textwrap
+from zipfile import ZipFile
 
 import pytest
 
@@ -281,7 +282,13 @@ def test_import_cnipa_official_export_adds_real_candidates_and_ledger(tmp_path):
         encoding="utf-8",
     )
 
-    imported = import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path)
+    imported = import_cnipa_official_export(
+        store,
+        project.id,
+        overview.latest_plan.id,
+        export_path,
+        source_file_name="cnipa-original.csv",
+    )
 
     assert imported.state.status == "candidates_pending"
     assert imported.state.candidate_count == 1
@@ -291,8 +298,35 @@ def test_import_cnipa_official_export_adds_real_candidates_and_ledger(tmp_path):
     ledgers = store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id)
     assert len(ledgers) == 1
     assert ledgers[0].source_id == "cnipa_official_export"
+    assert ledgers[0].source_file_name == "cnipa-original.csv"
     assert ledgers[0].parsed_count == 1
     assert ledgers[0].retained_candidate_ids == [imported.candidates[0].id]
+
+
+def test_import_cnipa_official_export_records_zip_attachment_names_in_ledger(tmp_path):
+    from backend.app.services.project_knowledge_service import import_cnipa_official_export
+
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    csv_path = tmp_path / "inner.csv"
+    csv_path.write_text(
+        "申请号,题名,摘要\nCN202410000001,城市体检证据链方法,公开了一种证据链复核方法。\n",
+        encoding="utf-8",
+    )
+    pdf_path = tmp_path / "scan.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4 scanned placeholder")
+    export_path = tmp_path / "cnipa-export.zip"
+    with ZipFile(export_path, "w") as archive:
+        archive.write(csv_path, "metadata/inner.csv")
+        archive.write(pdf_path, "docs/scan.pdf")
+
+    import_cnipa_official_export(store, project.id, overview.latest_plan.id, export_path, source_file_name="cnipa-export.zip")
+
+    ledgers = store.list_project_knowledge_import_ledgers(project.id, overview.latest_plan.id)
+
+    assert ledgers[0].source_file_name == "cnipa-export.zip"
+    assert ledgers[0].attachments == ["scan.pdf"]
 
 
 def test_run_plan_creates_real_candidates_and_state(tmp_path):

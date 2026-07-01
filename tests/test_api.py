@@ -1,4 +1,5 @@
 from pathlib import Path
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -87,9 +88,68 @@ def test_project_knowledge_cnipa_export_upload_returns_overview(tmp_path: Path):
     assert data["overview"]["state"]["status"] == "candidates_pending"
     assert data["overview"]["candidates"][0]["source"] == "cnipa_official_export"
     assert data["ledger"]["parsed_count"] == 1
+    assert data["ledger"]["source_file_name"] == "cnipa.csv"
 
     ledgers = client.get(f"/api/projects/{project_id}/knowledge/import-ledgers").json()
     assert ledgers["ledgers"][0]["source_id"] == "cnipa_official_export"
+    assert ledgers["ledgers"][0]["source_file_name"] == "cnipa.csv"
+
+
+def test_project_knowledge_cnipa_export_upload_cleans_stored_file_on_validation_failure(tmp_path: Path):
+    client = _test_app_without_env(tmp_path)
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "城市体检智能体",
+            "draft_text": "通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        },
+    ).json()["id"]
+
+    response = client.post(
+        f"/api/projects/{project_id}/knowledge/cnipa-export-imports",
+        data={"plan_id": "missing-plan"},
+        files={"file": ("../cnipa.csv", "公开公告号,专利名称,摘要\n", "text/csv")},
+    )
+
+    assert response.status_code == 400
+    upload_dir = tmp_path / "project-knowledge" / project_id / "cnipa-imports"
+    assert upload_dir.exists()
+    assert list(upload_dir.iterdir()) == []
+
+
+def test_project_knowledge_cnipa_export_upload_returns_attachment_names_in_ledger(tmp_path: Path):
+    client = _test_app_without_env(tmp_path)
+    project_id = client.post(
+        "/api/projects",
+        json={
+            "name": "城市体检智能体",
+            "draft_text": "通过多智能体拆解城市体检任务，并通过证据链复核生成可信报告。",
+        },
+    ).json()["id"]
+    plan_id = client.post(f"/api/projects/{project_id}/knowledge/search-intent").json()["latest_plan"]["id"]
+    zip_path = tmp_path / "cnipa.zip"
+    inner_csv = tmp_path / "inner.csv"
+    inner_csv.write_text(
+        "申请号,题名,摘要\nCN202410000001,城市体检证据链方法,公开了一种证据链复核方法。\n",
+        encoding="utf-8",
+    )
+    attachment = tmp_path / "scan.pdf"
+    attachment.write_bytes(b"%PDF-1.4 scanned placeholder")
+    with ZipFile(zip_path, "w") as archive:
+        archive.write(inner_csv, "metadata/inner.csv")
+        archive.write(attachment, "docs/scan.pdf")
+
+    with zip_path.open("rb") as handle:
+        upload = client.post(
+            f"/api/projects/{project_id}/knowledge/cnipa-export-imports",
+            data={"plan_id": plan_id},
+            files={"file": ("cnipa-export.zip", handle, "application/zip")},
+        )
+
+    assert upload.status_code == 200
+    data = upload.json()
+    assert data["ledger"]["source_file_name"] == "cnipa-export.zip"
+    assert data["ledger"]["attachments"] == ["scan.pdf"]
 
 
 def test_api_corpus_project_generation_review_and_export(tmp_path):

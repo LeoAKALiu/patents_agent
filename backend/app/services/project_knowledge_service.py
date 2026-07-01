@@ -472,6 +472,7 @@ def import_cnipa_official_export(
     project_id: str,
     plan_id: str,
     stored_path: Path,
+    source_file_name: str | None = None,
 ) -> ProjectKnowledgeOverview:
     _state, plan = _get_active_plan(store, project_id, plan_id)
     ledger_id = uuid.uuid4().hex
@@ -523,7 +524,7 @@ def import_cnipa_official_export(
         project_id=project_id,
         plan_id=plan_id,
         source_id=CNIPA_OFFICIAL_EXPORT_SOURCE,
-        source_file_name=stored_path.name,
+        source_file_name=source_file_name or stored_path.name,
         raw_file_hash=result.raw_file_hash,
         detected_schema=result.detected_schema,
         row_count=result.row_count,
