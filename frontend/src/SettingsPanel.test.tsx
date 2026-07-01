@@ -201,4 +201,115 @@ describe("SettingsPanel error copy", () => {
     );
     expect(await screen.findByText("••••1234")).toBeInTheDocument();
   });
+
+  it("keeps desktop settings visible when evidence source loading fails", async () => {
+    vi.mocked(listEvidenceSources).mockRejectedValue(
+      new Error("GET /api/evidence-sources 返回 503：Evidence source service unavailable."),
+    );
+
+    render(<SettingsPanel theme="light" onThemeChange={() => undefined} />);
+
+    expect(await screen.findByTestId("settings-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-provider")).toHaveValue("deepseek");
+    const sourceError = await screen.findByTestId("evidence-source-load-error");
+    expect(sourceError).toHaveTextContent("数据源配置加载失败");
+    expect(sourceError).toHaveTextContent("服务端操作失败");
+    expect(sourceError).toHaveTextContent("Evidence source service unavailable.");
+    expect(screen.queryByText("智慧芽 PatSnap")).not.toBeInTheDocument();
+  });
+
+  it("shows user-facing feedback when saving an evidence source fails", async () => {
+    vi.mocked(listEvidenceSources).mockResolvedValue([...evidenceSources]);
+    vi.mocked(updateEvidenceSourceConfig).mockRejectedValue(
+      new Error("PATCH /api/evidence-sources/patsnap_api/config 返回 409：Source config was modified by another session."),
+    );
+
+    render(<SettingsPanel theme="light" onThemeChange={() => undefined} />);
+    await screen.findByText("智慧芽 PatSnap");
+    await userEvent.type(screen.getByLabelText("智慧芽 PatSnap API Key"), "ps-secret-1234");
+    await userEvent.click(screen.getByRole("button", { name: "保存智慧芽 PatSnap" }));
+
+    const feedback = await screen.findByTestId("evidence-source-feedback");
+    expect(feedback).toHaveTextContent("智慧芽 PatSnap 保存失败");
+    expect(feedback).toHaveTextContent("操作冲突");
+    expect(feedback).toHaveTextContent("Source config was modified by another session.");
+  });
+
+  it("distinguishes evidence source check failure statuses", async () => {
+    vi.mocked(listEvidenceSources).mockResolvedValue([...evidenceSources]);
+    vi.mocked(checkEvidenceSourceConfig)
+      .mockResolvedValueOnce({
+        source_id: "patsnap_api",
+        ok: false,
+        status: "not_configured",
+        detail: "Missing local API key.",
+        live_search_available: false,
+        last_checked_at: "",
+      })
+      .mockResolvedValueOnce({
+        source_id: "patsnap_api",
+        ok: false,
+        status: "unavailable",
+        detail: "Remote service returned 503.",
+        live_search_available: false,
+        last_checked_at: "",
+      })
+      .mockResolvedValueOnce({
+        source_id: "patsnap_api",
+        ok: false,
+        status: "quota_limited",
+        detail: "Monthly quota exhausted.",
+        live_search_available: false,
+        last_checked_at: "",
+      })
+      .mockResolvedValueOnce({
+        source_id: "patsnap_api",
+        ok: false,
+        status: "configured",
+        detail: "Unexpected validation failure.",
+        live_search_available: false,
+        last_checked_at: "",
+      });
+
+    render(<SettingsPanel theme="light" onThemeChange={() => undefined} />);
+    await screen.findByText("智慧芽 PatSnap");
+
+    const checkButton = screen.getAllByRole("button", { name: "测试配置" })[0];
+
+    await userEvent.click(checkButton);
+    expect(await screen.findByTestId("evidence-source-feedback")).toHaveTextContent(
+      "智慧芽 PatSnap 尚未配置 API key：Missing local API key.",
+    );
+
+    await userEvent.click(checkButton);
+    expect(await screen.findByTestId("evidence-source-feedback")).toHaveTextContent(
+      "智慧芽 PatSnap 当前不可用，请稍后重试：Remote service returned 503.",
+    );
+
+    await userEvent.click(checkButton);
+    expect(await screen.findByTestId("evidence-source-feedback")).toHaveTextContent(
+      "智慧芽 PatSnap 已触发额度限制，请检查套餐或稍后再试：Monthly quota exhausted.",
+    );
+
+    await userEvent.click(checkButton);
+    expect(await screen.findByTestId("evidence-source-feedback")).toHaveTextContent(
+      "智慧芽 PatSnap 检查失败，请稍后重试：Unexpected validation failure.",
+    );
+  });
+
+  it("shows user-facing feedback when an evidence source check request throws", async () => {
+    vi.mocked(listEvidenceSources).mockResolvedValue([...evidenceSources]);
+    vi.mocked(checkEvidenceSourceConfig).mockRejectedValue(
+      new Error("POST /api/evidence-sources/patsnap_api/check 返回 500：Upstream check crashed."),
+    );
+
+    render(<SettingsPanel theme="light" onThemeChange={() => undefined} />);
+    await screen.findByText("智慧芽 PatSnap");
+    await userEvent.click(screen.getAllByRole("button", { name: "测试配置" })[0]);
+
+    const feedback = await screen.findByTestId("evidence-source-feedback");
+    expect(feedback).toHaveTextContent("智慧芽 PatSnap 检查失败");
+    expect(feedback).toHaveTextContent("服务端操作失败");
+    expect(feedback).toHaveTextContent("Upstream check crashed.");
+  });
 });

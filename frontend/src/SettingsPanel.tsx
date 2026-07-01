@@ -29,6 +29,7 @@ import {
   DesktopConfigHealthResult,
   DesktopConfigView,
   EvidenceSourceConfig,
+  EvidenceSourceStatus,
   checkEvidenceSourceConfig,
   checkDesktopConfigHealth,
   clearDesktopConfigKey,
@@ -52,6 +53,11 @@ type HealthStatus =
   | { kind: "no-key" }
   | { kind: "error"; result: DesktopConfigHealthResult };
 
+type EvidenceSourceFeedback =
+  | { kind: "idle" }
+  | { kind: "ok"; message: string }
+  | { kind: "error"; message: string };
+
 function apiKeySourceLabel(source: DesktopConfigView["api_key_source"]): string {
   if (source === "env") return "环境变量";
   if (source === "desktop_config") return "本机配置";
@@ -73,7 +79,8 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
   const [view, setView] = useState<DesktopConfigView | null>(null);
   const [evidenceSources, setEvidenceSources] = useState<EvidenceSourceConfig[]>([]);
   const [evidenceSourceInputs, setEvidenceSourceInputs] = useState<Record<string, { apiKey: string; baseUrl: string }>>({});
-  const [evidenceSourceMessage, setEvidenceSourceMessage] = useState("");
+  const [evidenceSourceFeedback, setEvidenceSourceFeedback] = useState<EvidenceSourceFeedback>({ kind: "idle" });
+  const [evidenceSourceLoadError, setEvidenceSourceLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [provider, setProvider] = useState("deepseek");
@@ -88,29 +95,41 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
   const load = async () => {
     setLoading(true);
     setLoadError("");
+    setEvidenceSourceLoadError("");
     try {
-      const [data, sources] = await Promise.all([
-        getDesktopConfig(),
-        listEvidenceSources(),
-      ]);
+      const data = await getDesktopConfig();
       setView(data);
+      setProvider(data.provider);
+      setBaseUrl(data.base_url);
+      setModel(data.model);
+      setApiKeyInput("");
+      setClearRequested(false);
+      setEvidenceSourceFeedback({ kind: "idle" });
+    } catch (err) {
+      setLoadError(userFacingAppErrorMessage(err, { fallbackTitle: "设置加载失败" }));
+      setEvidenceSources([]);
+      setEvidenceSourceInputs({});
+      setEvidenceSourceFeedback({ kind: "idle" });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const sources = await listEvidenceSources();
       setEvidenceSources(sources);
       setEvidenceSourceInputs(
         Object.fromEntries(
           sources.map((source) => [source.source_id, { apiKey: "", baseUrl: source.base_url }]),
         ),
       );
-      setProvider(data.provider);
-      setBaseUrl(data.base_url);
-      setModel(data.model);
-      setApiKeyInput("");
-      setClearRequested(false);
-      setEvidenceSourceMessage("");
     } catch (err) {
-      setLoadError(userFacingAppErrorMessage(err, { fallbackTitle: "设置加载失败" }));
-    } finally {
-      setLoading(false);
+      setEvidenceSources([]);
+      setEvidenceSourceInputs({});
+      setEvidenceSourceLoadError(
+        userFacingAppErrorMessage(err, { fallbackTitle: "数据源配置加载失败" }),
+      );
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -190,26 +209,60 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
 
   const handleSaveEvidenceSource = async (source: EvidenceSourceConfig) => {
     const input = evidenceSourceInputs[source.source_id] ?? { apiKey: "", baseUrl: source.base_url };
-    const updated = await updateEvidenceSourceConfig(source.source_id, {
-      api_key: input.apiKey || undefined,
-      base_url: input.baseUrl || undefined,
-      enabled: source.enabled,
-    });
-    setEvidenceSources((current) => current.map((item) => (item.source_id === updated.source_id ? updated : item)));
-    setEvidenceSourceInputs((current) => ({
-      ...current,
-      [source.source_id]: { apiKey: "", baseUrl: updated.base_url },
-    }));
-    setEvidenceSourceMessage(`${source.display_name} 配置已保存`);
+    try {
+      const updated = await updateEvidenceSourceConfig(source.source_id, {
+        api_key: input.apiKey || undefined,
+        base_url: input.baseUrl || undefined,
+        enabled: source.enabled,
+      });
+      setEvidenceSources((current) => current.map((item) => (item.source_id === updated.source_id ? updated : item)));
+      setEvidenceSourceInputs((current) => ({
+        ...current,
+        [source.source_id]: { apiKey: "", baseUrl: updated.base_url },
+      }));
+      setEvidenceSourceFeedback({ kind: "ok", message: `${source.display_name} 配置已保存` });
+    } catch (err) {
+      setEvidenceSourceFeedback({
+        kind: "error",
+        message: `${source.display_name} 保存失败：${userFacingAppErrorMessage(err, { fallbackTitle: "请检查配置后重试" })}`,
+      });
+    }
+  };
+
+  const evidenceSourceCheckFailureMessage = (sourceName: string, status: EvidenceSourceStatus, detail: string) => {
+    const suffix = detail ? `：${detail}` : "";
+    if (status === "not_configured") {
+      return `${sourceName} 尚未配置 API key${suffix}`;
+    }
+    if (status === "unavailable") {
+      return `${sourceName} 当前不可用，请稍后重试${suffix}`;
+    }
+    if (status === "quota_limited") {
+      return `${sourceName} 已触发额度限制，请检查套餐或稍后再试${suffix}`;
+    }
+    return `${sourceName} 检查失败，请稍后重试${suffix}`;
   };
 
   const handleCheckEvidenceSource = async (source: EvidenceSourceConfig) => {
-    const result = await checkEvidenceSourceConfig(source.source_id);
-    setEvidenceSourceMessage(
-      result.ok
-        ? `${source.display_name} 本地配置已就绪，真实检索接口仍保持关闭。`
-        : `${source.display_name} 尚未配置 API key。`,
-    );
+    try {
+      const result = await checkEvidenceSourceConfig(source.source_id);
+      if (result.ok) {
+        setEvidenceSourceFeedback({
+          kind: "ok",
+          message: `${source.display_name} 本地配置已就绪，真实检索接口仍保持关闭。`,
+        });
+        return;
+      }
+      setEvidenceSourceFeedback({
+        kind: "error",
+        message: evidenceSourceCheckFailureMessage(source.display_name, result.status, result.detail),
+      });
+    } catch (err) {
+      setEvidenceSourceFeedback({
+        kind: "error",
+        message: `${source.display_name} 检查失败：${userFacingAppErrorMessage(err, { fallbackTitle: "请稍后重试" })}`,
+      });
+    }
   };
 
   if (loading) {
@@ -526,7 +579,21 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
             );
           })}
         </div>
-        {evidenceSourceMessage && <p className="mt-3 text-sm text-app-fg">{evidenceSourceMessage}</p>}
+        {evidenceSourceLoadError && (
+          <p className="settings-feedback err mt-3" data-testid="evidence-source-load-error">
+            <AlertTriangle size={14} /> 数据源配置加载失败：{evidenceSourceLoadError}
+          </p>
+        )}
+        {evidenceSourceFeedback.kind === "ok" && (
+          <p className="settings-feedback ok mt-3" data-testid="evidence-source-feedback">
+            <CheckCircle2 size={14} /> {evidenceSourceFeedback.message}
+          </p>
+        )}
+        {evidenceSourceFeedback.kind === "error" && (
+          <p className="settings-feedback err mt-3" data-testid="evidence-source-feedback">
+            <AlertTriangle size={14} /> {evidenceSourceFeedback.message}
+          </p>
+        )}
       </section>
 
       <div className="mt-6 pt-6 border-t border-app-border">
