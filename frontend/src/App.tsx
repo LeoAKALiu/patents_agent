@@ -30,6 +30,7 @@ import { ShellSidebar } from "./ui/ShellSidebar";
 import { ShellTopbar } from "./ui/ShellTopbar";
 import { SystemStatusPanel } from "./ui/SystemStatusPanel";
 import { useTheme } from "./ui/useTheme";
+import type { CorpusJobForm } from "@/features/corpus/types";
 import {
   AgentDoctorReport,
   ClaimDefenseWorksheet,
@@ -284,15 +285,6 @@ type DesktopMenuBridge = {
       }>;
     };
   };
-};
-
-
-type CorpusJobForm = {
-  source_type: string;
-  source_name: string;
-  query: string;
-  domain: string;
-  version_name: string;
 };
 
 type BusyTimer = {

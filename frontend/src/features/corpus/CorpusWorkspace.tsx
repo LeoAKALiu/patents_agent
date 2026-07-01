@@ -2,7 +2,7 @@ import type { FormEvent } from "react";
 
 import { CorpusView } from "@/views/projectViews";
 import { ProjectKnowledgeView } from "@/views/projectKnowledgeView";
-import type { CorpusJobForm } from "@/views/corpusBuildView";
+import type { CorpusJobForm } from "./types";
 
 import type {
   CnipaQueryPack,
