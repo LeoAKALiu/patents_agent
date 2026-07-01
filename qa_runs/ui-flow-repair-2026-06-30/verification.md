@@ -4,7 +4,8 @@
 
 - Worktree: `/Users/leo/Projects/patents_agent`
 - Branch: `codex/grantatlas-readme-branding`
-- HEAD: `4d6fc6d3`
+- Verification run HEAD: `4d6fc6d3`
+- Final export-readiness unlock fix: `ba59cec7` (`npm --prefix frontend test -- --run src/views/exportView.test.tsx src/features/export/ExportWorkspace.test.tsx` PASS, `npm --prefix frontend run build` PASS)
 - Dirty worktree: yes
 - Scope owned for this task: `qa_runs/ui-flow-repair-2026-06-30/`
 
@@ -31,6 +32,11 @@ Dirty worktree summary at verification time:
 - `npm --prefix frontend test -- --run src/features/documentRepair/selectors.test.ts src/features/documentRepair/DocumentRepairWorkspace.test.tsx src/views/exportView.test.tsx src/features/export/ExportWorkspace.test.tsx src/features/workbench/selectors.test.ts src/features/workbench/WorkbenchWorkspace.test.tsx`
   - PASS: `6` files, `46` tests passed.
 - `npm --prefix frontend run build`
+  - PASS: Vite production build completed successfully.
+- Final review export unlock fix verification:
+  - `npm --prefix frontend test -- --run src/views/exportView.test.tsx src/features/export/ExportWorkspace.test.tsx`
+  - PASS: `2` files, `11` tests passed.
+  - `npm --prefix frontend run build`
   - PASS: Vite production build completed successfully.
 - Backend environment bootstrap:
   - `python3 -m uvicorn ...` failed because the host `python3` was `3.9.6` and lacked `uvicorn`.
@@ -80,6 +86,7 @@ Project: `2f871154949a4b20af410ebab6ffcaf2` (`V110-E2E-01 城市体检多模态�
 ## Known Limits
 
 - Verification evidence is from the live source dev stack only. No Tauri, DMG, or packaged-app claims are made here.
+- Screenshots were captured at verification run HEAD `4d6fc6d3`; the later final-review fix `ba59cec7` changed export unlock source-of-truth logic and was covered by targeted export tests plus build, not a new browser screenshot run.
 - Navigation state was injected through `localStorage` (`patentagent.appState.v1`) in fresh Playwright sessions to avoid mutating backend project data.
 - The repo-local `.venv` was created only because the host `python3` could not run the backend; it is outside the committed artifact scope.
 
