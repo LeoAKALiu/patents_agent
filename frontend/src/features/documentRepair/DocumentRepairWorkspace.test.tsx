@@ -394,8 +394,16 @@ describe("DocumentRepairWorkspace", () => {
     expect(screen.getByRole("heading", { name: "当前初稿尚未完成质量检查。" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /运行质量检查/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "编辑文稿" })).toBeNull();
-    expect(screen.getByText("质量检查")).toBeInTheDocument();
-    expect(screen.getByText("待重新验证")).toBeInTheDocument();
+
+    const gatePanel = screen.getByRole("heading", { name: "内部初稿到导出" }).closest("section");
+    expect(gatePanel).not.toBeNull();
+    expect(within(gatePanel as HTMLElement).getByText("质量检查")).toBeInTheDocument();
+    expect(within(gatePanel as HTMLElement).getByText("待重新验证")).toBeInTheDocument();
+
+    const recentPanel = screen.getByRole("heading", { name: "最近记录" }).closest("section");
+    expect(recentPanel).not.toBeNull();
+    expect(within(recentPanel as HTMLElement).getByText("质量检查")).toBeInTheDocument();
+    expect(within(recentPanel as HTMLElement).getByText("待重新验证")).toBeInTheDocument();
   });
 
   it("keeps raw internals out of the overview by default", () => {
