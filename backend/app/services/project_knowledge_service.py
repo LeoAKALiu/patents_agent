@@ -5,6 +5,11 @@ import re
 import uuid
 from datetime import datetime, timezone
 
+from backend.app.knowledge.patent_sources import (
+    CNIPA_OFFICIAL_EXPORT_SOURCE,
+    WIPO_PATENTSCOPE_SOURCE,
+    build_cnipa_query_pack,
+)
 from backend.app.knowledge.patent_search import (
     PatentSearchProvider,
     default_project_patent_providers,
@@ -13,6 +18,7 @@ from backend.app.knowledge.patent_search import (
 )
 from backend.app.schemas import (
     AgentSearchPlan,
+    CnipaQueryPack,
     CorpusQualityReport,
     PatentPointCandidate,
     PatentSearchFilters,
@@ -29,8 +35,8 @@ from backend.app.storage import SQLiteStore
 
 
 ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通过", "以及", "进行", "生成"}
-PROJECT_PATENT_PROVIDER_SOURCES = ["cnipa_epub", "wipo_patentscope"]
-PROJECT_PATENT_CORPUS_SOURCES = [*PROJECT_PATENT_PROVIDER_SOURCES, "google_patents"]
+PROJECT_PATENT_PROVIDER_SOURCES = [CNIPA_OFFICIAL_EXPORT_SOURCE, WIPO_PATENTSCOPE_SOURCE]
+PROJECT_PATENT_CORPUS_SOURCES = [*PROJECT_PATENT_PROVIDER_SOURCES, "cnipa_epub", "google_patents"]
 PROJECT_PATENT_PROVIDER_SOURCE_SET = frozenset(PROJECT_PATENT_CORPUS_SOURCES)
 
 
@@ -308,6 +314,12 @@ def knowledge_overview(store: SQLiteStore, project_id: str) -> ProjectKnowledgeO
         candidates=candidates,
         latest_corpus_version=latest_corpus_version,
     )
+
+
+def get_cnipa_query_pack(store: SQLiteStore, project_id: str) -> CnipaQueryPack:
+    intent = store.get_latest_search_intent(project_id)
+    plan = store.get_latest_agent_search_plan(project_id)
+    return build_cnipa_query_pack(intent, plan)
 
 
 def regenerate_project_knowledge(

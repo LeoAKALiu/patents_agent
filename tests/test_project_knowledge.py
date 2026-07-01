@@ -27,6 +27,7 @@ from backend.app.services.project_knowledge_service import (
     bulk_update_project_candidate_decisions,
     create_project_corpus_from_included_candidates,
     ensure_project_knowledge_initialized,
+    get_cnipa_query_pack,
     knowledge_overview,
     mark_stale_if_project_changed,
     regenerate_project_knowledge,
@@ -250,6 +251,20 @@ def test_knowledge_initialization_extracts_intent_and_plan(tmp_path):
     assert "任务编排" in overview.latest_intent.keywords_zh
     assert overview.latest_plan is not None
     assert {group.id for group in overview.latest_plan.strategy_groups} >= {"broad-recall", "closest-prior-art"}
+
+
+def test_project_knowledge_cnipa_query_pack_uses_latest_plan(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+
+    pack = get_cnipa_query_pack(store, project.id)
+
+    assert pack.project_id == project.id
+    assert pack.plan_id == overview.latest_plan.id
+    assert pack.source_id == "cnipa_official_export"
+    assert pack.strategies
+    assert pack.strategies[0].queries
 
 
 def test_run_plan_creates_real_candidates_and_state(tmp_path):
