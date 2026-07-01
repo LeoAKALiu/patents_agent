@@ -62,6 +62,8 @@ def _validate_candidate_decision(decision: str) -> None:
 
 
 def _candidate_has_claims(candidate: PriorArtCandidate) -> bool:
+    if candidate.source == CNIPA_OFFICIAL_EXPORT_SOURCE and not _candidate_has_cnipa_official_provenance(candidate):
+        return False
     return bool(str(candidate.metadata.get("claims") or "").strip())
 
 
@@ -72,7 +74,19 @@ def _candidate_has_explicit_fulltext_metadata(candidate: PriorArtCandidate) -> b
     )
 
 
+def _candidate_has_cnipa_official_provenance(candidate: PriorArtCandidate) -> bool:
+    metadata = candidate.metadata
+    return (
+        candidate.source == CNIPA_OFFICIAL_EXPORT_SOURCE
+        and str(metadata.get("evidence_origin") or "").strip() == "official_export"
+        and bool(str(metadata.get("import_ledger_id") or "").strip())
+        and bool(str(metadata.get("raw_file_hash") or "").strip())
+    )
+
+
 def _candidate_has_fulltext(candidate: PriorArtCandidate) -> bool:
+    if candidate.source == CNIPA_OFFICIAL_EXPORT_SOURCE and not _candidate_has_cnipa_official_provenance(candidate):
+        return False
     has_description = bool(str(candidate.metadata.get("description") or "").strip())
     has_explicit_fulltext = _candidate_has_explicit_fulltext_metadata(candidate)
     return bool(
@@ -623,19 +637,25 @@ def create_project_corpus_from_included_candidates(
         if includes_non_patent:
             quality_flags.append("non_patent_source")
         cnipa_included = [candidate for candidate in patent_included if candidate.source == CNIPA_OFFICIAL_EXPORT_SOURCE]
+        invalid_cnipa_included = [
+            candidate for candidate in cnipa_included if not _candidate_has_cnipa_official_provenance(candidate)
+        ]
+        valid_cnipa_included = [candidate for candidate in cnipa_included if _candidate_has_cnipa_official_provenance(candidate)]
+        if invalid_cnipa_included:
+            quality_flags.append("cnipa_export_missing_provenance")
         cnipa_claim_coverage = _ratio(
-            sum(1 for candidate in cnipa_included if _candidate_has_claims(candidate)),
-            len(cnipa_included),
+            sum(1 for candidate in valid_cnipa_included if _candidate_has_claims(candidate)),
+            len(valid_cnipa_included),
         )
         cnipa_fulltext_coverage = _ratio(
-            sum(1 for candidate in cnipa_included if _candidate_has_fulltext(candidate)),
-            len(cnipa_included),
+            sum(1 for candidate in valid_cnipa_included if _candidate_has_fulltext(candidate)),
+            len(valid_cnipa_included),
         )
-        if cnipa_included and cnipa_fulltext_coverage == 0.0 and cnipa_claim_coverage == 0.0:
+        if valid_cnipa_included and cnipa_fulltext_coverage == 0.0 and cnipa_claim_coverage == 0.0:
             quality_flags.append("cnipa_export_metadata_only")
-        elif cnipa_included and cnipa_fulltext_coverage < 1.0:
+        elif valid_cnipa_included and cnipa_fulltext_coverage < 1.0:
             quality_flags.append("cnipa_export_partial_fulltext")
-        if cnipa_included and cnipa_claim_coverage < 1.0:
+        if valid_cnipa_included and cnipa_claim_coverage < 1.0:
             quality_flags.append("cnipa_export_missing_claims")
     non_patent_sources = sorted({candidate.source for candidate in non_patent_included})
     quality_failures: list[dict[str, str]] = []
@@ -651,6 +671,7 @@ def create_project_corpus_from_included_candidates(
             }
         )
     cnipa_failure_messages = {
+        "cnipa_export_missing_provenance": "CNIPA official export corpus contains records missing official-export provenance metadata.",
         "cnipa_export_metadata_only": "CNIPA official export corpus contains metadata-only records without claims or fulltext.",
         "cnipa_export_partial_fulltext": "CNIPA official export corpus is missing fulltext coverage for one or more included records.",
         "cnipa_export_missing_claims": "CNIPA official export corpus is missing claims coverage for one or more included records.",

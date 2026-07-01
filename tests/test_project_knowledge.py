@@ -731,7 +731,13 @@ def test_cnipa_official_export_builds_ready_corpus_with_claims_and_fulltext(tmp_
                 url="",
                 fulltext_status="available",
                 user_decision="include",
-                metadata={"claims": "1. 一种城市体检方法。", "description": "说明书全文。"},
+                metadata={
+                    "claims": "1. 一种城市体检方法。",
+                    "description": "说明书全文。",
+                    "evidence_origin": "official_export",
+                    "import_ledger_id": f"ledger-{number}",
+                    "raw_file_hash": f"hash-{number}",
+                },
             )
         )
     store.upsert_project_knowledge_state(
@@ -753,6 +759,52 @@ def test_cnipa_official_export_builds_ready_corpus_with_claims_and_fulltext(tmp_
     assert result.state.quality_flags == []
 
 
+def test_cnipa_candidate_missing_official_provenance_does_not_become_ready(tmp_path):
+    store = SQLiteStore(tmp_path / "knowledge.sqlite3")
+    project = _project()
+    overview = regenerate_project_knowledge(store, project, [])
+    plan_id = overview.latest_plan.id
+    store.upsert_prior_art_candidate(
+        PriorArtCandidate(
+            id="candidate-cn-missing-provenance",
+            project_id=project.id,
+            plan_id=plan_id,
+            source="cnipa_official_export",
+            title="城市体检方法",
+            publication_number="CN112233445A",
+            abstract="公开了一种城市体检方法。",
+            url="",
+            fulltext_status="available",
+            user_decision="include",
+            metadata={"claims": "1. 一种城市体检方法。", "description": "说明书全文。"},
+        )
+    )
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="candidates_pending",
+            active_plan_id=plan_id,
+            last_search_at="2026-07-01T00:00:00+00:00",
+            candidate_count=1,
+        )
+    )
+
+    result = create_project_corpus_from_included_candidates(store, project.id, plan_id)
+
+    assert result.state.status == "needs_supplemental_search"
+    assert result.state.claim_coverage == 0.0
+    assert result.state.fulltext_coverage == 0.0
+    assert "cnipa_export_missing_provenance" in result.state.quality_flags
+    assert result.latest_corpus_version is not None
+    assert result.latest_corpus_version.quality_report is not None
+    assert result.latest_corpus_version.quality_report.failures == [
+        {
+            "code": "cnipa_export_missing_provenance",
+            "message": "CNIPA official export corpus contains records missing official-export provenance metadata.",
+        }
+    ]
+
+
 def test_cnipa_metadata_only_corpus_needs_supplemental_search(tmp_path):
     store = SQLiteStore(tmp_path / "knowledge.sqlite3")
     project = _project()
@@ -768,7 +820,11 @@ def test_cnipa_metadata_only_corpus_needs_supplemental_search(tmp_path):
             publication_number="CN112233445A",
             url="",
             user_decision="include",
-            metadata={"evidence_origin": "official_export"},
+            metadata={
+                "evidence_origin": "official_export",
+                "import_ledger_id": "ledger-cn",
+                "raw_file_hash": "hash-cn",
+            },
         )
     )
     store.upsert_project_knowledge_state(
@@ -818,7 +874,12 @@ def test_cnipa_claims_without_description_needs_partial_fulltext_search(tmp_path
             url="",
             fulltext_status="available",
             user_decision="include",
-            metadata={"claims": "1. 一种城市体检方法。"},
+            metadata={
+                "claims": "1. 一种城市体检方法。",
+                "evidence_origin": "official_export",
+                "import_ledger_id": "ledger-claims-only",
+                "raw_file_hash": "hash-claims-only",
+            },
         )
     )
     store.upsert_project_knowledge_state(
@@ -861,6 +922,9 @@ def test_cnipa_attachment_metadata_does_not_count_as_fulltext(tmp_path):
                 "claims": "1. 一种城市体检方法。",
                 "fulltext_path": "/tmp/CN112233445A.pdf",
                 "fulltext_file": "CN112233445A.pdf",
+                "evidence_origin": "official_export",
+                "import_ledger_id": "ledger-attachment-only",
+                "raw_file_hash": "hash-attachment-only",
             },
         )
     )
@@ -926,7 +990,12 @@ def test_create_project_corpus_preserves_non_patent_and_cnipa_quality_flags_in_m
             abstract="公开了一种城市体检方法。",
             url="",
             user_decision="include",
-            metadata={"claims": "1. 一种城市体检方法。"},
+            metadata={
+                "claims": "1. 一种城市体检方法。",
+                "evidence_origin": "official_export",
+                "import_ledger_id": "ledger-mixed-partial",
+                "raw_file_hash": "hash-mixed-partial",
+            },
         )
     )
     store.upsert_prior_art_candidate(

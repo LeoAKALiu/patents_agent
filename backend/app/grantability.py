@@ -43,7 +43,12 @@ from backend.app.schemas import (
 _EVIDENCE_QUALITY_RANKS: dict[str, int] = {"verified": 3, "unverified": 2, "low": 1}
 _ATTACK_STRENGTH_RANKS: dict[str, int] = {"strong": 4, "moderate": 3, "weak": 2, "none": 1}
 _CNIPA_BLOCKING_KNOWLEDGE_FLAGS = frozenset(
-    {"cnipa_export_metadata_only", "cnipa_export_missing_claims", "cnipa_export_partial_fulltext"}
+    {
+        "cnipa_export_missing_provenance",
+        "cnipa_export_metadata_only",
+        "cnipa_export_missing_claims",
+        "cnipa_export_partial_fulltext",
+    }
 )
 
 

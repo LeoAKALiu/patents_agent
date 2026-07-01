@@ -114,3 +114,28 @@
 
 - Required suite:
   - `python3 -m pytest tests/test_project_knowledge.py tests/test_grantability.py -q`
+
+## Review Fix Addendum 4
+
+- Follow-up source branch: `codex/cnipa-official-export-design`
+- Follow-up source short SHA: `0ab922a6`
+- Worktree path: `/Users/leo/Projects/patents_agent/.worktrees/cnipa-official-export-design`
+- Dirty worktree at start: yes (`.superpowers/sdd/progress.md`, `task-1-report.md`, `task-2-report.md`, `task-3-report.md`)
+
+### Fixes Applied
+
+- Stopped CNIPA official-export candidates from counting toward claims/fulltext coverage unless they carry importer provenance metadata (`evidence_origin=official_export`, `import_ledger_id`, `raw_file_hash`).
+- Added a fail-closed CNIPA quality flag and stored corpus failure entry for malformed/manual CNIPA candidates missing that provenance metadata.
+- Updated CNIPA readiness/coverage fixtures to include real importer metadata where the test intent is coverage rather than provenance.
+- Extended grantability blocking flags so missing CNIPA provenance also fail-closes, while parse warnings remain non-blocking.
+
+### Regression Tests Added
+
+- `test_cnipa_candidate_missing_official_provenance_does_not_become_ready`
+- `test_grantability_fails_closed_for_cnipa_missing_provenance_state`
+
+### Verification
+
+- Required suite:
+  - `python3 -m pytest tests/test_project_knowledge.py tests/test_grantability.py -q`
+  - Result: `81 passed`
