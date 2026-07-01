@@ -13,6 +13,7 @@ class NonPatentSearchHit(BaseModel):
     query: str
     title: str
     url: str = ""
+    provider_attempt_id: str = ""
     authors: list[str] = Field(default_factory=list)
     publication_year: str = ""
     abstract: str = ""

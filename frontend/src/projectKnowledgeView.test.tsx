@@ -848,6 +848,75 @@ describe("ProjectKnowledgeView", () => {
 
     expect(screen.getByText("补强证据")).toBeInTheDocument();
     expect(screen.getByText("不可用于授权门控")).toBeInTheDocument();
+    expect(screen.getByText("未记录公开号 · 万方")).toBeInTheDocument();
     expect(screen.getByText(/尚未形成可支撑授权判断的专利证据库/)).toBeInTheDocument();
+  });
+
+  it("uses commercial source labels in candidate cards", () => {
+    render(
+      <ProjectKnowledgeView
+        selectedProject={project}
+        knowledge={{
+          state: {
+            project_id: project.id,
+            status: "candidates_pending",
+            active_intent_id: "intent-1",
+            active_plan_id: "plan-1",
+            active_corpus_version_id: "",
+            last_search_at: "2026-07-01T00:00:00Z",
+            last_indexed_at: "",
+            staleness_reason: "",
+            document_count: 0,
+            patent_document_count: 0,
+            non_patent_document_count: 0,
+            candidate_count: 1,
+            claim_coverage: 0,
+            fulltext_coverage: 0,
+            quality_flags: ["candidates_need_confirmation"],
+          },
+          latest_intent: null,
+          latest_plan: null,
+          candidates: [
+            {
+              id: "patsnap-1",
+              project_id: project.id,
+              plan_id: "plan-1",
+              source: "patsnap_api",
+              title: "城市体检智能体调度方法",
+              publication_number: "CN112233445A",
+              application_number: null,
+              applicant: "",
+              publication_date: "",
+              grant_date: "",
+              abstract: "公开了一种城市体检调度方法。",
+              url: "https://example.com/patsnap-1",
+              relevance_score: 0,
+              matched_terms: [],
+              ipc: [],
+              cpc: [],
+              family_id: "",
+              duplicate_of: "",
+              fulltext_status: "unknown",
+              recommended_action: "review",
+              recommendation_reason: "",
+              user_decision: "pending",
+              metadata: {},
+              evidence_kind: "patent",
+              can_satisfy_patent_gate: true,
+              created_at: "",
+            },
+          ],
+          latest_corpus_version: null,
+          source_statuses: [],
+        }}
+        busy=""
+        onGenerateKnowledgePlan={() => undefined}
+        onRunKnowledgeSearch={() => undefined}
+        onCandidateDecision={() => undefined}
+        onBuildProjectCorpus={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("CN112233445A · 智慧芽")).toBeInTheDocument();
   });
 });

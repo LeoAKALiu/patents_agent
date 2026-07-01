@@ -6,7 +6,9 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from backend.app.evidence_sources import evidence_source_views
 from backend.app.knowledge.cnipa_export import CnipaExportImportContext, parse_cnipa_official_export_file
+from backend.app.knowledge.non_patent_search import NonPatentSearchHit, NonPatentSearchProvider, WanfangLiteratureProvider
 from backend.app.knowledge.patent_sources import (
     CNIPA_LEGACY_EPUB_SOURCE,
     CNIPA_OFFICIAL_EXPORT_SOURCE,
@@ -28,6 +30,7 @@ from backend.app.schemas import (
     PatentPointCandidate,
     PatentSearchFilters,
     PriorArtCandidate,
+    ProviderAttempt,
     ProjectKnowledgeImportLedger,
     ProjectSearchLedger,
     ProjectCorpusVersion,
@@ -38,6 +41,7 @@ from backend.app.schemas import (
     SearchPlanStrategyGroup,
 )
 from backend.app.storage import SQLiteStore
+from backend.app.research.providers import sanitize_untrusted_text
 
 
 ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通过", "以及", "进行", "生成"}
@@ -53,6 +57,12 @@ PROJECT_PATENT_PROVIDER_SOURCE_SET = frozenset(PROJECT_PRIMARY_PATENT_PROVIDER_S
 LIVE_PROJECT_PATENT_PROVIDER_SOURCES = frozenset(
     {"patsnap_api", CNIPA_LEGACY_EPUB_SOURCE, WIPO_PATENTSCOPE_SOURCE, GOOGLE_PATENTS_SOURCE}
 )
+LIVE_PROJECT_NON_PATENT_PROVIDER_SOURCES = frozenset(PROJECT_SUPPLEMENTAL_LITERATURE_SOURCES)
+PUBLIC_PROJECT_PATENT_PROVIDER_SOURCES = frozenset({CNIPA_LEGACY_EPUB_SOURCE, WIPO_PATENTSCOPE_SOURCE, GOOGLE_PATENTS_SOURCE})
+SOURCE_NOT_IMPLEMENTED_WARNINGS = {
+    "patsnap_api": "patsnap_api_live_search_not_implemented",
+    "wanfang_api": "wanfang_api_live_search_not_implemented",
+}
 
 
 class ProjectKnowledgeConflictError(ValueError):
@@ -108,6 +118,10 @@ def _candidate_has_fulltext(candidate: PriorArtCandidate) -> bool:
 
 def _ratio(count: int, total: int) -> float:
     return count / total if total else 0.0
+
+
+def _stable_non_patent_candidate_id(*parts: str) -> str:
+    return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
 
 
 def project_snapshot_hash(project: ProjectRecord, patent_points: list[PatentPointCandidate] | None = None) -> str:
@@ -473,6 +487,46 @@ def run_patent_search_plan(
     return candidates, ledger
 
 
+def _non_patent_hit_to_candidate(
+    hit: NonPatentSearchHit,
+    *,
+    project_id: str,
+    plan_id: str,
+    strategy_group_id: str,
+) -> PriorArtCandidate:
+    sanitized_title = sanitize_untrusted_text(hit.title, max_len=300) or hit.title
+    sanitized_query = sanitize_untrusted_text(hit.query)
+    sanitized_abstract = sanitize_untrusted_text(hit.abstract) if hit.abstract else None
+    identity_seed = hit.url or sanitized_title or hit.id
+    metadata = {
+        "authors": [sanitize_untrusted_text(author, max_len=200) for author in hit.authors if author],
+        "query": sanitized_query,
+        "strategy_group": strategy_group_id,
+    }
+    if hit.provider_attempt_id:
+        metadata["source_attempt_ids"] = [hit.provider_attempt_id]
+    return PriorArtCandidate(
+        id=_stable_non_patent_candidate_id(project_id, plan_id, strategy_group_id, hit.source, identity_seed),
+        project_id=project_id,
+        plan_id=plan_id,
+        source=hit.source,
+        title=sanitized_title,
+        applicant=", ".join(metadata["authors"]),
+        publication_date=hit.publication_year,
+        abstract=sanitized_abstract,
+        url=hit.url,
+        relevance_score=0.0,
+        matched_terms=sanitized_query.split(),
+        fulltext_status="unknown",
+        evidence_kind="non_patent_literature",
+        can_satisfy_patent_gate=False,
+        recommended_action="review",
+        recommendation_reason="非专利文献线索可用于背景技术与创造性论证补强，不能替代专利证据门控。",
+        metadata=metadata,
+        created_at=_now(),
+    )
+
+
 def _planned_source_ids(plan: AgentSearchPlan) -> set[str]:
     return {
         source_id
@@ -485,6 +539,21 @@ def _planned_source_ids(plan: AgentSearchPlan) -> set[str]:
 
 def _planned_provider_source_ids(plan: AgentSearchPlan) -> set[str]:
     return _planned_source_ids(plan) & LIVE_PROJECT_PATENT_PROVIDER_SOURCES
+
+
+def _planned_non_patent_provider_source_ids(plan: AgentSearchPlan) -> set[str]:
+    return _planned_source_ids(plan) & LIVE_PROJECT_NON_PATENT_PROVIDER_SOURCES
+
+
+def _strategy_group_id_for_source_and_query(plan: AgentSearchPlan, source_id: str, query: str) -> str:
+    return next(
+        (
+            group.id
+            for group in plan.strategy_groups
+            if (not group.sources or source_id in group.sources) and query in (group.queries or [group.label])
+        ),
+        "supplemental-literature",
+    )
 
 
 def _default_provider_chain_for_plan(plan: AgentSearchPlan) -> list[PatentSearchProvider]:
@@ -508,6 +577,155 @@ def _default_provider_chain_for_plan_with_data_dir(
     return [provider for provider in provider_chain if provider.source_id in planned_sources]
 
 
+def _default_non_patent_provider_chain_for_plan_with_data_dir(
+    plan: AgentSearchPlan,
+    *,
+    data_dir: str | Path | None,
+) -> list[NonPatentSearchProvider]:
+    if data_dir is None:
+        return []
+    sources = {source.source_id: source for source in evidence_source_views(Path(data_dir))}
+    provider_chain: list[NonPatentSearchProvider] = [WanfangLiteratureProvider(sources["wanfang_api"])]
+    planned_sources = _planned_non_patent_provider_source_ids(plan)
+    if not planned_sources:
+        return []
+    return [provider for provider in provider_chain if provider.source_id in planned_sources]
+
+
+def _run_non_patent_search_plan(
+    provider_chain: list[NonPatentSearchProvider],
+    project_id: str,
+    plan: AgentSearchPlan,
+) -> tuple[list[PriorArtCandidate], list[ProviderAttempt], list[str]]:
+    filters = PatentSearchFilters.model_validate(plan.filters)
+    all_hits: list[NonPatentSearchHit] = []
+    attempts = []
+    warnings: list[str] = []
+
+    for provider in provider_chain:
+        strategy_groups = [group for group in plan.strategy_groups if not group.sources or provider.source_id in group.sources]
+        for group in strategy_groups:
+            for query in (group.queries or [group.label]):
+                attempt_id = uuid.uuid4().hex
+                started_at = _now()
+                available, skip_reason = provider.available()
+                if not available:
+                    attempt = ProviderAttempt(
+                        id=attempt_id,
+                        provider=provider.source_id,
+                        query=query,
+                        filters=filters.model_dump(mode="json"),
+                        status="skipped",
+                        warnings=[skip_reason or "provider unavailable"],
+                        failure_reason=skip_reason or "provider unavailable",
+                        started_at=started_at,
+                        finished_at=_now(),
+                    )
+                    attempts.append(attempt)
+                    warnings.extend(attempt.warnings)
+                    continue
+                try:
+                    hits, provider_warnings = provider.search(query, limit=plan.target_result_count)
+                    tagged_hits = [hit.model_copy(update={"provider_attempt_id": attempt_id, "query": query}) for hit in hits]
+                    attempts.append(
+                        ProviderAttempt(
+                            id=attempt_id,
+                            provider=provider.source_id,
+                            query=query,
+                            filters=filters.model_dump(mode="json"),
+                            status="ok" if tagged_hits else "partial",
+                            hit_count=len(tagged_hits),
+                            warnings=provider_warnings,
+                            started_at=started_at,
+                            finished_at=_now(),
+                        )
+                    )
+                    warnings.extend(provider_warnings)
+                    all_hits.extend(tagged_hits)
+                except TimeoutError as exc:
+                    message = str(exc)
+                    attempts.append(
+                        ProviderAttempt(
+                            id=attempt_id,
+                            provider=provider.source_id,
+                            query=query,
+                            filters=filters.model_dump(mode="json"),
+                            status="timed_out",
+                            warnings=[message],
+                            failure_reason=message,
+                            started_at=started_at,
+                            finished_at=_now(),
+                        )
+                    )
+                    warnings.append(message)
+                except Exception as exc:
+                    message = str(exc)
+                    attempts.append(
+                        ProviderAttempt(
+                            id=attempt_id,
+                            provider=provider.source_id,
+                            query=query,
+                            filters=filters.model_dump(mode="json"),
+                            status="failed",
+                            warnings=[message],
+                            failure_reason=message,
+                            started_at=started_at,
+                            finished_at=_now(),
+                        )
+                    )
+                    warnings.append(message)
+
+    retained_by_attempt: dict[str, int] = {}
+    candidates = [
+        _non_patent_hit_to_candidate(
+            hit,
+            project_id=project_id,
+            plan_id=plan.id,
+            strategy_group_id=_strategy_group_id_for_source_and_query(plan, hit.source, hit.query),
+        )
+        for hit in all_hits
+    ]
+    for candidate in candidates:
+        for attempt_id in candidate.metadata.get("source_attempt_ids", []):
+            retained_by_attempt[attempt_id] = retained_by_attempt.get(attempt_id, 0) + 1
+    finalized_attempts = [
+        attempt.model_copy(update={"retained_count": retained_by_attempt.get(attempt.id, 0)})
+        for attempt in attempts
+    ]
+    return candidates, finalized_attempts, warnings
+
+
+def _source_setup_quality_flags(
+    plan: AgentSearchPlan,
+    ledger: ProjectSearchLedger,
+    *,
+    data_dir: str | Path | None,
+) -> list[str]:
+    if data_dir is None:
+        return []
+    planned_sources = _planned_source_ids(plan) & frozenset({"patsnap_api", "wanfang_api"})
+    if not planned_sources:
+        return []
+    source_views = {source.source_id: source for source in evidence_source_views(Path(data_dir))}
+    flags: list[str] = []
+    if any(source_views.get(source_id) and source_views[source_id].status == "not_configured" for source_id in planned_sources):
+        flags.append("source_not_configured")
+    if any(
+        SOURCE_NOT_IMPLEMENTED_WARNINGS.get(attempt.provider, "") in attempt.warnings
+        for attempt in ledger.attempts
+        if attempt.provider in planned_sources
+    ):
+        flags.append("source_configured_not_implemented")
+    return flags
+
+
+def _ledger_has_public_no_hit_or_failure(ledger: ProjectSearchLedger) -> bool:
+    return any(
+        attempt.provider in PUBLIC_PROJECT_PATENT_PROVIDER_SOURCES and attempt.status in {"partial", "failed", "timed_out"}
+        for attempt in ledger.attempts
+    )
+
+
 def run_agent_search_plan(
     store: SQLiteStore,
     project_id: str,
@@ -524,9 +742,28 @@ def run_agent_search_plan(
         else _default_provider_chain_for_plan_with_data_dir(running, data_dir=data_dir)
     )
     candidates, ledger = run_patent_search_plan(provider_chain, project_id, running)
+    non_patent_provider_chain = [] if providers is not None else _default_non_patent_provider_chain_for_plan_with_data_dir(
+        running,
+        data_dir=data_dir,
+    )
+    non_patent_candidates, non_patent_attempts, non_patent_warnings = _run_non_patent_search_plan(
+        non_patent_provider_chain,
+        project_id,
+        running,
+    )
+    all_candidates = [*candidates, *non_patent_candidates]
+    ledger = ledger.model_copy(
+        update={
+            "attempts": [*ledger.attempts, *non_patent_attempts],
+            "retained_candidate_ids": [candidate.id for candidate in all_candidates],
+            "warnings": [*ledger.warnings, *non_patent_warnings],
+        }
+    )
+    source_setup_flags = _source_setup_quality_flags(running, ledger, data_dir=data_dir)
+    empty_run_is_setup_guidance = bool(source_setup_flags) and not _ledger_has_public_no_hit_or_failure(ledger)
     completed = running.model_copy(
         update={
-            "status": "completed" if candidates else "failed",
+            "status": "completed" if all_candidates or empty_run_is_setup_guidance else "failed",
             "run_finished_at": _now(),
             "warnings": ledger.warnings,
             "metadata": {
@@ -537,17 +774,17 @@ def run_agent_search_plan(
     )
     state = ProjectKnowledgeState(
         project_id=project_id,
-        status="candidates_pending" if candidates else "failed",
+        status="candidates_pending" if all_candidates else ("search_plan_pending" if empty_run_is_setup_guidance else "failed"),
         active_intent_id=completed.intent_id,
         active_plan_id=plan_id,
         last_search_at=_now(),
-        candidate_count=len(candidates),
-        quality_flags=["candidates_need_confirmation"] if candidates else ["no_hits"],
+        candidate_count=len(all_candidates),
+        quality_flags=["candidates_need_confirmation"] if all_candidates else (source_setup_flags if empty_run_is_setup_guidance else ["no_hits"]),
     )
     stored_candidates, _stored_ledger = store.replace_agent_search_run(
         project_id=project_id,
         plan=completed,
-        candidates=candidates,
+        candidates=all_candidates,
         ledger=ledger,
         state=state,
     )

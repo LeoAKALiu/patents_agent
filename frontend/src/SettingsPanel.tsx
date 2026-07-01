@@ -574,6 +574,14 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
                   >
                     申请入口
                   </a>
+                  <a
+                    className="inline-flex items-center text-sm font-medium text-app-fg underline-offset-4 hover:underline"
+                    href={source.docs_url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    文档
+                  </a>
                 </div>
               </article>
             );

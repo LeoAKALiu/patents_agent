@@ -1558,16 +1558,10 @@ class EvidenceSourceConfig(BaseModel):
 
 
 class EvidenceSourceConfigPatch(BaseModel):
-    api_key: str | None = None
+    api_key: str | None = Field(default=None, max_length=4096)
     clear_api_key: bool = False
     base_url: str | None = None
     enabled: bool | None = None
-
-    @model_validator(mode="after")
-    def _api_key_exclusive(self) -> "EvidenceSourceConfigPatch":
-        if self.clear_api_key and self.api_key is not None:
-            raise ValueError("Pass either api_key or clear_api_key, not both.")
-        return self
 
 
 class EvidenceSourceCheckResult(BaseModel):

@@ -5,6 +5,7 @@ from zipfile import ZipFile
 
 import pytest
 
+from backend.app.evidence_sources import update_evidence_source_config
 from backend.app.knowledge.patent_search import (
     CnipaEpubPatentProvider,
     GooglePatentsProvider,
@@ -13,6 +14,7 @@ from backend.app.knowledge.patent_search import (
 )
 from backend.app.schemas import (
     AgentSearchPlan,
+    EvidenceSourceConfigPatch,
     PatentSearchHit,
     PatentPointCandidate,
     PatentType,
@@ -478,6 +480,154 @@ def test_project_search_all_providers_empty_fails_without_fake_candidates(tmp_pa
     assert result.state.candidate_count == 0
     assert "no_hits" in result.state.quality_flags
     assert result.candidates == []
+
+
+def test_run_agent_search_plan_marks_commercial_sources_not_configured_without_no_hits(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    intent = SearchIntent(
+        id="intent-commercial-1",
+        project_id=project.id,
+        source_project_hash="hash-commercial-1",
+        technical_object="城市体检智能体",
+        technical_problem="任务编排缺少可信复核",
+        technical_means="多智能体任务编排和证据链复核",
+        technical_effect="提高报告可信度",
+        keywords_zh=["城市体检", "智能体", "任务编排"],
+        jurisdictions=["CN"],
+        date_range="2016-2026",
+        created_by="agent",
+    )
+    plan = AgentSearchPlan(
+        id="plan-commercial-1",
+        project_id=project.id,
+        intent_id=intent.id,
+        status="draft",
+        strategy_groups=[
+            SearchPlanStrategyGroup(
+                id="commercial-patent",
+                label="商业专利",
+                purpose="仅验证商业专利源配置引导。",
+                queries=["城市体检 智能体 任务编排"],
+                sources=["patsnap_api"],
+            ),
+            SearchPlanStrategyGroup(
+                id="commercial-literature",
+                label="商业文献",
+                purpose="仅验证非专利商业源配置引导。",
+                queries=["城市体检 智能体 任务编排"],
+                sources=["wanfang_api"],
+            ),
+        ],
+        target_sources=["patsnap_api", "wanfang_api"],
+        target_result_count=20,
+        filters={"jurisdictions": ["CN"], "date_range": "2016-2026"},
+    )
+    store.create_search_intent(intent)
+    store.create_agent_search_plan(plan)
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="search_plan_pending",
+            active_intent_id=intent.id,
+            active_plan_id=plan.id,
+        )
+    )
+
+    result = run_agent_search_plan(store, project.id, plan.id, data_dir=tmp_path)
+
+    assert result.state.status == "search_plan_pending"
+    assert "source_not_configured" in result.state.quality_flags
+    assert "no_hits" not in result.state.quality_flags
+    assert result.state.candidate_count == 0
+    stored_plan = store.get_agent_search_plan(project.id, plan.id)
+    assert stored_plan is not None
+    assert stored_plan.status == "completed"
+    ledger = store.get_latest_project_search_ledger(project.id, plan.id)
+    assert ledger is not None
+    assert {attempt.provider for attempt in ledger.attempts} == {"patsnap_api", "wanfang_api"}
+    assert all(attempt.status == "skipped" for attempt in ledger.attempts)
+
+
+def test_run_agent_search_plan_marks_configured_commercial_skeletons_as_not_implemented(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    update_evidence_source_config(
+        tmp_path,
+        "patsnap_api",
+        EvidenceSourceConfigPatch(api_key="ps-test-secret-1234", enabled=True),
+    )
+    update_evidence_source_config(
+        tmp_path,
+        "wanfang_api",
+        EvidenceSourceConfigPatch(api_key="wf-test-secret-5678", enabled=True),
+    )
+    intent = SearchIntent(
+        id="intent-commercial-2",
+        project_id=project.id,
+        source_project_hash="hash-commercial-2",
+        technical_object="城市体检智能体",
+        technical_problem="任务编排缺少可信复核",
+        technical_means="多智能体任务编排和证据链复核",
+        technical_effect="提高报告可信度",
+        keywords_zh=["城市体检", "智能体", "任务编排"],
+        jurisdictions=["CN"],
+        date_range="2016-2026",
+        created_by="agent",
+    )
+    plan = AgentSearchPlan(
+        id="plan-commercial-2",
+        project_id=project.id,
+        intent_id=intent.id,
+        status="draft",
+        strategy_groups=[
+            SearchPlanStrategyGroup(
+                id="commercial-patent",
+                label="商业专利",
+                purpose="仅验证商业专利源骨架提示。",
+                queries=["城市体检 智能体 任务编排"],
+                sources=["patsnap_api"],
+            ),
+            SearchPlanStrategyGroup(
+                id="commercial-literature",
+                label="商业文献",
+                purpose="仅验证非专利商业源骨架提示。",
+                queries=["城市体检 智能体 任务编排"],
+                sources=["wanfang_api"],
+            ),
+        ],
+        target_sources=["patsnap_api", "wanfang_api"],
+        target_result_count=20,
+        filters={"jurisdictions": ["CN"], "date_range": "2016-2026"},
+    )
+    store.create_search_intent(intent)
+    store.create_agent_search_plan(plan)
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="search_plan_pending",
+            active_intent_id=intent.id,
+            active_plan_id=plan.id,
+        )
+    )
+
+    result = run_agent_search_plan(store, project.id, plan.id, data_dir=tmp_path)
+
+    assert result.state.status == "search_plan_pending"
+    assert result.state.quality_flags == ["source_configured_not_implemented"]
+    assert "no_hits" not in result.state.quality_flags
+    assert result.state.candidate_count == 0
+    stored_plan = store.get_agent_search_plan(project.id, plan.id)
+    assert stored_plan is not None
+    assert stored_plan.status == "completed"
+    assert "patsnap_api_live_search_not_implemented" in stored_plan.warnings
+    assert "wanfang_api_live_search_not_implemented" in stored_plan.warnings
+    ledger = store.get_latest_project_search_ledger(project.id, plan.id)
+    assert ledger is not None
+    assert any(attempt.provider == "wanfang_api" and attempt.status == "partial" for attempt in ledger.attempts)
+    assert any(attempt.provider == "patsnap_api" and attempt.status == "partial" for attempt in ledger.attempts)
 
 
 def test_wipo_patentscope_candidates_can_build_ready_project_corpus(tmp_path):

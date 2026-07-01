@@ -92,6 +92,8 @@ function sourceStatusLabel(status: string): string {
 }
 
 function sourceLabel(source: string): string {
+  if (source === "patsnap_api") return "智慧芽";
+  if (source === "wanfang_api") return "万方";
   if (source === "cnipa_official_export") return "CNIPA 官方导出";
   if (source === "cnipa_authorized_api") return "CNIPA 授权 API";
   if (source === "cnipa_epub") return "CNIPA legacy helper";

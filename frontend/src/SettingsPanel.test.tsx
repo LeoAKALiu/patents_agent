@@ -177,6 +177,10 @@ describe("SettingsPanel error copy", () => {
     expect(screen.getByText("智慧芽 PatSnap")).toBeInTheDocument();
     expect(screen.getByText("万方")).toBeInTheDocument();
     expect(screen.getByText(/不替代专利证据门控/)).toBeInTheDocument();
+    const docLinks = screen.getAllByRole("link", { name: "文档" });
+    expect(docLinks).toHaveLength(2);
+    expect(docLinks[0]).toHaveAttribute("href", "https://open.zhihuiya.com/devportal");
+    expect(docLinks[1]).toHaveAttribute("href", "https://apps.wanfangdata.com.cn/open/docs");
   });
 
   it("saves a PatSnap evidence source key", async () => {

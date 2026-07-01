@@ -37,6 +37,22 @@ def test_update_evidence_source_config_never_returns_raw_secret(tmp_path):
     assert "ps-secret-value" not in response.text
 
 
+def test_update_evidence_source_config_rejects_conflicting_secret_fields_without_echoing_secret(tmp_path):
+    client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
+
+    response = client.put(
+        "/api/evidence-sources/patsnap_api/config",
+        json={
+            "api_key": "ps-secret-value-1234",
+            "clear_api_key": True,
+        },
+    )
+
+    assert response.status_code == 422
+    assert "Pass either api_key or clear_api_key, not both." in response.text
+    assert "ps-secret-value-1234" not in response.text
+
+
 def test_check_evidence_source_config_is_local_only(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path, load_env_file=False))
     client.put(
