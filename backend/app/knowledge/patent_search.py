@@ -11,6 +11,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime, timezone
+from html import unescape
 from pathlib import Path
 from socket import timeout as SocketTimeout
 from typing import Any, Protocol
@@ -112,6 +113,121 @@ def parse_google_patents_hits(html: str, query: str) -> list[PatentSearchHit]:
     return dedupe_patent_search_hits(hits)
 
 
+_CJK_QUERY_TRANSLATIONS = {
+    "城市体检": "urban health assessment",
+    "城市诊断": "urban health assessment",
+    "智能体": "agent",
+    "多智能体": "multi agent",
+    "任务编排": "task orchestration",
+    "任务调度": "task scheduling",
+    "证据链": "evidence chain",
+    "可信复核": "trusted review",
+    "复核": "review",
+    "工程决策": "engineering decision",
+    "低空采集": "low altitude data collection",
+    "无人机": "drone UAV",
+    "建筑": "building",
+    "病害检测": "defect detection",
+    "指标": "indicator",
+    "置信度": "confidence",
+}
+
+
+def _strip_html(value: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", value)
+    return re.sub(r"\s+", " ", unescape(text)).strip()
+
+
+def _has_cjk(value: str) -> bool:
+    return bool(re.search(r"[\u3400-\u9fff]", value))
+
+
+def _patentscope_query_variants(query: str) -> list[str]:
+    if not _has_cjk(query):
+        return [query]
+    translated_terms = [
+        translation
+        for phrase, translation in _CJK_QUERY_TRANSLATIONS.items()
+        if phrase in query
+    ]
+    translated = " ".join(dict.fromkeys(" ".join(translated_terms).split()))
+    return [translated, query] if translated else [query]
+
+
+def _wipo_publication_number(country: str, raw_number: str, doc_id: str) -> str:
+    cleaned = normalize_publication_number(raw_number.replace("/", ""))
+    if cleaned and re.match(r"^[A-Z]{2}", cleaned):
+        return cleaned
+    prefix = re.match(r"^[A-Z]{2}", doc_id or country.strip().upper())
+    if cleaned and prefix:
+        return prefix.group(0) + cleaned
+    return cleaned or normalize_publication_number(doc_id)
+
+
+def _wipo_date(value: str) -> str:
+    value = value.strip()
+    match = re.match(r"^(\d{2})\.(\d{2})\.(\d{4})$", value)
+    if not match:
+        return value
+    day, month, year = match.groups()
+    return f"{year}-{month}-{day}"
+
+
+def _extract_first(pattern: str, text: str) -> str:
+    match = re.search(pattern, text, flags=re.I | re.S)
+    return _strip_html(match.group(1)) if match else ""
+
+
+def parse_wipo_patentscope_hits(html: str, query: str) -> list[PatentSearchHit]:
+    hits: list[PatentSearchHit] = []
+    row_pattern = re.compile(
+        r'<tr[^>]+data-ri="\d+"[^>]+data-rk="(?P<doc_id>[^"]+)"(?P<row>.*?)(?=<tr[^>]+data-ri="\d+"[^>]+data-rk=|</tbody>)',
+        flags=re.I | re.S,
+    )
+    for match in row_pattern.finditer(html):
+        row = match.group("row")
+        doc_id = unescape(match.group("doc_id")).strip()
+        title = _extract_first(
+            r'<span[^>]+class="[^"]*needTranslation-title[^"]*"[^>]*>.*?<span[^>]+class="[^"]*trans-control[^"]*"[^>]*></span>(.*?)</span>',
+            row,
+        ) or _extract_first(r'ps-patent-result--title--title[^>]*>(.*?)</div>', row)
+        raw_publication = _extract_first(r'ps-patent-result--title--patent-number[^>]*>(.*?)</span>', row)
+        country = _extract_first(r'ps-patent-result--title--ctr-pubdate.*?<span[^>]*>(.*?)</span>', row)
+        publication_date = _wipo_date(_extract_first(r'resultListTableColumnPubDate[^>]*>(.*?)</span>', row))
+        if not publication_date:
+            date_block = re.search(r'ps-patent-result--title--ctr-pubdate(?P<block>.*?</div>)', row, flags=re.I | re.S)
+            if date_block:
+                dates = re.findall(r'<span[^>]*>(.*?)</span>', date_block.group("block"), flags=re.I | re.S)
+                publication_date = _wipo_date(_strip_html(dates[-1])) if dates else ""
+        if not title and not raw_publication:
+            continue
+        publication_number = _wipo_publication_number(country, raw_publication, doc_id)
+        ipc = _extract_first(r'ps-patent-result--ipc.*?<a[^>]*>(.*?)</a>', row)
+        application_number = _extract_first(
+            r'Appl\.No.*?<span[^>]+class="[^"]*ps-field--value[^"]*notranslate[^"]*"[^>]*>(.*?)</span>',
+            row,
+        )
+        applicant = _extract_first(r'ps-patent-result--applicant[^>]*>(.*?)</span>', row)
+        abstract = _extract_first(r'ps-patent-result--abstract.*?<p[^>]*>(.*?)</p>', row)
+        hits.append(
+            PatentSearchHit(
+                id=uuid.uuid4().hex,
+                source="wipo_patentscope",
+                query=query,
+                title=title or publication_number or doc_id,
+                publication_number=publication_number or None,
+                application_number=application_number or None,
+                applicant=applicant,
+                publication_date=publication_date,
+                abstract=abstract or None,
+                ipc=[ipc] if ipc else [],
+                url=f"https://patentscope.wipo.int/search/en/detail.jsf?docId={urllib.parse.quote(doc_id)}",
+                metadata={"doc_id": doc_id},
+            )
+        )
+    return dedupe_patent_search_hits(hits)
+
+
 class CnipaEpubPatentProvider:
     name = "CNIPA EPUB"
     source_id = "cnipa_epub"
@@ -184,6 +300,47 @@ class CnipaEpubPatentProvider:
         return dedupe_patent_search_hits(hits), []
 
 
+class WipoPatentscopeProvider:
+    name = "WIPO Patentscope"
+    source_id = "wipo_patentscope"
+
+    def __init__(self, http_get=None, timeout_seconds: int = 20) -> None:
+        self._http_get = http_get or _urllib_get
+        self.timeout_seconds = timeout_seconds
+
+    def available(self) -> tuple[bool, str | None]:
+        return True, None
+
+    def search(
+        self,
+        query: str,
+        *,
+        filters: PatentSearchFilters,
+        limit: int,
+    ) -> tuple[list[PatentSearchHit], list[str]]:
+        del filters
+        warnings: list[str] = []
+        for provider_query in _patentscope_query_variants(query):
+            if not provider_query:
+                continue
+            url = "https://patentscope.wipo.int/search/en/result.jsf?queryString=" + urllib.parse.quote(provider_query)
+            try:
+                html = self._http_get(url, self.timeout_seconds)
+            except (TimeoutError, SocketTimeout) as exc:
+                raise TimeoutError(f"WIPO Patentscope search timed out for query {provider_query}: {exc}") from exc
+            except Exception as exc:
+                warnings.append(f"WIPO Patentscope search failed for query {provider_query}: {exc}")
+                continue
+            hits = parse_wipo_patentscope_hits(html, provider_query)[:limit]
+            if hits:
+                return [
+                    hit.model_copy(update={"metadata": {**hit.metadata, "provider_query": provider_query}})
+                    for hit in hits
+                ], warnings
+            warnings.append(f"WIPO Patentscope returned no parseable hits for query: {provider_query}")
+        return [], warnings
+
+
 class GooglePatentsProvider:
     name = "Google Patents"
     source_id = "google_patents"
@@ -217,10 +374,13 @@ class GooglePatentsProvider:
 
 
 def default_project_patent_providers() -> list[PatentSearchProvider]:
-    return [
+    providers: list[PatentSearchProvider] = [
         CnipaEpubPatentProvider(),
-        GooglePatentsProvider(),
+        WipoPatentscopeProvider(),
     ]
+    if os.environ.get("PATENT_ENABLE_GOOGLE_PATENTS_FALLBACK", "").lower() in {"1", "true", "yes", "on"}:
+        providers.append(GooglePatentsProvider())
+    return providers
 
 
 def _sanitize_candidate_text(value: str | None) -> str:

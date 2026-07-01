@@ -317,6 +317,42 @@ def test_project_search_all_providers_empty_fails_without_fake_candidates(tmp_pa
     assert result.candidates == []
 
 
+def test_wipo_patentscope_candidates_can_build_ready_project_corpus(tmp_path):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    overview = ensure_project_knowledge_initialized(store, project)
+    plan = overview.latest_plan
+    assert plan is not None
+    provider = StaticPatentSearchProvider(
+        source_id="wipo_patentscope",
+        hits=[
+            PatentSearchHit(
+                id="wipo-hit-1",
+                source="wipo_patentscope",
+                query="urban health assessment agent task orchestration",
+                title="Trusted multi-agent task orchestration system",
+                publication_number="WO2026112646",
+                url="https://patentscope.wipo.int/search/en/detail.jsf?docId=WO2026112646",
+                applicant="Example Applicant",
+                publication_date="2026-06-11",
+                abstract="Coordinates agent tasks and verifies evidence chain consistency.",
+            )
+        ],
+    )
+
+    searched = run_agent_search_plan(store, project.id, plan.id, providers=[provider])
+    candidate = searched.candidates[0]
+    update_project_candidate_decision(store, project.id, candidate.id, "include")
+    built = create_project_corpus_from_included_candidates(store, project.id, plan.id)
+
+    assert built.state.status == "ready"
+    assert built.state.document_count == 1
+    assert "non_patent_source" not in built.state.quality_flags
+    assert built.latest_corpus_version is not None
+    assert built.latest_corpus_version.status == "ready"
+
+
 def test_run_patent_search_plan_records_skipped_and_successful_default_attempts(tmp_path):
     store = SQLiteStore(tmp_path / "test.sqlite")
     project = _project()
