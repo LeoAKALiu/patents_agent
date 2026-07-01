@@ -16,6 +16,43 @@ export interface DocumentOverviewTabProps {
   onOpenTab: (tab: DocumentRepairTabId) => void;
 }
 
+function primaryActionHint(state: DocumentRepairState): string {
+  if (state.primaryAction.targetSection === "workbench") {
+    return "该操作会回到工作台，由主流程启动对应 Agent 门禁。";
+  }
+  if (state.primaryAction.targetSection === "export") {
+    return "导出门禁已放行，可以进入导出工作区保存正式提交稿。";
+  }
+  if (state.primaryAction.targetTab === "annotated") {
+    return "该操作会打开标注修复，按问题定位到正文并生成安全补丁。";
+  }
+  if (state.primaryAction.targetTab === "issues") {
+    return "该操作会打开问题队列，先处理阻断项再重新验证。";
+  }
+  return "该操作只影响当前文稿工作区，不会启动新的 Agent 运行。";
+}
+
+function shouldShowDraftCardAction(card: DraftStatusCardState, state: DocumentRepairState): boolean {
+  if (card.tone === "internal" && card.actionLabel === "编辑文稿" && state.primaryAction.targetSection === "workbench") {
+    return false;
+  }
+  return true;
+}
+
+function recentRecordLabel(label: string): string {
+  if (label === "质量检查") {
+    return "质量检查记录";
+  }
+  return label;
+}
+
+function recentRecordValue(label: string, value: string): string {
+  if (label === "质量检查" && value === "待重新验证") {
+    return "需重新验证";
+  }
+  return value;
+}
+
 export function DocumentOverviewTab({
   state,
   onPrimaryAction,
@@ -28,6 +65,7 @@ export function DocumentOverviewTab({
           <p className="section-eyebrow">总览</p>
           <h2 id="document-overview-title">{state.topConclusion}</h2>
           <p>{state.issueSummary.explanation}</p>
+          <p className="document-action-hint">{primaryActionHint(state)}</p>
         </div>
         <Button type="button" onClick={onPrimaryAction}>
           {state.primaryAction.label}
@@ -50,7 +88,11 @@ export function DocumentOverviewTab({
       </section>
 
       <section className="document-draft-grid" aria-label="文稿状态">
-        <DraftStatusCard card={state.internalDraft} onAction={() => onOpenTab("edit")} />
+        <DraftStatusCard
+          card={state.internalDraft}
+          onAction={() => onOpenTab("edit")}
+          showAction={shouldShowDraftCardAction(state.internalDraft, state)}
+        />
         <DraftStatusCard card={state.officialDraft} onAction={() => onOpenTab("versions")} />
       </section>
 
@@ -91,8 +133,8 @@ export function DocumentOverviewTab({
         <div className="document-record-list">
           {state.recentRecords.map((record) => (
             <div className="document-record" key={record.label}>
-              <span>{record.label}</span>
-              <strong>{record.value}</strong>
+              <span>{recentRecordLabel(record.label)}</span>
+              <strong>{recentRecordValue(record.label, record.value)}</strong>
               <small>{record.detail}</small>
             </div>
           ))}
@@ -126,9 +168,11 @@ function GateNodeView({ gate }: { gate: GateNode }) {
 function DraftStatusCard({
   card,
   onAction,
+  showAction = true,
 }: {
   card: DraftStatusCardState;
   onAction: () => void;
+  showAction?: boolean;
 }) {
   return (
     <article className={`document-draft-card is-${card.tone}`}>
@@ -156,9 +200,11 @@ function DraftStatusCard({
           <li key={note}>{note}</li>
         ))}
       </ul>
-      <button type="button" className="document-secondary-action" onClick={onAction}>
-        {card.actionLabel}
-      </button>
+      {showAction ? (
+        <button type="button" className="document-secondary-action" onClick={onAction}>
+          {card.actionLabel}
+        </button>
+      ) : null}
     </article>
   );
 }

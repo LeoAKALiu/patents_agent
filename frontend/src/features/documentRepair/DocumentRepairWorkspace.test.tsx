@@ -362,6 +362,42 @@ describe("DocumentRepairWorkspace", () => {
     expect(navigate).toHaveBeenCalledWith("export");
   });
 
+  it("shows quality-check recovery as the dominant document overview action", () => {
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({
+          filingReports: [],
+          worksheets: [],
+          completionRuns: [],
+        })}
+        handlers={makeHandlers()}
+        exportReadiness={makeExportReadiness({
+          export_allowed: false,
+          quality_required: true,
+          post_draft_review_required: false,
+          next_action: "run_quality_checks",
+          reason: "当前初稿尚未完成质量检查。",
+          quality_done: false,
+          review_gate_status: "failed",
+          review_blocking_issues: [],
+          unknown_quality_checks: ["claim_defense_worksheet", "draft_completion"],
+          quality_check_states: {
+            filing_readiness: "current",
+            claim_defense_worksheet: "unknown",
+            draft_completion: "unknown",
+          },
+        })}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "当前初稿尚未完成质量检查。" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /运行质量检查/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "编辑文稿" })).toBeNull();
+    expect(screen.getByText("质量检查")).toBeInTheDocument();
+    expect(screen.getByText("待重新验证")).toBeInTheDocument();
+  });
+
   it("keeps raw internals out of the overview by default", () => {
     const { container } = render(
       <DocumentRepairWorkspace
