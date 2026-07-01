@@ -6,7 +6,9 @@ import uuid
 from datetime import datetime, timezone
 
 from backend.app.knowledge.patent_sources import (
+    CNIPA_LEGACY_EPUB_SOURCE,
     CNIPA_OFFICIAL_EXPORT_SOURCE,
+    GOOGLE_PATENTS_SOURCE,
     WIPO_PATENTSCOPE_SOURCE,
     build_cnipa_query_pack,
 )
@@ -38,6 +40,9 @@ ZH_STOPWORDS = {"一种", "方法", "系统", "装置", "基于", "用于", "通
 PROJECT_PATENT_PROVIDER_SOURCES = [CNIPA_OFFICIAL_EXPORT_SOURCE, WIPO_PATENTSCOPE_SOURCE]
 PROJECT_PATENT_CORPUS_SOURCES = [*PROJECT_PATENT_PROVIDER_SOURCES, "cnipa_epub", "google_patents"]
 PROJECT_PATENT_PROVIDER_SOURCE_SET = frozenset(PROJECT_PATENT_CORPUS_SOURCES)
+LIVE_PROJECT_PATENT_PROVIDER_SOURCES = frozenset(
+    {CNIPA_LEGACY_EPUB_SOURCE, WIPO_PATENTSCOPE_SOURCE, GOOGLE_PATENTS_SOURCE}
+)
 
 
 class ProjectKnowledgeConflictError(ValueError):
@@ -395,6 +400,29 @@ def run_patent_search_plan(
     return candidates, ledger
 
 
+def _planned_source_ids(plan: AgentSearchPlan) -> set[str]:
+    return {
+        source_id
+        for source_id in (
+            [*plan.target_sources, *(source for group in plan.strategy_groups for source in group.sources)]
+        )
+        if source_id
+    }
+
+
+def _planned_provider_source_ids(plan: AgentSearchPlan) -> set[str]:
+    return _planned_source_ids(plan) & LIVE_PROJECT_PATENT_PROVIDER_SOURCES
+
+
+def _default_provider_chain_for_plan(plan: AgentSearchPlan) -> list[PatentSearchProvider]:
+    provider_chain = default_project_patent_providers()
+    planned_sources = _planned_source_ids(plan)
+    if not planned_sources:
+        return provider_chain
+    planned_sources = _planned_provider_source_ids(plan)
+    return [provider for provider in provider_chain if provider.source_id in planned_sources]
+
+
 def run_agent_search_plan(
     store: SQLiteStore,
     project_id: str,
@@ -404,7 +432,7 @@ def run_agent_search_plan(
     _state, plan = _get_active_plan(store, project_id, plan_id)
     running = plan.model_copy(update={"status": "running", "run_started_at": _now()})
     store.update_agent_search_plan(running)
-    provider_chain = list(providers) if providers is not None else default_project_patent_providers()
+    provider_chain = list(providers) if providers is not None else _default_provider_chain_for_plan(running)
     candidates, ledger = run_patent_search_plan(provider_chain, project_id, running)
     completed = running.model_copy(
         update={

@@ -35,7 +35,7 @@ def list_patent_source_capabilities() -> list[PatentSourceCapability]:
             availability="config_required",
             trusted_patent_source=True,
             evidence_origin="legacy_helper",
-            setup_hint="高级模式：配置 CNIPA_EPUB_SEARCH_SCRIPT 后启用。",
+            setup_hint="高级遗留辅助检索能力，需在常规工作流之外单独配置后启用。",
         ),
         PatentSourceCapability(
             source_id=WIPO_PATENTSCOPE_SOURCE,

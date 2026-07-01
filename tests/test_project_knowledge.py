@@ -37,6 +37,7 @@ from backend.app.services.project_knowledge_service import (
 )
 from backend.app.services.project_service import build_project_record
 from backend.app.storage import SQLiteStore
+import backend.app.services.project_knowledge_service as project_knowledge_service
 
 
 def _mark_candidates_as_real_sources(store: SQLiteStore, candidates: list[PriorArtCandidate]) -> None:
@@ -418,6 +419,77 @@ def test_run_agent_search_plan_keeps_provider_warnings_for_default_chain_attempt
     assert stored_plan is not None
     assert stored_plan.warnings
     assert any("CNIPA EPUB helper is not configured" in warning for warning in stored_plan.warnings)
+
+
+def test_run_agent_search_plan_does_not_run_cnipa_epub_for_official_export_only_plan(tmp_path, monkeypatch):
+    store = SQLiteStore(tmp_path / "test.sqlite")
+    project = _project()
+    store.create_project(project)
+    intent = SearchIntent(
+        id="intent-1",
+        project_id=project.id,
+        source_project_hash="hash-1",
+        technical_object="城市体检智能体",
+        technical_problem="任务编排缺少可信复核",
+        technical_means="多智能体任务编排和证据链复核",
+        technical_effect="提高报告可信度",
+        keywords_zh=["城市体检", "智能体", "任务编排"],
+        jurisdictions=["CN"],
+        date_range="2016-2026",
+        created_by="agent",
+    )
+    plan = AgentSearchPlan(
+        id="plan-1",
+        project_id=project.id,
+        intent_id=intent.id,
+        status="draft",
+        strategy_groups=[
+            SearchPlanStrategyGroup(
+                id="official-export",
+                label="官方导出",
+                purpose="仅准备 CNIPA 官方导出查询包。",
+                queries=["城市体检 智能体 任务编排"],
+                sources=["cnipa_official_export"],
+            )
+        ],
+        target_sources=["cnipa_official_export"],
+        target_result_count=20,
+        filters={"jurisdictions": ["CN"], "date_range": "2016-2026"},
+    )
+    store.create_search_intent(intent)
+    store.create_agent_search_plan(plan)
+    store.upsert_project_knowledge_state(
+        ProjectKnowledgeState(
+            project_id=project.id,
+            status="search_plan_pending",
+            active_intent_id=intent.id,
+            active_plan_id=plan.id,
+        )
+    )
+
+    attempted_sources: list[str] = []
+
+    def _provider(source_id: str) -> StaticPatentSearchProvider:
+        provider = StaticPatentSearchProvider(source_id=source_id, hits=[])
+        original_search = provider.search
+
+        def _tracked_search(query: str, *, filters, limit: int):
+            attempted_sources.append(source_id)
+            return original_search(query, filters=filters, limit=limit)
+
+        provider.search = _tracked_search  # type: ignore[method-assign]
+        return provider
+
+    monkeypatch.setattr(
+        project_knowledge_service,
+        "default_project_patent_providers",
+        lambda: [_provider("cnipa_epub"), _provider("wipo_patentscope")],
+    )
+
+    result = run_agent_search_plan(store, project.id, plan.id)
+
+    assert result.state.status == "failed"
+    assert attempted_sources == []
 
 
 def test_run_patent_search_plan_marks_google_transport_failures(tmp_path):
