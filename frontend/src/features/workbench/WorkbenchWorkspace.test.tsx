@@ -12,6 +12,13 @@ function makeState(overrides: Partial<WorkbenchState> = {}): WorkbenchState {
     hasProject: true,
     projectName: "城市体检智能体",
     currentStepId: "postReview",
+    phaseGroups: [
+      { label: "输入", status: "done", stepIds: ["idea"] },
+      { label: "提炼", status: "done", stepIds: ["invention"] },
+      { label: "成稿", status: "done", stepIds: ["deliberation", "formula", "draft"] },
+      { label: "质检修复", status: "current", stepIds: ["quality", "officialCompile", "postReview"] },
+      { label: "导出", status: "locked", stepIds: ["export"] },
+    ],
     stepGroups: [
       {
         label: "构思输入",
@@ -110,6 +117,9 @@ describe("WorkbenchWorkspace", () => {
     expect(screen.getByText("下一步")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "流程进度" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "风险与运行" })).toBeInTheDocument();
+    expect(screen.getByLabelText("用户流程阶段")).toBeInTheDocument();
+    expect(screen.getByText("输入")).toBeInTheDocument();
+    expect(screen.getByText("质检修复")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /进入文稿与修复|创建项目|导出正式稿/ })).toBeInTheDocument();
     expect(screen.queryByText(/generation_logs|official_safe_patches/)).toBeNull();
   });

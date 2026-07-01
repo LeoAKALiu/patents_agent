@@ -21,6 +21,7 @@ export interface WorkbenchState {
   hasProject: boolean;
   projectName: string;
   currentStepId: GuidedStepId;
+  phaseGroups: WorkbenchPhase[];
   stepGroups: Array<{ label: string; steps: GuidedStepState[] }>;
   nextAction: { label: string; description: string };
   primaryTarget: WorkbenchPrimaryTarget;
@@ -32,6 +33,12 @@ export interface WorkbenchState {
     exportReady: boolean;
   };
   runSummary: { label: string; busy: boolean };
+}
+
+export interface WorkbenchPhase {
+  label: "输入" | "提炼" | "成稿" | "质检修复" | "导出";
+  status: "done" | "current" | "locked";
+  stepIds: GuidedStepId[];
 }
 
 export interface WorkbenchStateInput {
@@ -71,6 +78,7 @@ export function deriveWorkbenchState(input: WorkbenchStateInput): WorkbenchState
     hasProject,
     projectName: input.projectState.selectedProject?.name || "未选择项目",
     currentStepId: guidedState.currentStepId,
+    phaseGroups: groupUserPhases(guidedState.steps),
     stepGroups: groupGuidedSteps(guidedState.steps),
     nextAction: {
       label: nextAction.label,
@@ -94,6 +102,26 @@ function groupGuidedSteps(steps: GuidedStepState[]): WorkbenchState["stepGroups"
     { label: "生成成稿", steps: steps.slice(2, 6) },
     { label: "提交放行", steps: steps.slice(6, 9) },
   ];
+}
+
+function groupUserPhases(steps: GuidedStepState[]): WorkbenchPhase[] {
+  const phaseDefs: Array<Pick<WorkbenchPhase, "label" | "stepIds">> = [
+    { label: "输入", stepIds: ["idea"] },
+    { label: "提炼", stepIds: ["invention"] },
+    { label: "成稿", stepIds: ["deliberation", "formula", "draft"] },
+    { label: "质检修复", stepIds: ["quality", "officialCompile", "postReview"] },
+    { label: "导出", stepIds: ["export"] },
+  ];
+
+  return phaseDefs.map((phase) => {
+    const phaseSteps = steps.filter((step) => phase.stepIds.includes(step.id));
+    const status: WorkbenchPhase["status"] = phaseSteps.some((step) => step.status === "current")
+      ? "current"
+      : phaseSteps.every((step) => step.status === "done")
+        ? "done"
+        : "locked";
+    return { ...phase, status };
+  });
 }
 
 function deriveNextAction(input: {
