@@ -33,24 +33,10 @@ function primaryActionHint(state: DocumentRepairState): string {
 }
 
 function shouldShowDraftCardAction(card: DraftStatusCardState, state: DocumentRepairState): boolean {
-  if (card.tone === "internal" && card.actionLabel === "编辑文稿" && state.primaryAction.targetSection === "workbench") {
+  if (card.tone === "internal" && state.primaryAction.targetSection === "workbench") {
     return false;
   }
   return true;
-}
-
-function recentRecordLabel(label: string): string {
-  if (label === "质量检查") {
-    return "质量检查记录";
-  }
-  return label;
-}
-
-function recentRecordValue(label: string, value: string): string {
-  if (label === "质量检查" && value === "待重新验证") {
-    return "需重新验证";
-  }
-  return value;
 }
 
 export function DocumentOverviewTab({
@@ -133,8 +119,8 @@ export function DocumentOverviewTab({
         <div className="document-record-list">
           {state.recentRecords.map((record) => (
             <div className="document-record" key={record.label}>
-              <span>{recentRecordLabel(record.label)}</span>
-              <strong>{recentRecordValue(record.label, record.value)}</strong>
+              <span>{record.label}</span>
+              <strong>{record.value}</strong>
               <small>{record.detail}</small>
             </div>
           ))}
