@@ -18,11 +18,10 @@ export interface ShellLayoutProps {
   onSelectSection: (id: string) => void;
   /** Slot for the sidebar footer (health, agent doctor, etc.). */
   sidebarFooter?: ReactNode;
-  /** Topbar configuration. Title/subtitle are filled in by AppRoot. */
+  /** Topbar configuration. Title is filled in by AppRoot. */
   topbar: Omit<ShellTopbarProps, "title" | "subtitle">;
-  /** Title + subtitle shown in the page-title area of the topbar. */
+  /** Title shown in the page-title area of the topbar. */
   pageTitle?: ReactNode;
-  pageSubtitle?: ReactNode;
   /** Workspace content rendered between the topbar and the bottom notice. */
   children: ReactNode;
 }
@@ -34,7 +33,6 @@ export function ShellLayout({
   sidebarFooter,
   topbar,
   pageTitle,
-  pageSubtitle,
   children,
 }: ShellLayoutProps) {
   return (
@@ -46,7 +44,7 @@ export function ShellLayout({
         footer={sidebarFooter}
       />
       <main className="main-area">
-        <ShellTopbar {...topbar} title={pageTitle} subtitle={pageSubtitle} />
+        <ShellTopbar {...topbar} title={pageTitle} />
         {children}
       </main>
     </div>

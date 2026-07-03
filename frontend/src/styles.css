@@ -5289,6 +5289,25 @@ input:focus, select:focus, textarea:focus {
   line-height: 1.45;
 }
 
+.corpus-import-card input[type="file"] {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 8px;
+}
+
+.corpus-search-card {
+  align-items: end;
+}
+
+.corpus-search-card .info-card-icon {
+  align-self: center;
+}
+
+.corpus-search-button {
+  align-self: end;
+  justify-self: end;
+}
+
 .info-card-body .meta-row,
 .info-card-meta {
   display: flex;

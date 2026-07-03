@@ -545,19 +545,26 @@ export function CorpusView({
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <section className="surface-panel grid gap-4 p-5">
         <div className="settings-group-header">
-          <h3>语料导入</h3>
-          <p>导入历史专利文件，作为检索语料和证据输入。</p>
+          <h3>参考材料导入</h3>
+          <p>导入 PDF、DOCX、TXT 或 Markdown 参考材料，供片段检索和写作支撑使用。</p>
         </div>
-        <form className="info-card" onSubmit={onImport}>
+        <form className="info-card corpus-import-card" onSubmit={onImport}>
           <div className="info-card-icon info">
             <Upload size={17} />
           </div>
           <div className="info-card-body">
-            <strong>导入专利文件</strong>
-            <p>支持 PDF、DOCX、TXT、Markdown。</p>
-            <input id="patent-file" name="patent-file" type="file" accept=".pdf,.docx,.txt,.md,.markdown" />
+            <strong>导入参考材料</strong>
+            <p>支持 PDF、DOCX、TXT、Markdown，可一次选择多个文件。</p>
+            <input
+              id="patent-file"
+              name="patent-file"
+              type="file"
+              accept=".pdf,.docx,.txt,.md,.markdown"
+              aria-label="导入参考材料"
+              multiple
+            />
           </div>
-          <button className="btn btn-primary" disabled={busy === "import"} type="submit" title="导入专利文件">
+          <button className="btn btn-primary" disabled={busy === "import"} type="submit" title="导入参考材料">
             <Upload size={17} />
             <span>导入</span>
           </button>
@@ -592,6 +599,9 @@ export function CorpusView({
           <p>按章节过滤语料片段，用于发明点和说明书支撑。</p>
         </div>
         <form className="info-card corpus-search-card" onSubmit={onSearch}>
+          <div className="info-card-icon info">
+            <Search size={17} />
+          </div>
           <div className="info-card-body">
             <strong>检索条件</strong>
             <div className="guided-field-grid">
@@ -611,7 +621,7 @@ export function CorpusView({
               </label>
             </div>
           </div>
-          <button className="btn btn-secondary btn-icon" disabled={busy === "search"} type="submit" title="检索">
+          <button className="btn btn-secondary btn-icon corpus-search-button" disabled={busy === "search"} type="submit" title="检索" aria-label="检索">
             <Search size={17} />
           </button>
         </form>

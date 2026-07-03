@@ -1282,20 +1282,36 @@ function App() {
   async function handleImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const input = event.currentTarget.elements.namedItem("patent-file") as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) return;
     await withStatus("import", async () => {
-      const result = await importPatent(file);
-      setMessage(`已导入 ${result.document.title}，生成 ${result.chunks_count} 个片段`);
-      setDocuments(await listCorpus());
+      const imported: Array<{ title: string; chunksCount: number }> = [];
+      const failed: string[] = [];
+      for (const file of files) {
+        try {
+          const result = await importPatent(file);
+          imported.push({ title: result.document.title, chunksCount: result.chunks_count });
+        } catch (error) {
+          failed.push(`${file.name}（${userFacingAppErrorMessage(error)}）`);
+        }
+      }
+      if (imported.length > 0) {
+        setDocuments(await listCorpus());
+      }
       input.value = "";
+      if (imported.length === 0) {
+        throw new Error(`导入失败：${failed.join("；")}`);
+      }
+      const chunkCount = imported.reduce((total, item) => total + item.chunksCount, 0);
+      const failureCopy = failed.length > 0 ? `；${failed.length} 个文件失败：${failed.join("；")}` : "";
+      setMessage(`已导入 ${imported.length} 个文件，生成 ${chunkCount} 个片段${failureCopy}`);
     });
   }
 
   async function handleSearch(event: FormEvent) {
     event.preventDefault();
     await withStatus("search", async () => {
-      setSearchResults(await searchCorpus(searchText, searchSection, corpusVersions[0]?.name));
+      setSearchResults(await searchCorpus(searchText, searchSection));
     });
   }
 

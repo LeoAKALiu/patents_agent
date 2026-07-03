@@ -21,8 +21,8 @@ type ToolTone = "success" | "warning" | "info" | "neutral";
 
 const groupDescriptions: Record<string, { description: string; status: string; tone: ToolTone }> = {
   knowledge: {
-    description: "语料库建设、知识库检索。证据输入类工具，结果可回写主流程。",
-    status: "证据输入",
+    description: "语料库建设、知识库检索。证据输入类工具，结果可写回主流程。",
+    status: "证据类",
     tone: "info",
   },
   invention: {
@@ -37,28 +37,28 @@ const groupDescriptions: Record<string, { description: string; status: string; t
   },
   quality: {
     description: "提交成熟度、授权前景、权利要求防线、初稿完善和审查修改。",
-    status: "门禁",
+    status: "质检门禁",
     tone: "warning",
   },
   export: {
     description: "导出正式稿、内部稿和复核报告。",
-    status: "文件",
+    status: "文件输出",
     tone: "success",
   },
 };
 
 const toolStatuses: Record<ExpertToolId, { label: string; action: string; tone: ToolTone }> = {
-  build: { label: "可回写", action: "打开", tone: "success" },
-  corpus: { label: "检索", action: "打开", tone: "info" },
+  build: { label: "可写回流程", action: "切换", tone: "success" },
+  corpus: { label: "检索入口", action: "切换", tone: "info" },
   moat: { label: "内部策略", action: "查看", tone: "warning" },
-  materials: { label: "可回写", action: "编辑", tone: "success" },
+  materials: { label: "可写回流程", action: "编辑", tone: "success" },
   deliberate: { label: "策略生成", action: "进入", tone: "info" },
-  write: { label: "高级", action: "打开", tone: "neutral" },
-  readiness: { label: "门禁", action: "进入", tone: "warning" },
-  grantability: { label: "查新", action: "生成", tone: "warning" },
-  claimDefense: { label: "运行", action: "打开", tone: "info" },
-  completion: { label: "补强", action: "打开", tone: "info" },
-  review: { label: "审查", action: "打开", tone: "info" },
+  write: { label: "高级入口", action: "切换", tone: "neutral" },
+  readiness: { label: "质检门禁", action: "进入", tone: "warning" },
+  grantability: { label: "查新分析", action: "生成", tone: "warning" },
+  claimDefense: { label: "防线分析", action: "切换", tone: "info" },
+  completion: { label: "补强任务", action: "切换", tone: "info" },
+  review: { label: "审查模拟", action: "切换", tone: "info" },
   export: { label: "文件", action: "查看", tone: "success" },
 };
 
@@ -161,7 +161,7 @@ export function ExpertToolChooser({
                       <span className="mt-1 block text-sm leading-5 text-[var(--text-muted)]">{tool.description}</span>
                     </span>
                     <span className="col-span-2 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3 sm:col-span-1 sm:justify-end sm:border-t-0 sm:pt-0">
-                      <ToolPill tone={isActive ? "success" : status.tone}>{isActive ? "当前" : status.label}</ToolPill>
+                      <ToolPill tone={isActive ? "success" : status.tone}>{isActive ? "当前工具" : status.label}</ToolPill>
                       <span
                         className={cn(
                           "inline-flex min-h-9 items-center rounded-md border px-3 text-xs font-semibold",
@@ -170,7 +170,7 @@ export function ExpertToolChooser({
                             : "border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-primary)]",
                         )}
                       >
-                        {isActive ? "已打开" : status.action}
+                        {isActive ? "已选中" : status.action}
                       </span>
                     </span>
                   </button>
