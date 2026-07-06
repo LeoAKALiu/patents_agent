@@ -61,6 +61,7 @@ export function WorkbenchWorkspace({
                 <div className="workbench-mission-actions">
                   <Button
                     type="button"
+                    variant="outline"
                     onClick={() => runPrimaryAction(state, handlers, onNavigate)}
                     disabled={isPrimaryActionDisabled(state)}
                   >

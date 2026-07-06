@@ -372,4 +372,47 @@ describe("deriveWorkbenchState", () => {
       busy: true,
     });
   });
+
+  it("proves risk counts preserve distinct blocking issues even if their text contains different hashes or record IDs", () => {
+    const state = deriveWorkbenchState({
+      projectState: makeProjectState({
+        selectedProject: makeProject({ name: "项目 abcdef0123456789abcdef0123456789" }),
+        currentSourceDraftHash: "draft-hash",
+        postDraftReviews: [
+          makePostDraftReview({
+            status: "completed",
+            export_allowed: false,
+            blocking_issues: [
+              "存在哈希 abcdef0123456789abcdef0123456789",
+              "存在哈希 abcdef9876543210abcdef9876543210",
+            ],
+            contamination_hits: [
+              "涉及运行 review-abcdef01",
+              "涉及运行 review-abcdef02",
+            ],
+          }),
+        ],
+      }),
+      exportReadiness: makeExportReadiness({
+        review_blocking_issues: ["错误 run-1111111111", "错误 run-2222222222"],
+        compile_blocked_items: [
+          { category: "critical", run_id: "run-abc", hash: "abcdef12", message: "缺少必要声明" },
+          { category: "critical", run_id: "run-xyz", hash: "abcdef34", message: "缺少必要声明" },
+        ],
+      }),
+    });
+
+    // review_blocking_issues from readiness: 2 items
+    // compile_blocked_items: 2 items (with different run_ids and hashes)
+    // blocking_issues from latest review: 2 items
+    // Total blocking items = 2 + 2 + 2 = 6
+    expect(state.riskSummary.blockingCount).toBe(6);
+
+    // contamination hits: 2 items
+    // Total issueCount = 6 (blocking) + 2 (contamination) = 8
+    expect(state.riskSummary.issueCount).toBe(8);
+
+    // Assert project name is not sanitized
+    expect(state.projectName).toBe("项目 abcdef0123456789abcdef0123456789");
+  });
 });

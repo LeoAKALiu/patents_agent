@@ -161,7 +161,13 @@ describe("WorkbenchWorkspace", () => {
     expect(screen.getByText("下一步")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "项目与工作队列" })).toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: "运营与证据面板" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "继续当前项目" })).toBeInTheDocument();
+    const continueBtn = screen.getByRole("button", { name: "继续当前项目" });
+    expect(continueBtn).toBeInTheDocument();
+    expect(continueBtn).toHaveClass("border-input");
+
+    const nextBtn = screen.getByRole("button", { name: "启动多智能体会审" });
+    expect(nextBtn).toBeInTheDocument();
+    expect(nextBtn).not.toHaveClass("border-input");
   });
 
   it("navigates blocked review work to documents", async () => {

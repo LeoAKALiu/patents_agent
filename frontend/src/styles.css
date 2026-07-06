@@ -5771,10 +5771,12 @@ input:focus, select:focus, textarea:focus {
   .workbench-mini-kpi:last-child {
     border-right: 0;
   }
+  .workbench-table {
+    overflow-x: auto;
+  }
   .workbench-table-head,
   .workbench-table-row {
-    grid-template-columns: minmax(180px, 1fr) 96px 86px 72px;
-    overflow-x: auto;
+    min-width: 560px;
   }
   .document-overview,
   .document-draft-grid {
@@ -5885,13 +5887,6 @@ input:focus, select:focus, textarea:focus {
   }
   .workbench-phase-rail {
     grid-template-columns: 1fr;
-  }
-  .workbench-table {
-    overflow-x: auto;
-  }
-  .workbench-table-head,
-  .workbench-table-row {
-    min-width: 560px;
   }
   .document-overview-hero,
   .document-panel-heading,
