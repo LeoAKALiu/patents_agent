@@ -62,4 +62,3 @@ All screenshots were captured from the current-source Vite dev server.
 - Backend health returned a 500/offline state during screenshot capture, so project list and live project data were unavailable.
 - The annotated repair screenshot is the no-project/empty state. The real repair-session data-flow gate is covered by `PostDraftRepairEditor.test.tsx` and `DocumentRepairWorkspace.test.tsx`, but a live project with non-empty repair-session payload was not available in this run.
 - No DMG or installed app was inspected for this PR-4 evidence.
-

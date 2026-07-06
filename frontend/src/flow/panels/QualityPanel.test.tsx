@@ -153,6 +153,37 @@ describe("QualityPanel", () => {
     expect(button).toBeDisabled();
   });
 
+  it("disables completion patch mutations when the workflow gate is closed", async () => {
+    const onAcceptPatch = vi.fn();
+    const onAcceptAllPatches = vi.fn();
+    render(
+      <QualityPanel
+        actionGate={{ allowed: false, reason: "请先完成发明点确认" }}
+        filingReport={null}
+        worksheet={null}
+        completionRun={makeCompletionRun()}
+        busy=""
+        busyElapsedSeconds={0}
+        onRunQualityChecks={vi.fn()}
+        onImproveScore={vi.fn()}
+        onAcceptPatch={onAcceptPatch}
+        onAcceptAllPatches={onAcceptAllPatches}
+        onOpenExpertTool={vi.fn()}
+      />,
+    );
+
+    const acceptAllButton = screen.getByRole("button", { name: /一键接受补强/ });
+    expect(acceptAllButton).toBeDisabled();
+    await userEvent.click(acceptAllButton);
+    expect(onAcceptAllPatches).not.toHaveBeenCalled();
+
+    for (const acceptButton of screen.getAllByRole("button", { name: "接受补强建议" })) {
+      expect(acceptButton).toBeDisabled();
+      await userEvent.click(acceptButton);
+    }
+    expect(onAcceptPatch).not.toHaveBeenCalled();
+  });
+
   it("marks quality entry cards with a dedicated layout hook", () => {
     render(
       <QualityPanel

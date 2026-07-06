@@ -945,6 +945,21 @@ function App() {
     return true;
   }
 
+  function upsertDisclosurePatentPointCandidates(projectId: string, run: DisclosureRun): boolean {
+    const candidates = run.package?.candidates ?? [];
+    if (candidates.length === 0) return true;
+    if (selectedProjectIdRef.current !== projectId) return false;
+    setPatentPointsProjectId(projectId);
+    setPatentPoints((current) => {
+      const candidateIds = new Set(candidates.map((candidate) => candidate.id));
+      return [
+        ...candidates,
+        ...current.filter((candidate) => !candidateIds.has(candidate.id)),
+      ];
+    });
+    return true;
+  }
+
   function disclosureProjectDataDeps(projectId: string): ProjectDataDeps {
     return {
       ...projectDataDeps,
@@ -1566,13 +1581,16 @@ function App() {
     const projectId = selectedProject.id;
     await withStatus("disclosure", async () => {
       const run = await startProjectDisclosure(projectId, trace, disclosureResearchMode);
-      const stillSelected = await loadDisclosures(projectId);
-      if (!stillSelected) return;
       if (run.status === "queued" || run.status === "running") {
+        const stillSelected = await loadDisclosures(projectId);
+        if (!stillSelected) return;
         void refreshDisclosureRunUntilSettled(projectId, run.id);
       } else {
         if (!upsertTerminalDisclosureRun(projectId, run)) return;
+        const stillSelected = await loadDisclosures(projectId);
+        if (!stillSelected) return;
         await loadPatentPoints(projectId);
+        if (!upsertDisclosurePatentPointCandidates(projectId, run)) return;
       }
       const modeLabel =
         disclosureResearchMode === "free_deep_research" ? "（免费 Deep Research 补充）" : "";

@@ -60,7 +60,7 @@ export function QualityPanel({
   const hasAnyResult = Boolean(filingReport || worksheet || completionRun);
   const allProposedPatches = completionRun?.patches.filter((patch) => patch.status === "proposed") ?? [];
   const proposedPatches = allProposedPatches.slice(0, 3);
-  const acceptAllDisabled = !completionRun || allProposedPatches.length === 0 || Boolean(busy);
+  const acceptAllDisabled = actionsDisabled || !completionRun || allProposedPatches.length === 0;
   const evidenceRows = completionRun?.support_matrix.filter((row) => row.evidence_refs.length > 0).slice(0, 3) ?? [];
   const missingEvidenceRows = completionRun?.support_matrix.filter((row) => row.missing_evidence_reason).slice(0, 3) ?? [];
 
@@ -160,11 +160,11 @@ export function QualityPanel({
           className="btn btn-secondary"
           disabled={acceptAllDisabled}
           onClick={() => {
-            if (completionRun && allProposedPatches.length > 0 && !busy) {
+            if (!acceptAllDisabled && completionRun) {
               onAcceptAllPatches(completionRun.id);
             }
           }}
-          title={allProposedPatches.length === 0 ? "暂无候选补强" : undefined}
+          title={!actionGate.allowed ? actionGate.reason : allProposedPatches.length === 0 ? "暂无候选补强" : undefined}
           type="button"
         >
           {busy === "completion-accept-all" ? <Loader2 className="spin" size={17} /> : <CheckCircle2 size={17} />}
@@ -237,7 +237,17 @@ export function QualityPanel({
               >
                 {patch.evidence_refs.length ? <p>证据：{patch.evidence_refs.join("，")}</p> : null}
                 <pre className="patch-preview">{patch.after_text}</pre>
-                <button className="btn btn-primary" onClick={() => onAcceptPatch(completionRun.id, patch.id)} type="button">
+                <button
+                  className="btn btn-primary"
+                  disabled={actionsDisabled}
+                  onClick={() => {
+                    if (!actionsDisabled) {
+                      onAcceptPatch(completionRun.id, patch.id);
+                    }
+                  }}
+                  title={!actionGate.allowed ? actionGate.reason : undefined}
+                  type="button"
+                >
                   接受补强建议
                 </button>
               </InfoCard>
