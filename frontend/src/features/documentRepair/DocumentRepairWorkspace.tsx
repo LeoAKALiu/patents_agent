@@ -6,6 +6,7 @@ import type {
   ProjectWorkspaceState,
 } from "@/features/projects/ProjectWorkspace";
 import type { MainSectionId } from "@/guidedFlow";
+import { Info, X } from "@/lib/icons";
 
 import { DocumentEditTab } from "./DocumentEditTab";
 import { DocumentIssuesTab } from "./DocumentIssuesTab";
@@ -43,12 +44,71 @@ export function DocumentRepairWorkspace({
   onRequestedTabHandled,
 }: DocumentRepairWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<DocumentRepairTabId>("overview");
+  const [showGuidance, setShowGuidance] = useState<boolean>(false);
+  const [guidanceType, setGuidanceType] = useState<"navigation" | "locked" | "no-project" | null>(null);
+  const [dismissedLockGuidanceKey, setDismissedLockGuidanceKey] = useState<string | null>(null);
+
+  const lockGuidanceKey = useMemo(() => {
+    if (!exportReadiness || exportReadiness.export_allowed) return null;
+    const reviewBlockingCount = exportReadiness.review_blocking_issues?.length ?? 0;
+    const compileBlockingCount = exportReadiness.compile_blocked_items?.length ?? 0;
+    const hasDocumentRepairBlocker = Boolean(
+      reviewBlockingCount > 0
+        || compileBlockingCount > 0
+        || exportReadiness.post_draft_review_required
+        || exportReadiness.review_gate_status === "needs_revision"
+        || exportReadiness.review_gate_status === "blocked"
+        || exportReadiness.compile_status === "blocked",
+    );
+    if (!hasDocumentRepairBlocker) return null;
+    return [
+      exportReadiness.next_action,
+      exportReadiness.reason,
+      exportReadiness.review_gate_status ?? "",
+      exportReadiness.compile_status ?? "",
+      String(reviewBlockingCount),
+      String(compileBlockingCount),
+    ].join("|");
+  }, [exportReadiness]);
+
+  function clearGuidance(): void {
+    if (lockGuidanceKey) {
+      setDismissedLockGuidanceKey(lockGuidanceKey);
+    }
+    setShowGuidance(false);
+    setGuidanceType(null);
+  }
+
+  useEffect(() => {
+    if (
+      !requestedTab
+      && lockGuidanceKey
+      && dismissedLockGuidanceKey !== lockGuidanceKey
+      && guidanceType !== "navigation"
+      && guidanceType !== "no-project"
+    ) {
+      setShowGuidance(true);
+      setGuidanceType("locked");
+    }
+  }, [requestedTab, lockGuidanceKey, dismissedLockGuidanceKey, guidanceType]);
 
   useEffect(() => {
     if (!requestedTab) return;
+    if (requestedTab === "annotated" && !projectState.selectedProject) {
+      setActiveTab("overview");
+      setShowGuidance(true);
+      setGuidanceType("no-project");
+      onRequestedTabHandled?.();
+      return;
+    }
     setActiveTab(requestedTab);
+    setShowGuidance(true);
+    setGuidanceType("navigation");
+    if (lockGuidanceKey) {
+      setDismissedLockGuidanceKey(lockGuidanceKey);
+    }
     onRequestedTabHandled?.();
-  }, [requestedTab, onRequestedTabHandled]);
+  }, [requestedTab, onRequestedTabHandled, lockGuidanceKey, projectState.selectedProject]);
 
   const state = useMemo(
     () => deriveDocumentRepairState({ projectState, exportReadiness, activeTab }),
@@ -62,6 +122,7 @@ export function DocumentRepairWorkspace({
     }
     if (state.primaryAction.targetTab) {
       setActiveTab(state.primaryAction.targetTab);
+      clearGuidance();
     }
   }
 
@@ -75,6 +136,106 @@ export function DocumentRepairWorkspace({
         </div>
       </div>
 
+      {showGuidance && (
+        <div className="document-guidance-band" role="status">
+          <div className="document-guidance-content">
+            <Info size={16} className="document-guidance-icon" aria-hidden="true" />
+            <p className="document-guidance-text">
+              {guidanceType === "no-project"
+                ? "标注修复需要选择项目后才能展示会审问题与修复正文。"
+                : guidanceType === "navigation"
+                ? "由于导出门禁或工作台指引，已引导您至标注修复页面处理相关问题。"
+                : "当前项目存在待修复的文稿或会审问题，正式稿已被锁定导出。建议前往标注修复处理。"}
+            </p>
+          </div>
+          <div className="document-guidance-actions">
+            {guidanceType === "no-project" ? (
+              <>
+                <button
+                  type="button"
+                  className="document-guidance-btn-primary"
+                  onClick={() => {
+                    onNavigate("projects");
+                    clearGuidance();
+                  }}
+                >
+                  选择项目
+                </button>
+                <button
+                  type="button"
+                  className="document-guidance-btn-secondary"
+                  onClick={clearGuidance}
+                >
+                  留在总览
+                </button>
+              </>
+            ) : guidanceType === "navigation" ? (
+              <>
+                <button
+                  type="button"
+                  className="document-guidance-btn-secondary"
+                  onClick={() => {
+                    setActiveTab("overview");
+                    clearGuidance();
+                  }}
+                >
+                  返回总览
+                </button>
+                <button
+                  type="button"
+                  className="document-guidance-btn-primary"
+                  onClick={clearGuidance}
+                >
+                  留在标注修复
+                </button>
+              </>
+            ) : (
+              <>
+                {activeTab !== "annotated" && (
+                  <button
+                    type="button"
+                    className="document-guidance-btn-primary"
+                    onClick={() => {
+                      setActiveTab("annotated");
+                      clearGuidance();
+                    }}
+                  >
+                    前往标注修复
+                  </button>
+                )}
+                {activeTab === "annotated" && (
+                  <button
+                    type="button"
+                    className="document-guidance-btn-secondary"
+                    onClick={() => {
+                      setActiveTab("overview");
+                      clearGuidance();
+                    }}
+                  >
+                    返回总览
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="document-guidance-btn-secondary"
+                  onClick={clearGuidance}
+                >
+                  我知道了
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="document-guidance-close"
+              aria-label="关闭提示"
+              onClick={clearGuidance}
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="document-tabs" role="tablist" aria-label="文稿与修复标签">
         {tabs.map((tab) => (
           <button
@@ -83,7 +244,10 @@ export function DocumentRepairWorkspace({
             className={activeTab === tab.id ? "is-active" : ""}
             id={`document-tab-${tab.id}`}
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              setActiveTab(tab.id);
+              clearGuidance();
+            }}
             role="tab"
             type="button"
           >
@@ -102,7 +266,10 @@ export function DocumentRepairWorkspace({
           <DocumentOverviewTab
             state={state}
             onPrimaryAction={runPrimaryAction}
-            onOpenTab={setActiveTab}
+            onOpenTab={(tabId) => {
+              setActiveTab(tabId);
+              clearGuidance();
+            }}
           />
         ) : activeTab === "edit" ? (
           <DocumentEditTab
@@ -113,7 +280,10 @@ export function DocumentRepairWorkspace({
         ) : activeTab === "issues" ? (
           <DocumentIssuesTab
             inbox={state.issueInbox}
-            onOpenAnnotated={() => setActiveTab("annotated")}
+            onOpenAnnotated={() => {
+              setActiveTab("annotated");
+              clearGuidance();
+            }}
           />
         ) : activeTab === "annotated" ? (
           <AnnotatedRepairTab
@@ -129,7 +299,10 @@ export function DocumentRepairWorkspace({
         ) : (
           <PlaceholderPanel
             tab={tabs.find((tab) => tab.id === activeTab) ?? tabs[0]}
-            onBack={() => setActiveTab("overview")}
+            onBack={() => {
+              setActiveTab("overview");
+              clearGuidance();
+            }}
           />
         )}
       </div>

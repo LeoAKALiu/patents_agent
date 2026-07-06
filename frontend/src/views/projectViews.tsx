@@ -2,7 +2,7 @@
  * Project + corpus + start views — extracted from App.tsx (M3-B').
  * Start screen, project picker/overview/create, and corpus import/search.
  */
-import { useMemo, useState, type FormEvent } from "react";
+import { useId, useMemo, useState, type FormEvent } from "react";
 import { CheckCircle2, FileText, Search, ShieldCheck, Trash2, Upload, Wand2 } from "@/lib/icons";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -224,18 +224,35 @@ export function ProjectSelect({
   onChange: (id: string) => void;
 }) {
   const emptyLabel = loadStatus === "failed" ? "项目加载失败" : projects.length === 0 ? "暂无项目" : "新建项目";
+  const hasFailed = loadStatus === "failed";
+  const failedHelperId = useId();
   return (
-    <label className="project-select flex flex-col md:flex-row items-start md:items-center gap-3">
-      <span>当前项目</span>
-      <select className="project-select-control" value={selectedProjectId} onChange={(event) => onChange(event.target.value)}>
-        <option value="">{emptyLabel}</option>
-        {projects.map((project) => (
-          <option key={project.id} value={project.id}>
-            {project.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="project-select flex flex-col gap-1">
+      <label className="flex w-full min-w-0 flex-col items-start gap-3 md:flex-row md:items-center">
+        <span className="shrink-0 text-sm font-semibold text-[var(--text-muted)]">当前项目</span>
+        <select
+          className="project-select-control"
+          value={selectedProjectId}
+          onChange={(event) => onChange(event.target.value)}
+          aria-describedby={hasFailed ? failedHelperId : undefined}
+        >
+          <option value="">{emptyLabel}</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {hasFailed && (
+        <span
+          id={failedHelperId}
+          className="box-border w-full rounded border border-[color-mix(in_oklch,var(--warn),var(--border-subtle)_60%)] bg-[color-mix(in_oklch,var(--warn),transparent_94%)] px-2 py-0.5 text-[11px] text-[var(--warn-text)]"
+        >
+          项目列表加载失败。恢复后端连接后，使用右上角刷新重试。
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -334,7 +351,11 @@ export function ProjectsOverview({
             <ShieldCheck size={18} aria-hidden="true" />
             <div>
               <strong>项目列表加载失败</strong>
-              <p>{projects.length > 0 ? "显示上次成功加载的数据；请恢复后端连接后刷新。" : "请检查后端连接后刷新，这不是空项目列表。"}</p>
+              <p>
+                {projects.length > 0
+                  ? "显示上次成功加载的数据；恢复后端连接后，使用右上角刷新重试。"
+                  : "项目列表加载失败。恢复后端连接后，使用右上角刷新重试；这不是空项目列表。"}
+              </p>
             </div>
           </div>
         )}
@@ -509,7 +530,7 @@ export function ProjectsOverview({
         {visibleProjects.length === 0 && (
           <div className="border-t border-[var(--border-subtle)] px-5 py-10 text-center text-sm text-[var(--text-muted)]">
             {loadStatus === "failed"
-              ? "项目列表加载失败。请恢复后端连接后刷新。"
+              ? "项目列表加载失败。恢复后端连接后，使用右上角刷新重试；这不是空项目列表。"
               : projects.length === 0
                 ? "暂无项目。进入“专利生成”输入想法即可创建。"
                 : "当前筛选下暂无项目。"}

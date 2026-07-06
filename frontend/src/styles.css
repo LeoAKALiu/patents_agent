@@ -1540,6 +1540,108 @@ button.nav-link span {
   color: var(--action-primary);
 }
 
+.document-guidance-band {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  border: 1px solid color-mix(in oklch, var(--action-primary), var(--border-subtle) 80%);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--action-primary), var(--surface-subtle) 95%);
+  box-shadow: var(--shadow-card);
+}
+
+.document-guidance-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.document-guidance-icon {
+  color: var(--action-primary);
+  flex-shrink: 0;
+}
+
+.document-guidance-text {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.document-guidance-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.document-guidance-btn-primary {
+  padding: 5px 10px;
+  border: 1px solid var(--action-primary);
+  border-radius: var(--radius-sm);
+  background: var(--action-primary);
+  color: var(--surface-solid);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.document-guidance-btn-primary:hover {
+  background: color-mix(in oklch, var(--action-primary), black 10%);
+}
+
+.document-guidance-btn-secondary {
+  padding: 5px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.document-guidance-btn-secondary:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.document-guidance-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.document-guidance-close:hover {
+  background: var(--surface-solid-subtle);
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .document-guidance-band {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .document-guidance-actions {
+    justify-content: flex-end;
+  }
+}
+
 .document-tab-panel {
   min-width: 0;
 }

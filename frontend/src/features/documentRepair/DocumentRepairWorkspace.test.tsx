@@ -700,4 +700,148 @@ describe("DocumentRepairWorkspace", () => {
     expect(screen.getAllByText("标题存在重复词汇方法方法").length).toBeGreaterThan(0);
     expect(screen.getAllByText("待复核").length).toBeGreaterThan(0);
   });
+
+  it("renders navigation guidance band when requestedTab is provided and dismisses it on close", async () => {
+    const handleRequestedTabHandled = vi.fn();
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+        requestedTab="annotated"
+        onRequestedTabHandled={handleRequestedTabHandled}
+      />,
+    );
+
+    expect(screen.getByText("由于导出门禁或工作台指引，已引导您至标注修复页面处理相关问题。")).toBeInTheDocument();
+    expect(handleRequestedTabHandled).toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "关闭提示" }));
+    expect(screen.queryByText("由于导出门禁或工作台指引，已引导您至标注修复页面处理相关问题。")).not.toBeInTheDocument();
+  });
+
+  it("keeps navigation guidance after parent clears requestedTab for a locked export", () => {
+    const props = {
+      projectState: makeProjectState(),
+      exportReadiness: makeExportReadiness(),
+      handlers: makeHandlers(),
+      onNavigate: vi.fn(),
+    };
+    const { rerender } = render(
+      <DocumentRepairWorkspace
+        {...props}
+        requestedTab="annotated"
+        onRequestedTabHandled={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("由于导出门禁或工作台指引，已引导您至标注修复页面处理相关问题。")).toBeInTheDocument();
+
+    rerender(
+      <DocumentRepairWorkspace
+        {...props}
+        requestedTab={null}
+      />,
+    );
+
+    expect(screen.getByText("由于导出门禁或工作台指引，已引导您至标注修复页面处理相关问题。")).toBeInTheDocument();
+    expect(screen.queryByText("当前项目存在待修复的文稿或会审问题，正式稿已被锁定导出。建议前往标注修复处理。")).not.toBeInTheDocument();
+  });
+
+  it("clears guidance band when user manually changes tabs", async () => {
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={makeExportReadiness()}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+        requestedTab="annotated"
+      />,
+    );
+
+    expect(screen.getByText("由于导出门禁或工作台指引，已引导您至标注修复页面处理相关问题。")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "总览" }));
+    expect(screen.queryByText("由于导出门禁或工作台指引，已引导您至标注修复页面处理相关问题。")).not.toBeInTheDocument();
+  });
+
+  it("renders locked guidance band when exportReadiness is locked and clears on tab change", async () => {
+    const lockedExportReadiness = makeExportReadiness({
+      export_allowed: false,
+      review_gate_status: "needs_revision",
+      review_blocking_issues: ["issue-1"],
+    });
+
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState()}
+        exportReadiness={lockedExportReadiness}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("当前项目存在待修复的文稿或会审问题，正式稿已被锁定导出。建议前往标注修复处理。")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "前往标注修复" }));
+
+    expect(screen.queryByText("当前项目存在待修复的文稿或会审问题，正式稿已被锁定导出。建议前往标注修复处理。")).not.toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "标注修复", selected: true })).toBeInTheDocument();
+  });
+
+  it("does not switch to annotated tab and displays no-project guidance when requestedTab is annotated but no project is selected", () => {
+    const handleRequestedTabHandled = vi.fn();
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({ selectedProject: null })}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+        requestedTab="annotated"
+        onRequestedTabHandled={handleRequestedTabHandled}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "总览", selected: true })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "标注修复", selected: true })).not.toBeInTheDocument();
+    expect(screen.getByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).toBeInTheDocument();
+    expect(handleRequestedTabHandled).toHaveBeenCalled();
+  });
+
+  it("navigates to projects workspace when clicking the primary action button in no-project guidance", async () => {
+    const navigate = vi.fn();
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({ selectedProject: null })}
+        handlers={makeHandlers()}
+        onNavigate={navigate}
+        requestedTab="annotated"
+      />,
+    );
+
+    expect(screen.getByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).toBeInTheDocument();
+
+    const selectProjectBtn = screen.getByRole("button", { name: "选择项目" });
+    await userEvent.click(selectProjectBtn);
+
+    expect(navigate).toHaveBeenCalledWith("projects");
+    expect(screen.queryByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).not.toBeInTheDocument();
+  });
+
+  it("dismisses no-project guidance on close or tab change", async () => {
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({ selectedProject: null })}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+        requestedTab="annotated"
+      />,
+    );
+
+    expect(screen.getByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).toBeInTheDocument();
+
+    const stayBtn = screen.getByRole("button", { name: "留在总览" });
+    await userEvent.click(stayBtn);
+    expect(screen.queryByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).not.toBeInTheDocument();
+  });
 });

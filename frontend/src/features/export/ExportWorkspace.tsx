@@ -1,9 +1,9 @@
-import { ArrowRight, FileSearch, FolderOpen } from "lucide-react";
 import type { ExportReadiness } from "@/api";
 import {
   type PostDraftWorkspaceHandlers,
   type PostDraftWorkspaceState,
 } from "@/features/postDraft/PostDraftWorkspace";
+import { ArrowRight, FileSearch, FolderOpen } from "@/lib/icons";
 import { SectionHead } from "@/ui/EnterpriseSurface";
 import { ExportView } from "@/views/exportView";
 
@@ -97,6 +97,7 @@ export function ExportWorkspace({
         onNativeExport={(format) => void postDraftHandlers.onNativeExport(format)}
         onOpenExportFolder={() => void postDraftHandlers.onOpenExportFolder()}
         desktopDialogsAvailable={postDraftState.desktopDialogsAvailable}
+        onNavigateDocuments={onNavigateDocuments}
       />
     </section>
   );

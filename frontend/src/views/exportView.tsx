@@ -3,7 +3,7 @@
  * The expert export tool: official/internal/sidecar export + native save +
  * contamination warning + last-export success card.
  */
-import { AlertTriangle, CheckCircle2, Download, FileArchive, FileText } from "@/lib/icons";
+import { AlertTriangle, CheckCircle2, Download, FileArchive, FileSearch, FileText } from "@/lib/icons";
 import {
   exportUrl,
   officialExportUrl,
@@ -216,6 +216,7 @@ export function ExportView({
   onNativeExport,
   onOpenExportFolder,
   desktopDialogsAvailable,
+  onNavigateDocuments,
 }: {
   project: ProjectRecord | null;
   packageValue: DraftPackage | null;
@@ -235,6 +236,7 @@ export function ExportView({
   onNativeExport: (format: "docx" | "md" | "sidecar") => void;
   onOpenExportFolder: () => void;
   desktopDialogsAvailable: boolean;
+  onNavigateDocuments?: (target: "overview" | "annotated") => void;
 }) {
   const enabled = canExportPackage(packageValue);
   const fallbackOfficialAllowed = Boolean(
@@ -342,6 +344,20 @@ export function ExportView({
                 : OFFICIAL_GATE_DEFAULT_DESCRIPTION
           }
           meta={<span className={officialAllowed ? "tag tag-success" : "tag tag-warn"}>{officialAllowed ? "可导出" : "需处理"}</span>}
+          action={
+            !officialAllowed && onNavigateDocuments ? (
+              <div className="button-row">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => onNavigateDocuments("annotated")}
+                  type="button"
+                >
+                  <FileSearch size={16} aria-hidden="true" />
+                  <span>处理会审与修复门禁…</span>
+                </button>
+              </div>
+            ) : undefined
+          }
         />
       {contaminationMatches.length > 0 && (
         <div
@@ -363,6 +379,18 @@ export function ExportView({
                 <li>其余 {contaminationMatches.length - 8} 处已省略...</li>
               )}
             </ul>
+            {onNavigateDocuments && (
+              <div className="mt-3">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => onNavigateDocuments("annotated")}
+                  type="button"
+                >
+                  <FileSearch size={16} aria-hidden="true" />
+                  <span>前往文稿修复处理</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
