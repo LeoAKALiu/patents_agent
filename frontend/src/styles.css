@@ -6074,3 +6074,179 @@ input:focus, select:focus, textarea:focus {
   .mobile-nav button { padding: 6px 4px; font-size: 11px; }
   .topbar { padding: 8px 10px; }
 }
+
+/* Primary Surface Component Styles */
+.primary-surface-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.primary-surface-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+.primary-surface-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.primary-surface-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.primary-surface-slash {
+  color: var(--border-strong);
+  font-weight: 300;
+}
+
+.primary-surface-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.primary-surface-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin: 0;
+}
+
+.primary-surface-description {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 4px 0 0 0;
+  line-height: 1.4;
+}
+
+.primary-surface-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.primary-surface-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+  color: var(--text-soft);
+}
+
+.primary-surface-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+}
+
+/* Status variants for chips */
+.primary-surface-chip.variant-done {
+  border-color: color-mix(in oklch, var(--success), transparent 80%);
+  background: color-mix(in oklch, var(--success), transparent 92%);
+  color: var(--success);
+}
+.primary-surface-chip.variant-done .primary-surface-chip-dot {
+  background-color: var(--success);
+}
+
+.primary-surface-chip.variant-current {
+  border-color: color-mix(in oklch, var(--brand), transparent 80%);
+  background: color-mix(in oklch, var(--brand), transparent 92%);
+  color: var(--brand);
+}
+.primary-surface-chip.variant-current .primary-surface-chip-dot {
+  background-color: var(--brand);
+}
+
+.primary-surface-chip.variant-ready {
+  border-color: color-mix(in oklch, var(--info), transparent 80%);
+  background: color-mix(in oklch, var(--info), transparent 92%);
+  color: var(--info);
+}
+.primary-surface-chip.variant-ready .primary-surface-chip-dot {
+  background-color: var(--info);
+}
+
+.primary-surface-chip.variant-locked {
+  border-color: var(--border-subtle);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+.primary-surface-chip.variant-locked .primary-surface-chip-dot {
+  background-color: var(--text-muted);
+}
+
+.primary-surface-chip.variant-warning {
+  border-color: color-mix(in oklch, var(--warn), transparent 80%);
+  background: color-mix(in oklch, var(--warn), transparent 92%);
+  color: var(--warn);
+}
+.primary-surface-chip.variant-warning .primary-surface-chip-dot {
+  background-color: var(--warn);
+}
+
+.primary-surface-chip.variant-error {
+  border-color: color-mix(in oklch, var(--danger), transparent 80%);
+  background: color-mix(in oklch, var(--danger), transparent 92%);
+  color: var(--danger);
+}
+.primary-surface-chip.variant-error .primary-surface-chip-dot {
+  background-color: var(--danger);
+}
+
+.primary-surface-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.primary-surface-body {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Responsive adjustment for header layout */
+@media (max-width: 768px) {
+  .primary-surface-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 16px;
+    gap: 12px;
+  }
+  .primary-surface-header-actions {
+    justify-content: flex-start;
+  }
+}

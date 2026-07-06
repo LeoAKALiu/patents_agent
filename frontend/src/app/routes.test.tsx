@@ -274,6 +274,59 @@ describe("AppRoot routes", () => {
     expect(within(sidebar).queryByText("Main")).not.toBeInTheDocument();
   });
 
+  it.each([
+    {
+      section: "workbench",
+      testId: "primary-surface-workbench",
+      copy: "从起步入口推进到生成、复核、修复和导出，把当前项目状态放在同一处判断。",
+      routeText: "工作台",
+    },
+    {
+      section: "projects",
+      testId: "primary-surface-projects",
+      copy: "集中查看项目、起草阶段、风险状态和导出准备度，避免在列表里迷路。",
+      routeText: "项目列表",
+    },
+    {
+      section: "documents",
+      testId: "primary-surface-documents",
+      copy: "管理内部初稿、正式稿、问题修复和版本链路，把导出前阻断留在同一处处理。",
+      routeText: "当前项目尚未生成内部初稿。",
+    },
+    {
+      section: "knowledge",
+      testId: "primary-surface-knowledge",
+      copy: "沉淀参考材料、语料版本和检索片段，为发明点确认与正文补强提供证据来源。",
+      routeText: "knowledge-wrapper",
+    },
+    {
+      section: "expert",
+      testId: "primary-surface-expert",
+      copy: "集中处理语料建设、质量检查、授权评估和成稿会审等专业工具。",
+      routeText: "expert-wrapper",
+    },
+    {
+      section: "export",
+      testId: "primary-surface-export",
+      copy: "分离正式提交稿、内部复核材料和风险追溯，只在门禁满足后开放提交文件。",
+      routeText: "export-wrapper",
+    },
+    {
+      section: "settings",
+      testId: "primary-surface-settings",
+      copy: "配置主题、模型接入和智能体运行环境，让系统状态与工作流门禁保持一致。",
+      routeText: "设置",
+    },
+  ] as const)("renders shared primary surface chrome for $section", ({ section, testId, copy, routeText }) => {
+    render(<AppRoot {...makeRootProps()} activeSection={section} />);
+
+    const surface = screen.getByTestId(testId);
+    expect(surface).toBeInTheDocument();
+    expect(within(surface).getByText(copy)).toBeInTheDocument();
+    expect(within(surface).getAllByText(routeText).length).toBeGreaterThan(0);
+    expect(within(surface).getByLabelText("状态指标")).toBeInTheDocument();
+  });
+
   it("does not render the old project key-node group in shell chrome", () => {
     const selectedProject = makeProject();
 
@@ -397,6 +450,21 @@ describe("AppRoot routes", () => {
     expect(screen.queryByText(/GET \/api\/health/)).not.toBeInTheDocument();
     expect(screen.getByText("错误降级")).toBeInTheDocument();
     expect(screen.queryByText("后端诊断")).not.toBeInTheDocument();
+    expect(screen.getByText("后端离线")).toBeInTheDocument();
+  });
+
+  it("demotes health-check failures on every primary surface without showing raw API paths", () => {
+    render(
+      <AppRoot
+        {...makeRootProps()}
+        activeSection="expert"
+        backendStatus="offline"
+        error="服务器操作失败:GET /api/health 返回 500:"
+      />,
+    );
+
+    expect(screen.queryByText(/GET \/api\/health/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("primary-surface-expert")).toBeInTheDocument();
     expect(screen.getByText("后端离线")).toBeInTheDocument();
   });
 
