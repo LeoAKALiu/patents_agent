@@ -4,7 +4,8 @@ owner: product/frontend
 created: 2026-07-06
 source_identity:
   branch: codex/agy-grantatlas-all-surfaces-redesign
-  short_sha: af9aecb9
+  base_short_sha: af9aecb9
+  initial_implementation_short_sha: c3736e82
   worktree: /Users/leo/Projects/patents_agent_omp_frontend_next
   dirty_at_capture: false
 ---

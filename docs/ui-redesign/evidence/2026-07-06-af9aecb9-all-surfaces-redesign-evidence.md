@@ -3,7 +3,8 @@ status: passed
 captured_at: 2026-07-06
 source_identity:
   branch: codex/agy-grantatlas-all-surfaces-redesign
-  short_sha: af9aecb9
+  base_short_sha: af9aecb9
+  initial_implementation_short_sha: c3736e82
   worktree: /Users/leo/Projects/patents_agent_omp_frontend_next
   base: origin/main
 implementation_agent: agy Gemini 3.5 Flash Medium started, Codex completed and verified
@@ -40,6 +41,7 @@ Design/spec artifacts:
 - Existing nested workspaces remain mounted inside their existing flows.
 - Health-check failures are demoted on all primary surfaces.
 - Generic app 5xx errors keep raw details in diagnostics but do not expose raw API paths as primary UI copy.
+- The topbar no longer renders duplicate page headings; the shared primary surface is the route title source.
 - Desktop and mobile browser smoke found no horizontal overflow.
 
 ## Commands
@@ -60,7 +62,7 @@ Dev server:
 cd frontend && npm run dev -- --port 5179
 ```
 
-Browser smoke used Chromium against `http://127.0.0.1:5179/` with backend offline. It clicked each real sidebar navigation item on desktop `1440x980` and mobile `390x844`, waited for the matching `primary-surface-*` hook, asserted no horizontal overflow, and asserted visible body text did not include `/api/health`, `/api/desktop-config`, or `/api/evidence-sources`.
+Browser smoke used Chromium against `http://127.0.0.1:5179/` with backend offline. It clicked each real sidebar navigation item on desktop `1440x980` and mobile `390x844`, waited for the matching `primary-surface-*` hook, asserted no horizontal overflow, asserted the topbar had zero heading elements, and asserted visible body text did not include `/api/health`, `/api/desktop-config`, or `/api/evidence-sources`.
 
 ## Screenshots
 

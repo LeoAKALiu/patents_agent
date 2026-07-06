@@ -327,6 +327,14 @@ describe("AppRoot routes", () => {
     expect(within(surface).getByLabelText("状态指标")).toBeInTheDocument();
   });
 
+  it("keeps the primary surface title out of the topbar to avoid duplicate page titles", () => {
+    render(<AppRoot {...makeRootProps()} activeSection="expert" />);
+
+    const topbar = document.querySelector(".topbar") as HTMLElement;
+    expect(within(topbar).queryByRole("heading", { name: "专家工具" })).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("primary-surface-expert")).getByText("专家工具")).toBeInTheDocument();
+  });
+
   it("does not render the old project key-node group in shell chrome", () => {
     const selectedProject = makeProject();
 
@@ -363,7 +371,8 @@ describe("AppRoot routes", () => {
   it("renders the document repair workspace for the documents section", () => {
     render(<AppRoot {...makeRootProps()} activeSection="documents" activeExpertTool="materials" />);
 
-    expect(screen.getByRole("heading", { level: 1, name: "文稿与修复" })).toBeInTheDocument();
+    expect(screen.getByTestId("primary-surface-documents")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "文稿与修复" })).toBeInTheDocument();
     const topbar = document.querySelector(".topbar") as HTMLElement;
     expect(within(topbar).queryByText("处理当前项目的正文、问题和版本链路")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "总览" })).toBeInTheDocument();

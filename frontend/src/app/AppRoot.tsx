@@ -172,17 +172,6 @@ function exportStatus(props: AppRootProps): {
   return { label: "导出锁定", variant: "warning" };
 }
 
-function pageTitleForSection(activeSection: MainSectionId): { title: string } {
-  if (activeSection === "projects") return { title: "项目" };
-  if (activeSection === "documents") return { title: "文稿与修复" };
-  if (activeSection === "settings") return { title: "设置" };
-  if (activeSection === "knowledge") return { title: "知识库" };
-  if (activeSection === "expert") return { title: "专家工具" };
-  if (activeSection === "export") return { title: "导出" };
-  if (activeSection === "workbench") return { title: "工作台" };
-  return { title: "工作台" };
-}
-
 function compactStatusChips(chips: Array<StatusChip | null | undefined | false>): StatusChip[] {
   return chips.filter(Boolean) as StatusChip[];
 }
@@ -220,7 +209,6 @@ export function AppRoot(props: AppRootProps) {
     Boolean(props.selectedProject),
     Boolean(props.startChoice),
   );
-  const { title } = pageTitleForSection(props.activeSection);
   const exportStatusChip = exportStatus(props);
   const sidebarMain = mainSections.map((section) => ({
     id: section.id,
@@ -277,7 +265,6 @@ export function AppRoot(props: AppRootProps) {
           ),
           actions: topbarRecoveryAction(props),
         }}
-        pageTitle={title}
       >
         {mobileNav(props)}
         {noticeBar(props)}

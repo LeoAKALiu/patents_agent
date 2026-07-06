@@ -44,9 +44,9 @@ export function PrimarySurface({
             <p id={titleId} className="primary-surface-title">{title}</p>
             {statusChips.length > 0 && (
               <div className="primary-surface-chips" aria-label="状态指标">
-                {statusChips.map((chip) => (
+                {statusChips.map((chip, index) => (
                   <span
-                    key={`${chip.variant ?? "default"}-${chip.label}`}
+                    key={`${chip.variant ?? "default"}-${index}-${chip.label}`}
                     className={cn(
                       "primary-surface-chip",
                       chip.variant ? `variant-${chip.variant}` : "variant-default",
