@@ -107,6 +107,52 @@ describe("QualityPanel", () => {
     expect(onAcceptAllPatches).toHaveBeenCalledWith("run-1");
   });
 
+  it("disables one-click acceptance button if no proposed patches exist", () => {
+    const onAcceptAllPatches = vi.fn();
+    const run = makeCompletionRun();
+    run.patches = []; // empty proposed patches
+    render(
+      <QualityPanel
+        actionGate={allowedGate}
+        filingReport={null}
+        worksheet={null}
+        completionRun={run}
+        busy=""
+        busyElapsedSeconds={0}
+        onRunQualityChecks={vi.fn()}
+        onImproveScore={vi.fn()}
+        onAcceptPatch={vi.fn()}
+        onAcceptAllPatches={onAcceptAllPatches}
+        onOpenExpertTool={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: /一键接受补强/ });
+    expect(button).toBeDisabled();
+  });
+
+  it("disables one-click acceptance button if busy state is active", () => {
+    const onAcceptAllPatches = vi.fn();
+    render(
+      <QualityPanel
+        actionGate={allowedGate}
+        filingReport={null}
+        worksheet={null}
+        completionRun={makeCompletionRun()}
+        busy="guided-quality"
+        busyElapsedSeconds={5}
+        onRunQualityChecks={vi.fn()}
+        onImproveScore={vi.fn()}
+        onAcceptPatch={vi.fn()}
+        onAcceptAllPatches={onAcceptAllPatches}
+        onOpenExpertTool={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: /一键接受补强/ });
+    expect(button).toBeDisabled();
+  });
+
   it("marks quality entry cards with a dedicated layout hook", () => {
     render(
       <QualityPanel

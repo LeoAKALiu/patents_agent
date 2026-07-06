@@ -5455,14 +5455,16 @@ input:focus, select:focus, textarea:focus {
 }
 
 .quality-tool-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
 .quality-tool-card {
   grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
   align-items: flex-start;
   padding: 14px;
+  height: 100%;
 }
 
 .quality-tool-card > :last-child {
@@ -5841,6 +5843,13 @@ input:focus, select:focus, textarea:focus {
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     background: var(--surface-subtle);
+  }
+  .quality-tool-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .quality-tool-card {
+    grid-template-rows: auto;
+    height: auto;
   }
 }
 

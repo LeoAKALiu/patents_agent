@@ -159,7 +159,11 @@ export function QualityPanel({
         <button
           className="btn btn-secondary"
           disabled={acceptAllDisabled}
-          onClick={() => completionRun && onAcceptAllPatches(completionRun.id)}
+          onClick={() => {
+            if (completionRun && allProposedPatches.length > 0 && !busy) {
+              onAcceptAllPatches(completionRun.id);
+            }
+          }}
           title={allProposedPatches.length === 0 ? "暂无候选补强" : undefined}
           type="button"
         >
