@@ -53,6 +53,7 @@ export {
   Upload,
   UsersRound,
   Wand2,
+  X,
   XCircle,
 } from "lucide-react";
 
