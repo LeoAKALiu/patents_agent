@@ -2,7 +2,7 @@ import pytest
 
 from backend.app.generator import PatentDraftGenerator
 from backend.app.llm import ConfigError, FakeLLMClient, MissingLLMClient
-from backend.app.schemas import InventionBrief, PatentChunk, SectionType
+from backend.app.schemas import InventionBrief, PatentChunk, PatentStrategyBrief, SectionType
 
 
 def test_generator_runs_ordered_pipeline_and_records_citations():
@@ -131,6 +131,47 @@ def test_generator_reuses_cleaned_claims_for_dependent_prompts():
     assert dependent_prompts
     assert all("好的" not in prompt for prompt in dependent_prompts)
     assert all("1. 一种城市体检智能体" in prompt for prompt in dependent_prompts)
+
+
+def test_generator_only_passes_injectable_strategy_not_deliberation_transcript():
+    llm = FakeLLMClient(
+        {
+            "claims": "1. 一种城市体检智能体的任务编排方法，其特征在于，包括生成任务包。",
+            "description": "技术领域\n本发明涉及城市体检智能体任务编排技术领域。",
+            "abstract": "本发明公开一种城市体检智能体的任务编排方法。",
+            "drawings": "图1为任务编排流程图。",
+            "diagram": "flowchart TD\nA[生成任务包] --> B[执行复核]",
+            "image_prompt": "黑白线稿，展示任务包生成流程。",
+        }
+    )
+    generator = PatentDraftGenerator(llm)
+    brief = InventionBrief(
+        title="城市体检智能体",
+        technical_field="AI软件",
+        technical_problem="任务编排可信性不足",
+        technical_solution="生成任务包并执行复核",
+        beneficial_effects=["提升复核可信度"],
+        key_steps=["生成任务包"],
+    )
+    strategy = PatentStrategyBrief(
+        summary="围绕任务包生成和可信复核撰写。",
+        claim_strategy=["限定任务包生成步骤"],
+        description_strategy=["补充任务包数据结构实施例"],
+        risk_controls=["避免把未验证效果写成事实"],
+        agent_consensus="codex 与 deepseek 交叉质询后认为 claude 的表述应收敛；resolved_recommendation=采用主席方案。",
+    )
+
+    generator.generate(brief, [], strategy_brief=strategy)
+
+    generation_prompts = "\n".join(call.user_prompt for call in llm.calls if call.stage in {"claims", "description"})
+    assert "限定任务包生成步骤" in generation_prompts
+    assert "agent_consensus" not in generation_prompts
+    assert "codex" not in generation_prompts
+    assert "deepseek" not in generation_prompts
+    assert "claude" not in generation_prompts
+    assert "resolved_recommendation" not in generation_prompts
+    assert "多 agent" not in generation_prompts
+    assert "会审" not in generation_prompts
 
 
 def test_generator_fails_closed_when_llm_is_not_configured():

@@ -140,6 +140,36 @@ def test_completion_engine_finds_support_gaps_and_patch_suggestions():
     assert run.scorecard.support_strength < 70
 
 
+def test_completion_engine_flags_deliberation_trace_as_blocking_pollution():
+    package = _completion_package().model_copy(
+        update={
+            "description": (
+                "技术领域\n"
+                "本发明涉及建筑外立面逆建模技术领域。\n"
+                "多智能体会审后，Codex 主席认为 DeepSeek 与 Claude 的角色结果应进入正文。"
+            )
+        }
+    )
+
+    run = run_draft_completion(
+        project_id="project-1",
+        package=package,
+        filing_reports=[],
+        worksheets=[],
+        patent_points=[],
+        disclosures=[],
+        materials=[],
+    )
+
+    assert any(
+        issue.category == "format_pollution"
+        and issue.severity == "high"
+        and issue.blocks_submission
+        and "会审" in issue.message
+        for issue in run.issues
+    )
+
+
 def test_completion_report_is_sidecar_and_mentions_formal_export_gates():
     run = run_draft_completion(
         project_id="project-1",

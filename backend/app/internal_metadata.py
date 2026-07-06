@@ -81,6 +81,19 @@ INTERNAL_METADATA_TOKEN_RE = re.compile(
     rf"(?<![A-Za-z0-9_-])(?:{UNAMBIGUOUS_METADATA_KEY_PATTERN})(?![A-Za-z0-9_-])",
     re.IGNORECASE,
 )
+DELIBERATION_TRACE_RE = re.compile(
+    r"(?:"
+    r"多\s*(?:智能体|代理|agent)\s*会审"
+    r"|会审\s*(?:策略|主席|记录|意见|结果)"
+    r"|agent\s*(?:对话|会审|角色|consensus)"
+    r"|角色结果"
+    r"|本轮启用\s*agent"
+    r"|resolved_recommendation"
+    r"|(?:codex|deepseek|claude|kimicode|kimi|mimo|gemini).{0,24}(?:主席|会审|交叉质询|角色结果|建议|认为)"
+    r"|(?:主席|会审|交叉质询|角色结果).{0,24}(?:codex|deepseek|claude|kimicode|kimi|mimo|gemini)"
+    r")",
+    re.IGNORECASE,
+)
 
 
 def contains_internal_metadata_field(text: str) -> bool:
@@ -89,3 +102,7 @@ def contains_internal_metadata_field(text: str) -> bool:
 
 def contains_internal_metadata_marker(text: str) -> bool:
     return bool(contains_internal_metadata_field(text) or INTERNAL_METADATA_TOKEN_RE.search(text))
+
+
+def contains_deliberation_trace_marker(text: str) -> bool:
+    return bool(DELIBERATION_TRACE_RE.search(text))

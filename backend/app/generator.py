@@ -161,8 +161,20 @@ def _format_context(chunks: list[PatentChunk]) -> str:
 
 def _format_strategy(strategy_brief: PatentStrategyBrief | None) -> str:
     if not strategy_brief:
-        return "无多 agent 会审策略。"
-    return strategy_brief.model_dump_json(ensure_ascii=False, indent=2)
+        return "无额外写作策略。"
+    return json.dumps(
+        {
+            "summary": strategy_brief.summary,
+            "claim_strategy": strategy_brief.claim_strategy,
+            "description_strategy": strategy_brief.description_strategy,
+            "risk_controls": strategy_brief.risk_controls,
+            "disclosure_summary": strategy_brief.disclosure_summary,
+            "patent_point_summary": strategy_brief.patent_point_summary,
+            "prior_art_differences": strategy_brief.prior_art_differences,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
 
 
 def _format_disclosure(disclosure: DisclosurePackage | None) -> str:
@@ -277,7 +289,7 @@ def _claims_prompt(brief: InventionBrief, context: str, strategy_context: str, d
 相似授权专利片段：
 {context}
 
-多 agent 会审策略：
+可注入写作策略：
 {strategy_context}
 
 前置技术交底书：
@@ -302,7 +314,7 @@ def _claims_prompt(brief: InventionBrief, context: str, strategy_context: str, d
 相似授权专利片段：
 {context}
 
-多 agent 会审策略：
+可注入写作策略：
 {strategy_context}
 
 前置技术交底书：
@@ -333,7 +345,7 @@ def _description_prompt(brief: InventionBrief, claims: str, context: str, strate
 参考片段：
 {context}
 
-多 agent 会审策略：
+可注入写作策略：
 {strategy_context}
 
 前置技术交底书：
@@ -359,7 +371,7 @@ def _description_prompt(brief: InventionBrief, claims: str, context: str, strate
 参考片段：
 {context}
 
-多 agent 会审策略：
+可注入写作策略：
 {strategy_context}
 
 前置技术交底书：
