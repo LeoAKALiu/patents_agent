@@ -94,7 +94,7 @@ export interface AppRootProps {
 }
 
 function topbarRecoveryAction(props: AppRootProps): React.ReactNode {
-  if (props.activeSection !== "workbench" || !props.startChoice) return null;
+  if (props.activeSection !== "workbench" || !props.startChoice || props.selectedProject) return null;
   return (
     <Button
       variant="outline"
@@ -227,7 +227,7 @@ export function AppRoot(props: AppRootProps) {
     projectState: props.projectState,
     exportReadiness: props.postDraftState.exportReadiness,
   });
-  const workbenchStartWorkspace = props.startChoice
+  const workbenchStartWorkspace = props.startChoice && !props.selectedProject
     ? projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")
     : undefined;
 

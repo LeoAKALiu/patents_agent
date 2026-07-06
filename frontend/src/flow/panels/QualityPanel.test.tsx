@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -105,5 +105,33 @@ describe("QualityPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: /一键接受补强/ }));
 
     expect(onAcceptAllPatches).toHaveBeenCalledWith("run-1");
+  });
+
+  it("marks quality entry cards with a dedicated layout hook", () => {
+    render(
+      <QualityPanel
+        actionGate={allowedGate}
+        filingReport={null}
+        worksheet={null}
+        completionRun={null}
+        busy=""
+        busyElapsedSeconds={0}
+        onRunQualityChecks={vi.fn()}
+        onImproveScore={vi.fn()}
+        onAcceptPatch={vi.fn()}
+        onAcceptAllPatches={vi.fn()}
+        onOpenExpertTool={vi.fn()}
+      />,
+    );
+
+    const entryGroup = screen.getByRole("heading", { name: "检查入口" }).closest(".settings-group");
+
+    if (!(entryGroup instanceof HTMLElement)) {
+      throw new Error("Expected the quality entry settings group to render.");
+    }
+
+    for (const label of ["提交成熟度", "权利要求防线", "初稿完善"]) {
+      expect(within(entryGroup).getByText(label).closest(".info-card")).toHaveClass("quality-tool-card");
+    }
   });
 });

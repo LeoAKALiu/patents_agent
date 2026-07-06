@@ -384,7 +384,7 @@ describe("AppRoot routes", () => {
     expect(screen.queryByRole("button", { name: "返回向导" })).not.toBeInTheDocument();
   });
 
-  it("demotes workbench health-check failures into the diagnostics queue", () => {
+  it("demotes workbench health-check failures into state coverage without showing raw diagnostics", () => {
     render(
       <AppRoot
         {...makeRootProps()}
@@ -395,7 +395,8 @@ describe("AppRoot routes", () => {
     );
 
     expect(screen.queryByText(/GET \/api\/health/)).not.toBeInTheDocument();
-    expect(screen.getByText("后端诊断")).toBeInTheDocument();
+    expect(screen.getByText("错误降级")).toBeInTheDocument();
+    expect(screen.queryByText("后端诊断")).not.toBeInTheDocument();
     expect(screen.getByText("后端离线")).toBeInTheDocument();
   });
 
@@ -403,6 +404,30 @@ describe("AppRoot routes", () => {
     render(<AppRoot {...makeRootProps()} activeSection="workbench" startChoice="invention" />);
 
     expect(screen.getByRole("button", { name: "返回三选一" })).toBeInTheDocument();
+  });
+
+  it("does not show start-choice recovery when a selected project is already on the OD workbench", () => {
+    const selectedProject = makeProject();
+
+    render(
+      <AppRoot
+        {...makeRootProps()}
+        activeSection="workbench"
+        startChoice="invention"
+        selectedProject={selectedProject}
+        projects={[selectedProject]}
+        projectState={{
+          ...makeRootProps().projectState,
+          startChoice: "invention",
+          selectedProject,
+          projects: [selectedProject],
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "返回工作台总览" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "返回三选一" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "项目与工作队列" })).toBeInTheDocument();
   });
 
   it("renders compact system health by default", () => {

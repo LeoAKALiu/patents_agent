@@ -127,15 +127,41 @@ describe("WorkbenchWorkspace", () => {
     expect(screen.queryByText(/generation_logs|official_safe_patches/)).toBeNull();
   });
 
-  it("renders the optimized command-center panels from the latest OD design", () => {
+  it("keeps the workbench focused without the placeholder review sidebar", () => {
     render(<WorkbenchWorkspace state={makeState()} handlers={makeHandlers()} onNavigate={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "状态覆盖" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "项目与工作队列" })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "运营与证据面板" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "证据矩阵" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "文稿预览" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "诊断队列" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "运营与证据面板" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "复核摘要" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "证据矩阵" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "文稿预览" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "诊断队列" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the OD command-center layout instead of embedding legacy flow details for an existing project", () => {
+    render(
+      <WorkbenchWorkspace
+        state={makeState({
+          currentStepId: "deliberation",
+          nextAction: {
+            label: "启动多智能体会审",
+            description: "收敛权利要求边界、说明书支撑和规避路径。",
+          },
+          primaryTarget: "workbench-start",
+        })}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+        startWorkspace={<div data-testid="guided-flow-detail">多智能体会审详情</div>}
+      />,
+    );
+
+    expect(screen.queryByTestId("guided-flow-detail")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "选择起步方式" })).not.toBeInTheDocument();
+    expect(screen.getByText("下一步")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "项目与工作队列" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "运营与证据面板" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "继续当前项目" })).toBeInTheDocument();
   });
 
   it("navigates blocked review work to documents", async () => {
@@ -218,7 +244,7 @@ describe("WorkbenchWorkspace", () => {
     expect(handlers.onStartChoice).toHaveBeenCalledWith("invention");
   });
 
-  it("keeps no-project diagnostics visible without blocking the start paths", async () => {
+  it("keeps no-project state coverage visible without blocking the start paths", async () => {
     const handlers = makeHandlers();
     render(
       <WorkbenchWorkspace
@@ -240,9 +266,7 @@ describe("WorkbenchWorkspace", () => {
       />,
     );
 
-    const diagnostics = screen.getByRole("region", { name: "诊断队列" });
-
-    expect(within(diagnostics).getByText("后端诊断")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "诊断队列" })).not.toBeInTheDocument();
     expect(screen.getByText("错误降级")).toBeInTheDocument();
 
     await userEvent.click(

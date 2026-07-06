@@ -95,6 +95,7 @@ export function QualityPanel({
       <SettingsGroup title="检查入口" description="进入对应专家视图查看完整报告，当前面板只保留工作流必看的摘要。">
         <div className="quality-tool-grid">
           <InfoCard
+            className="quality-tool-card"
             icon={<ClipboardList size={18} />}
             title="提交成熟度"
             description={filingReport ? `${summary.issueCount} 项命中` : "检查占位符、敏感表述和正式稿风险。"}
@@ -106,6 +107,7 @@ export function QualityPanel({
             )}
           />
           <InfoCard
+            className="quality-tool-card"
             icon={<ShieldCheck size={18} />}
             title="权利要求防线"
             description={worksheet ? `${worksheet.feature_records.length} 个特征，${worksheet.support_gaps.length} 个支撑缺口` : "标记区别特征、支撑缺口与从属兜底。"}
@@ -117,6 +119,7 @@ export function QualityPanel({
             )}
           />
           <InfoCard
+            className="quality-tool-card"
             icon={<Gauge size={18} />}
             title="初稿完善"
             description={completionRun ? `${completionRun.tasks.length} 个任务，${allProposedPatches.length} 个候选补丁` : "生成补强任务和候选 patch。"}

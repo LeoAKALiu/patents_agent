@@ -3,7 +3,6 @@ import {
   ArrowRight,
   AlertTriangle,
   BookOpen,
-  CheckCircle2,
   CircleDot,
   FileText,
   Gauge,
@@ -56,7 +55,7 @@ export function WorkbenchWorkspace({
               <p>
                 {state.hasProject
                   ? state.nextAction.description
-                  : "当前没有选中项目。工作台仍保留可执行入口、流程状态和诊断队列，避免首屏只剩空白或红色告警。"}
+                  : "当前没有选中项目。工作台仍保留可执行入口、流程状态和状态提示，避免首屏只剩空白或红色告警。"}
               </p>
               {state.hasProject && (
                 <div className="workbench-mission-actions">
@@ -118,32 +117,34 @@ export function WorkbenchWorkspace({
               <StateCard
                 tone="warn"
                 title="错误降级"
-                description="健康检查或门禁失败进入诊断队列，不覆盖主要工作流。"
+                description="健康检查或门禁失败时保留为状态提示，不覆盖主要工作流。"
               />
             </div>
           </section>
 
-          <section className="workbench-section" aria-labelledby="workbench-start-title">
-            <PanelHeading
-              eyebrow="起步路径"
-              title="选择起步方式"
-              id="workbench-start-title"
-              action={<span className="workbench-chip is-info">推荐先创建项目</span>}
-            >
-              三个入口使用同一条引导流程，但预设项目类型、材料要求和复核节奏不同。
-            </PanelHeading>
-            <div className="workbench-start-grid" aria-label="起步路径">
-              {v1StartChoices.map((choice) => (
-                <StartPathCard
-                  key={choice.id}
-                  choice={choice}
-                  selected={!state.hasProject && choice.id === "invention"}
-                  onSelect={() => handlers.onStartChoice(choice.id)}
-                />
-              ))}
-            </div>
-            {startWorkspace && <div className="workbench-start-detail">{startWorkspace}</div>}
-          </section>
+          {!state.hasProject && (
+            <section className="workbench-section" aria-labelledby="workbench-start-title">
+              <PanelHeading
+                eyebrow="起步路径"
+                title="选择起步方式"
+                id="workbench-start-title"
+                action={<span className="workbench-chip is-info">推荐先创建项目</span>}
+              >
+                三个入口使用同一条引导流程，但预设项目类型、材料要求和复核节奏不同。
+              </PanelHeading>
+              <div className="workbench-start-grid" aria-label="起步路径">
+                {v1StartChoices.map((choice) => (
+                  <StartPathCard
+                    key={choice.id}
+                    choice={choice}
+                    selected={!state.hasProject && choice.id === "invention"}
+                    onSelect={() => handlers.onStartChoice(choice.id)}
+                  />
+                ))}
+              </div>
+              {startWorkspace && <div className="workbench-start-detail">{startWorkspace}</div>}
+            </section>
+          )}
 
           <section className="workbench-section workbench-next" aria-labelledby="workbench-next-title">
             <div className="workbench-section-heading">
@@ -324,96 +325,6 @@ export function WorkbenchWorkspace({
           </section>
         </div>
 
-        <aside className="workbench-right-stack" aria-label="运营与证据面板">
-          <section className="workbench-section workbench-evidence-panel">
-            <section className="workbench-right-section" aria-labelledby="workbench-review-title">
-              <div className="workbench-right-title">
-                <h3 id="workbench-review-title">复核摘要</h3>
-                <span className="workbench-chip is-info">{state.hasProject ? currentPhase : "空项目"}</span>
-              </div>
-              <div className="workbench-review-card">
-                <strong>{state.hasProject ? state.nextAction.label : "下一步需要建立项目卡"}</strong>
-                <span>
-                  {state.hasProject
-                    ? state.nextAction.description
-                    : "选择入口后先确认专利类型、技术主题和材料来源，证据队列会随项目自动展开。"}
-                </span>
-              </div>
-            </section>
-
-            <section className="workbench-right-section" aria-labelledby="workbench-evidence-title">
-              <div className="workbench-right-title">
-                <h3 id="workbench-evidence-title">证据矩阵</h3>
-                <span className="workbench-chip">{evidenceSatisfiedCount}/4 已满足</span>
-              </div>
-              <div className="workbench-evidence-matrix">
-                <EvidenceRow title="技术问题" detail="问题、现有方案缺陷与改进目标" status="必需" tone="info" />
-                <EvidenceRow title="技术方案" detail="关键步骤、结构关系或系统模块" status="必需" tone="info" />
-                <EvidenceRow
-                  title="技术效果"
-                  detail="需与方案逐项对应"
-                  status={state.riskSummary.issueCount > 0 ? "待补" : "就绪"}
-                  tone={state.riskSummary.issueCount > 0 ? "warn" : "success"}
-                />
-                <EvidenceRow
-                  title="复核规则"
-                  detail={state.hasProject ? "已绑定当前流程模板" : "创建项目后自动绑定模板"}
-                  status="就绪"
-                  tone="success"
-                />
-              </div>
-            </section>
-
-            <section className="workbench-right-section" aria-labelledby="workbench-preview-title">
-              <div className="workbench-right-title">
-                <h3 id="workbench-preview-title">文稿预览</h3>
-                <span className="workbench-chip is-brand">{state.hasProject ? "当前草稿" : "空白模板"}</span>
-              </div>
-              <div className="workbench-document-preview" aria-label="文档预览占位">
-                <div className="workbench-doc-page-title">
-                  <span>说明书摘要</span>
-                  <span>{state.riskSummary.exportReady ? "可导出" : "等待生成"}</span>
-                </div>
-                <div className="workbench-doc-rule">
-                  <div className="workbench-doc-line is-brand" />
-                  <div className="workbench-doc-line" />
-                </div>
-                <div className="workbench-doc-rule">
-                  <div className="workbench-doc-line" />
-                  <div className="workbench-doc-line is-short" />
-                </div>
-                <div className="workbench-doc-note">
-                  <span>权利要求 / 说明书</span>
-                  <strong>{state.hasProject ? exportStateLabel(state) : "等待生成"}</strong>
-                </div>
-              </div>
-            </section>
-
-            <section className="workbench-right-section" aria-labelledby="workbench-diagnostics-title">
-              <div className="workbench-right-title">
-                <h3 id="workbench-diagnostics-title">诊断队列</h3>
-                <span className="workbench-chip">系统</span>
-              </div>
-              <div className="workbench-evidence-list">
-                <div className="workbench-alert-line">
-                  <AlertTriangle size={16} aria-hidden="true" />
-                  <div>
-                    <strong>后端诊断</strong>
-                    <span>健康检查异常会保留为诊断项，不抢占主任务。</span>
-                  </div>
-                </div>
-                <div className="workbench-evidence-item">
-                  <CheckCircle2 size={15} aria-hidden="true" />
-                  <div>
-                    <strong>界面外壳</strong>
-                    <span>工作台已加载，本机可继续配置。</span>
-                  </div>
-                  <span>就绪</span>
-                </div>
-              </div>
-            </section>
-          </section>
-        </aside>
       </div>
     </section>
   );
@@ -587,31 +498,7 @@ function MiniKpi({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EvidenceRow({
-  title,
-  detail,
-  status,
-  tone,
-}: {
-  title: string;
-  detail: string;
-  status: string;
-  tone: "info" | "warn" | "success";
-}) {
-  return (
-    <div className="workbench-evidence-row">
-      <WorkbenchDot tone={tone} />
-      <div>
-        <strong>{title}</strong>
-        <span>{detail}</span>
-      </div>
-      <span>{status}</span>
-    </div>
-  );
-}
-
-function WorkbenchDot({ tone }: { tone: "info" | "neutral" | "warn" | "success" }) {
-  if (tone === "success") return <CheckCircle2 size={15} aria-hidden="true" />;
+function WorkbenchDot({ tone }: { tone: "info" | "neutral" | "warn" }) {
   if (tone === "warn") return <AlertTriangle size={15} aria-hidden="true" />;
   if (tone === "info") return <CircleDot size={15} aria-hidden="true" />;
   return <CircleDot size={15} aria-hidden="true" />;
