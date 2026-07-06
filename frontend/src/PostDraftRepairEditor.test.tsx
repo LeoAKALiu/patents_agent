@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { applyDraftRepairPatch, createDraftRepairPatch } from "@/api";
 import { PostDraftRepairEditor } from "./flow/panels/PostDraftRepairEditor";
@@ -327,7 +327,10 @@ describe("PostDraftRepairEditor", () => {
       />,
     );
 
-    expect(screen.getAllByText("待复核").length).toBeGreaterThan(0);
+    const rail = screen.getByRole("navigation", { name: "标注式修复问题导航" });
+    const inspector = screen.getByRole("complementary", { name: "标注式修复详情面板" });
+    expect(within(rail).getByText("待复核")).toBeInTheDocument();
+    expect(within(inspector).getByText("待复核")).toBeInTheDocument();
   });
 
   it("removes an applied issue from the rail and advances to the next issue", async () => {
@@ -527,5 +530,154 @@ describe("PostDraftRepairEditor", () => {
 
     await screen.findByText("AI 修正已写回标题");
     expect(screen.getByLabelText("标题")).toHaveClass("patch-applied");
+  });
+
+  it("renders a stable three-pane layout in embedded mode and has an independently scrollable issue rail", () => {
+    const { container } = render(
+      <PostDraftRepairEditor
+        open
+        mode="embedded"
+        session={session}
+        saving={false}
+        onClose={() => {}}
+        onSave={vi.fn()}
+      />,
+    );
+
+    // Three panes check
+    expect(container.querySelector(".repair-issue-rail")).toBeInTheDocument();
+    expect(container.querySelector(".repair-document-pane")).toBeInTheDocument();
+    expect(container.querySelector(".repair-inspector")).toBeInTheDocument();
+
+    // Independent scroll check for issue rail
+    const scrollContainer = container.querySelector(".repair-issue-scroll");
+    expect(scrollContainer).toBeInTheDocument();
+  });
+
+  it("renders 10+ issues, and selecting an issue updates selected draft section and inspector", async () => {
+    const tenIssues = Array.from({ length: 12 }, (_, i) => {
+      const targetSection: "title" | "abstract" = i % 2 === 0 ? "title" : "abstract";
+      return {
+        id: `issue-${i}`,
+        kind: (i % 3 === 0 ? ("blocking" as const) : i % 3 === 1 ? ("hit" as const) : ("suggestion" as const)),
+        severity: "high" as const,
+        source: "post_draft_review" as const,
+        message: `问题消息 ${i}`,
+        snippet: null,
+        target_section: targetSection,
+        anchor: {
+          type: "missing" as const,
+          section: targetSection,
+          start: null,
+          end: null,
+          snippet: null,
+        },
+        status: "open" as const,
+      };
+    });
+
+    const sessionWithManyIssues = {
+      ...session,
+      issues: tenIssues,
+    };
+
+    render(
+      <PostDraftRepairEditor
+        open
+        mode="embedded"
+        session={sessionWithManyIssues}
+        saving={false}
+        onClose={() => {}}
+        onSave={vi.fn()}
+      />,
+    );
+
+    // Should display total item count (12)
+    expect(screen.getByText("12 项")).toBeInTheDocument();
+
+    // Select the 6th issue (index 5, which targets "abstract" since 5 % 2 === 1)
+    const targetIssueButton = screen.getByRole("button", { name: /问题消息 5/ });
+    await userEvent.click(targetIssueButton);
+
+    // Inspector should update with the selected issue's message
+    const rail = screen.getByRole("navigation", { name: "标注式修复问题导航" });
+    const inspector = screen.getByRole("complementary", { name: "标注式修复详情面板" });
+    const inspectorSummary = within(inspector).getByRole("region", { name: "当前问题摘要" });
+    expect(within(rail).getByText("问题消息 5")).toBeInTheDocument();
+    expect(within(inspectorSummary).getByText("问题消息 5")).toBeInTheDocument();
+
+    // The abstract section should have the "selected" class
+    const abstractLabel = screen.getByLabelText("摘要").closest(".annotated-draft-section");
+    expect(abstractLabel).toHaveClass("selected");
+  });
+
+  it("shows pending revalidation status in rail and inspector after applying a patch", async () => {
+    const onPatchApplied = vi.fn();
+    mockCreateDraftRepairPatch.mockResolvedValue({
+      id: "patch-1",
+      issue_id: "blocking-1",
+      project_id: "p1",
+      review_run_id: "r1",
+      status: "proposed",
+      target_section: "title",
+      original: "方法方法",
+      patched: "方法",
+      diff_summary: "删除重复词",
+      risk_notes: [],
+      draft_package_hash: "old",
+    });
+    mockApplyDraftRepairPatch.mockResolvedValue({
+      package: {
+        title: "一种基于城市体检指标置信度的无人机主动采集方法",
+        abstract: "摘要文本",
+        claims: "权利要求文本",
+        description: "说明书文本",
+        drawing_description: "图1说明",
+        mermaid: "",
+        image_prompt: "",
+        review_findings: [],
+        citations: [],
+        generation_logs: [],
+      },
+      current_draft_hash: "new-hash",
+    });
+
+    const { rerender } = render(
+      <PostDraftRepairEditor
+        open
+        session={session}
+        saving={false}
+        pendingRevalidationIssueIds={[]}
+        onClose={() => {}}
+        onSave={vi.fn()}
+        onPatchApplied={onPatchApplied}
+      />,
+    );
+
+    // Generate and apply patch
+    await userEvent.click(screen.getByRole("button", { name: "生成 AI 修正" }));
+    await screen.findByText("删除重复词");
+    await userEvent.click(screen.getByRole("button", { name: "应用 AI 修正" }));
+
+    expect(onPatchApplied).toHaveBeenCalledWith(expect.any(Object), "blocking-1");
+
+    // Simulating parent state update: rerender with pendingRevalidationIssueIds including "blocking-1"
+    rerender(
+      <PostDraftRepairEditor
+        open
+        session={session}
+        saving={false}
+        pendingRevalidationIssueIds={["blocking-1"]}
+        onClose={() => {}}
+        onSave={vi.fn()}
+        onPatchApplied={onPatchApplied}
+      />,
+    );
+
+    // The issue should stay in the rail and show "待复核"
+    const rail = screen.getByRole("navigation", { name: "标注式修复问题导航" });
+    const inspector = screen.getByRole("complementary", { name: "标注式修复详情面板" });
+    expect(within(rail).getByText("待复核")).toBeInTheDocument();
+    expect(within(inspector).getByText("待复核")).toBeInTheDocument();
   });
 });
