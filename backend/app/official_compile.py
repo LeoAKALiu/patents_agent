@@ -9,6 +9,7 @@ from pathlib import Path
 
 from docx import Document
 
+from backend.app.internal_metadata import contains_deliberation_trace_marker
 from backend.app.schemas import (
     DeliberationLogEntry,
     DraftPackage,
@@ -1728,6 +1729,8 @@ def _removal_for_line(line: str, in_fence: bool) -> dict[str, str] | None:
     evidence_metadata_field = EVIDENCE_METADATA_FIELD_RE.match(line)
     if evidence_metadata_field:
         return {"category": "evidence_metadata", "pattern": evidence_metadata_field.group(1).lower()}
+    if contains_deliberation_trace_marker(line):
+        return {"category": "internal_trace", "pattern": "deliberation_trace"}
     for pattern in ("根据会审策略", "多 Agent 会审", "多Agent会审", "主席汇总", "deliberation", "generation_logs"):
         if pattern.lower() in comparable_line:
             return {"category": "internal_trace", "pattern": pattern}

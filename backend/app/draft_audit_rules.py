@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 
-from backend.app.internal_metadata import contains_internal_metadata_marker
+from backend.app.internal_metadata import contains_deliberation_trace_marker, contains_internal_metadata_marker
 from backend.app.patent_urls import (
     is_supported_public_patent_url,
     normalize_url as normalize_public_url,
@@ -66,6 +66,17 @@ def audit_draft_package(
                 target="export",
                 message="草稿包含内部元信息，不能进入正式稿或清洁交底书。",
                 suggested_action="删除 evidence/source/log/self-check 等内部字段，保留在内部侧车报告。",
+                blocks_submission=True,
+            )
+        )
+    if contains_deliberation_trace_marker(combined_text):
+        issues.append(
+            _issue(
+                category="format_pollution",
+                severity="high",
+                target="export",
+                message="草稿包含多智能体会审、agent 对话或主席裁决痕迹，不能进入正式稿。",
+                suggested_action="将会审记录保留在内部侧车报告，正文仅保留可提交的技术方案和实施方式。",
                 blocks_submission=True,
             )
         )

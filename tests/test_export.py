@@ -4,10 +4,10 @@ from docx import Document
 
 from backend.app.exporter import export_docx, package_to_markdown
 from backend.app.filing_readiness import official_package_to_markdown
-from backend.app.schemas import DraftPackage
+from backend.app.schemas import DraftPackage, PatentStrategyBrief
 
 
-def test_export_docx_contains_complete_patent_sections(tmp_path: Path):
+def test_export_docx_contains_only_draft_sections(tmp_path: Path):
     package = DraftPackage(
         title="一种专利撰写辅助方法",
         abstract="本发明公开了一种专利撰写辅助方法。",
@@ -19,6 +19,14 @@ def test_export_docx_contains_complete_patent_sections(tmp_path: Path):
         review_findings=[],
         citations=[],
         patent_point_summary="遮挡洞口语义补全",
+        generation_logs=["deliberation: injected strategy brief from run abc"],
+        strategy_brief=PatentStrategyBrief(
+            summary="多智能体主席汇总。",
+            claim_strategy=["方法独权"],
+            description_strategy=["补充实施例"],
+            risk_controls=["避免过宽"],
+            agent_consensus="codex 与 deepseek 交叉质询后形成共识。",
+        ),
     )
 
     output_path = export_docx(package, tmp_path / "draft.docx")
@@ -30,11 +38,26 @@ def test_export_docx_contains_complete_patent_sections(tmp_path: Path):
     assert "权利要求书" in text
     assert "说明书" in text
     assert "附图说明" in text
-    assert "绘图提示词" in text
+    assert "Mermaid流程图" not in text
+    assert "绘图提示词" not in text
+    assert "多Agent会审策略" not in text
+    assert "生成日志" not in text
+    assert "codex" not in text
+    assert "deepseek" not in text
 
     markdown = package_to_markdown(package)
-    assert "推荐专利点" in markdown
-    assert "遮挡洞口语义补全" in markdown
+    assert "## 摘要" in markdown
+    assert "## 权利要求书" in markdown
+    assert "## 说明书" in markdown
+    assert "## 附图说明" in markdown
+    assert "推荐专利点" not in markdown
+    assert "遮挡洞口语义补全" not in markdown
+    assert "Mermaid流程图" not in markdown
+    assert "绘图提示词" not in markdown
+    assert "多Agent会审策略" not in markdown
+    assert "生成日志" not in markdown
+    assert "codex" not in markdown
+    assert "deepseek" not in markdown
 
 
 def test_official_markdown_export_contains_only_filing_sections():

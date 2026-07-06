@@ -32,6 +32,23 @@ def test_compiler_blocks_internal_pollution_in_official_fields():
     assert any(item["category"] == "official_hygiene_contamination" for item in run.blocked_items)
 
 
+def test_compiler_blocks_deliberation_conversation_trace_in_official_fields():
+    package = _draft_package(
+        description=(
+            "技术领域\n"
+            "本发明涉及无人机任务规划技术领域。\n"
+            "多智能体会审后，Codex 主席认为 DeepSeek 与 Claude 的角色结果应收敛为任务包生成方案。"
+        ),
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "blocked"
+    assert run.official_package is None
+    assert any(item["pattern"] == "deliberation_trace" for item in run.contamination_removed)
+    assert any(item["category"] == "official_hygiene_contamination" for item in run.blocked_items)
+
+
 def test_compiler_allows_internal_note_for_post_draft_repair_gate():
     package = _draft_package(
         claims="1. 一种城市体检无人机补采方法。\n*(注：内部备注)**",
