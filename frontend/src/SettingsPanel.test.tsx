@@ -218,7 +218,8 @@ describe("SettingsPanel error copy", () => {
     const sourceError = await screen.findByTestId("evidence-source-load-error");
     expect(sourceError).toHaveTextContent("数据源配置加载失败");
     expect(sourceError).toHaveTextContent("服务端操作失败");
-    expect(sourceError).toHaveTextContent("Evidence source service unavailable.");
+    expect(sourceError).toHaveTextContent("应用后端返回异常，请查看日志或稍后重试。");
+    expect(sourceError).not.toHaveTextContent("/api/evidence-sources");
     expect(screen.queryByText("智慧芽 PatSnap")).not.toBeInTheDocument();
   });
 
@@ -314,6 +315,7 @@ describe("SettingsPanel error copy", () => {
     const feedback = await screen.findByTestId("evidence-source-feedback");
     expect(feedback).toHaveTextContent("智慧芽 PatSnap 检查失败");
     expect(feedback).toHaveTextContent("服务端操作失败");
-    expect(feedback).toHaveTextContent("Upstream check crashed.");
+    expect(feedback).toHaveTextContent("应用后端返回异常，请查看日志或稍后重试。");
+    expect(feedback).not.toHaveTextContent("/api/evidence-sources");
   });
 });

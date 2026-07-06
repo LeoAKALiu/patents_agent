@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SettingsPanel } from "@/SettingsPanel";
 import { BusyOperationConsole } from "@/views/runtimePanel";
 import { SystemDiagnosticsDialog, SystemStatusPanel } from "@/ui/SystemStatusPanel";
+import { PrimarySurface, type StatusChip } from "@/ui/PrimarySurface";
 import type { ThemeMode } from "@/ui/useTheme";
 import { ShellLayout } from "@/app/ShellLayout";
 import {
@@ -131,7 +132,7 @@ function mobileNav(props: AppRootProps): React.ReactNode {
 }
 
 function noticeBar(props: AppRootProps): React.ReactNode {
-  const visibleError = shouldDemoteWorkbenchHealthError(props) ? "" : props.error;
+  const visibleError = shouldDemoteHealthError(props.error) ? "" : props.error;
   if (!props.busy && !props.message && !visibleError) return null;
   return (
     <div className={visibleError ? "notice error" : "notice"}>
@@ -148,8 +149,8 @@ function noticeBar(props: AppRootProps): React.ReactNode {
   );
 }
 
-function shouldDemoteWorkbenchHealthError(props: AppRootProps): boolean {
-  return props.activeSection === "workbench" && props.error.includes("/api/health");
+function shouldDemoteHealthError(error: string): boolean {
+  return error.includes("/api/health");
 }
 
 function exportStatus(props: AppRootProps): {
@@ -171,15 +172,8 @@ function exportStatus(props: AppRootProps): {
   return { label: "导出锁定", variant: "warning" };
 }
 
-function pageTitleForSection(activeSection: MainSectionId): { title: string } {
-  if (activeSection === "projects") return { title: "项目" };
-  if (activeSection === "documents") return { title: "文稿与修复" };
-  if (activeSection === "settings") return { title: "设置" };
-  if (activeSection === "knowledge") return { title: "知识库" };
-  if (activeSection === "expert") return { title: "专家工具" };
-  if (activeSection === "export") return { title: "导出" };
-  if (activeSection === "workbench") return { title: "工作台" };
-  return { title: "工作台" };
+function compactStatusChips(chips: Array<StatusChip | null | undefined | false>): StatusChip[] {
+  return chips.filter(Boolean) as StatusChip[];
 }
 
 function projectWorkspace(props: AppRootProps, section: "generate" | "utility" | "projects"): React.ReactNode {
@@ -215,7 +209,6 @@ export function AppRoot(props: AppRootProps) {
     Boolean(props.selectedProject),
     Boolean(props.startChoice),
   );
-  const { title } = pageTitleForSection(props.activeSection);
   const exportStatusChip = exportStatus(props);
   const sidebarMain = mainSections.map((section) => ({
     id: section.id,
@@ -272,61 +265,142 @@ export function AppRoot(props: AppRootProps) {
           ),
           actions: topbarRecoveryAction(props),
         }}
-        pageTitle={title}
       >
         {mobileNav(props)}
         {noticeBar(props)}
         <div className="workspace">
           {route === "workbench" && (
-            <WorkbenchWorkspace
-              state={workbenchState}
-              handlers={props.projectHandlers}
-              onNavigate={(target) => onWorkbenchNavigate(props, target)}
-              startWorkspace={workbenchStartWorkspace}
-            />
+            <PrimarySurface
+              id="workbench"
+              title="工作台"
+              description="从起步入口推进到生成、复核、修复和导出，把当前项目状态放在同一处判断。"
+              statusChips={compactStatusChips([
+                props.selectedProject
+                  ? { label: `项目: ${props.selectedProject.name}`, variant: "current" }
+                  : { label: "未选择项目", variant: "warning" },
+                props.busy
+                  ? { label: `运行中: ${guidedBusyLabel(props.busy)}`, variant: "current" }
+                  : { label: "空闲", variant: "done" },
+                props.selectedProject
+                  ? { label: props.selectedProject.patent_type === "invention" ? "发明专利" : "实用新型", variant: "ready" }
+                  : null,
+              ])}
+            >
+              <WorkbenchWorkspace
+                state={workbenchState}
+                handlers={props.projectHandlers}
+                onNavigate={(target) => onWorkbenchNavigate(props, target)}
+                startWorkspace={workbenchStartWorkspace}
+              />
+            </PrimarySurface>
           )}
           {route === "documents" && (
-            <DocumentRepairWorkspace
-              projectState={props.projectState}
-              handlers={props.projectHandlers}
-              exportReadiness={props.postDraftState.exportReadiness}
-              onNavigate={props.onSelectSection}
-              requestedTab={documentRepairIntent?.tab ?? null}
-              onRequestedTabHandled={() => setDocumentRepairIntent(null)}
-            />
+            <PrimarySurface
+              id="documents"
+              title="文稿与修复"
+              description="管理内部初稿、正式稿、问题修复和版本链路，把导出前阻断留在同一处处理。"
+              statusChips={[
+                props.selectedProject
+                  ? { label: `项目: ${props.selectedProject.name}`, variant: "current" }
+                  : { label: "未选择项目", variant: "warning" },
+                { label: props.projectState.currentDraftHash ? "内部初稿已生成" : "暂无内部初稿", variant: props.projectState.currentDraftHash ? "done" : "locked" },
+                { label: `材料 ${props.projectState.projectMaterials.length} 份`, variant: "ready" },
+              ]}
+            >
+              <DocumentRepairWorkspace
+                projectState={props.projectState}
+                handlers={props.projectHandlers}
+                exportReadiness={props.postDraftState.exportReadiness}
+                onNavigate={props.onSelectSection}
+                requestedTab={documentRepairIntent?.tab ?? null}
+                onRequestedTabHandled={() => setDocumentRepairIntent(null)}
+              />
+            </PrimarySurface>
           )}
-          {route === "projects-overview" && projectWorkspace(props, "projects")}
+          {route === "projects-overview" && (
+            <PrimarySurface
+              id="projects"
+              title="项目"
+              description="集中查看项目、起草阶段、风险状态和导出准备度，避免在列表里迷路。"
+              statusChips={[
+                { label: `项目 ${props.projects.length} 个`, variant: "done" },
+                { label: props.backendStatus === "online" ? "后端在线" : "后端离线", variant: props.backendStatus === "online" ? "ready" : "error" },
+              ]}
+            >
+              {projectWorkspace(props, "projects")}
+            </PrimarySurface>
+          )}
           {route === "settings" && (
-            <div className="px-4 md:px-8 py-4 md:py-6">
-              <SettingsPanel theme={props.theme} onThemeChange={props.onChangeTheme} />
-            </div>
+            <PrimarySurface
+              id="settings"
+              title="设置"
+              description="配置主题、模型接入和智能体运行环境，让系统状态与工作流门禁保持一致。"
+              statusChips={[
+                { label: `主题: ${props.theme === "dark" ? "深色" : props.theme === "light" ? "浅色" : "系统"}`, variant: "ready" },
+                { label: `智能体: ${props.agentDoctor?.run_mode === "partial" ? "部分可用" : props.agentDoctor?.run_mode === "full" ? "完整可用" : props.agentDoctor?.run_mode === "minimal" ? "最小可用" : "未就绪"}`, variant: props.agentDoctor?.run_mode === "full" ? "done" : "warning" },
+              ]}
+            >
+              <div className="px-4 md:px-8 py-4 md:py-6">
+                <SettingsPanel theme={props.theme} onThemeChange={props.onChangeTheme} />
+              </div>
+            </PrimarySurface>
           )}
           {route === "knowledge" && (
-            <KnowledgeWorkspace
-              activeExpertTool={props.activeExpertTool}
-              state={props.corpusState}
-              handlers={props.corpusHandlers}
-              onSelectTool={props.onSelectExpertTool}
-            />
+            <PrimarySurface
+              id="knowledge"
+              title="知识库"
+              description="沉淀参考材料、语料版本和检索片段，为发明点确认与正文补强提供证据来源。"
+              statusChips={[
+                { label: `语料版本 ${props.corpusState.corpusVersions.length} 个`, variant: "done" },
+                { label: "可导入与检索", variant: "ready" },
+              ]}
+            >
+              <KnowledgeWorkspace
+                activeExpertTool={props.activeExpertTool}
+                state={props.corpusState}
+                handlers={props.corpusHandlers}
+                onSelectTool={props.onSelectExpertTool}
+              />
+            </PrimarySurface>
           )}
           {route === "export" && (
-            <ExportWorkspace
-              postDraftState={props.postDraftState}
-              postDraftHandlers={props.postDraftHandlers}
-              onNavigateDocuments={navigateDocuments}
-            />
+            <PrimarySurface
+              id="export"
+              title="导出"
+              description="分离正式提交稿、内部复核材料和风险追溯，只在门禁满足后开放提交文件。"
+              statusChips={[
+                { label: exportStatusChip.label, variant: exportStatusChip.variant === "success" ? "done" : exportStatusChip.variant === "busy" ? "current" : exportStatusChip.variant === "error" ? "error" : "warning" },
+                { label: props.postDraftState.currentPackage ? "内部初稿就绪" : "待生成内部初稿", variant: props.postDraftState.currentPackage ? "done" : "locked" },
+              ]}
+            >
+              <ExportWorkspace
+                postDraftState={props.postDraftState}
+                postDraftHandlers={props.postDraftHandlers}
+                onNavigateDocuments={navigateDocuments}
+              />
+            </PrimarySurface>
           )}
           {route === "expert" && (
-            <ExpertToolsWorkspace
-              activeExpertTool={props.activeExpertTool}
-              onSelectExpertTool={props.onSelectExpertTool}
-              corpusState={props.corpusState}
-              corpusHandlers={props.corpusHandlers}
-              qualityState={props.qualityState}
-              qualityHandlers={props.qualityHandlers}
-              postDraftState={props.postDraftState}
-              postDraftHandlers={props.postDraftHandlers}
-            />
+            <PrimarySurface
+              id="expert"
+              title="专家工具"
+              description="集中处理语料建设、质量检查、授权评估和成稿会审等专业工具。"
+              statusChips={[
+                { label: `当前工具: ${props.activeExpertTool || "未选择"}`, variant: "current" },
+                { label: `报告数: ${props.qualityState.filingReports.length + props.qualityState.grantabilityReports.length} 份`, variant: "ready" },
+              ]}
+            >
+              <ExpertToolsWorkspace
+                activeExpertTool={props.activeExpertTool}
+                onSelectExpertTool={props.onSelectExpertTool}
+                corpusState={props.corpusState}
+                corpusHandlers={props.corpusHandlers}
+                qualityState={props.qualityState}
+                qualityHandlers={props.qualityHandlers}
+                postDraftState={props.postDraftState}
+                postDraftHandlers={props.postDraftHandlers}
+              />
+            </PrimarySurface>
           )}
         </div>
       </ShellLayout>

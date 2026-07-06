@@ -208,7 +208,7 @@ export function userFacingAppErrorCopy(
   if (statusCode && statusCode >= 500) {
     return {
       title: "服务端操作失败",
-      message: backendDetail || "应用后端返回异常，请查看日志或稍后重试。",
+      message: options.fallbackMessage || "应用后端返回异常，请查看日志或稍后重试。",
       detail: raw || undefined,
       tone: "error",
     };

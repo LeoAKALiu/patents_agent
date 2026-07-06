@@ -70,7 +70,9 @@ describe("user-facing runtime error copy", () => {
     expect(validation.title).toBe("输入未通过校验");
     expect(validation.message).toBe("文件为空或没有可解析文本。");
     expect(backend.title).toBe("服务端操作失败");
-    expect(backend.message).toBe("repair-session payload invalid");
+    expect(backend.message).toBe("应用后端返回异常，请查看日志或稍后重试。");
+    expect(backend.message).not.toContain("/api/projects");
+    expect(backend.detail).toContain("repair-session payload invalid");
   });
 
   it("maps cancellation runtime failures to non-alarming retry guidance", () => {
