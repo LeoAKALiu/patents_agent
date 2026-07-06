@@ -32,6 +32,19 @@ def test_compiler_blocks_internal_pollution_in_official_fields():
     assert any(item["category"] == "official_hygiene_contamination" for item in run.blocked_items)
 
 
+def test_compiler_allows_internal_note_for_post_draft_repair_gate():
+    package = _draft_package(
+        claims="1. 一种城市体检无人机补采方法。\n*(注：内部备注)**",
+    )
+
+    run = OfficialDraftCompiler().compile(project_id="p1", package=package)
+
+    assert run.status == "completed"
+    assert run.official_package is not None
+    assert "内部备注" in run.official_package.claims
+    assert not any(item["pattern"] == "内部备注" for item in run.blocked_items)
+
+
 def test_compiler_cleans_observed_surface_pollution_without_claiming_dirty_output_clean():
     package = _draft_package(
         title="一种城市体检指标驱动无人机主动采集方法方法",

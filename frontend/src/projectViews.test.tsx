@@ -1,8 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DraftPackage, ProjectRecord } from "./api";
-import { ProjectsOverview } from "./views/projectViews";
+import { CorpusView, ProjectsOverview } from "./views/projectViews";
 
 const draftPackage: DraftPackage = {
   title: "一种无人机主动采集方法",
@@ -84,5 +84,56 @@ describe("ProjectsOverview export status", () => {
     expect(mobileCards).toHaveLength(2);
     expect(within(mobileCards[0]).getByText("需成稿会审")).toBeInTheDocument();
     expect(within(mobileCards[0]).queryByText("可进入导出")).not.toBeInTheDocument();
+  });
+});
+
+describe("CorpusView reference imports", () => {
+  it("allows selecting multiple reference files", () => {
+    const { container } = render(
+      <CorpusView
+        documents={[]}
+        searchText=""
+        searchSection=""
+        searchResults={[]}
+        busy=""
+        onImport={vi.fn()}
+        onSearch={vi.fn()}
+        onSearchText={vi.fn()}
+        onSearchSection={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByLabelText("导入参考材料") as HTMLInputElement;
+    expect(input).toHaveAttribute("multiple");
+    expect(container.querySelector(".corpus-search-card .info-card-icon")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "检索" })).toHaveClass("corpus-search-button");
+  });
+
+  it("submits the reference import form with all selected files intact", () => {
+    const onImport = vi.fn((event) => event.preventDefault());
+    render(
+      <CorpusView
+        documents={[]}
+        searchText=""
+        searchSection=""
+        searchResults={[]}
+        busy=""
+        onImport={onImport}
+        onSearch={vi.fn()}
+        onSearchText={vi.fn()}
+        onSearchSection={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByLabelText("导入参考材料") as HTMLInputElement;
+    const files = [
+      new File(["alpha"], "agent-alpha.md", { type: "text/markdown" }),
+      new File(["beta"], "agent-beta.md", { type: "text/markdown" }),
+    ];
+    fireEvent.change(input, { target: { files } });
+    fireEvent.submit(input.form as HTMLFormElement);
+
+    expect(onImport).toHaveBeenCalledTimes(1);
+    expect(input.files).toHaveLength(2);
   });
 });

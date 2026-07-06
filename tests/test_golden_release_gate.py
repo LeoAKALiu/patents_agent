@@ -53,6 +53,34 @@ def test_golden_release_gate_skips_disabled_uncalibrated_cases(tmp_path: Path) -
     assert json.loads(report_path.read_text(encoding="utf-8")) == report
 
 
+def test_golden_release_gate_strict_mode_rejects_zero_enabled_cases(tmp_path: Path) -> None:
+    gate = load_gate_module()
+    case_root = tmp_path / "cases"
+    _write_case(
+        case_root,
+        case_id="disabled_pending",
+        release_gate_enabled=False,
+        calibration_status="pending_human_review",
+    )
+
+    report = gate.run_gate(
+        case_root=case_root,
+        official_text_root=tmp_path / "official",
+        strict=True,
+    )
+
+    assert report["passed"] is False
+    assert report["strict_mode"] is True
+    assert report["enabled_count"] == 0
+    assert report["failed_count"] == 0
+    assert report["gate_failures"] == [
+        {
+            "reason": "no_release_gate_cases_enabled",
+            "message": "Strict release mode requires at least one enabled golden patent case.",
+        }
+    ]
+
+
 def test_golden_release_gate_reports_actionable_calibration_queue(tmp_path: Path) -> None:
     gate = load_gate_module()
     case_root = tmp_path / "cases"
@@ -349,6 +377,7 @@ def test_ci_runs_golden_release_gate_after_backend_quality_gate() -> None:
 
     assert "python scripts/v1_api_smoke.py --report-dir .artifacts/v1.1.0-quality" in ci
     assert "python scripts/golden_quality_gate.py --report-path .artifacts/golden-quality-gate.json" in ci
+    assert "python scripts/golden_quality_gate.py --strict --report-path .artifacts/golden-quality-gate.json" not in ci
 
 
 def _write_case(

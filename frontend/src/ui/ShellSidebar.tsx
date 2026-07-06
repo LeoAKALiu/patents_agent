@@ -23,7 +23,7 @@ export interface ShellSidebarProps {
 
 export function ShellSidebar({
   brandName = "权衡 GrantAtlas",
-  brandSubtitle = "国际专利授权工程系统",
+  brandSubtitle,
   brandMark,
   brandLogoSrc = "/logo.svg",
   brandLogoAlt = "权衡 GrantAtlas logo",
@@ -40,7 +40,7 @@ export function ShellSidebar({
         </span>
         <span>
           <strong>{brandName}</strong>
-          <span>{brandSubtitle}</span>
+          {brandSubtitle && <span>{brandSubtitle}</span>}
         </span>
       </div>
 

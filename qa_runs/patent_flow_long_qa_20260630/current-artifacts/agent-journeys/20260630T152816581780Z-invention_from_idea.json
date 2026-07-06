@@ -1,0 +1,119 @@
+{
+  "artifacts": {
+    "api_payloads": [
+      "GET /api/projects/10cea905b3b44a3aa5fdd4774cc32f20/export-readiness",
+      "GET /api/projects/10cea905b3b44a3aa5fdd4774cc32f20/official-export.md"
+    ],
+    "logs": [],
+    "screenshots": []
+  },
+  "execution": {
+    "data_dir": "ephemeral:/var/folders/g4/s06gtz5d7svbfvj7s823rn9w0000gn/T/patentagent-invention_from_idea-5ze6uw27",
+    "finished_at": "2026-06-30T15:28:16.581679+00:00",
+    "journey_id": "invention_from_idea",
+    "llm_mode": "fake",
+    "mode": "api",
+    "started_at": "2026-06-30T15:28:16.425343+00:00",
+    "status": "passed",
+    "test_target": "api_testclient"
+  },
+  "failures": [],
+  "gates": {
+    "official_compile": "current",
+    "post_draft_review": "current",
+    "quality": "current"
+  },
+  "hashes": {
+    "current_source_draft_hash": "ff85223a1105e9c12e8170b241e2c9c0cd6884f9dd0c48d8d0f3add697f935ad",
+    "latest_official_package_hash": "720aa06f01c15f7472932d54572fd81ea6381cb45e9145da34d20e46a1ccf958",
+    "latest_official_source_hash": "ff85223a1105e9c12e8170b241e2c9c0cd6884f9dd0c48d8d0f3add697f935ad",
+    "latest_review_draft_hash": "ff85223a1105e9c12e8170b241e2c9c0cd6884f9dd0c48d8d0f3add697f935ad",
+    "latest_review_official_package_hash": "720aa06f01c15f7472932d54572fd81ea6381cb45e9145da34d20e46a1ccf958",
+    "latest_worksheet_draft_hash": "ff85223a1105e9c12e8170b241e2c9c0cd6884f9dd0c48d8d0f3add697f935ad"
+  },
+  "schema_version": 1,
+  "source_identity": {
+    "branch": "codex/grantatlas-readme-branding",
+    "dirty_files_summary": [
+      ".github/workflows/ci.yml",
+      "backend/app/api/projects.py",
+      "backend/app/services/project_service.py",
+      "scripts/golden_quality_gate.py",
+      "scripts/v1_smoke.sh",
+      "tests/test_golden_release_gate.py",
+      "tests/test_projects_api_router.py",
+      "tests/test_tauri_desktop_skeleton.py",
+      "output/playwright/grantatlas-brand-sidebar.png",
+      "output/playwright/patentagent-logo-sidebar.png",
+      "qa_runs/"
+    ],
+    "dirty_status": "dirty",
+    "git_top_level": "/Users/leo/Projects/patents_agent",
+    "short_sha": "f566fc09",
+    "worktree_path": "/Users/leo/Projects/patents_agent"
+  },
+  "steps": [
+    {
+      "actual": "cdc9d338de89416eb45718b294269f32",
+      "evidence": [],
+      "expected": "project id assigned",
+      "id": "create_project",
+      "input_summary": "idea project",
+      "status": "passed"
+    },
+    {
+      "actual": "agent-journey-delib-cdc9d338de89416eb45718b294269f32",
+      "evidence": [],
+      "expected": "run id assigned",
+      "id": "deliberation",
+      "input_summary": "strict deterministic deliberation",
+      "status": "passed"
+    },
+    {
+      "actual": "0db6360070ca487c999a7d56d2f14892",
+      "evidence": [],
+      "expected": "completed formula package",
+      "id": "formula",
+      "input_summary": "run core formula",
+      "status": "passed"
+    },
+    {
+      "actual": "一种置信度输入处理方法",
+      "evidence": [],
+      "expected": "package title",
+      "id": "draft",
+      "input_summary": "generate invention draft",
+      "status": "passed"
+    },
+    {
+      "actual": "True",
+      "evidence": [],
+      "expected": "export_allowed true",
+      "id": "post_draft_review",
+      "input_summary": "review official package",
+      "status": "passed"
+    },
+    {
+      "actual": "True",
+      "evidence": [],
+      "expected": "ok true",
+      "id": "official_export",
+      "input_summary": "export official markdown",
+      "status": "passed"
+    },
+    {
+      "actual": "export_allowed=False next_action=run_quality_checks quality=stale official_compile=stale post_draft_review=stale export_blocked=True",
+      "evidence": [
+        "api:GET /api/projects/10cea905b3b44a3aa5fdd4774cc32f20/export-readiness",
+        "api:GET /api/projects/10cea905b3b44a3aa5fdd4774cc32f20/official-export.md",
+        "current_source_draft_hash:bcef6b8e18547d2d9c537cfb9fbaaf5497a17393ff2db77a3adbaa77e16bfbe8",
+        "latest_official_source_hash:6d5866c75873831590611725c0dbc985cfc6c51a82d46319917e5494245ad56b",
+        "latest_review_draft_hash:6d5866c75873831590611725c0dbc985cfc6c51a82d46319917e5494245ad56b"
+      ],
+      "expected": "official export remains blocked and prior gates become stale",
+      "id": "hash_drift_export_gate",
+      "input_summary": "edit source draft after quality, official compile, and post-draft review pass",
+      "status": "passed"
+    }
+  ]
+}

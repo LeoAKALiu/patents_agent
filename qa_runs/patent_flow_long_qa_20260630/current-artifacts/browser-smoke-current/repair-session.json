@@ -1,0 +1,169 @@
+{
+  "project_id": "73855542dcb141f19eb29355319b3189",
+  "review_run_id": "41ab0277c7d945489e66bee60b3644af",
+  "draft_package_hash": "1708c17a54588ccf60723d321b5310bd16b7ad9be29c68e50ecfc50074a04ac8",
+  "current_draft_hash": "1708c17a54588ccf60723d321b5310bd16b7ad9be29c68e50ecfc50074a04ac8",
+  "stale": false,
+  "issues": [
+    {
+      "id": "blocking-17240353e1",
+      "kind": "blocking",
+      "severity": "critical",
+      "source": "post_draft_review",
+      "message": "标题存在重复词汇方法方法",
+      "snippet": null,
+      "target_section": "title",
+      "anchor": {
+        "type": "section",
+        "section": "title",
+        "start": null,
+        "end": null,
+        "snippet": "标题存在重复词汇方法方法"
+      },
+      "status": "open"
+    },
+    {
+      "id": "blocking-d68467971a",
+      "kind": "blocking",
+      "severity": "critical",
+      "source": "post_draft_review",
+      "message": "权利要求1含内部引导语 好的，根据",
+      "snippet": null,
+      "target_section": "claims",
+      "anchor": {
+        "type": "text",
+        "section": "claims",
+        "start": 2,
+        "end": 4,
+        "snippet": "注："
+      },
+      "status": "open"
+    },
+    {
+      "id": "hit-f287682cfa",
+      "kind": "hit",
+      "severity": "high",
+      "source": "post_draft_review",
+      "message": "好的，根据",
+      "snippet": null,
+      "target_section": "claims",
+      "anchor": {
+        "type": "text",
+        "section": "claims",
+        "start": 2,
+        "end": 4,
+        "snippet": "注："
+      },
+      "status": "open"
+    },
+    {
+      "id": "hit-9acad8cc4f",
+      "kind": "hit",
+      "severity": "high",
+      "source": "post_draft_review",
+      "message": "方法方法",
+      "snippet": null,
+      "target_section": "title",
+      "anchor": {
+        "type": "section",
+        "section": "title",
+        "start": null,
+        "end": null,
+        "snippet": "方法方法"
+      },
+      "status": "open"
+    },
+    {
+      "id": "hit-47537af0cd",
+      "kind": "hit",
+      "severity": "high",
+      "source": "post_draft_review",
+      "message": "注：内部备注",
+      "snippet": null,
+      "target_section": "claims",
+      "anchor": {
+        "type": "text",
+        "section": "claims",
+        "start": 2,
+        "end": 8,
+        "snippet": "注：内部备注"
+      },
+      "status": "open"
+    },
+    {
+      "id": "suggestion-40d68caf9c",
+      "kind": "suggestion",
+      "severity": "medium",
+      "source": "post_draft_review",
+      "message": "替换为干净权利要求。",
+      "snippet": null,
+      "target_section": "claims",
+      "anchor": {
+        "type": "text",
+        "section": "claims",
+        "start": 2,
+        "end": 4,
+        "snippet": "注："
+      },
+      "status": "open"
+    },
+    {
+      "id": "suggestion-4b6ec55e69",
+      "kind": "suggestion",
+      "severity": "medium",
+      "source": "post_draft_review",
+      "message": "删除重复词汇。",
+      "snippet": null,
+      "target_section": "claims",
+      "anchor": {
+        "type": "text",
+        "section": "claims",
+        "start": 2,
+        "end": 4,
+        "snippet": "注："
+      },
+      "status": "open"
+    },
+    {
+      "id": "suggestion-e19bf3b75e",
+      "kind": "suggestion",
+      "severity": "medium",
+      "source": "post_draft_review",
+      "message": "补充量化实施例。",
+      "snippet": null,
+      "target_section": "claims",
+      "anchor": {
+        "type": "text",
+        "section": "claims",
+        "start": 2,
+        "end": 4,
+        "snippet": "注："
+      },
+      "status": "open"
+    },
+    {
+      "id": "suggestion-ff37eaa172",
+      "kind": "suggestion",
+      "severity": "medium",
+      "source": "post_draft_review",
+      "message": "修复 blocking 后重新会审。",
+      "snippet": null,
+      "target_section": "claims",
+      "anchor": {
+        "type": "text",
+        "section": "claims",
+        "start": 2,
+        "end": 4,
+        "snippet": "注："
+      },
+      "status": "open"
+    }
+  ],
+  "sections": {
+    "title": "一种QA 标注修复证据项目结构",
+    "abstract": "本发明公开一种按置信度主动采集的方法。",
+    "claims": "*(注：内部备注)**",
+    "description": "本发明颠覆了固定航线模式，并通过置信度热力图生成无人机采集任务。",
+    "drawing_description": "图1为系统流程图。"
+  }
+}

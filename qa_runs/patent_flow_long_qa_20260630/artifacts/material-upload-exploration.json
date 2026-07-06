@@ -1,0 +1,90 @@
+{
+  "cases": [
+    {
+      "content_type": "text/markdown",
+      "detail": null,
+      "filename": "simple_invention.md",
+      "material_status": "processed",
+      "ok": true,
+      "status_code": 200,
+      "warnings": []
+    },
+    {
+      "content_type": "text/markdown",
+      "detail": null,
+      "filename": "simple_invention.md",
+      "material_status": "processed",
+      "ok": true,
+      "status_code": 200,
+      "warnings": []
+    },
+    {
+      "content_type": "text/plain",
+      "detail": "文件为空或没有可解析文本。",
+      "filename": "empty.txt",
+      "material_status": null,
+      "ok": false,
+      "status_code": 422,
+      "warnings": null
+    },
+    {
+      "content_type": "application/octet-stream",
+      "detail": "不支持的材料文件类型，请上传 PDF、DOCX、PPTX、Markdown 或 TXT。",
+      "filename": "boundary_prompt_injection.xyz",
+      "material_status": null,
+      "ok": false,
+      "status_code": 415,
+      "warnings": null
+    },
+    {
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "detail": "DOCX 文件无法解析，请确认文件未损坏且格式正确。",
+      "filename": "corrupt.docx",
+      "material_status": null,
+      "ok": false,
+      "status_code": 422,
+      "warnings": null
+    },
+    {
+      "content_type": "text/markdown",
+      "detail": null,
+      "filename": "边界 prompt injection 材料.md",
+      "material_status": "processed",
+      "ok": true,
+      "status_code": 200,
+      "warnings": []
+    },
+    {
+      "content_type": "text/markdown",
+      "detail": "材料文件名过长，请缩短文件名后重新上传。",
+      "filename": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...aaaaaaaaaaaaaaaaa.md",
+      "material_status": null,
+      "ok": false,
+      "status_code": 422,
+      "warnings": null
+    }
+  ],
+  "data_dir": "ephemeral:/var/folders/g4/s06gtz5d7svbfvj7s823rn9w0000gn/T/patentagent-material-upload-askvhshu",
+  "material_count": 3,
+  "materials": [
+    {
+      "file_name": "simple_invention.md",
+      "status": "processed",
+      "text_length": 417,
+      "warnings": []
+    },
+    {
+      "file_name": "simple_invention.md",
+      "status": "processed",
+      "text_length": 417,
+      "warnings": []
+    },
+    {
+      "file_name": "边界 prompt injection 材料.md",
+      "status": "processed",
+      "text_length": 361,
+      "warnings": []
+    }
+  ],
+  "project_id": "dbf8b1f3d4cd41088780042beffbf90c"
+}

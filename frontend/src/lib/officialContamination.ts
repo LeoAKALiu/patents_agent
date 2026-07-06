@@ -18,6 +18,7 @@ const OFFICIAL_CONTAMINATION_PATTERNS: ReadonlyArray<{ pattern: string; label: s
   { pattern: "attorney_memo", label: "attorney_memo" },
   { pattern: "system_trace", label: "system_trace" },
   { pattern: "official_safe_patches", label: "official_safe_patches" },
+  { pattern: "内部备注", label: "内部备注" },
   { pattern: "根据会审策略", label: "根据会审策略" },
   { pattern: "多 Agent 会审", label: "多 Agent 会审" },
   { pattern: "多Agent会审", label: "多Agent会审" },

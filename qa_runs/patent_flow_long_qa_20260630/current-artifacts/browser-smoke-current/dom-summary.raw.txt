@@ -1,0 +1,75 @@
+### Result
+{
+  "title": "文稿与修复",
+  "bodyText": "权衡 GrantAtlas\n国际专利授权工程系统\n工作台\n项目\n文稿与修复\n知识库\n专家工具\n导出\n设置\n模型\n可用\n智能体\n部分可用\n后端\n在线\n文稿与修复\n\n处理当前项目的正文、问题和版本链路\n\n当前项目\n新建项目\nQA 标注修复证据项目\n导出锁定\n空闲\n后端在线\n\n文稿与修复\n\n文稿与修复\n\n管理内部初稿、正式稿、问题修复和导出门禁。\n\n总览\n编辑\n问题\n标注修复\n版本\n标注式修复编辑器\n\n手动修订各段落，保存后请重新编译正式稿并重新成稿会审。\n\n问题队列\n9 项\n阻断\n2\n严重\n标题存在重复词汇方法方法\n严重\n权利要求1含内部引导语 好的，根据\n命中\n3\n高\n好的，根据\n高\n方法方法\n高\n注：内部备注\n建议\n4\n中\n替换为干净权利要求。\n中\n删除重复词汇。\n中\n补充量化实施例。\n中\n修复 blocking 后重新会审。\n正文定位\n\n按问题定位段落并直接修改当前初稿内容。\n\n标题\n段落定位\n摘要\n权利要求书\n文本定位\n说明书\n附图说明\n修复面板\n阻断\n严重\n权利要求书\n文本匹配\n\n权利要求1含内部引导语 好的，根据\n\n命中文本\n权利要求书\n\n注：\n\n*(注：内部备注)**\n\n人工修正\n生成 AI 修正\n保存后请重新编译正式稿并重新成稿会审。\n保存当前初稿",
+  "issueCountText": [
+    "问题队列9 项",
+    "问题队列",
+    "9 项",
+    "阻断2严重标题存在重复词汇方法方法严重权利要求1含内部引导语 好的，根据命中3高好的，根据高方法方法高注：内部备注建议4中替换为干净权利要求。中删除重复词汇。中补充量化实施例。中修复 blocking 后重新会审。",
+    "阻断2严重标题存在重复词汇方法方法严重权利要求1含内部引导语 好的，根据",
+    "阻断2",
+    "阻断",
+    "2",
+    "严重标题存在重复词汇方法方法",
+    "严重",
+    "标题存在重复词汇方法方法",
+    "严重权利要求1含内部引导语 好的，根据",
+    "严重",
+    "权利要求1含内部引导语 好的，根据",
+    "命中3高好的，根据高方法方法高注：内部备注",
+    "命中3",
+    "命中",
+    "3",
+    "高好的，根据",
+    "高",
+    "好的，根据",
+    "高方法方法",
+    "高",
+    "方法方法",
+    "高注：内部备注",
+    "高",
+    "注：内部备注",
+    "建议4中替换为干净权利要求。中删除重复词汇。中补充量化实施例。中修复 blocking 后重新会审。",
+    "建议4",
+    "建议",
+    "4",
+    "中替换为干净权利要求。",
+    "中",
+    "替换为干净权利要求。",
+    "中删除重复词汇。",
+    "中",
+    "删除重复词汇。",
+    "中补充量化实施例。",
+    "中",
+    "补充量化实施例。"
+  ],
+  "inspectorText": "修复面板阻断严重权利要求书文本匹配权利要求1含内部引导语 好的，根据命中文本权利要求书注：*(注：内部备注)**人工修正生成 AI 修正",
+  "editorPresent": true,
+  "textareas": [
+    {
+      "label": "标题",
+      "value": "一种QA 标注修复证据项目结构"
+    },
+    {
+      "label": "摘要",
+      "value": "本发明公开一种按置信度主动采集的方法。"
+    },
+    {
+      "label": "权利要求书",
+      "value": "*(注：内部备注)**"
+    },
+    {
+      "label": "说明书",
+      "value": "本发明颠覆了固定航线模式，并通过置信度热力图生成无人机采集任务。"
+    },
+    {
+      "label": "附图说明",
+      "value": "图1为系统流程图。"
+    }
+  ]
+}
+### Ran Playwright code
+```js
+await page.evaluate('() => ({ title: document.querySelector("h1")?.textContent, bodyText: document.body.innerText, issueCountText: Array.from(document.querySelectorAll("nav[aria-label=\\"标注式修复问题导航\\"] *")).map((n) => n.textContent).filter(Boolean).slice(0, 40), inspectorText: document.querySelector("aside[aria-label=\\"标注式修复详情面板\\"]")?.textContent, editorPresent: Boolean(document.querySelector("[aria-label=\\"标注式修复编辑器\\"]")), textareas: Array.from(document.querySelectorAll("textarea")).map((node) => ({label: node.getAttribute("aria-label"), value: node.value.slice(0, 80)})) })');
+```

@@ -639,6 +639,15 @@ fn bundled_backend_executable(repo_root: &Path) -> Option<PathBuf> {
     executable.is_file().then_some(executable)
 }
 
+fn bundled_certifi_cafile(executable: &Path) -> Option<PathBuf> {
+    let cafile = executable
+        .parent()?
+        .join("_internal")
+        .join("certifi")
+        .join("cacert.pem");
+    cafile.is_file().then_some(cafile)
+}
+
 fn python_candidates() -> Vec<String> {
     let mut candidates = Vec::new();
     if let Ok(python) = std::env::var("PATENTAGENT_PYTHON") {
@@ -729,7 +738,8 @@ fn start_backend_with_executable(
     let base_url = format!("http://127.0.0.1:{port}");
     let health_url = format!("{base_url}{HEALTH_PATH}");
     let current_dir = executable.parent().unwrap_or(data_dir);
-    let mut child = Command::new(executable)
+    let mut command = Command::new(executable);
+    command
         .args([
             "--host",
             "127.0.0.1",
@@ -744,8 +754,13 @@ fn start_backend_with_executable(
         .env("PYTHONDONTWRITEBYTECODE", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
+        .stderr(Stdio::piped());
+    if let Some(cafile) = bundled_certifi_cafile(executable) {
+        command
+            .env("SSL_CERT_FILE", &cafile)
+            .env("REQUESTS_CA_BUNDLE", &cafile);
+    }
+    let mut child = command.spawn()?;
 
     if let Err(err) = wait_for_health(&health_url, &mut child) {
         let _ = child.kill();

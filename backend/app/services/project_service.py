@@ -22,6 +22,9 @@ from backend.app.llm import LLMClient, MissingLLMClient
 from backend.app.moat import score_moat
 
 
+MAX_PROJECT_MATERIAL_FILENAME_BYTES = 220
+
+
 def build_project_record(payload: ProjectCreate) -> ProjectRecord:
     """Construct a new ProjectRecord from a creation payload."""
     return ProjectRecord(
@@ -77,8 +80,16 @@ def import_project_material(
     return material
 
 
+def validate_project_material_file_name(file_name: str) -> None:
+    """Reject filenames that cannot fit after the UUID storage prefix is added."""
+    if len(file_name.encode("utf-8")) > MAX_PROJECT_MATERIAL_FILENAME_BYTES:
+        raise ValueError("Project material filename is too long")
+
+
 def project_material_upload_error(exc: ValueError) -> tuple[int, str]:
     message = str(exc)
+    if message == "Project material filename is too long":
+        return 422, "材料文件名过长，请缩短文件名后重新上传。"
     if message.startswith("Unsupported project material file type"):
         return 415, "不支持的材料文件类型，请上传 PDF、DOCX、PPTX、Markdown 或 TXT。"
     if "Text file encoding is not supported" in message:

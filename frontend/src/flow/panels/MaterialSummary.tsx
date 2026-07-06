@@ -5,6 +5,7 @@ import type { ProjectMaterial } from "@/api";
 export function MaterialSummary({ materials }: { materials: ProjectMaterial[] }) {
   const processedMaterials = materials.filter((material) => material.status === "processed");
   const failedMaterials = materials.filter((material) => material.status !== "processed");
+  const duplicateFileNames = getDuplicateMaterialFileNames(materials);
   return (
     <section className="settings-group material-summary">
       <div className="settings-group-header">
@@ -12,6 +13,15 @@ export function MaterialSummary({ materials }: { materials: ProjectMaterial[] })
         <p>补充材料会作为发明点提炼、说明书支撑和质量检查的参考输入。</p>
       </div>
       <div className="guided-summary-list">
+        {duplicateFileNames.length > 0 && (
+          <div className="callout material-summary-duplicates">
+            <AlertTriangle size={18} aria-hidden="true" />
+            <div>
+              <strong>发现重复文件名</strong>
+              <p>{duplicateFileNames.join("、")} 已出现多次，请确认是否重复上传。</p>
+            </div>
+          </div>
+        )}
         {processedMaterials.length > 0 && (
           <div className="material-summary-group">
             <h4>可用材料</h4>
@@ -61,4 +71,14 @@ export function MaterialSummary({ materials }: { materials: ProjectMaterial[] })
       </div>
     </section>
   );
+}
+
+export function getDuplicateMaterialFileNames(materials: ProjectMaterial[]) {
+  const counts = new Map<string, number>();
+  for (const material of materials) {
+    const name = material.file_name.trim();
+    if (!name) continue;
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return [...counts.entries()].filter(([, count]) => count > 1).map(([name]) => name);
 }

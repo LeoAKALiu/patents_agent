@@ -38,6 +38,7 @@ from backend.app.services.project_service import (
     import_project_material,
     merge_patent_point_update,
     project_material_upload_error,
+    validate_project_material_file_name,
 )
 from backend.app.services.project_knowledge_service import (
     ensure_project_knowledge_initialized,
@@ -112,9 +113,24 @@ async def upload_project_material(
     upload_dir = settings.data_dir / "project-materials" / project_id
     upload_dir.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename or "material.txt").name
+    try:
+        validate_project_material_file_name(safe_name)
+    except ValueError as exc:
+        status_code, detail = project_material_upload_error(exc)
+        raise HTTPException(status_code=status_code, detail=detail) from exc
     stored_path = upload_dir / f"{uuid.uuid4().hex}-{safe_name}"
-    with stored_path.open("wb") as handle:
-        shutil.copyfileobj(file.file, handle)
+    try:
+        with stored_path.open("wb") as handle:
+            shutil.copyfileobj(file.file, handle)
+    except OSError as exc:
+        try:
+            stored_path.unlink()
+        except OSError:
+            pass
+        raise HTTPException(
+            status_code=422,
+            detail="材料文件无法保存，请缩短文件名或重新上传。",
+        ) from exc
     try:
         material = import_project_material(
             project_id=project_id,

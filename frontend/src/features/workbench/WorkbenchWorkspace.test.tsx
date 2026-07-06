@@ -127,6 +127,49 @@ describe("WorkbenchWorkspace", () => {
     expect(screen.queryByText(/generation_logs|official_safe_patches/)).toBeNull();
   });
 
+  it("keeps the workbench focused without the placeholder review sidebar", () => {
+    render(<WorkbenchWorkspace state={makeState()} handlers={makeHandlers()} onNavigate={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: "状态覆盖" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "项目与工作队列" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "运营与证据面板" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "复核摘要" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "证据矩阵" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "文稿预览" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "诊断队列" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the OD command-center layout instead of embedding legacy flow details for an existing project", () => {
+    render(
+      <WorkbenchWorkspace
+        state={makeState({
+          currentStepId: "deliberation",
+          nextAction: {
+            label: "启动多智能体会审",
+            description: "收敛权利要求边界、说明书支撑和规避路径。",
+          },
+          primaryTarget: "workbench-start",
+        })}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+        startWorkspace={<div data-testid="guided-flow-detail">多智能体会审详情</div>}
+      />,
+    );
+
+    expect(screen.queryByTestId("guided-flow-detail")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "选择起步方式" })).not.toBeInTheDocument();
+    expect(screen.getByText("下一步")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "项目与工作队列" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "运营与证据面板" })).not.toBeInTheDocument();
+    const continueBtn = screen.getByRole("button", { name: "继续当前项目" });
+    expect(continueBtn).toBeInTheDocument();
+    expect(continueBtn).toHaveClass("border-input");
+
+    const nextBtn = screen.getByRole("button", { name: "启动多智能体会审" });
+    expect(nextBtn).toBeInTheDocument();
+    expect(nextBtn).not.toHaveClass("border-input");
+  });
+
   it("navigates blocked review work to documents", async () => {
     const navigate = vi.fn();
     render(<WorkbenchWorkspace state={makeState()} handlers={makeHandlers()} onNavigate={navigate} />);
@@ -205,6 +248,40 @@ describe("WorkbenchWorkspace", () => {
     );
 
     expect(handlers.onStartChoice).toHaveBeenCalledWith("invention");
+  });
+
+  it("keeps no-project state coverage visible without blocking the start paths", async () => {
+    const handlers = makeHandlers();
+    render(
+      <WorkbenchWorkspace
+        state={makeState({
+          hasProject: false,
+          projectName: "未选择项目",
+          currentStepId: "idea",
+          nextAction: { label: "创建项目", description: "选择起步路径。" },
+          primaryTarget: "workbench-start",
+          riskSummary: {
+            blockingCount: 0,
+            issueCount: 0,
+            exportLocked: false,
+            exportReady: false,
+          },
+        })}
+        handlers={handlers}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("region", { name: "诊断队列" })).not.toBeInTheDocument();
+    expect(screen.getByText("错误降级")).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /导入已有稿件进行润色提升/,
+      }),
+    );
+
+    expect(handlers.onStartChoice).toHaveBeenCalledWith("external");
   });
 
   it("keeps secondary workspaces behind an other-actions disclosure", async () => {

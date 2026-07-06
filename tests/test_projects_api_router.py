@@ -139,6 +139,29 @@ def test_upload_and_list_material(tmp_path: Path) -> None:
     assert len(list_resp.json()["materials"]) == 1
 
 
+def test_upload_material_rejects_overlong_filename_without_persisting(tmp_path: Path) -> None:
+    client = _make_client(tmp_path)
+    create_resp = client.post(
+        "/api/projects",
+        json={"name": "项目", "draft_text": "材料上传边界测试。"},
+    )
+    pid = create_resp.json()["id"]
+    filename = f"{'a' * 260}.md"
+
+    upload_resp = client.post(
+        f"/api/projects/{pid}/materials",
+        files={"file": (filename, b"valid markdown material", "text/markdown")},
+    )
+
+    assert upload_resp.status_code == 422
+    assert upload_resp.json()["detail"] == "材料文件名过长，请缩短文件名后重新上传。"
+    list_resp = client.get(f"/api/projects/{pid}/materials")
+    assert list_resp.status_code == 200
+    assert list_resp.json()["materials"] == []
+    material_dir = tmp_path / "project-materials" / pid
+    assert not material_dir.exists() or list(material_dir.iterdir()) == []
+
+
 def test_material_endpoints_require_project(tmp_path: Path) -> None:
     client = _make_client(tmp_path)
     response = client.get("/api/projects/nonexistent/materials")

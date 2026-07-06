@@ -60,7 +60,7 @@ export function QualityPanel({
   const hasAnyResult = Boolean(filingReport || worksheet || completionRun);
   const allProposedPatches = completionRun?.patches.filter((patch) => patch.status === "proposed") ?? [];
   const proposedPatches = allProposedPatches.slice(0, 3);
-  const acceptAllDisabled = !completionRun || allProposedPatches.length === 0 || Boolean(busy);
+  const acceptAllDisabled = actionsDisabled || !completionRun || allProposedPatches.length === 0;
   const evidenceRows = completionRun?.support_matrix.filter((row) => row.evidence_refs.length > 0).slice(0, 3) ?? [];
   const missingEvidenceRows = completionRun?.support_matrix.filter((row) => row.missing_evidence_reason).slice(0, 3) ?? [];
 
@@ -95,6 +95,7 @@ export function QualityPanel({
       <SettingsGroup title="检查入口" description="进入对应专家视图查看完整报告，当前面板只保留工作流必看的摘要。">
         <div className="quality-tool-grid">
           <InfoCard
+            className="quality-tool-card"
             icon={<ClipboardList size={18} />}
             title="提交成熟度"
             description={filingReport ? `${summary.issueCount} 项命中` : "检查占位符、敏感表述和正式稿风险。"}
@@ -106,6 +107,7 @@ export function QualityPanel({
             )}
           />
           <InfoCard
+            className="quality-tool-card"
             icon={<ShieldCheck size={18} />}
             title="权利要求防线"
             description={worksheet ? `${worksheet.feature_records.length} 个特征，${worksheet.support_gaps.length} 个支撑缺口` : "标记区别特征、支撑缺口与从属兜底。"}
@@ -117,6 +119,7 @@ export function QualityPanel({
             )}
           />
           <InfoCard
+            className="quality-tool-card"
             icon={<Gauge size={18} />}
             title="初稿完善"
             description={completionRun ? `${completionRun.tasks.length} 个任务，${allProposedPatches.length} 个候选补丁` : "生成补强任务和候选 patch。"}
@@ -156,8 +159,12 @@ export function QualityPanel({
         <button
           className="btn btn-secondary"
           disabled={acceptAllDisabled}
-          onClick={() => completionRun && onAcceptAllPatches(completionRun.id)}
-          title={allProposedPatches.length === 0 ? "暂无候选补强" : undefined}
+          onClick={() => {
+            if (!acceptAllDisabled && completionRun) {
+              onAcceptAllPatches(completionRun.id);
+            }
+          }}
+          title={!actionGate.allowed ? actionGate.reason : allProposedPatches.length === 0 ? "暂无候选补强" : undefined}
           type="button"
         >
           {busy === "completion-accept-all" ? <Loader2 className="spin" size={17} /> : <CheckCircle2 size={17} />}
@@ -230,7 +237,17 @@ export function QualityPanel({
               >
                 {patch.evidence_refs.length ? <p>证据：{patch.evidence_refs.join("，")}</p> : null}
                 <pre className="patch-preview">{patch.after_text}</pre>
-                <button className="btn btn-primary" onClick={() => onAcceptPatch(completionRun.id, patch.id)} type="button">
+                <button
+                  className="btn btn-primary"
+                  disabled={actionsDisabled}
+                  onClick={() => {
+                    if (!actionsDisabled) {
+                      onAcceptPatch(completionRun.id, patch.id);
+                    }
+                  }}
+                  title={!actionGate.allowed ? actionGate.reason : undefined}
+                  type="button"
+                >
                   接受补强建议
                 </button>
               </InfoCard>

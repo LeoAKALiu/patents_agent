@@ -1,0 +1,62 @@
+{
+  "cases": [
+    {
+      "name": "create_empty_idea_project",
+      "ok": true,
+      "status_code": 200,
+      "summary": {
+        "draft_text": "",
+        "id": "ecf311cd9d2a487aa6f8079105ae688f",
+        "name": "Empty idea"
+      }
+    },
+    {
+      "name": "create_short_marketing_project",
+      "ok": true,
+      "status_code": 200,
+      "summary": {
+        "draft_text": "智能仓储助手，提高效率。",
+        "id": "e548f8095daa4038a3882f899ff13007",
+        "name": "Short marketing idea"
+      }
+    },
+    {
+      "name": "upload_incomplete_disclosure",
+      "ok": true,
+      "status_code": 200,
+      "summary": {
+        "file_name": "incomplete_disclosure.md",
+        "id": "c08a3badf33e46ed885784a6b70f03f6",
+        "status": "processed",
+        "warnings": []
+      }
+    },
+    {
+      "name": "export_readiness_before_draft",
+      "ok": true,
+      "status_code": 200,
+      "summary": {
+        "export_allowed": false,
+        "next_action": "generate_draft"
+      }
+    },
+    {
+      "name": "generate_without_deliberation",
+      "ok": false,
+      "status_code": 503,
+      "summary": {
+        "detail": "LLM is not configured. Set DEEPSEEK_API_KEY before generating drafts."
+      }
+    },
+    {
+      "name": "official_export_before_draft",
+      "ok": false,
+      "status_code": 409,
+      "summary": {
+        "detail": "Generate a draft before export."
+      }
+    }
+  ],
+  "data_dir": "ephemeral:/var/folders/g4/s06gtz5d7svbfvj7s823rn9w0000gn/T/patentagent-incomplete-flow-6l1qrf62",
+  "project_id": "e548f8095daa4038a3882f899ff13007"
+}

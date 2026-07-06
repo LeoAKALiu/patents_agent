@@ -553,9 +553,9 @@ export function CorpusView({
             <Upload size={17} />
           </div>
           <div className="info-card-body">
-            <strong>导入参考材料</strong>
+            <label htmlFor="patent-file">导入参考材料</label>
             <p>支持 PDF、DOCX、TXT、Markdown，用于正文片段检索，不会作为 CNIPA 官方证据导入。</p>
-            <input id="patent-file" name="patent-file" type="file" accept=".pdf,.docx,.txt,.md,.markdown" />
+            <input id="patent-file" name="patent-file" type="file" accept=".pdf,.docx,.txt,.md,.markdown" multiple />
           </div>
           <button className="btn btn-primary" disabled={busy === "import"} type="submit" title="导入参考材料">
             <Upload size={17} />
@@ -592,6 +592,9 @@ export function CorpusView({
           <p>按章节过滤语料片段，用于发明点和说明书支撑。</p>
         </div>
         <form className="info-card corpus-search-card" onSubmit={onSearch}>
+          <div className="info-card-icon info">
+            <Search size={17} />
+          </div>
           <div className="info-card-body">
             <strong>检索条件</strong>
             <div className="guided-field-grid">
@@ -611,7 +614,7 @@ export function CorpusView({
               </label>
             </div>
           </div>
-          <button className="btn btn-secondary btn-icon" disabled={busy === "search"} type="submit" title="检索">
+          <button className="btn btn-secondary btn-icon corpus-search-button" disabled={busy === "search"} type="submit" title="检索">
             <Search size={17} />
           </button>
         </form>

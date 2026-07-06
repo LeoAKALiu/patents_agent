@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -105,5 +105,110 @@ describe("QualityPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: /一键接受补强/ }));
 
     expect(onAcceptAllPatches).toHaveBeenCalledWith("run-1");
+  });
+
+  it("disables one-click acceptance button if no proposed patches exist", () => {
+    const onAcceptAllPatches = vi.fn();
+    const run = makeCompletionRun();
+    run.patches = []; // empty proposed patches
+    render(
+      <QualityPanel
+        actionGate={allowedGate}
+        filingReport={null}
+        worksheet={null}
+        completionRun={run}
+        busy=""
+        busyElapsedSeconds={0}
+        onRunQualityChecks={vi.fn()}
+        onImproveScore={vi.fn()}
+        onAcceptPatch={vi.fn()}
+        onAcceptAllPatches={onAcceptAllPatches}
+        onOpenExpertTool={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: /一键接受补强/ });
+    expect(button).toBeDisabled();
+  });
+
+  it("disables one-click acceptance button if busy state is active", () => {
+    const onAcceptAllPatches = vi.fn();
+    render(
+      <QualityPanel
+        actionGate={allowedGate}
+        filingReport={null}
+        worksheet={null}
+        completionRun={makeCompletionRun()}
+        busy="guided-quality"
+        busyElapsedSeconds={5}
+        onRunQualityChecks={vi.fn()}
+        onImproveScore={vi.fn()}
+        onAcceptPatch={vi.fn()}
+        onAcceptAllPatches={onAcceptAllPatches}
+        onOpenExpertTool={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: /一键接受补强/ });
+    expect(button).toBeDisabled();
+  });
+
+  it("disables completion patch mutations when the workflow gate is closed", async () => {
+    const onAcceptPatch = vi.fn();
+    const onAcceptAllPatches = vi.fn();
+    render(
+      <QualityPanel
+        actionGate={{ allowed: false, reason: "请先完成发明点确认" }}
+        filingReport={null}
+        worksheet={null}
+        completionRun={makeCompletionRun()}
+        busy=""
+        busyElapsedSeconds={0}
+        onRunQualityChecks={vi.fn()}
+        onImproveScore={vi.fn()}
+        onAcceptPatch={onAcceptPatch}
+        onAcceptAllPatches={onAcceptAllPatches}
+        onOpenExpertTool={vi.fn()}
+      />,
+    );
+
+    const acceptAllButton = screen.getByRole("button", { name: /一键接受补强/ });
+    expect(acceptAllButton).toBeDisabled();
+    await userEvent.click(acceptAllButton);
+    expect(onAcceptAllPatches).not.toHaveBeenCalled();
+
+    for (const acceptButton of screen.getAllByRole("button", { name: "接受补强建议" })) {
+      expect(acceptButton).toBeDisabled();
+      await userEvent.click(acceptButton);
+    }
+    expect(onAcceptPatch).not.toHaveBeenCalled();
+  });
+
+  it("marks quality entry cards with a dedicated layout hook", () => {
+    render(
+      <QualityPanel
+        actionGate={allowedGate}
+        filingReport={null}
+        worksheet={null}
+        completionRun={null}
+        busy=""
+        busyElapsedSeconds={0}
+        onRunQualityChecks={vi.fn()}
+        onImproveScore={vi.fn()}
+        onAcceptPatch={vi.fn()}
+        onAcceptAllPatches={vi.fn()}
+        onOpenExpertTool={vi.fn()}
+      />,
+    );
+
+    const entryGroup = screen.getByRole("heading", { name: "检查入口" }).closest(".settings-group");
+
+    if (!(entryGroup instanceof HTMLElement)) {
+      throw new Error("Expected the quality entry settings group to render.");
+    }
+
+    for (const label of ["提交成熟度", "权利要求防线", "初稿完善"]) {
+      expect(within(entryGroup).getByText(label).closest(".info-card")).toHaveClass("quality-tool-card");
+    }
   });
 });

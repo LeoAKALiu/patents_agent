@@ -26,6 +26,7 @@ def run_gate(
     official_text_root: Path = DEFAULT_OFFICIAL_TEXT_ROOT,
     report_path: Path | None = None,
     calibration_markdown_path: Path | None = None,
+    strict: bool = False,
 ) -> dict[str, Any]:
     cases = _load_cases(case_root)
     entries: list[dict[str, Any]] = []
@@ -131,7 +132,7 @@ def run_gate(
         )
 
     calibration_queue = _build_calibration_queue(cases, official_text_root)
-    report = _build_report(entries, calibration_queue)
+    report = _build_report(entries, calibration_queue, strict=strict)
     if report_path is not None:
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -147,6 +148,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--official-text-root", type=Path, default=DEFAULT_OFFICIAL_TEXT_ROOT)
     parser.add_argument("--report-path", type=Path)
     parser.add_argument("--calibration-markdown-path", type=Path)
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail release mode when no golden cases are enabled.",
+    )
     args = parser.parse_args(argv)
 
     report = run_gate(
@@ -154,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         official_text_root=args.official_text_root,
         report_path=args.report_path,
         calibration_markdown_path=args.calibration_markdown_path,
+        strict=args.strict,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["passed"] else 1
@@ -190,18 +197,33 @@ def _release_gate_contract_violations(case: dict[str, Any]) -> list[str]:
     return violations
 
 
-def _build_report(entries: list[dict[str, Any]], calibration_queue: list[dict[str, Any]]) -> dict[str, Any]:
+def _build_report(
+    entries: list[dict[str, Any]],
+    calibration_queue: list[dict[str, Any]],
+    *,
+    strict: bool = False,
+) -> dict[str, Any]:
     enabled = [entry for entry in entries if entry["status"] != "skipped"]
     failed = [entry for entry in entries if entry["status"] == "failed"]
     passed = [entry for entry in entries if entry["status"] == "passed"]
     skipped = [entry for entry in entries if entry["status"] == "skipped"]
+    gate_failures = []
+    if strict and not enabled:
+        gate_failures.append(
+            {
+                "reason": "no_release_gate_cases_enabled",
+                "message": "Strict release mode requires at least one enabled golden patent case.",
+            }
+        )
     return {
-        "passed": not failed,
+        "passed": not failed and not gate_failures,
+        "strict_mode": strict,
         "case_count": len(entries),
         "enabled_count": len(enabled),
         "passed_count": len(passed),
         "failed_count": len(failed),
         "skipped_count": len(skipped),
+        "gate_failures": gate_failures,
         "pending_calibration_count": len(calibration_queue),
         "calibration_queue_count": len(calibration_queue),
         "calibration_queue": calibration_queue,

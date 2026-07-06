@@ -94,7 +94,7 @@ export interface AppRootProps {
 }
 
 function topbarRecoveryAction(props: AppRootProps): React.ReactNode {
-  if (props.activeSection !== "workbench" || !props.startChoice) return null;
+  if (props.activeSection !== "workbench" || !props.startChoice || props.selectedProject) return null;
   return (
     <Button
       variant="outline"
@@ -131,20 +131,25 @@ function mobileNav(props: AppRootProps): React.ReactNode {
 }
 
 function noticeBar(props: AppRootProps): React.ReactNode {
-  if (!props.busy && !props.message && !props.error) return null;
+  const visibleError = shouldDemoteWorkbenchHealthError(props) ? "" : props.error;
+  if (!props.busy && !props.message && !visibleError) return null;
   return (
-    <div className={props.error ? "notice error" : "notice"}>
+    <div className={visibleError ? "notice error" : "notice"}>
       {props.busy && <Loader2 className="animate-spin" size={16} />}
       <span>
-        {props.error || props.message || guidedBusyLabel(props.busy) || "处理中"}
+        {visibleError || props.message || guidedBusyLabel(props.busy) || "处理中"}
       </span>
-      {!props.error && props.busy && (
+      {!visibleError && props.busy && (
         <BusyOperationConsole
           log={guidedOperationLog(props.busy, props.busyElapsedSeconds)}
         />
       )}
     </div>
   );
+}
+
+function shouldDemoteWorkbenchHealthError(props: AppRootProps): boolean {
+  return props.activeSection === "workbench" && props.error.includes("/api/health");
 }
 
 function exportStatus(props: AppRootProps): {
@@ -166,14 +171,14 @@ function exportStatus(props: AppRootProps): {
   return { label: "导出锁定", variant: "warning" };
 }
 
-function pageTitleForSection(activeSection: MainSectionId): { title: string; subtitle?: string } {
-  if (activeSection === "projects") return { title: "项目", subtitle: "查看历史项目和运行记录" };
-  if (activeSection === "documents") return { title: "文稿与修复", subtitle: "处理当前项目的正文、问题和版本链路" };
-  if (activeSection === "settings") return { title: "设置", subtitle: "本机 LLM 服务参数与 API Key" };
-  if (activeSection === "knowledge") return { title: "知识库", subtitle: "语料库建设与知识库检索" };
-  if (activeSection === "expert") return { title: "专家工具", subtitle: "高级工具中心，不作为默认修复或导出路径" };
-  if (activeSection === "export") return { title: "导出", subtitle: "正式提交稿、内部复核材料与风险追溯" };
-  if (activeSection === "workbench") return { title: "工作台", subtitle: "当前项目、下一步和导出风险概览" };
+function pageTitleForSection(activeSection: MainSectionId): { title: string } {
+  if (activeSection === "projects") return { title: "项目" };
+  if (activeSection === "documents") return { title: "文稿与修复" };
+  if (activeSection === "settings") return { title: "设置" };
+  if (activeSection === "knowledge") return { title: "知识库" };
+  if (activeSection === "expert") return { title: "专家工具" };
+  if (activeSection === "export") return { title: "导出" };
+  if (activeSection === "workbench") return { title: "工作台" };
   return { title: "工作台" };
 }
 
@@ -210,7 +215,7 @@ export function AppRoot(props: AppRootProps) {
     Boolean(props.selectedProject),
     Boolean(props.startChoice),
   );
-  const { title, subtitle } = pageTitleForSection(props.activeSection);
+  const { title } = pageTitleForSection(props.activeSection);
   const exportStatusChip = exportStatus(props);
   const sidebarMain = mainSections.map((section) => ({
     id: section.id,
@@ -222,7 +227,7 @@ export function AppRoot(props: AppRootProps) {
     projectState: props.projectState,
     exportReadiness: props.postDraftState.exportReadiness,
   });
-  const workbenchStartWorkspace = !props.selectedProject && props.startChoice
+  const workbenchStartWorkspace = props.startChoice && !props.selectedProject
     ? projectWorkspace(props, props.startChoice === "utility" ? "utility" : "generate")
     : undefined;
 
@@ -268,7 +273,6 @@ export function AppRoot(props: AppRootProps) {
           actions: topbarRecoveryAction(props),
         }}
         pageTitle={title}
-        pageSubtitle={subtitle}
       >
         {mobileNav(props)}
         {noticeBar(props)}
