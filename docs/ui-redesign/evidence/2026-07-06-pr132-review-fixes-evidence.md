@@ -12,7 +12,7 @@ Date: 2026-07-06
 
 ## Fixes Covered
 
-- P0 backend CI dependency gate: bounded FastAPI to `>=0.115.0,<0.139.0` so CI does not resolve the incompatible `fastapi-0.139.0` collection failure.
+- P0 backend CI dependency gate: bounded FastAPI to `>=0.115.0,<0.139.0` and Starlette to `<1.0.0` so CI does not resolve a Starlette 1.x lifecycle API break.
 - P0 inherited frontend regression: completed disclosure runs now preserve package patent-point candidates after backend list refresh, and the routed UI test asserts the current expert-tool flow.
 - P1 quality workflow gate: completion patch mutations now respect `!actionGate.allowed` for both bulk accept and individual patch accept controls.
 - P1 annotated repair real-data gate: verified the production React surface against a live seeded backend with a non-empty repair-session payload.
@@ -60,10 +60,23 @@ Screenshot:
 ## Verification
 
 ```bash
-python -m pip install --dry-run -e ".[dev]"
+python -m venv /tmp/patents-agent-ci-deps-check
+/tmp/patents-agent-ci-deps-check/bin/python -m pip install -q -e ".[dev]"
+/tmp/patents-agent-ci-deps-check/bin/python - <<'PY'
+import fastapi, starlette
+print(fastapi.__version__)
+print(starlette.__version__)
+print(hasattr(fastapi.FastAPI, "add_event_handler"))
+PY
 ```
 
-Confirmed dependency resolution uses `fastapi<0.139.0` locally.
+Confirmed fresh dependency resolution uses `fastapi-0.138.2` with `starlette-0.52.1`, preserving `FastAPI.add_event_handler`.
+
+```bash
+/tmp/patents-agent-ci-deps-check/bin/python -m pytest -q
+```
+
+Result: passed, 891 tests in 230.66 seconds.
 
 ```bash
 cd frontend && npm test -- AppProjectSelectionFlow.test.tsx flow/panels/QualityPanel.test.tsx -- --run
@@ -79,6 +92,7 @@ Results:
 - Full frontend tests: passed, 41 files / 293 tests
 - Frontend build: passed
 - Backend pytest: passed, 891 tests
+- Fresh venv backend pytest: passed, 891 tests
 - Diff whitespace check: passed
 
 No DMG or installed app artifact was built or inspected for this review-fix pass.
