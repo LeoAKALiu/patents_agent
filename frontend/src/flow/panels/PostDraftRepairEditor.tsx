@@ -86,10 +86,11 @@ export function PostDraftRepairEditor({
     () =>
       (session?.issues ?? []).filter(
         (issue) =>
-          !resolvedIssueIds.has(issue.id) &&
-          !isIssueResolvedInCurrentDraft(issue, sectionValues),
+          pendingRevalidationIssueIds.includes(issue.id) ||
+          (!resolvedIssueIds.has(issue.id) &&
+            !isIssueResolvedInCurrentDraft(issue, sectionValues)),
       ),
-    [session, resolvedIssueIds, sectionValues],
+    [session, resolvedIssueIds, sectionValues, pendingRevalidationIssueIds],
   );
 
   useEffect(() => {

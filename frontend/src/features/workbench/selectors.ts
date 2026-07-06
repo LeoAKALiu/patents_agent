@@ -167,7 +167,6 @@ function deriveRunSummary(busy: string): WorkbenchState["runSummary"] {
     busy: true,
   };
 }
-
 function deriveRiskSummary(
   exportReadiness: ExportReadiness | null | undefined,
   latestReview: PostDraftReviewRun | null,
@@ -178,7 +177,10 @@ function deriveRiskSummary(
     addNonEmpty(blockingItems, issue);
   }
   for (const item of exportReadiness?.compile_blocked_items ?? []) {
-    addNonEmpty(blockingItems, Object.values(item).join(" "));
+    const sortedRecord = Object.fromEntries(
+      Object.entries(item).sort(([a], [b]) => a.localeCompare(b))
+    );
+    addNonEmpty(blockingItems, JSON.stringify(sortedRecord));
   }
   collectReviewBlockingIssues(latestReview).forEach((issue) => addNonEmpty(blockingItems, issue));
 

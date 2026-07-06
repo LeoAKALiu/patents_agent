@@ -697,7 +697,7 @@ describe("DocumentRepairWorkspace", () => {
     await waitFor(() =>
       expect(onDraftRepairPatchApplied).toHaveBeenCalledWith("issue-1"),
     );
-    expect(screen.queryByText("标题存在重复词汇方法方法")).not.toBeInTheDocument();
-    expect(await screen.findByText("暂无问题")).toBeInTheDocument();
+    expect(screen.getAllByText("标题存在重复词汇方法方法").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("待复核").length).toBeGreaterThan(0);
   });
 });

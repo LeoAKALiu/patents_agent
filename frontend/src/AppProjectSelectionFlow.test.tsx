@@ -285,7 +285,9 @@ describe("App existing project selection flow", () => {
     await waitFor(() => {
       expect(apiMock.startProjectDisclosure).toHaveBeenCalledWith(createdProject.id, false, "standard");
     });
+    await user.click(screen.getAllByRole("button", { name: "专家工具" })[0]);
+    await user.click(await screen.findByRole("button", { name: /护城河地图/ }));
     await screen.findByText(disclosureCandidate.title);
-    expect(screen.getByRole("button", { name: "选为主线并保存后备路线" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "选中" })).toBeEnabled();
   });
 });
