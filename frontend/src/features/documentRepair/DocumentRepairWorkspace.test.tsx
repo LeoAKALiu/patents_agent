@@ -789,4 +789,59 @@ describe("DocumentRepairWorkspace", () => {
     expect(screen.queryByText("当前项目存在待修复的文稿或会审问题，正式稿已被锁定导出。建议前往标注修复处理。")).not.toBeInTheDocument();
     expect(await screen.findByRole("tab", { name: "标注修复", selected: true })).toBeInTheDocument();
   });
+
+  it("does not switch to annotated tab and displays no-project guidance when requestedTab is annotated but no project is selected", () => {
+    const handleRequestedTabHandled = vi.fn();
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({ selectedProject: null })}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+        requestedTab="annotated"
+        onRequestedTabHandled={handleRequestedTabHandled}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "总览", selected: true })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "标注修复", selected: true })).not.toBeInTheDocument();
+    expect(screen.getByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).toBeInTheDocument();
+    expect(handleRequestedTabHandled).toHaveBeenCalled();
+  });
+
+  it("navigates to projects workspace when clicking the primary action button in no-project guidance", async () => {
+    const navigate = vi.fn();
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({ selectedProject: null })}
+        handlers={makeHandlers()}
+        onNavigate={navigate}
+        requestedTab="annotated"
+      />,
+    );
+
+    expect(screen.getByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).toBeInTheDocument();
+
+    const selectProjectBtn = screen.getByRole("button", { name: "选择项目" });
+    await userEvent.click(selectProjectBtn);
+
+    expect(navigate).toHaveBeenCalledWith("projects");
+    expect(screen.queryByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).not.toBeInTheDocument();
+  });
+
+  it("dismisses no-project guidance on close or tab change", async () => {
+    render(
+      <DocumentRepairWorkspace
+        projectState={makeProjectState({ selectedProject: null })}
+        handlers={makeHandlers()}
+        onNavigate={vi.fn()}
+        requestedTab="annotated"
+      />,
+    );
+
+    expect(screen.getByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).toBeInTheDocument();
+
+    const stayBtn = screen.getByRole("button", { name: "留在总览" });
+    await userEvent.click(stayBtn);
+    expect(screen.queryByText("标注修复需要选择项目后才能展示会审问题与修复正文。")).not.toBeInTheDocument();
+  });
 });

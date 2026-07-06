@@ -45,7 +45,7 @@ export function DocumentRepairWorkspace({
 }: DocumentRepairWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<DocumentRepairTabId>("overview");
   const [showGuidance, setShowGuidance] = useState<boolean>(false);
-  const [guidanceType, setGuidanceType] = useState<"navigation" | "locked" | null>(null);
+  const [guidanceType, setGuidanceType] = useState<"navigation" | "locked" | "no-project" | null>(null);
   const [dismissedLockGuidanceKey, setDismissedLockGuidanceKey] = useState<string | null>(null);
 
   const lockGuidanceKey = useMemo(() => {
@@ -85,6 +85,7 @@ export function DocumentRepairWorkspace({
       && lockGuidanceKey
       && dismissedLockGuidanceKey !== lockGuidanceKey
       && guidanceType !== "navigation"
+      && guidanceType !== "no-project"
     ) {
       setShowGuidance(true);
       setGuidanceType("locked");
@@ -93,6 +94,13 @@ export function DocumentRepairWorkspace({
 
   useEffect(() => {
     if (!requestedTab) return;
+    if (requestedTab === "annotated" && !projectState.selectedProject) {
+      setActiveTab("overview");
+      setShowGuidance(true);
+      setGuidanceType("no-project");
+      onRequestedTabHandled?.();
+      return;
+    }
     setActiveTab(requestedTab);
     setShowGuidance(true);
     setGuidanceType("navigation");
@@ -100,7 +108,7 @@ export function DocumentRepairWorkspace({
       setDismissedLockGuidanceKey(lockGuidanceKey);
     }
     onRequestedTabHandled?.();
-  }, [requestedTab, onRequestedTabHandled, lockGuidanceKey]);
+  }, [requestedTab, onRequestedTabHandled, lockGuidanceKey, projectState.selectedProject]);
 
   const state = useMemo(
     () => deriveDocumentRepairState({ projectState, exportReadiness, activeTab }),
@@ -133,13 +141,35 @@ export function DocumentRepairWorkspace({
           <div className="document-guidance-content">
             <Info size={16} className="document-guidance-icon" aria-hidden="true" />
             <p className="document-guidance-text">
-              {guidanceType === "navigation"
+              {guidanceType === "no-project"
+                ? "标注修复需要选择项目后才能展示会审问题与修复正文。"
+                : guidanceType === "navigation"
                 ? "由于导出门禁或工作台指引，已引导您至标注修复页面处理相关问题。"
                 : "当前项目存在待修复的文稿或会审问题，正式稿已被锁定导出。建议前往标注修复处理。"}
             </p>
           </div>
           <div className="document-guidance-actions">
-            {guidanceType === "navigation" ? (
+            {guidanceType === "no-project" ? (
+              <>
+                <button
+                  type="button"
+                  className="document-guidance-btn-primary"
+                  onClick={() => {
+                    onNavigate("projects");
+                    clearGuidance();
+                  }}
+                >
+                  选择项目
+                </button>
+                <button
+                  type="button"
+                  className="document-guidance-btn-secondary"
+                  onClick={clearGuidance}
+                >
+                  留在总览
+                </button>
+              </>
+            ) : guidanceType === "navigation" ? (
               <>
                 <button
                   type="button"
