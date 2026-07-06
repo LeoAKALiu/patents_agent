@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DraftPackage, ProjectRecord } from "./api";
-import { CorpusView, ProjectsOverview } from "./views/projectViews";
+import { CorpusView, ProjectSelect, ProjectsOverview } from "./views/projectViews";
 
 const draftPackage: DraftPackage = {
   title: "一种无人机主动采集方法",
@@ -84,6 +84,47 @@ describe("ProjectsOverview export status", () => {
     expect(mobileCards).toHaveLength(2);
     expect(within(mobileCards[0]).getByText("需成稿会审")).toBeInTheDocument();
     expect(within(mobileCards[0]).queryByText("可进入导出")).not.toBeInTheDocument();
+  });
+});
+
+describe("Project list load recovery", () => {
+  it("associates the failed load helper with the selector while keeping stale projects selectable", () => {
+    render(
+      <ProjectSelect
+        projects={[
+          makeProject({
+            id: "stale-project",
+            name: "上次加载的项目",
+          }),
+        ]}
+        selectedProjectId=""
+        loadStatus="failed"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "当前项目" });
+    const helper = screen.getByText("项目列表加载失败。恢复后端连接后，使用右上角刷新重试。");
+
+    expect(select).toHaveAttribute("aria-describedby", helper.id);
+    expect(select).toHaveAccessibleDescription("项目列表加载失败。恢复后端连接后，使用右上角刷新重试。");
+    expect(screen.getByRole("option", { name: "上次加载的项目" })).toBeInTheDocument();
+  });
+
+  it("explains failed empty project results are not a true empty workspace", () => {
+    render(
+      <ProjectsOverview
+        projects={[]}
+        selectedProjectId=""
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        busy=""
+        loadStatus="failed"
+      />,
+    );
+
+    expect(screen.getAllByText("项目列表加载失败。恢复后端连接后，使用右上角刷新重试；这不是空项目列表。")).toHaveLength(2);
+    expect(screen.queryByText("暂无项目。进入“专利生成”输入想法即可创建。")).not.toBeInTheDocument();
   });
 });
 
