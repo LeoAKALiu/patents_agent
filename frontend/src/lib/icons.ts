@@ -11,6 +11,7 @@
  */
 export {
   AlertTriangle,
+  ArrowRight,
   BarChart3,
   BookOpen,
   CheckCircle2,
@@ -25,8 +26,10 @@ export {
   EyeOff,
   FileArchive,
   FilePlus2,
+  FileSearch,
   FileText,
   FolderKanban,
+  FolderOpen,
   Gauge,
   HelpCircle,
   Info,
